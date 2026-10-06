@@ -8,6 +8,11 @@ on:
 permissions:
   contents: write
 
+# Новая загрузка отменяет ещё идущую старую сборку.
+concurrency:
+  group: build-apk
+  cancel-in-progress: true
+
 env:
   GODOT_VERSION: "4.6"
 
@@ -109,15 +114,28 @@ jobs:
           EOF
           cat "$HOME/.config/godot/editor_settings-${GODOT_VERSION}.tres"
 
-      - name: Проверка, что код в game свежий
+      - name: Проверка комплектности папки game
         run: |
+          cd game
+          if [ ! -f MANIFEST.txt ] || [ ! -f scripts/boot.gd ]; then
+            echo "::error title=Старая папка game::В game нет MANIFEST.txt или scripts/boot.gd — загружена старая версия. Удалите папку game на GitHub и загрузите её из последнего архива."
+            exit 1
+          fi
+          grep -v '^#' MANIFEST.txt | sort > /tmp/expected.txt
+          find . -type f \( -name "*.gd" -o -name "*.tscn" -o -name "*.gdshader" -o -name "*.tres" -o -name "project.godot" -o -name "export_presets.cfg" \) ! -path "./.godot/*" | sed 's#^\./##' | sort > /tmp/actual.txt
+          extra=$(comm -13 /tmp/expected.txt /tmp/actual.txt)
+          missing=$(comm -23 /tmp/expected.txt /tmp/actual.txt)
+          if [ -n "$extra" ]; then
+            echo "::error title=Лишние файлы в game::Остались от старой версии: $(echo $extra). Удалите папку game на GitHub и загрузите её заново целиком."
+          fi
+          if [ -n "$missing" ]; then
+            echo "::error title=Не хватает файлов в game::Не загрузились: $(echo $missing). Загрузите папку game заново целиком."
+          fi
+          [ -z "$extra" ] && [ -z "$missing" ] || exit 1
           for flag in sim flow layout; do
-            if ! grep -q -- "\"--$flag\"" game/scripts/app.gd; then
-              echo "::error title=Старая папка game::В game/scripts/app.gd нет режима --$flag. Похоже, загружена старая папка game. Загрузите game из последнего архива."
-              exit 1
-            fi
+            grep -q -- "\"--$flag\"" scripts/boot.gd || { echo "::error::В scripts/boot.gd нет режима --$flag."; exit 1; }
           done
-          echo "Код свежий: режимы sim, flow, layout на месте"
+          echo "Комплект совпадает с описью: $(wc -l < /tmp/expected.txt) файлов"
 
       - name: Импорт ресурсов
         run: |
@@ -155,7 +173,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="build-$(date +%Y%m%d-%H%M%S)"
+          VER=$(grep -oP 'config/version="\K[^"]+' game/project.godot || echo "?")
           gh release create "$TAG" "build/pustite.apk" \
-            --title "Сборка $TAG" \
+            --title "v$VER · $TAG" \
             --notes "Отладочная сборка. Коммит ${GITHUB_SHA::7}. Скачайте pustite.apk и установите на телефон." \
             --latest
