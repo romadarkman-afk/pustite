@@ -132,7 +132,7 @@ jobs:
             echo "::error title=Не хватает файлов в game::Не загрузились: $(echo $missing). Загрузите папку game заново целиком."
           fi
           [ -z "$extra" ] && [ -z "$missing" ] || exit 1
-          for flag in sim flow layout; do
+          for flag in sim flow layout lifecycle field; do
             grep -q -- "\"--$flag\"" scripts/boot.gd || { echo "::error::В scripts/boot.gd нет режима --$flag."; exit 1; }
           done
           echo "Комплект совпадает с описью: $(wc -l < /tmp/expected.txt) файлов"
@@ -142,7 +142,7 @@ jobs:
           godot --headless --path game --import
           godot --headless --path game --import
 
-      - name: Самотест баланса (3000 партий, коридор 30–70%)
+      - name: Самотест баланса и грамматики (3000 партий, коридор 30–70%)
         timeout-minutes: 5
         run: timeout 300 godot --headless --path game -- --sim
 
@@ -150,9 +150,17 @@ jobs:
         timeout-minutes: 5
         run: timeout 300 godot --headless --path game -- --flow
 
-      - name: Самотест раскладки (5 типов экранов, кнопки от 48 dp)
+      - name: Самотест раскладки (7 типов экранов, вырезы, кнопки от 48 dp)
         timeout-minutes: 5
         run: timeout 300 godot --headless --path game -- --layout
+
+      - name: Самотест жизненного цикла (сворачивание, «Назад», экран)
+        timeout-minutes: 5
+        run: timeout 300 godot --headless --path game -- --lifecycle
+
+      - name: Самотест игрового поля (посёлок, туман, 30 fps в покое)
+        timeout-minutes: 5
+        run: timeout 300 godot --headless --path game -- --field
 
       - name: Экспорт APK
         run: |
