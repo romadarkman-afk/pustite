@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="GameConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/game_config.gd" id="1_cfg"]
+
+[resource]
+script = ExtResource("1_cfg")
+players = 7
+monsters = 2
+shelters = 2
+capacity = 2
+nights = 3
+day_seconds = 90
+door_seconds = 20
+outside_death = 80
+first_night_outside_death = 40
+vote_from_day = 2

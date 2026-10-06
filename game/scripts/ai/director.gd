@@ -1,0 +1,368 @@
+class_name Director
+extends RefCounted
+## Управляет всеми ботами. Читает Match, но не меняет фазы — только предлагает
+## решения (кто куда идёт, кого пускает, за кого голосует) и реплики.
+## Слова игрока реально двигают подозрения и договорённости.
+
+const W_STREET := 2.4      ## вернулся живым с улицы
+const W_ALONE := 1.0       ## погас оберег, а он цел
+const W_DEATH_ROOM := 2.2  ## ночевал там, где кто-то умер
+const W_LIAR := 1.3        ## сказал одно, сделал другое
+const W_CLEAN := 0.4       ## тихая ночь слегка обеляет
+
+var m: Match
+var rng := RandomNumberGenerator.new()
+var public_susp: Dictionary[int, float] = {}
+var brains: Dictionary[int, BotBrain] = {}
+var street_last_night: Dictionary[int, bool] = {}
+var liar_last_night: Dictionary[int, int] = {}   ## id -> дом, о котором врал
+
+
+func attach(match_ref: Match) -> void:
+	m = match_ref
+	rng.seed = m.rng.seed + 7
+	public_susp.clear()
+	brains.clear()
+	street_last_night.clear()
+	liar_last_night.clear()
+	for v: Villager in m.villagers:
+		public_susp[v.id] = 0.0
+		if not v.is_player:
+			brains[v.id] = BotBrain.new(v)
+
+
+func susp(vid: int) -> float:
+	return public_susp.get(vid, 0.0)
+
+
+func view(bot: Villager, other: Villager) -> float:
+	return brains[bot.id].view(other.id, susp(other.id))
+
+
+func _bump(vid: int, w: float) -> void:
+	public_susp[vid] = maxf(0.0, susp(vid) + w)
+
+
+func _by_susp(list: Array[Villager], ascending: bool = true) -> Array[Villager]:
+	var a: Array[Villager] = list.duplicate()
+	a.sort_custom(func(x: Villager, y: Villager) -> bool:
+		return susp(x.id) < susp(y.id) if ascending else susp(x.id) > susp(y.id))
+	return a
+
+
+func _others(of: Villager) -> Array[Villager]:
+	var out: Array[Villager] = []
+	for v: Villager in m.alive():
+		if v != of:
+			out.append(v)
+	return out
+
+
+func _line(who: Villager, bank: PackedStringArray, vars: Dictionary = {}) -> ChatLine:
+	return ChatLine.say(who, Phrases.pick(bank, rng, vars))
+
+
+# =============================================================
+# День
+# =============================================================
+## Боты решают, куда пойдут, и объявляют это. Люди — честно,
+## упыри — туда, где их пустит человек, которому верят.
+func plan_day() -> void:
+	var counts: Array[int] = []
+	counts.resize(m.houses.size())
+	counts.fill(0)
+	for v: Villager in m.alive():
+		if v.announced_house >= 0:
+			counts[v.announced_house] += 1
+
+	for bot: Villager in _by_susp(m.alive_bots()):
+		var b: BotBrain = brains[bot.id]
+		if b.pact_house >= 0:
+			bot.announced_house = b.pact_house
+		elif bot.is_upyr:
+			bot.announced_house = _house_of_most_trusted(bot, counts)
+		else:
+			bot.announced_house = _house_with_partner(bot, counts)
+		counts[bot.announced_house] += 1
+
+
+func _emptiest(counts: Array[int]) -> int:
+	var best := 0
+	for i in range(counts.size()):
+		if counts[i] < counts[best]:
+			best = i
+	return best
+
+
+func _house_with_partner(bot: Villager, counts: Array[int]) -> int:
+	var others := _others(bot)
+	others.sort_custom(func(x: Villager, y: Villager) -> bool: return view(bot, x) < view(bot, y))
+	for o: Villager in others:
+		if o.announced_house >= 0 and counts[o.announced_house] < m.config.capacity and view(bot, o) < 1.8:
+			return o.announced_house
+	return _emptiest(counts)
+
+
+func _house_of_most_trusted(bot: Villager, counts: Array[int]) -> int:
+	for o: Villager in _by_susp(_others(bot)):
+		if o.announced_house >= 0 and counts[o.announced_house] < m.config.capacity:
+			return o.announced_house
+	return _emptiest(counts)
+
+
+func opening_lines() -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	var bots := m.alive_bots()
+	if bots.is_empty():
+		return out
+
+	if m.day > 1:
+		for suspect: Villager in _by_susp(m.alive(), false).slice(0, 2):
+			if susp(suspect.id) < 1.2:
+				continue
+			var accuser := _pick_accuser(suspect)
+			if accuser == null:
+				continue
+			var bank := Phrases.ACCUSE_STRONG
+			var vars := {"who": suspect.name}
+			if street_last_night.has(suspect.id):
+				bank = Phrases.ACCUSE_STREET
+			elif liar_last_night.has(suspect.id):
+				bank = Phrases.ACCUSE_LIAR
+				vars["house"] = m.house_name(liar_last_night[suspect.id])
+			out.append(_line(accuser, bank, vars))
+			if not suspect.is_player:
+				var other := _pick_any(suspect)
+				out.append(_line(suspect,
+					Phrases.UPYR_DEFLECT if suspect.is_upyr else Phrases.DEFEND,
+					{"who": other.name if other != null else "вас"}))
+
+	var shuffled := bots.duplicate()
+	_shuffle(shuffled)
+	for bot: Villager in shuffled.slice(0, mini(3, shuffled.size())):
+		out.append(_line(bot, Phrases.ANNOUNCE, {"house": m.house_name(bot.announced_house)}))
+
+	if rng.randf() < 0.6:
+		out.append(_line(shuffled[shuffled.size() - 1], Phrases.FILLER))
+	return out
+
+
+func _pick_accuser(suspect: Villager) -> Villager:
+	var best: Villager = null
+	var best_v := -1.0
+	for b: Villager in m.alive_bots():
+		if b == suspect or b.is_upyr:
+			continue
+		var v := view(b, suspect)
+		if v > best_v:
+			best_v = v
+			best = b
+	return best
+
+
+func _pick_any(except: Villager) -> Villager:
+	var pool: Array[Villager] = []
+	for v: Villager in m.alive():
+		if v != except:
+			pool.append(v)
+	return pool[rng.randi_range(0, pool.size() - 1)] if not pool.is_empty() else null
+
+
+## Реакция на реплику игрока. Именно здесь слова игрока превращаются в последствия.
+func react(intent: IntentParser.Result) -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	var p := m.player()
+	if intent.house >= 0 and intent.kind != IntentParser.Kind.INVITE:
+		p.announced_house = intent.house
+
+	match intent.kind:
+		IntentParser.Kind.ACCUSE:
+			var t := intent.target
+			var cred := clampf(1.0 - susp(p.id) / 4.0, 0.2, 1.0)
+			_bump(t.id, 0.6 * cred)
+			var deflect := _pick_any(t)
+			out.append(_line(t,
+				Phrases.REPLY_TO_ACCUSED_UPYR if t.is_upyr else Phrases.REPLY_TO_ACCUSED_HUMAN,
+				{"who": deflect.name if deflect != null else "других"}))
+			var judge := _pick_bystander([t])
+			if judge != null:
+				out.append(_line(judge,
+					Phrases.AGREE_ACCUSE if view(judge, t) >= 1.0 else Phrases.DISAGREE_ACCUSE,
+					{"who": t.name}))
+
+		IntentParser.Kind.INVITE:
+			var t := intent.target
+			var h := intent.house if intent.house >= 0 else (t.announced_house if t.announced_house >= 0 else 0)
+			if accepts_invite(t):
+				var b: BotBrain = brains[t.id]
+				b.pact_id = p.id
+				b.pact_house = h
+				t.announced_house = h
+				p.announced_house = h
+				out.append(_line(t, Phrases.INVITE_YES, {"house": m.house_name(h)}))
+			else:
+				out.append(_line(t, Phrases.INVITE_NO))
+
+		IntentParser.Kind.ASK:
+			var t := intent.target
+			if t.announced_house >= 0:
+				out.append(_line(t, Phrases.ASK_ANSWER_HUMAN, {"house": m.house_name(t.announced_house)}))
+			else:
+				out.append(_line(t, Phrases.ASK_ANSWER_UNSURE))
+
+		IntentParser.Kind.DEFEND:
+			if susp(p.id) > 0.0:
+				_bump(p.id, -0.3)
+			var who := _pick_bystander([])
+			if who != null:
+				out.append(_line(who, Phrases.PLAYER_DEFEND_REACTION))
+
+		_:
+			var who := _pick_bystander([])
+			if who != null:
+				out.append(_line(who, Phrases.GENERIC_REACTION))
+	return out
+
+
+func accepts_invite(bot: Villager) -> bool:
+	if bot.is_upyr:
+		return rng.randf() < 0.85
+	return view(bot, m.player()) < 1.6 and brains[bot.id].pact_id < 0
+
+
+func _pick_bystander(exclude: Array[Villager]) -> Villager:
+	var pool: Array[Villager] = []
+	for v: Villager in m.alive_bots():
+		if not exclude.has(v):
+			pool.append(v)
+	return pool[rng.randi_range(0, pool.size() - 1)] if not pool.is_empty() else null
+
+
+# =============================================================
+# Ночь
+# =============================================================
+func night_choices() -> Dictionary[int, int]:
+	var out: Dictionary[int, int] = {}
+	for bot: Villager in m.alive_bots():
+		var b: BotBrain = brains[bot.id]
+		var h := bot.announced_house if bot.announced_house >= 0 else rng.randi_range(0, m.houses.size() - 1)
+		if b.pact_house >= 0:
+			h = b.pact_house
+		elif bot.is_upyr and not bot.fed and rng.randf() < 0.3:
+			h = rng.randi_range(0, m.houses.size() - 1)   # передумал — оставит след во лжи
+		out[bot.id] = h
+	return out
+
+
+func plea_for(bot: Villager) -> String:
+	var b: BotBrain = brains[bot.id]
+	if b.pact_id == m.player().id:
+		return Phrases.pick(Phrases.PLEA_PACT, rng)
+	if street_last_night.has(bot.id):
+		return Phrases.pick(Phrases.PLEA_AFTER_STREET, rng)
+	if susp(bot.id) > 2.0:
+		return Phrases.pick(Phrases.PLEA_SUSPECT, rng)
+	return Phrases.pick(Phrases.PLEA_NORMAL, rng)
+
+
+## Бот-хозяин двери решает, кого впустить. player_plea — id мольбы игрока, если он в очереди.
+func host_decide(seat: Match.Seat, player_plea: String = "") -> Array[int]:
+	var host := seat.host
+	var b: BotBrain = brains[host.id]
+	var scored: Array = []
+	for g: Villager in seat.queue:
+		var s := -view(host, g)
+		if b.pact_id == g.id:
+			s += 3.0
+		if g.is_player:
+			s += _plea_weight(host, player_plea)
+		else:
+			s += rng.randf_range(0.0, 0.4)
+		if host.is_upyr:
+			s += b.grudge.get(g.id, 0.0) * 0.5   # упырю обиды безразличны
+		scored.append([s, g.id])
+	scored.sort_custom(func(a: Array, c: Array) -> bool: return a[0] > c[0])
+
+	var out: Array[int] = []
+	if scored.is_empty():
+		return out
+	if not host.is_upyr and float(scored[0][0]) < -2.8 and rng.randf() < 0.6:
+		return out   # всем не верит — рискнёт остаться один
+	for i in range(mini(m.config.capacity - 1, scored.size())):
+		out.append(int(scored[i][1]))
+	return out
+
+
+func _plea_weight(host: Villager, plea: String) -> float:
+	match plea:
+		"shared":
+			return 1.2 if brains[host.id].shared_clean.get(m.player().id, 0) > 0 else -0.8
+		"promise":
+			return 0.5
+		"name":
+			return 0.6
+		"beg":
+			return 0.25
+	return 0.1
+
+
+func after_door(seats: Array[Match.Seat]) -> void:
+	for s: Match.Seat in seats:
+		for v: Villager in s.turned_away():
+			if brains.has(v.id):
+				brains[v.id].remember_refusal(s.host)
+
+
+func read_report(r: NightReport) -> void:
+	street_last_night.clear()
+	liar_last_night.clear()
+	for e: NightReport.Entry in r.entries:
+		match e.kind:
+			NightReport.Kind.SURVIVED_STREET:
+				_bump(e.who.id, W_STREET)
+				street_last_night[e.who.id] = true
+			NightReport.Kind.SURVIVED_ALONE:
+				_bump(e.who.id, W_ALONE)
+			NightReport.Kind.KILLED_INSIDE:
+				for o: Villager in e.others:
+					_bump(o.id, W_DEATH_ROOM / float(e.others.size()))
+			NightReport.Kind.CLEAN_ROOM:
+				for o: Villager in e.others:
+					_bump(o.id, -W_CLEAN)
+					if brains.has(o.id):
+						for o2: Villager in e.others:
+							if o2 != o:
+								brains[o.id].remember_clean_night(o2)
+			NightReport.Kind.LIAR:
+				_bump(e.who.id, W_LIAR)
+				liar_last_night[e.who.id] = e.said_house
+	for b: BotBrain in brains.values():
+		b.clear_pact()
+
+
+## Голоса считаются ОДИН раз. (В v0.1 они пересчитывались на каждой итерации
+## со случайностью внутри — подсчёт был несогласованным.)
+func votes() -> Dictionary[int, int]:
+	var out: Dictionary[int, int] = {}
+	for bot: Villager in m.alive_bots():
+		var pool := _others(bot)
+		if pool.is_empty():
+			continue
+		var target: Villager
+		if bot.is_upyr:
+			target = _by_susp(pool)[0]   # топит того, кому верят — скорее всего человека
+		else:
+			pool.sort_custom(func(x: Villager, y: Villager) -> bool: return view(bot, x) > view(bot, y))
+			target = pool[0]
+			if view(bot, target) < 0.6 and rng.randf() < 0.5:
+				target = pool[rng.randi_range(0, pool.size() - 1)]
+		out[bot.id] = target.id
+	return out
+
+
+func _shuffle(a: Array) -> void:
+	for i in range(a.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var t: Variant = a[i]
+		a[i] = a[j]
+		a[j] = t
