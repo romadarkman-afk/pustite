@@ -2,6 +2,7 @@
 # и недостающие файлы — ошибка с перечнем. Звуки и картинки в assets/ не сверяются.
 config/balance_10.tres
 config/balance_7.tres
+config/looks.tres
 config/village_default.tres
 export_presets.cfg
 project.godot
@@ -10,6 +11,7 @@ scripts/ai/bot_brain.gd
 scripts/ai/director.gd
 scripts/ai/intent_parser.gd
 scripts/ai/phrases.gd
+scripts/autoload/diag.gd
 scripts/autoload/game.gd
 scripts/autoload/juice.gd
 scripts/autoload/nav.gd
@@ -29,6 +31,7 @@ scripts/ui/phase_clock.gd
 scripts/ui/safe_frame.gd
 scripts/ui/screen.gd
 scripts/ui/screen_host.gd
+scripts/ui/screens/crash_screen.gd
 scripts/ui/screens/day_screen.gd
 scripts/ui/screens/door_screen.gd
 scripts/ui/screens/end_screen.gd
@@ -39,9 +42,14 @@ scripts/ui/screens/prologue_screen.gd
 scripts/ui/screens/settings_screen.gd
 scripts/ui/screens/vote_screen.gd
 scripts/ui/scrim.gd
+scripts/ui/text_sheet.gd
 scripts/ui/theme_factory.gd
 scripts/ui/w.gd
+scripts/village/crowd.gd
 scripts/village/house_def.gd
+scripts/village/look_book.gd
+scripts/village/look_def.gd
 scripts/village/village_def.gd
 scripts/village/village_view.gd
+scripts/village/villager_figure.gd
 shaders/atmos.gdshader
