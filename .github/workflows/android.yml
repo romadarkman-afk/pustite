@@ -118,6 +118,9 @@ jobs:
       - name: Самотест экранов (обе роли у двери обязательны)
         run: godot --headless --path game -- --flow
 
+      - name: Самотест раскладки (5 типов экранов, кнопки от 48 dp)
+        run: godot --headless --path game -- --layout
+
       - name: Экспорт APK
         run: |
           mkdir -p build
