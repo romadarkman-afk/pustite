@@ -15,6 +15,8 @@ jobs:
   build:
     # Версия сервера закреплена: ubuntu-latest с 19.10.2026 переезжает на Ubuntu 26.
     runs-on: ubuntu-24.04
+    # Сборка занимает пару минут. Всё, что дольше 20, — зависание, а не работа.
+    timeout-minutes: 20
 
     steps:
       - name: Забрать код
@@ -107,19 +109,32 @@ jobs:
           EOF
           cat "$HOME/.config/godot/editor_settings-${GODOT_VERSION}.tres"
 
+      - name: Проверка, что код в game свежий
+        run: |
+          for flag in sim flow layout; do
+            if ! grep -q -- "\"--$flag\"" game/scripts/app.gd; then
+              echo "::error title=Старая папка game::В game/scripts/app.gd нет режима --$flag. Похоже, загружена старая папка game. Загрузите game из последнего архива."
+              exit 1
+            fi
+          done
+          echo "Код свежий: режимы sim, flow, layout на месте"
+
       - name: Импорт ресурсов
         run: |
           godot --headless --path game --import
           godot --headless --path game --import
 
       - name: Самотест баланса (3000 партий, коридор 30–70%)
-        run: godot --headless --path game -- --sim
+        timeout-minutes: 5
+        run: timeout 300 godot --headless --path game -- --sim
 
       - name: Самотест экранов (обе роли у двери обязательны)
-        run: godot --headless --path game -- --flow
+        timeout-minutes: 5
+        run: timeout 300 godot --headless --path game -- --flow
 
       - name: Самотест раскладки (5 типов экранов, кнопки от 48 dp)
-        run: godot --headless --path game -- --layout
+        timeout-minutes: 5
+        run: timeout 300 godot --headless --path game -- --layout
 
       - name: Экспорт APK
         run: |
