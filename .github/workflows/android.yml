@@ -13,31 +13,62 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Версия сервера закреплена: ubuntu-latest с 19.10.2026 переезжает на Ubuntu 26.
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Забрать код
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
 
+      # Android SDK уже стоит на серверах GitHub. Сторонний модуль не нужен —
+      # он и сломал сборку №2. Ставим сами только то, чего не хватает.
       - name: Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Доставить нужные части SDK
         run: |
-          sdkmanager --install "platform-tools" "build-tools;34.0.0" "platforms;android-34" > /dev/null
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          if [ -z "$SDK" ] || [ ! -d "$SDK" ]; then
+            SDK="$HOME/android-sdk"
+            mkdir -p "$SDK"
+          fi
+          echo "SDK: $SDK"
+
+          SDKM=""
+          for c in "$SDK"/cmdline-tools/latest/bin/sdkmanager "$SDK"/cmdline-tools/*/bin/sdkmanager; do
+            if [ -x "$c" ]; then SDKM="$c"; break; fi
+          done
+          if [ -z "$SDKM" ]; then
+            echo "Командных инструментов нет — ставлю"
+            curl -sL -o cmdtools.zip "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
+            mkdir -p "$SDK/cmdline-tools"
+            unzip -q cmdtools.zip -d "$SDK/cmdline-tools"
+            mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+            SDKM="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          fi
+
+          SUDO=""
+          if [ ! -w "$SDK" ]; then SUDO="sudo -E"; fi
+
+          if [ ! -d "$SDK/platform-tools" ] || ! ls -d "$SDK"/build-tools/*/ > /dev/null 2>&1; then
+            yes | $SUDO "$SDKM" --sdk_root="$SDK" --licenses > /dev/null || true
+            $SUDO "$SDKM" --sdk_root="$SDK" --install "platform-tools" "build-tools;34.0.0" "platforms;android-34" > /dev/null
+          fi
+
+          echo "build-tools на сервере:"; ls "$SDK/build-tools"
+          test -x "$SDK/platform-tools/adb" || { echo "Нет adb"; exit 1; }
+          ls "$SDK"/build-tools/*/apksigner > /dev/null || { echo "Нет apksigner"; exit 1; }
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
 
       - name: Godot ${{ env.GODOT_VERSION }} и шаблоны экспорта
         run: |
           BASE="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
-          curl -sL -o godot.zip  "$BASE/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
-          curl -sL -o tpl.tpz    "$BASE/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          curl -sfL -o godot.zip "$BASE/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -sfL -o tpl.tpz   "$BASE/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
           unzip -q godot.zip
           sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
           sudo chmod +x /usr/local/bin/godot
@@ -48,7 +79,7 @@ jobs:
 
       - name: Постоянный отладочный ключ — чтобы новые сборки ставились поверх старых
         id: keycache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/debug.keystore
           key: pustite-debug-keystore-v1
@@ -69,10 +100,12 @@ jobs:
 
           [resource]
           export/android/android_sdk_path = "${ANDROID_SDK_ROOT}"
+          export/android/java_sdk_path = "${JAVA_HOME}"
           export/android/debug_keystore = "${HOME}/debug.keystore"
           export/android/debug_keystore_user = "androiddebugkey"
           export/android/debug_keystore_pass = "android"
           EOF
+          cat "$HOME/.config/godot/editor_settings-${GODOT_VERSION}.tres"
 
       - name: Импорт ресурсов
         run: |
@@ -90,9 +123,10 @@ jobs:
           mkdir -p build
           godot --headless --path game --export-debug "Android" "$PWD/build/pustite.apk"
           ls -la build/
+          test -s build/pustite.apk || { echo "APK не создан"; exit 1; }
 
       - name: Положить APK в артефакты
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: pustite-apk
           path: build/pustite.apk
