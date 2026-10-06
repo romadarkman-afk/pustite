@@ -17,19 +17,19 @@ static func ask(parent: Control, title: String, options: PackedStringArray) -> i
 
 
 func _build(title: String, options: PackedStringArray) -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.55)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	dim.gui_input.connect(func(e: InputEvent) -> void:
 		if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
 			close(-1))
 	add_child(dim)
 
 	var sheet := W.panel(&"Sheet")
-	sheet.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	sheet.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	sheet.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	add_child(sheet)
 

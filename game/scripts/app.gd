@@ -21,8 +21,21 @@ var _exit_armed := false
 var _toast: Label
 
 
+const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout"]
+const TEST_TIMEOUT_SEC := 240.0
+
+
 func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
+	for a: String in args:
+		if a.begins_with("--") and not TEST_FLAGS.has(a):
+			print("ИТОГ: неизвестный режим %s. Есть: %s" % [a, ", ".join(TEST_FLAGS)])
+			get_tree().quit(1)
+			return
+	for f: String in TEST_FLAGS:
+		if args.has(f):
+			_arm_watchdog(f)
+			break
 	if args.has("--sim"):
 		_cli_sim()
 		return
@@ -33,11 +46,23 @@ func _ready() -> void:
 		Juice.instant = true
 		SelfTest.flow(self)
 		return
+	if args.has("--layout"):
+		Juice.instant = true
+		SelfTest.layout(self)
+		return
 	open_menu()
 
 
+## Самотест обязан закончиться. Если завис — гасим процесс с ошибкой,
+## чтобы сборка упала через минуты, а не висела часами.
+func _arm_watchdog(mode: String) -> void:
+	get_tree().create_timer(TEST_TIMEOUT_SEC, true, false, true).timeout.connect(func() -> void:
+		print("ИТОГ: ТАЙМАУТ — самотест %s не закончился за %d с" % [mode, int(TEST_TIMEOUT_SEC)])
+		get_tree().quit(2))
+
+
 func _build_layers() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	atmos = Atmosphere.new()
 	add_child(atmos)
 	frame = SafeFrame.new()
@@ -53,8 +78,9 @@ func _build_layers() -> void:
 
 	_toast = W.label("", &"Small")
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_toast.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_toast.position.y -= 160
+	_toast.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	_toast.offset_top = -260
+	_toast.offset_bottom = -200
 	_toast.modulate.a = 0.0
 	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_toast)

@@ -17,7 +17,7 @@ var _locked := false
 func setup(match_ref: Match, director_ref: Director) -> void:
 	m = match_ref
 	director = director_ref
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_chrome()
 	build()
 
@@ -100,7 +100,7 @@ func scroll_to_end() -> void:
 
 func _chrome() -> void:
 	var col := W.vbox(18)
-	col.set_anchors_preset(Control.PRESET_FULL_RECT)
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(col)
 
 	if title() != "":
