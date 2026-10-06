@@ -40,7 +40,7 @@ func build() -> void:
 		var range_parts := String(prop.hint_string).split(",")
 		var row := W.vbox(2)
 		var top := W.hbox(10)
-		var lbl := W.label(GameConfig.LABELS.get(key, key), &"Body")
+		var lbl := W.label(str(GameConfig.LABELS.get(key, key)), &"Body")
 		var val := W.label(str(cfg.get(key)), &"Body")
 		val.add_theme_color_override("font_color", ThemeFactory.LAMP)
 		val.size_flags_horizontal = Control.SIZE_SHRINK_END

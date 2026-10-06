@@ -95,10 +95,12 @@ static func grammar(cfg: GameConfig, games: int = 250) -> Dictionary:
 		[RegEx.create_from_string("(*UCP)(?:погиб\\w*|ночевал\\w*|один|одна|одни|сегодня|Ночую|Я) в «(?:Дом у реки|Сарай|Погреб|Гараж|Церковь)»"), "убежище не в предложном падеже («в Сарае»)"],
 		[RegEx.create_from_string("(*UCP)(?:^|\\s)[Вв] «(?:Дом у реки|Сарай|Погреб|Гараж|Церковь)» ночевали"), "убежище не в предложном падеже («В Доме у реки ночевали»)"],
 		[RegEx.create_from_string("(*UCP)\\b(?:до|у|дверь) «(?:Дом у реки|Сарай|Погреб|Гараж|Церковь)»"), "убежище не в родительном падеже («до Сарая»)"],
+		[RegEx.create_from_string("«\\s*»"), "пустые кавычки — название не подставилось"],
 	]
 	# самопроверка: правила обязаны ловить заведомо плохие фразы, иначе проверка слепая
 	var probes: PackedStringArray = ["Рита был рядом.", "Тимур ночевала на улице.", "Посмотри лучше на Женя.", "Вы был там.", "Метка {who} осталась.",
-		"Гриша погиб в «Сарай».", "Я сегодня в «Погреб».", "В «Дом у реки» ночевали Костя и Лида — все целы.", "Встречаемся у «Гараж»."]
+		"Гриша погиб в «Сарай».", "Я сегодня в «Погреб».", "В «Дом у реки» ночевали Костя и Лида — все целы.", "Встречаемся у «Гараж».",
+		"Ночую в «», если что."]
 	var errors: PackedStringArray = []
 	for pr: String in probes:
 		var hit := false
@@ -107,6 +109,9 @@ static func grammar(cfg: GameConfig, games: int = 250) -> Dictionary:
 				hit = true
 		if not hit:
 			errors.append("проверка грамматики слепая: не поймала «%s»" % pr)
+	for h: String in Match.HOUSES:
+		if Ru.house_in(h).is_empty() or Ru.house_of(h).is_empty() or Ru.house_in(h) == h:
+			errors.append("нет падежей для убежища «%s»: где «%s», чего «%s»" % [h, Ru.house_in(h), Ru.house_of(h)])
 	var seen: Dictionary[String, bool] = {}
 	for t: String in texts:
 		for r: Array in rules:
@@ -499,6 +504,13 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 		field_scales.append(Nav.village.scale.x)
 		if absf(Nav.scrim.top - fld.end.y) > 3.0:
 			out.append("%s: затемнение не у нижнего края поля (%d vs %d)" % [w, int(Nav.scrim.top), int(fld.end.y)])
+		for f: VillagerFigure in Nav.village.crowd.figures.values():
+			if not f.visible or f.state == VillagerFigure.State.GONE:
+				continue
+			var gp := f.get_global_transform_with_canvas().origin
+			var half := 16.0 * Nav.village.scale.x
+			if gp.x - half < -1.0 or gp.x + half > vp.x + 1.0:
+				out.append("%s: житель %s за краем экрана (x=%d)" % [w, f.who, int(gp.x)])
 	elif Nav.village.modulate.a > 0.05:
 		out.append("%s: посёлок виден там, где должен быть скрыт" % w)
 	var fr := s.footer.get_global_rect()
@@ -689,6 +701,57 @@ static func lifecycle() -> void:
 	passed += _expect(fails, Nav._exit_armed and Nav.host.current is MenuScreen,
 		"первое «Назад» в меню должно только предупредить о выходе")
 
+	# 9. Ввод своего текста по запросу: поле появляется, текст уходит в чат, «Назад» закрывает
+	Nav.start_match()
+	await _frames(tree, 2)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _frames(tree, 3)
+	var ds := Nav.host.current as DayScreen
+	ds._write_flow()
+	await _frames(tree, 3)
+	var ts: TextSheet = null
+	for c: Node in ds.get_children():
+		if c is TextSheet:
+			ts = c
+	passed += _expect(fails, ts != null and ts.field != null, "по кнопке «Написать своё…» не открылось поле ввода")
+	if ts != null:
+		ts.field.text = "Проверка ввода"
+		ts.close(ts.field.text)
+		await _frames(tree, 3)
+		var last: ChatLine = Game.m.chat[Game.m.chat.size() - 1] if not Game.m.chat.is_empty() else null
+		var mine_found := false
+		for l: ChatLine in Game.m.chat:
+			if l.kind == ChatLine.Kind.MINE and l.text == "Проверка ввода":
+				mine_found = true
+		passed += _expect(fails, mine_found, "текст из поля ввода не попал в чат")
+	ds._write_flow()
+	await _frames(tree, 3)
+	root.propagate_notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	await _frames(tree, 3)
+	var still := false
+	for c: Node in ds.get_children():
+		if c is TextSheet and not c.is_queued_for_deletion():
+			still = true
+	passed += _expect(fails, not still and Game.active(), "«Назад» должно закрыть поле ввода и оставить партию")
+
+	# 10. Самописец: после аварийного выхода — экран отчёта с последними шагами
+	Diag.enabled = true
+	Diag.step("проверка самописца")
+	Diag.set_running(true)
+	Diag.check_previous()
+	passed += _expect(fails, Diag.crashed_last_time and Diag.report_text().contains("проверка самописца"),
+		"самописец не заметил аварийный выход или потерял шаги")
+	Nav.show(CrashScreen.new())
+	await _frames(tree, 3)
+	passed += _expect(fails, Nav.host.current is CrashScreen, "экран отчёта о вылете не показался")
+	Nav.handle_intent(Intent.BACK, {}, Nav.host.current)
+	await _frames(tree, 3)
+	passed += _expect(fails, Nav.host.current is MenuScreen, "из отчёта о вылете кнопка «Продолжить» должна вести в меню")
+	Diag.set_running(false)
+	Diag.check_previous()
+	passed += _expect(fails, not Diag.crashed_last_time, "после нормального выхода самописец не должен видеть вылет")
+	Diag.enabled = false
+
 	print("=== жизненный цикл: %d проверок ===" % (passed + fails.size()))
 	if fails.is_empty():
 		print("ИТОГ: OK — сворачивание, возврат, «Назад» и удержание экрана работают")
@@ -779,6 +842,88 @@ static func field() -> void:
 	ok += _expect(fails, v.open_shelters() == 3 and v.boarded_shelters() == 2,
 		"на 10 игроков ждём 3 открытых убежища, а открыто %d" % v.open_shelters())
 	Save.set_settings(keep, Save.haptics)
+
+	# --- Task 5: жители ---
+	var cr := v.crowd
+	Nav.start_match()
+	await _settle(tree)
+	ok += _expect(fails, cr.figures.size() == Game.m.villagers.size(),
+		"на площади %d фигур, а жителей %d" % [cr.figures.size(), Game.m.villagers.size()])
+	var me_fig: VillagerFigure = cr.figures[0]
+	var front := true
+	for f: VillagerFigure in cr.figures.values():
+		if f.position.y > me_fig.position.y + 0.5:
+			front = false
+	ok += _expect(fails, me_fig.is_player and front, "ваша фигурка должна стоять ближе всех к зрителю")
+	var sq := v.def.square_center
+	var inside := true
+	for f: VillagerFigure in cr.figures.values():
+		var d := (f.position - sq) / v.def.square_radii
+		if d.length() > 1.0:
+			inside = false
+	ok += _expect(fails, inside, "кто-то из жителей стоит за пределами площади")
+
+	var probe: VillagerFigure = cr.figures[1]
+	var s0 := probe.body_scale()
+	await tree.create_timer(0.45).timeout
+	ok += _expect(fails, absf(probe.body_scale().y - s0.y) > 0.004, "жители не дышат (масштаб тела не меняется)")
+
+	Juice.instant = false
+	var target := probe.position + Vector2(70, 0)
+	probe.run_to(target, 0.5)
+	var hi := 0.0
+	var lo := 9.0
+	for i in range(90):
+		await tree.process_frame
+		hi = maxf(hi, probe.body_scale().y)
+		lo = minf(lo, probe.body_scale().y)
+		if probe.state == VillagerFigure.State.IDLE and i > 10:
+			break
+	Juice.instant = true
+	ok += _expect(fails, hi > 1.08 and lo < 0.86, "бег без пружины: растяжение %.2f, сжатие %.2f" % [hi, lo])
+	ok += _expect(fails, probe.position.distance_to(target) < 1.0, "житель не добежал до точки")
+
+	Game.proceed()
+	await _settle(tree)
+	Game.end_day()
+	await _settle(tree)
+	if Game.m.phase == Match.Phase.VOTE:
+		Game.vote(-1)
+		await _settle(tree)
+		Game.proceed()
+		await _settle(tree)
+	var runners := 0
+	var wrong := PackedStringArray()
+	var at: Dictionary[int, int] = {}
+	for vv: Villager in Game.m.alive_bots():
+		if vv.announced_house >= 0 and vv.announced_house < v.open_count:
+			var k: int = at.get(vv.announced_house, 0)
+			at[vv.announced_house] = k + 1
+			runners += 1
+			if cr.figures[vv.id].position.distance_to(cr.door_spot(vv.announced_house, k)) > 2.0:
+				wrong.append(vv.name)
+	ok += _expect(fails, runners > 0 and wrong.is_empty(), "ночью не добежали до своих домов: %s" % ", ".join(wrong))
+
+	Game.choose_house(0)
+	await _settle(tree)
+	if Game.m.phase == Match.Phase.DOOR:
+		var none: Array[int] = []
+		if Game.door_role() == Match.DoorRole.GUEST:
+			Game.plea("beg")
+			await _settle(tree)
+			Game.proceed()
+		else:
+			Game.admit(none)
+		await _settle(tree)
+	var bad_dead := PackedStringArray()
+	for vv: Villager in Game.m.villagers:
+		if not vv.alive and not vv.exiled and cr.figures[vv.id].state != VillagerFigure.State.DEAD:
+			bad_dead.append(vv.name)
+	ok += _expect(fails, bad_dead.is_empty(), "погибшие не стали надгробиями: %s" % ", ".join(bad_dead))
+
+	Nav.show_menu()
+	await _settle(tree)
+	ok += _expect(fails, cr.figures.is_empty(), "в меню на площади остались жители")
 
 	print("=== игровое поле: %d проверок ===" % (ok + fails.size()))
 	if fails.is_empty():

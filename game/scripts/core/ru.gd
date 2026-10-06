@@ -5,23 +5,29 @@ extends RefCounted
 
 
 ## Падежи убежищ. Именительный и винительный совпадают («иду в Сарай»).
-const HOUSE_CASES: Dictionary[String, PackedStringArray] = {
-	"Дом у реки": ["Доме у реки", "Дома у реки"],
-	"Сарай": ["Сарае", "Сарая"],
-	"Церковь": ["Церкви", "Церкви"],
-	"Погреб": ["Погребе", "Погреба"],
-	"Гараж": ["Гараже", "Гаража"],
-}
-
+## Записаны прямо в коде: константа-словарь с массивами внутри в Godot 4.6
+## молча теряла значения (чтение давало пустую строку) — такие конструкции не используем.
 
 ## Где: «в Сарае». Неизвестное название остаётся как есть.
 static func house_in(house: String) -> String:
-	return HOUSE_CASES[house][0] if HOUSE_CASES.has(house) else house
+	match house:
+		"Дом у реки": return "Доме у реки"
+		"Сарай": return "Сарае"
+		"Церковь": return "Церкви"
+		"Погреб": return "Погребе"
+		"Гараж": return "Гараже"
+	return house
 
 
 ## Чего: «до Сарая», «у Сарая», «дверь Сарая».
 static func house_of(house: String) -> String:
-	return HOUSE_CASES[house][1] if HOUSE_CASES.has(house) else house
+	match house:
+		"Дом у реки": return "Дома у реки"
+		"Сарай": return "Сарая"
+		"Церковь": return "Церкви"
+		"Погреб": return "Погреба"
+		"Гараж": return "Гаража"
+	return house
 
 
 ## Винительный падеж: Марина → Марину, Женя → Женю, Тимур → Тимура.

@@ -5,7 +5,7 @@ extends Resource
 
 const MAX_SHELTERS := 5   ## столько названий убежищ есть в Match.HOUSES
 
-const LABELS: Dictionary[String, String] = {
+const LABELS := {
 	"players": "Игроков",
 	"monsters": "Упырей",
 	"shelters": "Убежищ",

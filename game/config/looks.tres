@@ -1,0 +1,139 @@
+[gd_resource type="Resource" script_class="LookBook" load_steps=16 format=3]
+
+[ext_resource type="Script" path="res://scripts/village/look_book.gd" id="1_book"]
+[ext_resource type="Script" path="res://scripts/village/look_def.gd" id="2_look"]
+
+[sub_resource type="Resource" id="look_0"]
+script = ExtResource("2_look")
+who = "Марина"
+coat = Color(0.4196, 0.2275, 0.2275, 1)
+accent = Color(0.7882, 0.7020, 0.5412, 1)
+skin = Color(0.7843, 0.6314, 0.5176, 1)
+hair = Color(0.1686, 0.1137, 0.0941, 1)
+head = 2
+height = 0.97
+
+[sub_resource type="Resource" id="look_1"]
+script = ExtResource("2_look")
+who = "Лида"
+coat = Color(0.2431, 0.3529, 0.2902, 1)
+accent = Color(0.6588, 0.5373, 0.3529, 1)
+skin = Color(0.8196, 0.6824, 0.5765, 1)
+hair = Color(0.3529, 0.2275, 0.1490, 1)
+head = 4
+height = 0.95
+
+[sub_resource type="Resource" id="look_2"]
+script = ExtResource("2_look")
+who = "Женя"
+coat = Color(0.2941, 0.2902, 0.4196, 1)
+accent = Color(0.7608, 0.4824, 0.3098, 1)
+skin = Color(0.7961, 0.6510, 0.5451, 1)
+hair = Color(0.2275, 0.1647, 0.1333, 1)
+head = 1
+height = 0.98
+
+[sub_resource type="Resource" id="look_3"]
+script = ExtResource("2_look")
+who = "Рита"
+coat = Color(0.4784, 0.3529, 0.2275, 1)
+accent = Color(0.7216, 0.2588, 0.2275, 1)
+skin = Color(0.8314, 0.6902, 0.6039, 1)
+hair = Color(0.5412, 0.3529, 0.1647, 1)
+head = 2
+height = 0.94
+
+[sub_resource type="Resource" id="look_4"]
+script = ExtResource("2_look")
+who = "Нина"
+coat = Color(0.3529, 0.2431, 0.3529, 1)
+accent = Color(0.8392, 0.7843, 0.6588, 1)
+skin = Color(0.7882, 0.6471, 0.5412, 1)
+hair = Color(0.1216, 0.1020, 0.0941, 1)
+head = 3
+height = 0.96
+
+[sub_resource type="Resource" id="look_5"]
+script = ExtResource("2_look")
+who = "Полина"
+coat = Color(0.2275, 0.3098, 0.4196, 1)
+accent = Color(0.8784, 0.7216, 0.3765, 1)
+skin = Color(0.8471, 0.7176, 0.6275, 1)
+hair = Color(0.4196, 0.2902, 0.1647, 1)
+head = 2
+height = 0.97
+
+[sub_resource type="Resource" id="look_6"]
+script = ExtResource("2_look")
+who = "Тимур"
+coat = Color(0.2392, 0.2902, 0.2275, 1)
+accent = Color(0.5412, 0.4235, 0.2235, 1)
+skin = Color(0.7216, 0.5608, 0.4471, 1)
+hair = Color(0.0863, 0.0706, 0.0627, 1)
+head = 1
+height = 1.05
+
+[sub_resource type="Resource" id="look_7"]
+script = ExtResource("2_look")
+who = "Костя"
+coat = Color(0.3529, 0.2902, 0.2078, 1)
+accent = Color(0.3098, 0.4157, 0.4784, 1)
+skin = Color(0.7804, 0.6235, 0.5137, 1)
+hair = Color(0.2902, 0.2039, 0.1412, 1)
+head = 0
+height = 1.02
+
+[sub_resource type="Resource" id="look_8"]
+script = ExtResource("2_look")
+who = "Артур"
+coat = Color(0.1843, 0.2471, 0.3333, 1)
+accent = Color(0.6039, 0.2314, 0.2000, 1)
+skin = Color(0.7804, 0.6314, 0.5373, 1)
+hair = Color(0.1647, 0.1255, 0.1059, 1)
+head = 3
+height = 1.07
+
+[sub_resource type="Resource" id="look_9"]
+script = ExtResource("2_look")
+who = "Захар"
+coat = Color(0.2902, 0.2275, 0.1843, 1)
+accent = Color(0.4196, 0.4784, 0.2902, 1)
+skin = Color(0.7216, 0.5529, 0.4392, 1)
+hair = Color(0.3725, 0.3725, 0.3529, 1)
+head = 3
+height = 1.04
+
+[sub_resource type="Resource" id="look_10"]
+script = ExtResource("2_look")
+who = "Гриша"
+coat = Color(0.3333, 0.3137, 0.2275, 1)
+accent = Color(0.6902, 0.4157, 0.2275, 1)
+skin = Color(0.7922, 0.6353, 0.5294, 1)
+hair = Color(0.4784, 0.2902, 0.1333, 1)
+head = 1
+height = 1.0
+
+[sub_resource type="Resource" id="look_11"]
+script = ExtResource("2_look")
+who = "Вадим"
+coat = Color(0.2275, 0.2275, 0.2275, 1)
+accent = Color(0.3529, 0.4980, 0.5490, 1)
+skin = Color(0.7686, 0.6118, 0.5020, 1)
+hair = Color(0.1020, 0.0863, 0.0784, 1)
+head = 0
+height = 1.06
+
+[sub_resource type="Resource" id="look_99"]
+script = ExtResource("2_look")
+who = "Вы"
+coat = Color(0.1647, 0.2275, 0.2510, 1)
+accent = Color(0.8510, 0.6353, 0.3059, 1)
+skin = Color(0.8118, 0.6627, 0.5529, 1)
+hair = Color(0.1647, 0.1216, 0.1020, 1)
+head = 4
+height = 1.0
+
+[resource]
+script = ExtResource("1_book")
+looks = Array[ExtResource("2_look")]([SubResource("look_0"), SubResource("look_1"), SubResource("look_2"), SubResource("look_3"), SubResource("look_4"), SubResource("look_5"), SubResource("look_6"), SubResource("look_7"), SubResource("look_8"), SubResource("look_9"), SubResource("look_10"), SubResource("look_11")])
+player = SubResource("look_99")

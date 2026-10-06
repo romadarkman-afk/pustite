@@ -6,7 +6,7 @@ enum Haptic { TAP, KNOCK, REFUSE, DEATH, NIGHT, SUCCESS }
 
 const FPS_IDLE := 30
 const FPS_ACTIVE := 60
-const HAPTIC_SPEC: Dictionary[int, Vector2] = {
+const HAPTIC_SPEC := {
 	Haptic.TAP: Vector2(9, 0.25),
 	Haptic.KNOCK: Vector2(38, 0.65),
 	Haptic.REFUSE: Vector2(110, 0.9),
@@ -46,6 +46,7 @@ func haptic(kind: Haptic) -> void:
 	if not haptics_enabled or instant or not OS.has_feature("mobile"):
 		return
 	var spec: Vector2 = HAPTIC_SPEC[kind]
+	Diag.step("вибро: %s" % Haptic.keys()[kind])
 	Input.vibrate_handheld(int(spec.x), spec.y)
 
 

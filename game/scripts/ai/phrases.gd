@@ -147,7 +147,7 @@ const PLEA_PACT: PackedStringArray = [
 ]
 
 ## Мольбы игрока у чужой двери: текст и вес в глазах хозяина
-const PLAYER_PLEAS: Array[Dictionary] = [
+const PLAYER_PLEAS := [
 	{"id": "shared", "label": "Мы уже ночевали вместе", "text": "Мы же ночевали вместе — и ничего не случилось."},
 	{"id": "promise", "label": "Пообещать впустить завтра", "text": "Пусти. Завтра я открою тебе первым."},
 	{"id": "name", "label": "Назвать упыря", "text": "Я знаю, кто это. Пусти — расскажу."},

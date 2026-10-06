@@ -79,12 +79,17 @@ func _keep_screen(on: bool) -> void:
 func _on_phase(p: Match.Phase) -> void:
 	clock.stop()
 	_feed_gen += 1
+	Diag.step("фаза: %s" % Match.Phase.keys()[p])
 	match p:
 		Match.Phase.DAY:
 			director.plan_day()
+			Diag.step("день: боты спланировали")
 			phase_entered.emit(p)
+			Diag.step("день: экран показан")
 			clock.start(m.config.day_seconds)
-			_feed(director.opening_lines())
+			var lines := director.opening_lines()
+			Diag.step("день: реплик в очереди %d" % lines.size())
+			_feed(lines)
 		Match.Phase.DOOR:
 			_prepare_door()
 		Match.Phase.OVER:
@@ -233,4 +238,5 @@ func _feed(lines: Array[ChatLine]) -> void:
 			await get_tree().process_frame
 		if gen != _feed_gen or m == null or m.phase != Match.Phase.DAY:
 			return
+		Diag.step("реплика: %s" % line.speaker.name)
 		m.post(line)

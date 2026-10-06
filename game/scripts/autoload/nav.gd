@@ -80,7 +80,11 @@ func start() -> void:
 		return
 	_started = true
 	layer.visible = true
-	show_menu()
+	if Diag.crashed_last_time:
+		Diag.crashed_last_time = false
+		show(CrashScreen.new())
+	else:
+		show_menu()
 
 
 # =============================================================
@@ -88,11 +92,13 @@ func start() -> void:
 # =============================================================
 func show_menu() -> void:
 	Game.abandon()
+	village.crowd.clear()
 	show(MenuScreen.new())
 
 
 func show_settings() -> void:
 	Game.abandon()
+	village.crowd.clear()
 	var s := SettingsScreen.new()
 	s.cfg = Save.config.duplicate() as GameConfig
 	s.haptics = Save.haptics
@@ -104,6 +110,7 @@ func start_match() -> void:
 
 
 func show(s: Screen) -> void:
+	Diag.step("экран: %s" % s.screen_id())
 	s.setup(Game.m, Game.director)
 	s.intent.connect(handle_intent.bind(s))
 	host.show_screen(s)
@@ -130,6 +137,7 @@ func _frame_field(s: Screen) -> void:
 	var dur := 0.0 if Juice.instant else 0.6
 	village.set_open_count(Game.m.config.shelters if Game.m != null else Save.config.shelters)
 	var visible_field := s.field_ratio() > 0.0 and s.door_open() < 0.0
+	Diag.step("поле: %s" % ("кадр" if visible_field else "скрыто"))
 	if visible_field:
 		var r := s.field_rect_local()
 		r.position += host.global_position
@@ -155,6 +163,9 @@ func _tween_to(obj: Object, prop: String, value: float, dur: float) -> void:
 # Game → экраны
 # =============================================================
 func _on_phase(phase: Match.Phase) -> void:
+	if phase == Match.Phase.PROLOGUE:
+		village.crowd.populate(Game.m)
+	village.crowd.sync(Game.m, phase)
 	match phase:
 		Match.Phase.PROLOGUE:
 			show(PrologueScreen.new())
@@ -187,6 +198,7 @@ func _on_chat(line: ChatLine) -> void:
 func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void:
 	if sender != host.current:
 		return
+	Diag.step("действие: %s" % action)
 	match action:
 		Intent.START:
 			if data.has("cfg"):
@@ -247,6 +259,7 @@ func _on_back() -> void:
 		return
 	if s is MenuScreen:
 		if _exit_armed:
+			Diag.clean_exit()
 			get_tree().quit()
 			return
 		_exit_armed = true

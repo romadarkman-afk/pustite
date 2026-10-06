@@ -95,6 +95,7 @@ func _finish() -> void:
 	if _done:
 		return
 	_done = true
+	Diag.step("логотип отыграл")
 	Nav.start()
 	var t := create_tween()
 	t.tween_property(self, "modulate:a", 0.0, 0.25)

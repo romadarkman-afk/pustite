@@ -76,6 +76,9 @@ func handle_back() -> bool:
 		if c is ActionSheet:
 			(c as ActionSheet).close(-1)
 			return true
+		if c is TextSheet:
+			(c as TextSheet).close("")
+			return true
 	return false
 
 

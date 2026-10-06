@@ -12,6 +12,7 @@ var open_count: int = 2
 var titles: PackedStringArray = []
 var night: float = 1.0: set = set_night
 var draws: int = 0                         ## счётчик перерисовок — для самотеста
+var crowd: Crowd
 
 var _font: Font
 var _fog: CPUParticles2D
@@ -34,6 +35,10 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	_build_trees(rng)
 	_build_stones(rng)
 	_build_particles()
+	crowd = Crowd.new()
+	crowd.view = self
+	crowd.book = load("res://config/looks.tres") as LookBook
+	add_child(crowd)
 	set_open_count(open)
 
 
@@ -56,6 +61,8 @@ func set_night(v: float) -> void:
 	if _fog != null:
 		_fog.modulate.a = 0.35 + 0.65 * night
 		_dust.modulate.a = 0.12 + 0.88 * (1.0 - night)
+	if crowd != null:
+		crowd.modulate = Color(1, 1, 1).lerp(Color(0.6, 0.65, 0.76), night)
 	queue_redraw()
 
 

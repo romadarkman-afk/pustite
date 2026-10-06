@@ -7,7 +7,6 @@ extends Screen
 const MAX_BUBBLES := 40
 
 var chat_box: VBoxContainer
-var input: LineEdit
 
 
 func screen_id() -> String:
@@ -27,6 +26,7 @@ func mood() -> Vector2:
 
 
 func build() -> void:
+	Diag.step("день-экран: сборка")
 	body.add_child(people_strip(_person_actions))
 	chat_box = W.vbox(12)
 	body.add_child(chat_box)
@@ -41,6 +41,7 @@ func build() -> void:
 		footer.add_child(skip)
 		return
 
+	Diag.step("день-экран: чат готов, кнопки")
 	var quick := W.hbox(8)
 	for spec: Array in [["Оправдаться", _defend], ["Позвать…", _invite_flow], ["Обвинить…", _accuse_flow]]:
 		var q := W.button(spec[0], &"Quick")
@@ -50,20 +51,9 @@ func build() -> void:
 		quick.add_child(q)
 	footer.add_child(quick)
 
-	var row := W.hbox(8)
-	input = LineEdit.new()
-	input.placeholder_text = "Сказать вслух"
-	input.max_length = 120
-	input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	input.custom_minimum_size = Vector2(0, ThemeFactory.TOUCH)
-	input.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_DEFAULT
-	input.text_submitted.connect(func(_t: String) -> void: _send())
-	row.add_child(input)
-	var send := W.button("Сказать", &"Primary")
-	send.custom_minimum_size = Vector2(150, ThemeFactory.TOUCH)
-	send.pressed.connect(_send)
-	row.add_child(send)
-	footer.add_child(row)
+	var write := W.button("Написать своё…", &"Row")
+	write.pressed.connect(_write_flow)
+	footer.add_child(write)
 
 	var ready_btn := W.button("Я готов к ночи", &"Ghost")
 	ready_btn.pressed.connect(func() -> void: commit(Intent.END_DAY))
@@ -100,12 +90,10 @@ func _bubble(line: ChatLine) -> Control:
 	return wrap
 
 
-func _send() -> void:
-	var t := input.text.strip_edges()
-	if t.is_empty():
-		return
-	input.text = ""
-	emit_intent(Intent.SAY, {"text": t})
+func _write_flow() -> void:
+	var t: String = await TextSheet.ask(self, "Сказать вслух")
+	if not t.is_empty():
+		emit_intent(Intent.SAY, {"text": t})
 
 
 func _defend() -> void:
