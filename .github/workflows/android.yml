@@ -144,23 +144,53 @@ jobs:
 
       - name: Самотест баланса и грамматики (3000 партий, коридор 30–70%)
         timeout-minutes: 5
-        run: timeout 300 godot --headless --path game -- --sim
+        run: |
+          set -o pipefail
+          timeout 300 godot --headless --path game -- --sim 2>&1 | tee /tmp/sim.log
+          if grep -q "SCRIPT ERROR" /tmp/sim.log; then
+            echo "::error title=Ошибки скриптов::Во время самотеста --sim в логе есть SCRIPT ERROR — см. выше."
+            exit 1
+          fi
 
       - name: Самотест экранов (обе роли у двери обязательны)
         timeout-minutes: 5
-        run: timeout 300 godot --headless --path game -- --flow
+        run: |
+          set -o pipefail
+          timeout 300 godot --headless --path game -- --flow 2>&1 | tee /tmp/flow.log
+          if grep -q "SCRIPT ERROR" /tmp/flow.log; then
+            echo "::error title=Ошибки скриптов::Во время самотеста --flow в логе есть SCRIPT ERROR — см. выше."
+            exit 1
+          fi
 
       - name: Самотест раскладки (7 типов экранов, вырезы, кнопки от 48 dp)
         timeout-minutes: 5
-        run: timeout 300 godot --headless --path game -- --layout
+        run: |
+          set -o pipefail
+          timeout 300 godot --headless --path game -- --layout 2>&1 | tee /tmp/layout.log
+          if grep -q "SCRIPT ERROR" /tmp/layout.log; then
+            echo "::error title=Ошибки скриптов::Во время самотеста --layout в логе есть SCRIPT ERROR — см. выше."
+            exit 1
+          fi
 
       - name: Самотест жизненного цикла (сворачивание, «Назад», экран)
         timeout-minutes: 5
-        run: timeout 300 godot --headless --path game -- --lifecycle
+        run: |
+          set -o pipefail
+          timeout 300 godot --headless --path game -- --lifecycle 2>&1 | tee /tmp/lifecycle.log
+          if grep -q "SCRIPT ERROR" /tmp/lifecycle.log; then
+            echo "::error title=Ошибки скриптов::Во время самотеста --lifecycle в логе есть SCRIPT ERROR — см. выше."
+            exit 1
+          fi
 
       - name: Самотест игрового поля (посёлок, туман, 30 fps в покое)
         timeout-minutes: 5
-        run: timeout 300 godot --headless --path game -- --field
+        run: |
+          set -o pipefail
+          timeout 300 godot --headless --path game -- --field 2>&1 | tee /tmp/field.log
+          if grep -q "SCRIPT ERROR" /tmp/field.log; then
+            echo "::error title=Ошибки скриптов::Во время самотеста --field в логе есть SCRIPT ERROR — см. выше."
+            exit 1
+          fi
 
       - name: Экспорт APK
         run: |
