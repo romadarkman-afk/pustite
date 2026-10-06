@@ -1,1 +1,109 @@
+name: Сборка APK
 
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: "4.6"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Забрать код
+        uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Доставить нужные части SDK
+        run: |
+          sdkmanager --install "platform-tools" "build-tools;34.0.0" "platforms;android-34" > /dev/null
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+
+      - name: Godot ${{ env.GODOT_VERSION }} и шаблоны экспорта
+        run: |
+          BASE="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -sL -o godot.zip  "$BASE/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -sL -o tpl.tpz    "$BASE/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q godot.zip
+          sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+          unzip -q tpl.tpz
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mv templates/* "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/"
+          godot --version
+
+      - name: Постоянный отладочный ключ — чтобы новые сборки ставились поверх старых
+        id: keycache
+        uses: actions/cache@v4
+        with:
+          path: ~/debug.keystore
+          key: pustite-debug-keystore-v1
+
+      - name: Отладочный ключ подписи (создаётся один раз)
+        if: steps.keycache.outputs.cache-hit != 'true'
+        run: |
+          keytool -keyalg RSA -genkeypair -alias androiddebugkey \
+            -keypass android -keystore "$HOME/debug.keystore" -storepass android \
+            -dname "CN=Android Debug,O=Android,C=US" -validity 9999 \
+            -deststoretype pkcs12 -noprompt
+
+      - name: Настройки редактора Godot
+        run: |
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-${GODOT_VERSION}.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "${ANDROID_SDK_ROOT}"
+          export/android/debug_keystore = "${HOME}/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          EOF
+
+      - name: Импорт ресурсов
+        run: |
+          godot --headless --path game --import
+          godot --headless --path game --import
+
+      - name: Самотест баланса (3000 партий, коридор 30–70%)
+        run: godot --headless --path game -- --sim
+
+      - name: Самотест экранов (обе роли у двери обязательны)
+        run: godot --headless --path game -- --flow
+
+      - name: Экспорт APK
+        run: |
+          mkdir -p build
+          godot --headless --path game --export-debug "Android" "$PWD/build/pustite.apk"
+          ls -la build/
+
+      - name: Положить APK в артефакты
+        uses: actions/upload-artifact@v4
+        with:
+          name: pustite-apk
+          path: build/pustite.apk
+          retention-days: 30
+
+      - name: Выложить релиз со ссылкой на APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="build-$(date +%Y%m%d-%H%M%S)"
+          gh release create "$TAG" "build/pustite.apk" \
+            --title "Сборка $TAG" \
+            --notes "Отладочная сборка. Коммит ${GITHUB_SHA::7}. Скачайте pustite.apk и установите на телефон." \
+            --latest
