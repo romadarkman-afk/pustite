@@ -58,7 +58,20 @@ func _others(of: Villager) -> Array[Villager]:
 	return out
 
 
-func _line(who: Villager, bank: PackedStringArray, vars: Dictionary = {}) -> ChatLine:
+## Реплика с согласованием: род говорящего, род и падеж того, о ком речь.
+## Если речь об игроке — нейтральный банк AT_PLAYER (пол игрока неизвестен).
+func _say(who: Villager, bank: PackedStringArray, target: Villager = null, extra: Dictionary = {}) -> ChatLine:
+	var vars := extra.duplicate()
+	vars["me_f"] = who.female
+	if Phrases.mentions_target(bank):
+		if target == null:
+			vars["who"] = "кто-то другой"
+			vars["who_acc"] = "других"
+		elif target.is_player:
+			bank = Phrases.AT_PLAYER
+		else:
+			vars["who"] = target.name
+			vars["who_f"] = target.female
 	return ChatLine.say(who, Phrases.pick(bank, rng, vars))
 
 
@@ -124,26 +137,23 @@ func opening_lines() -> Array[ChatLine]:
 			if accuser == null:
 				continue
 			var bank := Phrases.ACCUSE_STRONG
-			var vars := {"who": suspect.name}
+			var extra := {}
 			if street_last_night.has(suspect.id):
 				bank = Phrases.ACCUSE_STREET
 			elif liar_last_night.has(suspect.id):
 				bank = Phrases.ACCUSE_LIAR
-				vars["house"] = m.house_name(liar_last_night[suspect.id])
-			out.append(_line(accuser, bank, vars))
+				extra["house"] = m.house_name(liar_last_night[suspect.id])
+			out.append(_say(accuser, bank, suspect, extra))
 			if not suspect.is_player:
-				var other := _pick_any(suspect)
-				out.append(_line(suspect,
-					Phrases.UPYR_DEFLECT if suspect.is_upyr else Phrases.DEFEND,
-					{"who": other.name if other != null else "вас"}))
+				out.append(_say(suspect, Phrases.UPYR_DEFLECT if suspect.is_upyr else Phrases.DEFEND, _pick_any(suspect)))
 
 	var shuffled := bots.duplicate()
 	_shuffle(shuffled)
 	for bot: Villager in shuffled.slice(0, mini(3, shuffled.size())):
-		out.append(_line(bot, Phrases.ANNOUNCE, {"house": m.house_name(bot.announced_house)}))
+		out.append(_say(bot, Phrases.ANNOUNCE, null, {"house": m.house_name(bot.announced_house)}))
 
 	if rng.randf() < 0.6:
-		out.append(_line(shuffled[shuffled.size() - 1], Phrases.FILLER))
+		out.append(_say(shuffled[shuffled.size() - 1], Phrases.FILLER))
 	return out
 
 
@@ -180,15 +190,11 @@ func react(intent: IntentParser.Result) -> Array[ChatLine]:
 			var t := intent.target
 			var cred := clampf(1.0 - susp(p.id) / 4.0, 0.2, 1.0)
 			_bump(t.id, 0.6 * cred)
-			var deflect := _pick_any(t)
-			out.append(_line(t,
-				Phrases.REPLY_TO_ACCUSED_UPYR if t.is_upyr else Phrases.REPLY_TO_ACCUSED_HUMAN,
-				{"who": deflect.name if deflect != null else "других"}))
+			var deflect := _pick_any_bot(t)
+			out.append(_say(t, Phrases.REPLY_TO_ACCUSED_UPYR if t.is_upyr else Phrases.REPLY_TO_ACCUSED_HUMAN, deflect))
 			var judge := _pick_bystander([t])
 			if judge != null:
-				out.append(_line(judge,
-					Phrases.AGREE_ACCUSE if view(judge, t) >= 1.0 else Phrases.DISAGREE_ACCUSE,
-					{"who": t.name}))
+				out.append(_say(judge, Phrases.AGREE_ACCUSE if view(judge, t) >= 1.0 else Phrases.DISAGREE_ACCUSE, t))
 
 		IntentParser.Kind.INVITE:
 			var t := intent.target
@@ -199,28 +205,28 @@ func react(intent: IntentParser.Result) -> Array[ChatLine]:
 				b.pact_house = h
 				t.announced_house = h
 				p.announced_house = h
-				out.append(_line(t, Phrases.INVITE_YES, {"house": m.house_name(h)}))
+				out.append(_say(t, Phrases.INVITE_YES, null, {"house": m.house_name(h)}))
 			else:
-				out.append(_line(t, Phrases.INVITE_NO))
+				out.append(_say(t, Phrases.INVITE_NO))
 
 		IntentParser.Kind.ASK:
 			var t := intent.target
 			if t.announced_house >= 0:
-				out.append(_line(t, Phrases.ASK_ANSWER_HUMAN, {"house": m.house_name(t.announced_house)}))
+				out.append(_say(t, Phrases.ASK_ANSWER_HUMAN, null, {"house": m.house_name(t.announced_house)}))
 			else:
-				out.append(_line(t, Phrases.ASK_ANSWER_UNSURE))
+				out.append(_say(t, Phrases.ASK_ANSWER_UNSURE))
 
 		IntentParser.Kind.DEFEND:
 			if susp(p.id) > 0.0:
 				_bump(p.id, -0.3)
 			var who := _pick_bystander([])
 			if who != null:
-				out.append(_line(who, Phrases.PLAYER_DEFEND_REACTION))
+				out.append(_say(who, Phrases.PLAYER_DEFEND_REACTION))
 
 		_:
 			var who := _pick_bystander([])
 			if who != null:
-				out.append(_line(who, Phrases.GENERIC_REACTION))
+				out.append(_say(who, Phrases.GENERIC_REACTION))
 	return out
 
 
@@ -228,6 +234,15 @@ func accepts_invite(bot: Villager) -> bool:
 	if bot.is_upyr:
 		return rng.randf() < 0.85
 	return view(bot, m.player()) < 1.6 and brains[bot.id].pact_id < 0
+
+
+## Любой живой бот, кроме указанного: на кого перевести стрелки в ответ игроку.
+func _pick_any_bot(except: Villager) -> Villager:
+	var pool: Array[Villager] = []
+	for v: Villager in m.alive_bots():
+		if v != except:
+			pool.append(v)
+	return pool[rng.randi_range(0, pool.size() - 1)] if not pool.is_empty() else null
 
 
 func _pick_bystander(exclude: Array[Villager]) -> Villager:
@@ -256,13 +271,14 @@ func night_choices() -> Dictionary[int, int]:
 
 func plea_for(bot: Villager) -> String:
 	var b: BotBrain = brains[bot.id]
+	var g := {"me_f": bot.female}
 	if b.pact_id == m.player().id:
-		return Phrases.pick(Phrases.PLEA_PACT, rng)
+		return Phrases.pick(Phrases.PLEA_PACT, rng, g)
 	if street_last_night.has(bot.id):
-		return Phrases.pick(Phrases.PLEA_AFTER_STREET, rng)
+		return Phrases.pick(Phrases.PLEA_AFTER_STREET, rng, g)
 	if susp(bot.id) > 2.0:
-		return Phrases.pick(Phrases.PLEA_SUSPECT, rng)
-	return Phrases.pick(Phrases.PLEA_NORMAL, rng)
+		return Phrases.pick(Phrases.PLEA_SUSPECT, rng, g)
+	return Phrases.pick(Phrases.PLEA_NORMAL, rng, g)
 
 
 ## Бот-хозяин двери решает, кого впустить. player_plea — id мольбы игрока, если он в очереди.

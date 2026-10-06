@@ -43,7 +43,7 @@ func build() -> void:
 # ---------------------------------------------------------------
 func _build_host() -> void:
 	body.add_child(W.gap(10))
-	body.add_child(W.label("Ты первым добежал до «%s». В дверь стучат." % m.house_name(seat.house), &"Tale"))
+	body.add_child(W.label("Ты первым добежал до «%s». В дверь стучат." % Ru.house_of(m.house_name(seat.house)), &"Tale"))
 	var cap := m.config.capacity - 1
 	body.add_child(W.label("Впустить можно: %d" % cap, &"Hint"))
 
@@ -142,7 +142,7 @@ func _send_plea(plea_id: String) -> void:
 func show_guest_result(admitted: bool) -> void:
 	W.clear(body)
 	body.add_child(W.gap(60))
-	var t := W.label("Ты стучишь в дверь «%s»…" % m.house_name(seat.house), &"Tale")
+	var t := W.label("Ты стучишь в дверь «%s»…" % Ru.house_of(m.house_name(seat.house)), &"Tale")
 	body.add_child(t)
 	for i in range(3):
 		knock_fx.emit()
@@ -170,7 +170,7 @@ func show_guest_result(admitted: bool) -> void:
 # ---------------------------------------------------------------
 func _build_alone() -> void:
 	body.add_child(W.gap(60))
-	body.add_child(W.label("Ты первым добежал до «%s». Больше никто не пришёл." % m.house_name(seat.house), &"Tale"))
+	body.add_child(W.label("Ты первым добежал до «%s». Больше никто не пришёл." % Ru.house_of(m.house_name(seat.house)), &"Tale"))
 	body.add_child(W.label(
 		"Одному упырю улица не страшна." if m.player().is_upyr
 		else "Оберег мерцает. Одному его до утра не удержать.", &"Hint"))

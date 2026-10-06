@@ -6,6 +6,9 @@ extends Node
 var layer: CanvasLayer
 var ui: Control
 var atmos: Atmosphere
+var village: VillageView
+var scrim: Scrim
+var field_screen: Screen          ## экран, под который поле уже откадрировано (для самотестов)
 var frame: SafeFrame
 var host: ScreenHost
 var _toast: Label
@@ -26,6 +29,19 @@ func _ready() -> void:
 
 	atmos = Atmosphere.new()
 	ui.add_child(atmos)
+
+	var field_layer := Control.new()
+	field_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui.add_child(field_layer)
+	field_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	village = VillageView.new()
+	village.setup(load("res://config/village_default.tres") as VillageDef, Save.config.shelters, Match.HOUSES)
+	village.modulate.a = 0.0
+	field_layer.add_child(village)
+	scrim = Scrim.new()
+	ui.add_child(scrim)
+	scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
 	frame = SafeFrame.new()
 	ui.add_child(frame)
 	host = ScreenHost.new()
@@ -102,6 +118,37 @@ func show(s: Screen) -> void:
 		d.open_fx.connect(func(a: float) -> void: atmos.door(a, 0.5))
 	if s is MorningScreen:
 		(s as MorningScreen).death_fx.connect(atmos.blood_flash)
+	_frame_field(s)
+
+
+## Кадрирование поля под экран. Ждём раскладку, затем плавно ведём камеру.
+func _frame_field(s: Screen) -> void:
+	for i in range(3):
+		await get_tree().process_frame
+	if not is_instance_valid(s) or s != host.current:
+		return
+	var dur := 0.0 if Juice.instant else 0.6
+	village.set_open_count(Game.m.config.shelters if Game.m != null else Save.config.shelters)
+	var visible_field := s.field_ratio() > 0.0 and s.door_open() < 0.0
+	if visible_field:
+		var r := s.field_rect_local()
+		r.position += host.global_position
+		village.frame_to(r, ui.size.x, dur)
+		village.set_mood(s.mood().x, dur)
+		_tween_to(village, "modulate:a", 1.0, dur)
+		_tween_to(scrim, "top", r.end.y, dur)
+		_tween_to(scrim, "strength", 1.0, dur)
+	else:
+		_tween_to(village, "modulate:a", 0.0, dur * 0.6)
+		_tween_to(scrim, "strength", 0.0, dur * 0.6)
+	field_screen = s
+
+
+func _tween_to(obj: Object, prop: String, value: float, dur: float) -> void:
+	if dur <= 0.0:
+		obj.set_indexed(prop, value)
+		return
+	Juice.tween().tween_property(obj, prop, value, dur)
 
 
 # =============================================================
@@ -183,8 +230,15 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 # Кнопка «Назад» на Android
 # =============================================================
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_GO_BACK_REQUEST and _started:
-		_on_back()
+	match what:
+		NOTIFICATION_WM_GO_BACK_REQUEST:
+			if _started:
+				_on_back()
+		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
+			Game.hold(&"background")
+			Save.flush()
+		NOTIFICATION_APPLICATION_RESUMED, NOTIFICATION_APPLICATION_FOCUS_IN:
+			Game.release(&"background")
 
 
 func _on_back() -> void:
@@ -206,7 +260,9 @@ func _on_back() -> void:
 	elif s is EndScreen:
 		show_menu()
 	elif Game.active():
+		Game.hold(&"dialog")
 		var i: int = await ActionSheet.ask(s, "Бросить партию?", PackedStringArray(["Остаться", "Выйти в меню"]))
+		Game.release(&"dialog")
 		if i == 1:
 			show_menu()
 

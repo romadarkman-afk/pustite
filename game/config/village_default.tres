@@ -1,0 +1,77 @@
+[gd_resource type="Resource" script_class="VillageDef" load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://scripts/village/village_def.gd" id="1_village"]
+[ext_resource type="Script" path="res://scripts/village/house_def.gd" id="2_house"]
+
+[sub_resource type="Resource" id="house_0"]
+script = ExtResource("2_house")
+title = "Дом у реки"
+kind = 0
+pos = Vector2(128, 312)
+size = Vector2(118, 92)
+
+[sub_resource type="Resource" id="house_1"]
+script = ExtResource("2_house")
+title = "Сарай"
+kind = 1
+pos = Vector2(592, 312)
+size = Vector2(142, 100)
+
+[sub_resource type="Resource" id="house_2"]
+script = ExtResource("2_house")
+title = "Церковь"
+kind = 2
+pos = Vector2(360, 232)
+size = Vector2(96, 104)
+
+[sub_resource type="Resource" id="house_3"]
+script = ExtResource("2_house")
+title = "Погреб"
+kind = 3
+pos = Vector2(178, 486)
+size = Vector2(122, 58)
+
+[sub_resource type="Resource" id="house_4"]
+script = ExtResource("2_house")
+title = "Гараж"
+kind = 4
+pos = Vector2(552, 486)
+size = Vector2(128, 72)
+
+[sub_resource type="Resource" id="house_5"]
+script = ExtResource("2_house")
+title = ""
+kind = 5
+pos = Vector2(36, 214)
+size = Vector2(70, 56)
+
+[sub_resource type="Resource" id="house_6"]
+script = ExtResource("2_house")
+title = ""
+kind = 0
+pos = Vector2(232, 206)
+size = Vector2(84, 66)
+
+[sub_resource type="Resource" id="house_7"]
+script = ExtResource("2_house")
+title = ""
+kind = 0
+pos = Vector2(500, 204)
+size = Vector2(86, 66)
+
+[sub_resource type="Resource" id="house_8"]
+script = ExtResource("2_house")
+title = ""
+kind = 5
+pos = Vector2(690, 218)
+size = Vector2(72, 56)
+
+[resource]
+script = ExtResource("1_village")
+shelters = Array[ExtResource("2_house")]([SubResource("house_0"), SubResource("house_1"), SubResource("house_2"), SubResource("house_3"), SubResource("house_4")])
+decor = Array[ExtResource("2_house")]([SubResource("house_5"), SubResource("house_6"), SubResource("house_7"), SubResource("house_8")])
+lamps = PackedVector2Array(258, 352, 462, 352, 360, 468)
+well = Vector2(360, 384)
+square_center = Vector2(360, 392)
+square_radii = Vector2(238, 94)
+river = true

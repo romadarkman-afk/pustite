@@ -10,6 +10,10 @@ func screen_id() -> String:
 	return "night"
 
 
+func field_ratio() -> float:
+	return 0.4
+
+
 func title() -> String:
 	return "Ночь %d" % m.day
 

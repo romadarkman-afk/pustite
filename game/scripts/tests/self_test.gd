@@ -14,8 +14,106 @@ static func cli_balance() -> void:
 	print("побед людей: %.1f%%  | средняя партия: %.2f ночи" % [100.0 * r.people_win, r.avg_nights])
 	print("игрок хозяином двери: %d раз, гостем у чужой: %d раз" % [r.player_host, r.player_guest])
 	var ok: bool = r.people_win > 0.30 and r.people_win < 0.70 and r.player_guest > 0 and r.player_host > 0
-	print("ИТОГ: %s" % ("OK" if ok else "БАЛАНС ВНЕ КОРИДОРА 30–70% ИЛИ ИГРОК НЕ ВИДИТ ОДНУ ИЗ РОЛЕЙ У ДВЕРИ"))
+	var gram := grammar(c)
+	print("грамматика: проверено %d фраз, ошибок %d" % [gram.checked, gram.errors.size()])
+	for e: String in gram.errors.slice(0, 12):
+		print("  ✗ " + e)
+	ok = ok and gram.errors.is_empty()
+	print("ИТОГ: %s" % ("OK" if ok else "БАЛАНС ВНЕ КОРИДОРА 30–70%, ИГРОК НЕ ВИДИТ ОДНУ ИЗ РОЛЕЙ У ДВЕРИ ИЛИ ОШИБКИ В ТЕКСТАХ"))
 	tree.quit(0 if ok else 1)
+
+
+## Грамматика реплик и хроники: «Рита был», «на Женя», недоставленные метки, «Вы» в третьем лице.
+static func grammar(cfg: GameConfig, games: int = 250) -> Dictionary:
+	var texts: PackedStringArray = []
+	for g in range(games):
+		var m := Match.new()
+		var d := Director.new()
+		m.start(cfg, 5000 + g)
+		d.attach(m)
+		m.begin_day()
+		while m.phase != Match.Phase.OVER:
+			match m.phase:
+				Match.Phase.DAY:
+					d.plan_day()
+					for l: ChatLine in d.opening_lines():
+						texts.append(l.text)
+					for t: Villager in m.alive_bots():
+						for k: IntentParser.Kind in [IntentParser.Kind.ACCUSE, IntentParser.Kind.ASK, IntentParser.Kind.DEFEND, IntentParser.Kind.NONE]:
+							var it := IntentParser.Result.new()
+							it.kind = k
+							it.target = t
+							for l: ChatLine in d.react(it):
+								texts.append(l.text)
+						texts.append(d.plea_for(t))
+					m.end_day()
+				Match.Phase.VOTE:
+					var tally: Dictionary[int, int] = {}
+					var bv := d.votes()
+					for voter: int in bv:
+						tally[bv[voter]] = tally.get(bv[voter], 0) + 1
+					m.apply_vote(tally)
+					m.after_vote()
+				Match.Phase.NIGHT:
+					var ch := d.night_choices()
+					ch[0] = m.rng.randi_range(0, m.houses.size() - 1)
+					m.seat_night(ch)
+				Match.Phase.DOOR:
+					for s: Match.Seat in m.seats:
+						var ids: Array[int] = []
+						if s.host.is_player:
+							if not s.queue.is_empty():
+								ids.append(s.queue[0].id)
+						else:
+							ids = d.host_decide(s, "beg")
+						m.admit(s, ids)
+					d.after_door(m.seats)
+					var rep := m.resolve_night()
+					d.read_report(rep)
+					var ms := MorningScreen.new()
+					ms.m = m
+					for e: NightReport.Entry in rep.entries:
+						texts.append(ms._text(e))
+					ms.free()
+				Match.Phase.MORNING:
+					m.end_morning()
+		texts.append_array(m.chronicle)
+
+	var fem := "(?:" + "|".join(Match.FEMALE) + ")"
+	var males: PackedStringArray = []
+	for n: String in Match.NAMES:
+		if not Match.FEMALE.has(n):
+			males.append(n)
+	var mal := "(?:" + "|".join(males) + ")"
+	var all_names := "(?:" + "|".join(Match.NAMES) + ")"
+	var rules: Array[Array] = [
+		[RegEx.create_from_string("[{}\\[\\]|]"), "недоставленная метка"],
+		[RegEx.create_from_string("(*UCP)" + fem + "\\s+(?:был|ночевал|говорил|вернулся|дожил|спал|собирался|остался|погиб|провёл)\\b"), "женское имя с мужским глаголом"],
+		[RegEx.create_from_string("(*UCP)" + mal + "\\s+(?:была|ночевала|говорила|вернулась|дожила|спала|собиралась|осталась|погибла|провела)\\b"), "мужское имя с женским глаголом"],
+		[RegEx.create_from_string("(*UCP)(?:\\bна|\\bза)\\s+" + all_names + "\\b"), "имя после «на/за» не в винительном"],
+		[RegEx.create_from_string("(*UCP)^(?!Ночь|День).*\\bВы\\s+(?:был|была|не пустили)\\b"), "«Вы» с единственным числом"],
+		[RegEx.create_from_string("(*UCP)(?:погиб\\w*|ночевал\\w*|один|одна|одни|сегодня|Ночую|Я) в «(?:Дом у реки|Сарай|Погреб|Гараж|Церковь)»"), "убежище не в предложном падеже («в Сарае»)"],
+		[RegEx.create_from_string("(*UCP)(?:^|\\s)[Вв] «(?:Дом у реки|Сарай|Погреб|Гараж|Церковь)» ночевали"), "убежище не в предложном падеже («В Доме у реки ночевали»)"],
+		[RegEx.create_from_string("(*UCP)\\b(?:до|у|дверь) «(?:Дом у реки|Сарай|Погреб|Гараж|Церковь)»"), "убежище не в родительном падеже («до Сарая»)"],
+	]
+	# самопроверка: правила обязаны ловить заведомо плохие фразы, иначе проверка слепая
+	var probes: PackedStringArray = ["Рита был рядом.", "Тимур ночевала на улице.", "Посмотри лучше на Женя.", "Вы был там.", "Метка {who} осталась.",
+		"Гриша погиб в «Сарай».", "Я сегодня в «Погреб».", "В «Дом у реки» ночевали Костя и Лида — все целы.", "Встречаемся у «Гараж»."]
+	var errors: PackedStringArray = []
+	for pr: String in probes:
+		var hit := false
+		for r: Array in rules:
+			if (r[0] as RegEx).search(pr) != null:
+				hit = true
+		if not hit:
+			errors.append("проверка грамматики слепая: не поймала «%s»" % pr)
+	var seen: Dictionary[String, bool] = {}
+	for t: String in texts:
+		for r: Array in rules:
+			if (r[0] as RegEx).search(t) != null and not seen.has(t):
+				seen[t] = true
+				errors.append("%s: «%s»" % [r[1], t])
+	return {"checked": texts.size(), "errors": errors}
 
 
 ## Прогон партий без экрана. Игрок ходит случайно — это нижняя граница его силы.
@@ -199,39 +297,65 @@ const LAYOUT_SIZES: Array[Vector2i] = [
 	Vector2i(1080, 2520),   # 21:9
 	Vector2i(1536, 2048),   # планшет 4:3
 ]
+## Телефоны с вырезом камеры и жестовой панелью: размер окна + поля (лево, верх, право, низ) в px вьюпорта.
+const LAYOUT_CUTOUTS: Array[Array] = [
+	[Vector2i(1080, 2400), Vector4(0, 110, 0, 70)],   # дырка в экране + жесты
+	[Vector2i(1080, 2340), Vector4(0, 140, 0, 48)],   # каплевидный вырез
+]
 const MIN_TOUCH := 84.0
+## Дома должны читаться: не мельче 80% задуманного размера. Пустых краёв не бывает —
+## лес, земля и небо нарисованы шире экрана.
+const MIN_FIELD_SCALE := 0.8
+static var field_scales: PackedFloat32Array = PackedFloat32Array()
 
 
 static func layout() -> void:
 	var tree := Nav.get_tree()
 	var problems: PackedStringArray = []
 	var checks := 0
+	var profiles: Array[Array] = []
 	for sz: Vector2i in LAYOUT_SIZES:
+		profiles.append([sz, Vector4(-1, -1, -1, -1)])
+	profiles.append_array(LAYOUT_CUTOUTS)
+	for prof: Array in profiles:
+		var sz: Vector2i = prof[0]
+		var cut: Vector4 = prof[1]
+		Nav.frame.debug_insets = cut
 		tree.root.size = sz
-		await _frames(tree, 3)
-		var tag := "%d×%d" % [sz.x, sz.y]
+		await _settle(tree)
+		Nav.frame.refresh()
+		await _frames(tree, 2)
+		var tag := "%d×%d" % [sz.x, sz.y] + (" вырез %d/%d" % [int(cut.y), int(cut.w)] if cut.x >= 0.0 else "")
 
 		Nav.show_menu()
-		await _frames(tree, 3)
+		await _settle(tree)
 		checks += _check(tag, problems)
 		Nav.show_settings()
-		await _frames(tree, 3)
+		await _settle(tree)
 		checks += _check(tag, problems)
 
 		Nav.start_match()
-		await _frames(tree, 3)
+		await _settle(tree)
 		checks += await _check_doors(tag, problems)
 
 		var guard := 0
 		while Game.m.phase != Match.Phase.OVER and guard < 60:
 			guard += 1
-			await _frames(tree, 3)
+			await _settle(tree)
 			checks += _check(tag, problems)
 			checks += await _layout_step(tag, problems)
-		await _frames(tree, 3)
+		await _settle(tree)
 		checks += _check(tag, problems)
 
-	print("=== раскладка: %d проверок на %d типах экранов ===" % [checks, LAYOUT_SIZES.size()])
+	Nav.frame.debug_insets = Vector4(-1, -1, -1, -1)
+	if not field_scales.is_empty():
+		var lo := 9.0
+		var hi := 0.0
+		for sc: float in field_scales:
+			lo = minf(lo, sc)
+			hi = maxf(hi, sc)
+		print("масштаб посёлка на всех экранах: от %.2f до %.2f" % [lo, hi])
+	print("=== раскладка: %d проверок на %d типах экранов (из них %d с вырезом) ===" % [checks, profiles.size(), LAYOUT_CUTOUTS.size()])
 	if problems.is_empty():
 		print("ИТОГ: OK — все экраны на весь дисплей, кнопки ≥ 48 dp, ничего не вылезает")
 		tree.quit(0)
@@ -254,13 +378,13 @@ static func _layout_step(tag: String, out: PackedStringArray) -> int:
 			var sheet := ActionSheet.new()
 			s.add_child(sheet)
 			sheet._build("Проверка шторки", PackedStringArray(["Первый", "Второй", "Третий"]))
-			await _frames(tree, 3)
+			await _settle(tree)
 			n += _check_sheet(sheet, tag, out)
 			sheet.close(-1)
 			var bots := Game.m.alive_bots()
 			if Game.m.player().alive and not bots.is_empty():
 				Nav.handle_intent(Intent.SAY, {"text": "%s, пойдём в сарай?" % bots[0].name}, s)
-				await _frames(tree, 3)
+				await _settle(tree)
 				n += _check(tag, out)
 			Nav.handle_intent(Intent.END_DAY, {}, s)
 		Match.Phase.VOTE:
@@ -272,7 +396,7 @@ static func _layout_step(tag: String, out: PackedStringArray) -> int:
 					if vs.result_shown:
 						break
 					await tree.process_frame
-				await _frames(tree, 3)
+				await _settle(tree)
 				n += _check(tag, out)
 			Nav.handle_intent(Intent.CONTINUE, {}, s)
 		Match.Phase.NIGHT:
@@ -291,7 +415,7 @@ static func _layout_step(tag: String, out: PackedStringArray) -> int:
 						if ds.result_shown:
 							break
 						await tree.process_frame
-					await _frames(tree, 3)
+					await _settle(tree)
 					n += _check(tag, out)
 					Nav.handle_intent(Intent.CONTINUE, {}, s)
 				_:
@@ -303,7 +427,7 @@ static func _layout_step(tag: String, out: PackedStringArray) -> int:
 				if ms.revealed:
 					break
 				await tree.process_frame
-			await _frames(tree, 3)
+			await _settle(tree)
 			n += _check(tag, out)
 			Nav.handle_intent(Intent.CONTINUE, {}, s)
 	return n
@@ -330,7 +454,7 @@ static func _check_doors(tag: String, out: PackedStringArray) -> int:
 		for g: Villager in seat.queue:
 			d.pleas[g.id] = "Открой, тут холодно и кто-то ходит за забором, слышишь?"
 		Nav.show(d)
-		await _frames(Nav.get_tree(), 3)
+		await _settle(Nav.get_tree())
 		n += _check(tag, out)
 	return n
 
@@ -350,6 +474,33 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 		out.append("%s: экран %s не растянут на область %s" % [w, s.size, Nav.host.size])
 	if s.scroll.size.y < vp.y * 0.3:
 		out.append("%s: под содержимое всего %d px из %d" % [w, int(s.scroll.size.y), int(vp.y)])
+	var ins := Nav.frame.insets
+	var safe := Rect2(ins.x, ins.y, vp.x - ins.x - ins.z, vp.y - ins.y - ins.w)
+	var hr := Nav.host.get_global_rect()
+	if hr.position.y < safe.position.y - 1.0 or hr.end.y > safe.end.y + 1.0:
+		out.append("%s: интерфейс заходит под вырез или жестовую панель (%d…%d, безопасно %d…%d)" % [
+			w, int(hr.position.y), int(hr.end.y), int(safe.position.y), int(safe.end.y)])
+	if s.field_ratio() > 0.0 and s.door_open() < 0.0:
+		var fld := s.field_rect_local()
+		fld.position += Nav.host.global_position
+		var band := Nav.village.band_global_rect()
+		if fld.size.y < vp.y * 0.18:
+			out.append("%s: поле схлопнуто (%d px)" % [w, int(fld.size.y)])
+		if Nav.village.modulate.a < 0.9:
+			out.append("%s: посёлок не виден" % w)
+		if absf(band.get_center().y - fld.get_center().y) > 3.0:
+			out.append("%s: посёлок не по центру своей области (%d vs %d)" % [w, int(band.get_center().y), int(fld.get_center().y)])
+		if band.size.y > fld.size.y + 3.0:
+			out.append("%s: дома не влезают в поле (%d > %d)" % [w, int(band.size.y), int(fld.size.y)])
+		if Nav.village.scale.x < MIN_FIELD_SCALE:
+			out.append("%s: дома мельче %d%% от задуманного (масштаб %.2f)" % [w, int(MIN_FIELD_SCALE * 100), Nav.village.scale.x])
+		if absf(band.get_center().x - vp.x * 0.5) > 2.0:
+			out.append("%s: посёлок не по центру по горизонтали" % w)
+		field_scales.append(Nav.village.scale.x)
+		if absf(Nav.scrim.top - fld.end.y) > 3.0:
+			out.append("%s: затемнение не у нижнего края поля (%d vs %d)" % [w, int(Nav.scrim.top), int(fld.end.y)])
+	elif Nav.village.modulate.a > 0.05:
+		out.append("%s: посёлок виден там, где должен быть скрыт" % w)
 	var fr := s.footer.get_global_rect()
 	if fr.end.y > vp.y + 1.0:
 		out.append("%s: нижние кнопки уходят за экран (%d > %d)" % [w, int(fr.end.y), int(vp.y)])
@@ -362,6 +513,14 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 				w, _label_of(c), int(r.position.x), int(r.end.x), int(vp.x)])
 		if c is BaseButton and r.size.y < MIN_TOUCH - 0.5:
 			out.append("%s: кнопка «%s» высотой %d px — меньше 48 dp" % [w, _label_of(c), int(r.size.y)])
+		if c is Button and (c as Button).text != "":
+			var b := c as Button
+			var f := b.get_theme_font("font")
+			var fs := b.get_theme_font_size("font_size")
+			var sb := b.get_theme_stylebox("normal")
+			var need := f.get_multiline_string_size(b.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + sb.get_margin(SIDE_LEFT) + sb.get_margin(SIDE_RIGHT)
+			if r.size.x + 1.0 < need:
+				out.append("%s: текст на кнопке обрезан: «%s» (%d px из нужных %d)" % [w, b.text.replace("\n", " ").left(30), int(r.size.x), int(need)])
 	return 1
 
 
@@ -409,3 +568,238 @@ static func _near(a: Vector2, b: Vector2) -> bool:
 static func _frames(tree: SceneTree, n: int) -> void:
 	for i in range(n):
 		await tree.process_frame
+
+
+
+# =============================================================
+# Жизненный цикл: сворачивание, возврат, «Назад», удержание экрана.
+# =============================================================
+static func lifecycle() -> void:
+	var tree := Nav.get_tree()
+	var root := tree.root
+	var fails: PackedStringArray = []
+	var passed := 0
+
+	Nav.show_menu()
+	await _frames(tree, 2)
+	passed += _expect(fails, not Game.screen_kept_on, "в меню экран не должен держаться включённым")
+
+	Nav.start_match()
+	await _frames(tree, 2)
+	passed += _expect(fails, Game.screen_kept_on, "в партии экран должен держаться включённым")
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _frames(tree, 3)
+
+	# 1. Свернули посреди дня — таймер стоит, вернулись — идёт
+	var before := Game.clock.time_left()
+	root.propagate_notification(Node.NOTIFICATION_APPLICATION_PAUSED)
+	await tree.create_timer(1.2).timeout
+	var during := Game.clock.time_left()
+	passed += _expect(fails, absf(before - during) < 0.05,
+		"день: таймер шёл, пока игра свёрнута (%.2f → %.2f)" % [before, during])
+	root.propagate_notification(Node.NOTIFICATION_APPLICATION_RESUMED)
+	await tree.create_timer(0.7).timeout
+	passed += _expect(fails, Game.clock.time_left() < during - 0.3, "день: после возврата таймер не пошёл")
+
+	# 2. Огромная дельта первого кадра после фона не сжигает таймер
+	var t := Game.clock.time_left()
+	Game.clock._process(120.0)
+	passed += _expect(fails, t - Game.clock.time_left() <= PhaseClock.MAX_STEP + 0.01,
+		"один кадр съел %.1f с таймера" % (t - Game.clock.time_left()))
+
+	# 3. «Назад» посреди партии — вопрос, таймер стоит; второе «Назад» — закрыть вопрос
+	root.propagate_notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	await _frames(tree, 3)
+	passed += _expect(fails, _sheet(Nav.host.current) != null, "«Назад» посреди партии не спросил «Бросить партию?»")
+	var b := Game.clock.time_left()
+	await tree.create_timer(0.8).timeout
+	passed += _expect(fails, absf(b - Game.clock.time_left()) < 0.05, "таймер шёл, пока открыт вопрос")
+	root.propagate_notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	await _frames(tree, 3)
+	passed += _expect(fails, _sheet(Nav.host.current) == null and Game.active(),
+		"второе «Назад» должно закрыть вопрос и оставить партию")
+	var b2 := Game.clock.time_left()
+	await tree.create_timer(0.6).timeout
+	passed += _expect(fails, Game.clock.time_left() < b2 - 0.3, "после закрытия вопроса таймер не пошёл")
+
+	# 4. Свернули посреди двери — таймер двери стоит
+	var door_ok := false
+	for attempt in range(40):
+		Nav.start_match()
+		Game.proceed()
+		Game.end_day()
+		if Game.m.phase == Match.Phase.VOTE:
+			Game.vote(-1)
+			Game.proceed()
+		if Game.m.phase != Match.Phase.NIGHT:
+			continue
+		Game.choose_house(0)
+		await _frames(tree, 2)
+		var role := Game.door_role() if Game.m.phase == Match.Phase.DOOR else Match.DoorRole.DEAD
+		if role != Match.DoorRole.HOST and role != Match.DoorRole.GUEST:
+			continue
+		var d0 := Game.clock.time_left()
+		root.propagate_notification(Node.NOTIFICATION_APPLICATION_PAUSED)
+		await tree.create_timer(1.0).timeout
+		passed += _expect(fails, absf(d0 - Game.clock.time_left()) < 0.05 and Game.m.phase == Match.Phase.DOOR,
+			"дверь: таймер шёл или дверь закрылась, пока игра свёрнута")
+		root.propagate_notification(Node.NOTIFICATION_APPLICATION_RESUMED)
+		await tree.create_timer(0.6).timeout
+		passed += _expect(fails, Game.clock.time_left() < d0 - 0.3, "дверь: после возврата таймер не пошёл")
+		door_ok = true
+		break
+	passed += _expect(fails, door_ok, "не удалось дойти до двери в роли хозяина или гостя")
+
+	# 5. «Выйти в меню» из вопроса — меню, партия брошена, экран снова гаснет
+	root.propagate_notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	await _frames(tree, 3)
+	var sh := _sheet(Nav.host.current)
+	if sh != null:
+		sh.close(1)
+	await _frames(tree, 3)
+	passed += _expect(fails, Nav.host.current is MenuScreen and not Game.active() and not Game.screen_kept_on,
+		"«Выйти в меню» должно вернуть в меню, бросить партию и отпустить экран")
+
+	# 6. «Назад» в настройках — сохранить и в меню
+	Nav.show_settings()
+	await _frames(tree, 2)
+	(Nav.host.current as SettingsScreen).haptics = false
+	root.propagate_notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	await _frames(tree, 3)
+	passed += _expect(fails, Nav.host.current is MenuScreen and not Save.haptics,
+		"«Назад» в настройках должно сохранить и вернуть в меню")
+	Save.set_settings(Save.config, true)
+
+	# 7. Итог партии — экран отпущен; «Назад» — в меню
+	Nav.start_match()
+	await _frames(tree, 2)
+	Game.m.winner = Match.Team.PEOPLE
+	Game.m.phase = Match.Phase.MORNING
+	Game.m.end_morning()
+	await _frames(tree, 3)
+	passed += _expect(fails, Nav.host.current is EndScreen and not Game.screen_kept_on,
+		"на итоге партии экран должен отпускаться")
+	root.propagate_notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	await _frames(tree, 3)
+	passed += _expect(fails, Nav.host.current is MenuScreen, "«Назад» на итоге должно вернуть в меню")
+
+	# 8. «Назад» в меню — только взводит выход, игра работает
+	root.propagate_notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	await _frames(tree, 2)
+	passed += _expect(fails, Nav._exit_armed and Nav.host.current is MenuScreen,
+		"первое «Назад» в меню должно только предупредить о выходе")
+
+	print("=== жизненный цикл: %d проверок ===" % (passed + fails.size()))
+	if fails.is_empty():
+		print("ИТОГ: OK — сворачивание, возврат, «Назад» и удержание экрана работают")
+		tree.quit(0)
+	else:
+		for f: String in fails:
+			print("  ✗ " + f)
+		print("ИТОГ: НАРУШЕНИЙ: %d" % fails.size())
+		tree.quit(1)
+
+
+static func _expect(fails: PackedStringArray, ok: bool, what: String) -> int:
+	if not ok:
+		fails.append(what)
+		return 0
+	return 1
+
+
+static func _sheet(s: Node) -> ActionSheet:
+	if s == null:
+		return null
+	for c: Node in s.get_children():
+		if c is ActionSheet and not (c as ActionSheet).is_queued_for_deletion():
+			return c
+	return null
+
+
+
+# =============================================================
+# Игровое поле (Task 4): посёлок на экране, туман движется, 30 fps в покое.
+# =============================================================
+static func field() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	var v := Nav.village
+
+	var vd := load("res://config/village_default.tres") as VillageDef
+	ok += _expect(fails, vd != null and vd.shelters.size() == 5 and vd.decor.size() >= 3 and vd.lamps.size() == 3,
+		"ресурс посёлка: ждём 5 убежищ, 3+ фоновых дома, 3 фонаря")
+	for i in range(mini(vd.shelters.size(), Match.HOUSES.size())):
+		ok += _expect(fails, vd.shelters[i].title == Match.HOUSES[i],
+			"убежище %d в ресурсе «%s», а в правилах «%s»" % [i, vd.shelters[i].title, Match.HOUSES[i]])
+
+	Nav.show_menu()
+	await _settle(tree)
+	ok += _expect(fails, v.modulate.a > 0.9, "в меню посёлок не виден")
+	ok += _expect(fails, v.open_shelters() == Save.config.shelters and v.boarded_shelters() == 5 - Save.config.shelters,
+		"открыто убежищ %d, заколочено %d — а по балансу открыто %d" % [v.open_shelters(), v.boarded_shelters(), Save.config.shelters])
+	ok += _expect(fails, v.fog().emitting and v.fog().amount >= 10 and v.fog().initial_velocity_min > 0.0,
+		"туман не идёт или стоит на месте")
+	ok += _expect(fails, v.dust().emitting, "пыль не летит")
+
+	var d0 := v.draws
+	await _frames(tree, 60)
+	ok += _expect(fails, v.draws - d0 <= 1, "посёлок перерисовывается в покое: %d раз за 60 кадров" % (v.draws - d0))
+	await tree.create_timer(1.8).timeout
+	ok += _expect(fails, Engine.max_fps == Juice.FPS_IDLE, "в покое %d fps вместо %d" % [Engine.max_fps, Juice.FPS_IDLE])
+
+	Nav.start_match()
+	await _settle(tree)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	ok += _expect(fails, Nav.host.current is DayScreen and absf(v.night - 0.12) < 0.02,
+		"днём посёлок должен быть дневным (ночь = %.2f)" % v.night)
+	Game.end_day()
+	await _settle(tree)
+	if Game.m.phase == Match.Phase.VOTE:
+		Game.vote(-1)
+		await _settle(tree)
+		Game.proceed()
+		await _settle(tree)
+	ok += _expect(fails, Nav.host.current is NightScreen and v.night > 0.95,
+		"ночью посёлок должен быть ночным (ночь = %.2f)" % v.night)
+	Game.choose_house(0)
+	await _settle(tree)
+	if Game.m != null and Game.m.phase == Match.Phase.DOOR:
+		ok += _expect(fails, v.modulate.a < 0.05, "у двери посёлок должен скрываться — там крупный план двери")
+
+	Nav.show_settings()
+	await _settle(tree)
+	ok += _expect(fails, v.modulate.a < 0.05, "в настройках посёлок должен быть скрыт")
+
+	var keep := Save.config.duplicate() as GameConfig
+	Save.set_settings(load("res://config/balance_10.tres") as GameConfig, Save.haptics)
+	Nav.start_match()
+	await _settle(tree)
+	ok += _expect(fails, v.open_shelters() == 3 and v.boarded_shelters() == 2,
+		"на 10 игроков ждём 3 открытых убежища, а открыто %d" % v.open_shelters())
+	Save.set_settings(keep, Save.haptics)
+
+	print("=== игровое поле: %d проверок ===" % (ok + fails.size()))
+	if fails.is_empty():
+		print("ИТОГ: OK — посёлок на экране, туман и пыль идут, в покое без перерисовки и 30 fps")
+		tree.quit(0)
+	else:
+		for f: String in fails:
+			print("  ✗ " + f)
+		print("ИТОГ: НАРУШЕНИЙ: %d" % fails.size())
+		tree.quit(1)
+
+
+## Дождаться, пока экран разложится и поле под него откадрируется.
+static func _settle(tree: SceneTree) -> void:
+	await _frames(tree, 3)
+	for i in range(30):
+		if Nav.field_screen == Nav.host.current:
+			break
+		await tree.process_frame
+	for i in range(150):
+		if Nav.host.current == null or not Nav.host.current.is_busy():
+			break
+		await tree.process_frame
+	await _frames(tree, 2)

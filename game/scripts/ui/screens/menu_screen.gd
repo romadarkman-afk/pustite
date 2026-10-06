@@ -6,12 +6,15 @@ func screen_id() -> String:
 	return "menu"
 
 
+func field_ratio() -> float:
+	return 0.4
+
+
 func mood() -> Vector2:
 	return Vector2(1.0, 1.2)
 
 
 func build() -> void:
-	body.add_child(W.gap(90))
 	var t := W.label("Пустите", &"Title")
 	t.add_theme_font_size_override("font_size", 74)
 	body.add_child(t)

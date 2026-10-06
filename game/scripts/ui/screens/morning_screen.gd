@@ -11,6 +11,14 @@ func screen_id() -> String:
 	return "morning"
 
 
+func is_busy() -> bool:
+	return not revealed
+
+
+func field_ratio() -> float:
+	return 0.32
+
+
 func title() -> String:
 	return "Утро"
 
@@ -64,26 +72,27 @@ func _reveal(r: NightReport) -> void:
 
 
 func _text(e: NightReport.Entry) -> String:
+	var v := e.who
 	var house := m.house_name(e.house) if e.house >= 0 else ""
+	var here := Ru.house_in(house)
 	match e.kind:
 		NightReport.Kind.KILLED_STREET:
-			return "%s не пустили в «%s». Найден на улице." % [e.who.name, house]
+			return "%s не пустили в «%s». %s" % [Ru.acc(v), house,
+				Ru.g(v, "Найден на улице.", "Найдена на улице.", "Вы погибли на улице.")]
 		NightReport.Kind.KILLED_ALONE:
-			return "%s остался один в «%s». Оберег погас." % [e.who.name, house]
+			return "%s в «%s». Оберег погас." % [Ru.g(v, "%s остался один" % v.name, "%s осталась одна" % v.name, "Вы остались одни"), here]
 		NightReport.Kind.KILLED_INSIDE:
-			var names := PackedStringArray()
-			for o: Villager in e.others:
-				names.append(o.name)
-			return "%s погиб в «%s». Ночь там провёл: %s." % [e.who.name, house, ", ".join(names)]
+			return "%s %s в «%s». Рядом %s: %s." % [Ru.nom(v), Ru.g(v, "погиб", "погибла", "погибли"), here,
+				Ru.were(e.others, "был", "была", "были"), Ru.join(e.others)]
 		NightReport.Kind.SURVIVED_STREET:
-			return "%s провёл ночь на улице. И вернулся." % e.who.name
+			return "%s %s ночь на улице. И %s." % [Ru.nom(v), Ru.g(v, "провёл", "провела", "провели"),
+				Ru.g(v, "вернулся", "вернулась", "вернулись")]
 		NightReport.Kind.SURVIVED_ALONE:
-			return "%s был один в «%s» — и цел." % [e.who.name, house]
+			return "%s в «%s» — и %s." % [Ru.g(v, "%s был один" % v.name, "%s была одна" % v.name, "Вы были одни"), here,
+				Ru.g(v, "цел", "цела", "целы")]
 		NightReport.Kind.CLEAN_ROOM:
-			var names2 := PackedStringArray()
-			for o: Villager in e.others:
-				names2.append(o.name)
-			return "В «%s» ночевали %s — все целы." % [house, " и ".join(names2)]
+			return "В «%s» ночевали %s — все целы." % [here, Ru.join(e.others)]
 		NightReport.Kind.LIAR:
-			return "%s говорил про «%s», а ночевал в «%s»." % [e.who.name, m.house_name(e.said_house), house]
+			return "%s %s про «%s», а %s в «%s»." % [Ru.nom(v), Ru.g(v, "говорил", "говорила", "говорили"),
+				m.house_name(e.said_house), Ru.g(v, "ночевал", "ночевала", "ночевали"), here]
 	return ""

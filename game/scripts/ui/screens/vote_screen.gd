@@ -10,6 +10,10 @@ func screen_id() -> String:
 	return "vote"
 
 
+func field_ratio() -> float:
+	return 0.3
+
+
 func title() -> String:
 	return "Изгнание"
 
@@ -54,7 +58,10 @@ func _select(vid: int, b: Button) -> void:
 func show_result(tally: Dictionary[int, int], exiled: Villager) -> void:
 	W.clear(body)
 	W.clear(footer)
-	var head := W.label("Ушёл %s" % exiled.name if exiled != null else "Никого не выгнали", &"Title")
+	var head_text := "Никого не выгнали"
+	if exiled != null:
+		head_text = Ru.g(exiled, "Ушёл %s" % exiled.name, "Ушла %s" % exiled.name, "Изгнали вас")
+	var head := W.label(head_text, &"Title")
 	head.add_theme_font_size_override("font_size", 44)
 	body.add_child(head)
 	Juice.haptic(Juice.Haptic.DEATH)

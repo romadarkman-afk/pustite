@@ -7,6 +7,10 @@ const BASE := Vector4(32, 36, 32, 28)   ## лево, верх, право, ни�
 const MAX_WIDTH := 760.0
 
 var _kb_was_open := false
+## Текущие поля безопасной зоны в пикселях вьюпорта: лево, верх, право, низ.
+var insets := Vector4.ZERO
+## Для самотестов: имитация выреза камеры и жестовой панели. -1 — брать с устройства.
+var debug_insets := Vector4(-1, -1, -1, -1)
 
 
 func _ready() -> void:
@@ -38,6 +42,10 @@ func refresh() -> void:
 		inset.y = safe.position.y * k
 		inset.z = (screen.x - safe.end.x) * k
 		inset.w = (screen.y - safe.end.y) * k
+
+	if debug_insets.x >= 0.0:
+		inset = debug_insets
+	insets = inset
 
 	var keyboard := 0.0
 	if DisplayServer.has_feature(DisplayServer.FEATURE_VIRTUAL_KEYBOARD):

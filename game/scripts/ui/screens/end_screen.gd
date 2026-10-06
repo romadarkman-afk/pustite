@@ -6,6 +6,10 @@ func screen_id() -> String:
 	return "end"
 
 
+func field_ratio() -> float:
+	return 0.28
+
+
 func title() -> String:
 	return "Разбор"
 

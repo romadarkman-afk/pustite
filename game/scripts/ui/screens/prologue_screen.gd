@@ -8,6 +8,14 @@ func screen_id() -> String:
 	return "prologue"
 
 
+func is_busy() -> bool:
+	return not revealed
+
+
+func field_ratio() -> float:
+	return 0.34
+
+
 func title() -> String:
 	return "Перед первой ночью"
 
@@ -18,7 +26,6 @@ func mood() -> Vector2:
 
 func build() -> void:
 	var you := m.player()
-	body.add_child(W.gap(40))
 	var pre := W.label("Твоя роль…", &"Small")
 	body.add_child(pre)
 	var role := W.label("Ты — упырь" if you.is_upyr else "Ты — человек", &"Title")

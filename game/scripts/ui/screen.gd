@@ -10,6 +10,7 @@ var director: Director
 var body: VBoxContainer
 var footer: VBoxContainer
 var scroll: ScrollContainer
+var field_spacer: Control
 var _clock: Label
 var _locked := false
 
@@ -32,6 +33,18 @@ func title() -> String:
 	return ""
 
 
+## Переопределяется: какая доля высоты экрана сверху отдана игровому полю. 0 — поле скрыто.
+func field_ratio() -> float:
+	return 0.0
+
+
+## Прямоугольник поля в координатах экрана (без учёта анимации появления).
+func field_rect_local() -> Rect2:
+	if field_spacer == null:
+		return Rect2()
+	return Rect2(field_spacer.position + (field_spacer.get_parent() as Control).position, field_spacer.size)
+
+
 ## Переопределяется: идентификатор для самотестов.
 func screen_id() -> String:
 	return "screen"
@@ -44,6 +57,12 @@ func mood() -> Vector2:
 
 func door_open() -> float:
 	return -1.0
+
+
+## Переопределяется: экран ещё раскрывается (построчный отчёт, появление роли).
+## Самотесты ждут, пока он закончит, и только потом меряют раскладку.
+func is_busy() -> bool:
+	return false
 
 
 ## Переопределяется: время фазы вышло. По умолчанию ничего.
@@ -127,6 +146,12 @@ func _chrome() -> void:
 		_clock.autowrap_mode = TextServer.AUTOWRAP_OFF
 		bar.add_child(_clock)
 		col.add_child(bar)
+
+	if field_ratio() > 0.0:
+		field_spacer = Control.new()
+		field_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col.add_child(field_spacer)
+		resized.connect(func() -> void: field_spacer.custom_minimum_size.y = floorf(size.y * field_ratio()))
 
 	scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL

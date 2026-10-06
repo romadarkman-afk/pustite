@@ -13,6 +13,7 @@ var m: Match
 var director: Director
 var host_pleas: Dictionary[int, String] = {}
 var clock: PhaseClock
+var screen_kept_on: bool = false
 var _feed_gen: int = 0
 
 
@@ -35,6 +36,7 @@ func start(cfg: GameConfig) -> void:
 	director = Director.new()
 	m.start(cfg)
 	director.attach(m)
+	_keep_screen(true)
 	m.phase_changed.connect(_on_phase)
 	m.chat_posted.connect(func(l: ChatLine) -> void: chat_line.emit(l))
 	_on_phase(m.phase)
@@ -48,6 +50,27 @@ func abandon() -> void:
 		m.phase_changed.disconnect(_on_phase)
 	m = null
 	director = null
+	_keep_screen(false)
+
+
+## Пауза партии по причине: &"background" — игра свёрнута, &"dialog" — открыт вопрос.
+## Таймер и реплики ботов стоят, пока есть хоть одна причина.
+func hold(reason: StringName) -> void:
+	clock.hold(reason)
+
+
+func release(reason: StringName) -> void:
+	clock.release(reason)
+
+
+func held() -> bool:
+	return clock.held()
+
+
+## Во время партии экран не гаснет, в меню и на итоге — гаснет как обычно.
+func _keep_screen(on: bool) -> void:
+	screen_kept_on = on
+	DisplayServer.screen_set_keep_on(on)
 
 
 # =============================================================
@@ -65,6 +88,7 @@ func _on_phase(p: Match.Phase) -> void:
 		Match.Phase.DOOR:
 			_prepare_door()
 		Match.Phase.OVER:
+			_keep_screen(false)
 			var you := m.player()
 			Save.record_result((m.winner == Match.Team.PEOPLE) != you.is_upyr, you.is_upyr)
 			phase_entered.emit(p)
@@ -205,6 +229,8 @@ func _feed(lines: Array[ChatLine]) -> void:
 	var gen := _feed_gen
 	for line: ChatLine in lines:
 		await Juice.wait(randf_range(0.7, 1.5))
+		while held() and gen == _feed_gen:
+			await get_tree().process_frame
 		if gen != _feed_gen or m == null or m.phase != Match.Phase.DAY:
 			return
 		m.post(line)

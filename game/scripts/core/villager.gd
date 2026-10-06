@@ -6,6 +6,7 @@ var id: int
 var name: String
 var is_player: bool
 var is_upyr: bool = false
+var female: bool = false            ## для согласования реплик: «был» / «была»
 var alive: bool = true
 var exiled: bool = false
 var fed: bool = false              ## поел прошлой ночью — этой не убивает

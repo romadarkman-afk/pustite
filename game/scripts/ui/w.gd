@@ -23,8 +23,11 @@ static func button(text: String, variation: StringName = &"Primary", min_h: int 
 	return b
 
 
+## Плашка с именем: ширина по тексту, имя никогда не обрезается.
+## (С обрезкой многоточием Godot считает минимальную ширину нулевой — плашка схлопывается.)
 static func chip(text: String, variation: StringName) -> Button:
 	var b := button(text, variation, ThemeFactory.TOUCH - 4)
+	b.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	return b
 

@@ -15,6 +15,7 @@ const NAMES: PackedStringArray = [
 	"Марина", "Тимур", "Лида", "Костя", "Женя", "Артур",
 	"Захар", "Рита", "Гриша", "Нина", "Вадим", "Полина",
 ]
+const FEMALE: PackedStringArray = ["Марина", "Лида", "Женя", "Рита", "Нина", "Полина"]
 const HOUSES: PackedStringArray = ["Дом у реки", "Сарай", "Церковь", "Погреб", "Гараж"]
 
 
@@ -149,7 +150,9 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	villagers.clear()
 	villagers.append(Villager.new(0, "Вы", true))
 	for i in range(config.players - 1):
-		villagers.append(Villager.new(i + 1, String(pool[i]), false))
+		var v := Villager.new(i + 1, String(pool[i]), false)
+		v.female = FEMALE.has(v.name)
+		villagers.append(v)
 
 	var order: Array = range(villagers.size())
 	_shuffle(order)
@@ -198,7 +201,7 @@ func apply_vote(tally: Dictionary[int, int]) -> Villager:
 		last_exiled = get_villager(leaders[rng.randi_range(0, leaders.size() - 1)])
 		last_exiled.alive = false
 		last_exiled.exiled = true
-		_log("День %d: посёлок изгнал %s." % [day, last_exiled.name])
+		_log("День %d: посёлок изгнал %s." % [day, "вас" if last_exiled.is_player else Ru.accusative(last_exiled.name)])
 	return last_exiled
 
 
@@ -262,14 +265,14 @@ func resolve_night() -> NightReport:
 			v.night_house = -1
 			if v.is_upyr:
 				r.add(NightReport.Kind.SURVIVED_STREET, v, s.house)
-				_log("Ночь %d: %s не пустили в «%s», но он(а) дожил(а) до утра." % [day, v.name, house_name(s.house)])
+				_log("Ночь %d: %s не пустили в «%s», но %s до утра." % [day, Ru.acc(v), house_name(s.house), Ru.g(v, "он дожил", "она дожила", "вы дожили")])
 			elif rng.randf() < p_out:
 				v.alive = false
 				r.add(NightReport.Kind.KILLED_STREET, v, s.house)
-				_log("Ночь %d: %s не пустили в «%s». Утром нашли на улице." % [day, v.name, house_name(s.house)])
+				_log("Ночь %d: %s не пустили в «%s». %s" % [day, Ru.acc(v), house_name(s.house), Ru.g(v, "Утром его нашли на улице.", "Утром её нашли на улице.", "Вы погибли на улице.")])
 			else:
 				r.add(NightReport.Kind.SURVIVED_STREET, v, s.house)
-				_log("Ночь %d: %s ночевал(а) на улице и выжил(а)." % [day, v.name])
+				_log("Ночь %d: %s %s на улице и %s." % [day, Ru.nom(v), Ru.g(v, "ночевал", "ночевала", "ночевали"), Ru.g(v, "выжил", "выжила", "выжили")])
 
 	# 2. Что было за дверьми
 	for s: Seat in seats:
@@ -281,7 +284,7 @@ func resolve_night() -> NightReport:
 			elif rng.randf() < p_out:
 				lone.alive = false
 				r.add(NightReport.Kind.KILLED_ALONE, lone, s.house)
-				_log("Ночь %d: %s остался(ась) один(на) в «%s». Оберег погас." % [day, lone.name, house_name(s.house)])
+				_log("Ночь %d: %s в «%s». Оберег погас." % [day, Ru.g(lone, lone.name + " остался один", lone.name + " осталась одна", "Вы остались одни"), Ru.house_in(house_name(s.house))])
 			else:
 				r.add(NightReport.Kind.SURVIVED_ALONE, lone, s.house)
 			continue
@@ -304,20 +307,20 @@ func resolve_night() -> NightReport:
 				if v != victim:
 					others.append(v)
 			r.add(NightReport.Kind.KILLED_INSIDE, victim, s.house, others)
-			_log("Ночь %d: %s погиб(ла) в «%s». Рядом был(и): %s." % [
-				day, victim.name, house_name(s.house), ", ".join(_names(others))])
+			_log("Ночь %d: %s %s в «%s». Рядом %s: %s." % [
+				day, Ru.nom(victim), Ru.g(victim, "погиб", "погибла", "погибли"), Ru.house_in(house_name(s.house)), Ru.were(others, "был", "была", "были"), Ru.join(others)])
 		else:
 			# все люди — или упырь сытый. Снаружи не отличить, и в этом весь смысл.
 			r.add(NightReport.Kind.CLEAN_ROOM, s.host, s.house, inside.duplicate())
-			_log("Ночь %d: в «%s» ночевали %s — все целы." % [day, house_name(s.house), " и ".join(_names(inside))])
+			_log("Ночь %d: в «%s» ночевали %s — все целы." % [day, Ru.house_in(house_name(s.house)), Ru.join(inside)])
 
 	# 3. Сказал одно — ночевал в другом месте
 	for v: Villager in villagers:
 		if v.announced_house >= 0 and v.night_house >= 0 and v.night_house != v.announced_house:
 			var e := r.add(NightReport.Kind.LIAR, v, v.night_house)
 			e.said_house = v.announced_house
-			_log("Ночь %d: %s говорил(а) про «%s», а ночевал(а) в «%s»." % [
-				day, v.name, house_name(v.announced_house), house_name(v.night_house)])
+			_log("Ночь %d: %s %s про «%s», а %s в «%s»." % [
+				day, Ru.nom(v), Ru.g(v, "говорил", "говорила", "говорили"), house_name(v.announced_house), Ru.g(v, "ночевал", "ночевала", "ночевали"), Ru.house_in(house_name(v.night_house))])
 
 	report = r
 	_settle_winner()
