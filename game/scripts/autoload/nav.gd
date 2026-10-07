@@ -61,6 +61,7 @@ func _ready() -> void:
 	_toast.offset_bottom = -200
 
 	Game.phase_entered.connect(_on_phase)
+	Game.marks_changed.connect(func() -> void: village.crowd.update_marks(Game.director, Game.m))
 	Game.chat_line.connect(_on_chat)
 	Game.clock_ticked.connect(func(s: int) -> void:
 		if host.current != null:
@@ -132,6 +133,23 @@ func show(s: Screen) -> void:
 	if s is MorningScreen:
 		(s as MorningScreen).death_fx.connect(atmos.blood_flash)
 	_frame_field(s)
+	if Game.m != null and s.hint_id() != "" and not Save.hint_seen(s.hint_id()):
+		s.show_hint()
+
+
+## Подсказка выполнила своё: игрок сделал то, о чём она говорила.
+const HINT_DONE := {
+	"day": [&"field_tap", &"accuse", &"invite", &"ask", &"defend", &"say"],
+	"night": [&"choose_house"],
+	"door": [&"admit", &"plea"],
+}
+
+
+func _hint_done(sender: Screen, action: StringName) -> void:
+	var id := sender.hint_id()
+	if id != "" and HINT_DONE.has(id) and (HINT_DONE[id] as Array).has(action):
+		Save.mark_hint(id)
+		sender.hide_hint()
 
 
 ## Кадрирование поля под экран. Ждём раскладку, затем плавно ведём камеру.
@@ -172,6 +190,7 @@ func _tween_to(obj: Object, prop: String, value: float, dur: float) -> void:
 func _on_phase(phase: Match.Phase) -> void:
 	if phase == Match.Phase.PROLOGUE:
 		village.crowd.populate(Game.m)
+		village.crowd.update_marks(Game.director, Game.m)
 	village.crowd.sync(Game.m, phase)
 	match phase:
 		Match.Phase.PROLOGUE:
@@ -209,14 +228,20 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 	if sender != host.current:
 		return
 	Diag.step("действие: %s" % action)
+	if action != Intent.FIELD_TAP:
+		_hint_done(sender, action)
 	match action:
 		Intent.START:
+			if data.get("reset_hints", false):
+				Save.reset_hints()
 			if data.has("cfg"):
 				Save.set_settings(data.cfg, data.haptics)
 			start_match()
 		Intent.OPEN_SETTINGS:
 			show_settings()
 		Intent.BACK:
+			if data.get("reset_hints", false):
+				Save.reset_hints()
 			if data.has("cfg"):
 				Save.set_settings(data.cfg, data.haptics)
 			show_menu()
@@ -246,6 +271,16 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			Game.admit(ids)
 		Intent.PLEA:
 			Game.plea(data.plea)
+		Intent.FIELD_TAP:
+			var vid := village.crowd.figure_at(data.pos)
+			if vid < 0 or Game.m == null:
+				return
+			var v := Game.m.get_villager(vid)
+			_hint_done(sender, action)
+			village.crowd.figures[vid].poke()
+			Juice.haptic(Juice.Haptic.TAP)
+			if v.alive and not v.is_player and sender is DayScreen:
+				(sender as DayScreen).person_actions(v)
 
 
 # =============================================================

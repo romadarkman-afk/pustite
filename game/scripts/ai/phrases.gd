@@ -154,6 +154,26 @@ const PLAYER_PLEAS := [
 	{"id": "beg", "label": "Просто умолять", "text": "Пожалуйста. Там не выжить."},
 ]
 
+## Быстрые фразы игрока: одно касание — и сказано. Фразы с домом засчитываются
+## как объявление, где вы ночуете.
+const PLAYER_QUICK_HOUSE := "Я ночую в «{house_in}». Кто со мной?"
+const PLAYER_QUICK := [
+	"Я не упырь. Клянусь.",
+	"Кто вернулся с улицы — тот и упырь.",
+	"Давайте держаться парами.",
+	"Кто врёт про ночлег, того и гоним.",
+]
+
+
+static func quick_for(m: Match) -> PackedStringArray:
+	var out := PackedStringArray()
+	for i in range(m.houses.size()):
+		out.append(fill(PLAYER_QUICK_HOUSE, {"house": m.houses[i]}))
+	for q: String in PLAYER_QUICK:
+		out.append(q)
+	return out
+
+
 static var _re_target: RegEx
 static var _re_speaker: RegEx
 

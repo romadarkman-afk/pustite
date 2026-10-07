@@ -11,6 +11,7 @@ var body: VBoxContainer
 var footer: VBoxContainer
 var scroll: ScrollContainer
 var field_spacer: Control
+var hint: Hint
 var _clock: Label
 var _locked := false
 
@@ -57,6 +58,51 @@ func mood() -> Vector2:
 
 func door_open() -> float:
 	return -1.0
+
+
+## Переопределяется: id подсказки новичку на этом экране ("" — без подсказки) и её текст.
+func hint_id() -> String:
+	return ""
+
+
+func hint_text() -> String:
+	return ""
+
+
+## Переопределяется: к чему указывает подсказка (координаты экрана) и встаёт ли она под этим местом.
+func hint_target() -> Rect2:
+	return Rect2(Vector2(size.x * 0.5, scroll.position.y + 40.0), Vector2.ZERO)
+
+
+func hint_below() -> bool:
+	return true
+
+
+func show_hint() -> void:
+	if hint != null or hint_text().is_empty():
+		return
+	if not is_inside_tree():
+		await ready
+	for i in range(3):
+		await get_tree().process_frame
+	if not is_instance_valid(self) or hint != null:
+		return
+	hint = Hint.new()
+	add_child(hint)
+	hint.setup(hint_text())
+	hint.place(hint_target(), minf(size.x, 520.0), hint_below())
+
+
+func hide_hint() -> void:
+	if hint != null:
+		var h := hint
+		hint = null
+		if Juice.instant:
+			h.queue_free()
+		else:
+			var t := Juice.tween()
+			t.tween_property(h, "modulate:a", 0.0, 0.2)
+			t.tween_callback(h.queue_free)
 
 
 ## Переопределяется: экран ещё раскрывается (построчный отчёт, появление роли).

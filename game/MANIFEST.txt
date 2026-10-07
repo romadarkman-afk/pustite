@@ -27,6 +27,7 @@ scripts/tests/self_test.gd
 scripts/ui/action_sheet.gd
 scripts/ui/atmosphere.gd
 scripts/ui/bubbles.gd
+scripts/ui/hint.gd
 scripts/ui/intent.gd
 scripts/ui/phase_clock.gd
 scripts/ui/safe_frame.gd

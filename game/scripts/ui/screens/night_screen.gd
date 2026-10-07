@@ -65,6 +65,26 @@ func build() -> void:
 		_select(me.announced_house, _rows[me.announced_house])
 
 
+func hint_id() -> String:
+	return "night" if m.player().alive else ""
+
+
+func hint_text() -> String:
+	return "Выберите дом. Порядок прихода случаен: кто добежит первым — тот и решает, кого впустить."
+
+
+func hint_target() -> Rect2:
+	if _rows.is_empty():
+		return super.hint_target()
+	var r := _rows[0].get_global_rect()
+	r.position -= get_global_rect().position
+	return r
+
+
+func hint_below() -> bool:
+	return false
+
+
 func _select(i: int, b: Button) -> void:
 	picked = i
 	for r: Button in _rows:

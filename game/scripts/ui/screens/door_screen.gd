@@ -29,6 +29,27 @@ func title() -> String:
 	return "У двери"
 
 
+func hint_id() -> String:
+	return "door"
+
+
+func hint_text() -> String:
+	match role:
+		Match.DoorRole.HOST:
+			return "Впустите того, кому верите. Не откроете никому — останетесь один, а одному не выжить."
+		Match.DoorRole.GUEST:
+			return "Выберите, что сказать через дверь. Хозяин помнит, ночевали ли вы уже вместе."
+	return "Одному здесь не выжить. В следующий раз днём позовите кого-нибудь с собой."
+
+
+func hint_target() -> Rect2:
+	return Rect2(Vector2(size.x * 0.5, footer.position.y - 10.0), Vector2.ZERO)
+
+
+func hint_below() -> bool:
+	return false
+
+
 func door_open() -> float:
 	return 0.05 if role != Match.DoorRole.GUEST else 0.012
 

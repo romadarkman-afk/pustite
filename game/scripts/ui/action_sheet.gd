@@ -23,6 +23,7 @@ func _build(title: String, options: PackedStringArray) -> void:
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.55)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_cover_screen(dim)
 	dim.gui_input.connect(func(e: InputEvent) -> void:
 		if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
 			close(-1))
@@ -59,3 +60,12 @@ func close(idx: int) -> void:
 	_done = true
 	chosen.emit(idx)
 	queue_free()
+
+
+
+## Затемнение на весь экран, а не только в пределах полей безопасной зоны.
+func _cover_screen(dim: Control) -> void:
+	dim.offset_left = -3000
+	dim.offset_top = -3000
+	dim.offset_right = 3000
+	dim.offset_bottom = 3000

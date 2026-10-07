@@ -9,6 +9,7 @@ const SCHEMA := 1
 
 var config: GameConfig
 var haptics: bool = true
+var hints_seen: Dictionary = {}       ## id подсказки -> true: больше не показывать
 var stats: Dictionary[String, int] = {
 	"games": 0, "wins": 0, "as_upyr": 0, "upyr_wins": 0,
 }
@@ -31,6 +32,9 @@ func load_all() -> void:
 		haptics = bool(cf.get_value("ui", "haptics", true))
 		for k: String in stats.keys():
 			stats[k] = int(cf.get_value("stats", k, 0))
+		hints_seen.clear()
+		for h: String in String(cf.get_value("hints", "seen", "")).split(",", false):
+			hints_seen[h] = true
 	Juice.haptics_enabled = haptics
 
 
@@ -59,4 +63,20 @@ func flush() -> void:
 	cf.set_value("ui", "haptics", haptics)
 	for k: String in stats.keys():
 		cf.set_value("stats", k, stats[k])
+	cf.set_value("hints", "seen", ",".join(PackedStringArray(hints_seen.keys())))
 	cf.save(SETTINGS_PATH)
+
+
+func hint_seen(id: String) -> bool:
+	return hints_seen.has(id)
+
+
+func mark_hint(id: String) -> void:
+	if not hints_seen.has(id):
+		hints_seen[id] = true
+		flush()
+
+
+func reset_hints() -> void:
+	hints_seen.clear()
+	flush()

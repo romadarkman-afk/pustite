@@ -4,6 +4,7 @@ extends Screen
 
 var cfg: GameConfig
 var haptics: bool = true
+var reset_hints: bool = false
 
 
 func screen_id() -> String:
@@ -67,13 +68,18 @@ func build() -> void:
 		Juice.haptics_enabled = haptics
 		hb.text = "Вибрация: %s" % ("включена" if haptics else "выключена"))
 	body.add_child(hb)
+	var hr := W.button("Подсказки покажутся заново" if reset_hints else "Показать подсказки заново", &"Row")
+	hr.pressed.connect(func() -> void:
+		reset_hints = true
+		hr.text = "Подсказки покажутся заново")
+	body.add_child(hr)
 	body.add_child(W.label(
 		"Пресеты проверены прогоном по 1500 партий: люди выигрывают 49–53%. Сильнее всего баланс двигают число убежищ и ночей.",
 		&"Small"))
 
 	var go := W.button("Начать с этими настройками")
-	go.pressed.connect(func() -> void: emit_intent(Intent.START, {"cfg": cfg, "haptics": haptics}))
+	go.pressed.connect(func() -> void: emit_intent(Intent.START, {"cfg": cfg, "haptics": haptics, "reset_hints": reset_hints}))
 	footer.add_child(go)
 	var back := W.button("Назад", &"Ghost")
-	back.pressed.connect(func() -> void: emit_intent(Intent.BACK, {"cfg": cfg, "haptics": haptics}))
+	back.pressed.connect(func() -> void: emit_intent(Intent.BACK, {"cfg": cfg, "haptics": haptics, "reset_hints": reset_hints}))
 	footer.add_child(back)

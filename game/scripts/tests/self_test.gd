@@ -32,6 +32,7 @@ static func grammar(cfg: GameConfig, games: int = 250) -> Dictionary:
 		m.start(cfg, 5000 + g)
 		d.attach(m)
 		m.begin_day()
+		texts.append_array(Phrases.quick_for(m))
 		while m.phase != Match.Phase.OVER:
 			match m.phase:
 				Match.Phase.DAY:
@@ -513,6 +514,12 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 				out.append("%s: житель %s за краем экрана (x=%d)" % [w, f.who, int(gp.x)])
 	elif Nav.village.modulate.a > 0.05:
 		out.append("%s: посёлок виден там, где должен быть скрыт" % w)
+	if s.hint != null and is_instance_valid(s.hint):
+		var hr2 := s.hint.card_rect_global()
+		if hr2.position.y < -1.0 or hr2.end.y > vp.y + 1.0 or hr2.position.x < -1.0 or hr2.end.x > vp.x + 1.0:
+			out.append("%s: подсказка за краем экрана (%s)" % [w, hr2])
+		if hr2.size.y > vp.y * 0.4:
+			out.append("%s: подсказка высотой %d px — больше 40%% экрана" % [w, int(hr2.size.y)])
 	var fr := s.footer.get_global_rect()
 	if fr.end.y > vp.y + 1.0:
 		out.append("%s: нижние кнопки уходят за экран (%d > %d)" % [w, int(fr.end.y), int(vp.y)])
@@ -863,10 +870,16 @@ static func field() -> void:
 			inside = false
 	ok += _expect(fails, inside, "кто-то из жителей стоит за пределами площади")
 
+	# дыхание: 8 замеров за секунду — размах масштаба тела. Два замера давали ложные провалы,
+	# когда попадали симметрично по разные стороны от вершины вдоха.
 	var probe: VillagerFigure = cr.figures[1]
-	var s0 := probe.body_scale()
-	await tree.create_timer(0.45).timeout
-	ok += _expect(fails, absf(probe.body_scale().y - s0.y) > 0.004, "жители не дышат (масштаб тела не меняется)")
+	var lo_b := 9.0
+	var hi_b := 0.0
+	for k in range(8):
+		await tree.create_timer(0.13).timeout
+		lo_b = minf(lo_b, probe.body_scale().y)
+		hi_b = maxf(hi_b, probe.body_scale().y)
+	ok += _expect(fails, hi_b - lo_b > 0.01, "жители не дышат (размах масштаба тела %.3f)" % (hi_b - lo_b))
 
 	Juice.instant = false
 	var target := probe.position + Vector2(70, 0)
@@ -1145,3 +1158,381 @@ static func bubbles() -> void:
 			print("  ✗ " + pr)
 		print("ИТОГ: НАРУШЕНИЙ: %d" % problems.size())
 		tree.quit(1)
+
+
+
+# =============================================================
+# Живое поле (Task 8): тап по жителю, глаз подозрения, значки улик, уговор.
+# =============================================================
+static func marks() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	Save.config = (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
+	Nav.start_match()
+	await _settle(tree)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	var cr := Nav.village.crowd
+	var day := Nav.host.current as DayScreen
+	var clean := true
+	for f: VillagerFigure in cr.figures.values():
+		if f.eye_level != 0 or not f.badges.is_empty():
+			clean = false
+	ok += _expect(fails, clean, "в начале партии у кого-то уже есть глаз или значки")
+
+	# зона касания
+	var small := false
+	for f: VillagerFigure in cr.figures.values():
+		var r := f.hit_rect_global()
+		if r.size.x < 84.0 or r.size.y < 84.0:
+			small = true
+	ok += _expect(fails, not small, "зона касания жителя меньше 84 px (48 dp)")
+
+	# тап по пустой земле и по себе — ничего
+	var fld := Nav.bubbles.field
+	Nav.handle_intent(Intent.FIELD_TAP, {"pos": fld.position + Vector2(6, 6)}, day)
+	await _frames(tree, 2)
+	ok += _expect(fails, _sheet(day) == null, "тап по пустому месту открыл шторку")
+	Nav.handle_intent(Intent.FIELD_TAP, {"pos": cr.figures[0].hit_rect_global().get_center()}, day)
+	await _frames(tree, 2)
+	ok += _expect(fails, _sheet(day) == null, "тап по своей фигурке открыл шторку действий")
+
+	# тап по жителю → шторка про него → обвинить → глаз изменился, ответил
+	var bots := Game.m.alive_bots()
+	var target: Villager = bots[0]
+	var before: int = cr.figures[target.id].eye_level
+	Nav.handle_intent(Intent.FIELD_TAP, {"pos": cr.figures[target.id].hit_rect_global().get_center()}, day)
+	await _frames(tree, 2)
+	var sh := _sheet(day)
+	var title_ok := false
+	if sh != null:
+		for c: Node in sh.get_children():
+			for l: Node in c.get_children():
+				for t in l.get_children():
+					if t is Label and (t as Label).text.begins_with(target.name):
+						title_ok = true
+	ok += _expect(fails, sh != null and title_ok, "тап по %s не открыл шторку с его именем" % target.name)
+	var chat_before := Game.m.chat.size()
+	if sh != null:
+		sh.close(0)
+	await _frames(tree, 4)
+	ok += _expect(fails, cr.figures[target.id].eye_level > before,
+		"обвинили %s — глаз не изменился (%d → %d)" % [Ru.accusative(target.name), before, cr.figures[target.id].eye_level])
+	var replied := false
+	for i in range(chat_before, Game.m.chat.size()):
+		if Game.m.chat[i].speaker == target:
+			replied = true
+	ok += _expect(fails, replied, "обвинённый %s не ответил" % target.name)
+
+	# позвать с собой — кто-нибудь согласится; кольцо уговора; ночью вместе к одной двери
+	var partner: Villager = null
+	for b: Villager in bots:
+		if b == target:
+			continue
+		Nav.handle_intent(Intent.FIELD_TAP, {"pos": cr.figures[b.id].hit_rect_global().get_center()}, day)
+		await _frames(tree, 2)
+		var s1 := _sheet(day)
+		if s1 == null:
+			continue
+		s1.close(1)
+		await _frames(tree, 2)
+		var s2 := _sheet(day)
+		if s2 == null:
+			continue
+		s2.close(0)
+		await _frames(tree, 4)
+		if Game.director.brains[b.id].pact_id == 0:
+			partner = b
+			break
+	ok += _expect(fails, partner != null, "никто из жителей не согласился ночевать вместе")
+	if partner != null:
+		ok += _expect(fails, cr.figures[partner.id].pact, "над %s нет кольца уговора" % partner.name)
+		Game.end_day()
+		await _settle(tree)
+		if Game.m.phase == Match.Phase.VOTE:
+			Game.vote(-1)
+			await _settle(tree)
+			Game.proceed()
+			await _settle(tree)
+		var spots := cr.door_spots(0, 2, [])
+		var me_pos: Vector2 = cr.figures[0].position
+		var p_pos: Vector2 = cr.figures[partner.id].position
+		var at_door := me_pos.distance_to(cr.view.def.shelters[0].pos) < 120.0 and p_pos.distance_to(cr.view.def.shelters[0].pos) < 160.0
+		ok += _expect(fails, at_door, "ночью вы и %s не пошли к одному дому" % partner.name)
+		Game.choose_house(0)
+		await _settle(tree)
+		var same := false
+		for seat: Match.Seat in Game.m.seats:
+			var inn := seat.inside() + seat.queue
+			if inn.has(Game.m.player()) and inn.has(partner):
+				same = true
+		ok += _expect(fails, same, "ночью %s не пришёл к той же двери, что и вы" % partner.name)
+		if Game.m.phase == Match.Phase.DOOR:
+			if Game.door_role() == Match.DoorRole.GUEST:
+				Game.plea("beg")
+				await _settle(tree)
+				Game.proceed()
+			else:
+				var none: Array[int] = []
+				Game.admit(none)
+			await _settle(tree)
+
+	# после ночи значки совпадают с отчётом
+	if Game.m != null and Game.m.report != null:
+		var wrong := PackedStringArray()
+		for e: NightReport.Entry in Game.m.report.entries:
+			var want := ""
+			var who: Array[Villager] = []
+			match e.kind:
+				NightReport.Kind.SURVIVED_STREET:
+					want = "street"
+					who = [e.who]
+				NightReport.Kind.LIAR:
+					want = "liar"
+					who = [e.who]
+				NightReport.Kind.KILLED_INSIDE:
+					want = "death"
+					who = e.others
+			for v: Villager in who:
+				if v.alive and cr.figures.has(v.id) and not cr.figures[v.id].badges.has(want) and cr.figures[v.id].badges.size() < 2:
+					wrong.append("%s без значка %s" % [v.name, want])
+		ok += _expect(fails, wrong.is_empty(), "значки не совпали с отчётом ночи: %s" % ", ".join(wrong))
+
+	print("=== живое поле: %d проверок ===" % (ok + fails.size()))
+	if fails.is_empty():
+		print("ИТОГ: OK — тап по жителю, глаз подозрения, значки улик и уговор работают")
+		tree.quit(0)
+	else:
+		for f: String in fails:
+			print("  ✗ " + f)
+		print("ИТОГ: НАРУШЕНИЙ: %d" % fails.size())
+		tree.quit(1)
+
+
+
+# =============================================================
+# Ввод (Task 9): быстрые фразы и своё поле. Клавиатура не закрывает ввод.
+# =============================================================
+static func input() -> void:
+	var tree := Nav.get_tree()
+	var problems: PackedStringArray = []
+	var checks := 0
+	var profiles: Array[Array] = []
+	for sz: Vector2i in LAYOUT_SIZES:
+		profiles.append([sz, Vector4(-1, -1, -1, -1)])
+	profiles.append_array(LAYOUT_CUTOUTS)
+	for prof: Array in profiles:
+		var sz: Vector2i = prof[0]
+		Nav.frame.debug_insets = prof[1]
+		Nav.frame.debug_keyboard = -1.0
+		tree.root.size = sz
+		await _frames(tree, 3)
+		Nav.frame.refresh()
+		Nav.start_match()
+		await _settle(tree)
+		Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+		await _settle(tree)
+		var tag := "%d×%d" % [sz.x, sz.y]
+		var day := Nav.host.current as DayScreen
+		var vp := Nav.frame.get_viewport_rect().size
+
+		day._write_flow()
+		await _frames(tree, 3)
+		var ts := _text_sheet(day)
+		checks += 1
+		if ts == null:
+			problems.append("%s: «Сказать…» не открыло окно" % tag)
+			continue
+		var chips: Array[Button] = []
+		for c: Node in ts.quick_box.get_children():
+			if c is Button:
+				chips.append(c)
+		if chips.size() < 5:
+			problems.append("%s: быстрых фраз %d, ждём не меньше 5" % [tag, chips.size()])
+		for b: Button in chips:
+			var r := b.get_global_rect()
+			var f := b.get_theme_font("font")
+			var need := f.get_string_size(b.text, HORIZONTAL_ALIGNMENT_LEFT, -1, b.get_theme_font_size("font_size")).x
+			if r.size.x + 1.0 < need or r.end.x > vp.x + 1.0 or r.position.x < -1.0 or r.size.y < MIN_TOUCH - 0.5:
+				problems.append("%s: быстрая фраза «%s» обрезана, мала или за краем" % [tag, b.text.left(24)])
+		# фраза с домом: сказано и засчитано как объявление ночлега
+		var house_text := chips[0].text if not chips.is_empty() else ""
+		if not chips.is_empty():
+			chips[0].pressed.emit()
+			await _frames(tree, 3)
+			var said := false
+			for l: ChatLine in Game.m.chat:
+				if l.kind == ChatLine.Kind.MINE and l.text == house_text:
+					said = true
+			if not said:
+				problems.append("%s: быстрая фраза не попала в чат" % tag)
+			if Game.m.player().announced_house != 0:
+				problems.append("%s: «%s» не засчиталось как ночлег (дом %d)" % [tag, house_text, Game.m.player().announced_house])
+		# клавиатура: поле и «Сказать» над ней, фразы спрятаны
+		day._write_flow()
+		await _frames(tree, 3)
+		ts = _text_sheet(day)
+		if ts != null:
+			ts.field.grab_focus()
+			var kb := roundf(vp.y * 0.42)
+			Nav.frame.debug_keyboard = kb
+			Nav.frame.refresh()
+			await _frames(tree, 4)
+			checks += 1
+			var fr := ts.field.get_global_rect()
+			var sr := ts.send_button.get_global_rect()
+			if fr.end.y > vp.y - kb + 1.0 or sr.end.y > vp.y - kb + 1.0:
+				problems.append("%s: клавиатура закрывает ввод (низ поля %d, кнопки %d, клавиатура с %d)" % [tag, int(fr.end.y), int(sr.end.y), int(vp.y - kb)])
+			if fr.position.y < 0.0:
+				problems.append("%s: поле ввода уехало за верх экрана" % tag)
+			if ts.quick_box.visible:
+				problems.append("%s: при открытой клавиатуре быстрые фразы не спрятались" % tag)
+			ts.close("")
+			Nav.frame.debug_keyboard = -1.0
+			Nav.frame.refresh()
+			await _frames(tree, 2)
+	Nav.frame.debug_insets = Vector4(-1, -1, -1, -1)
+	Nav.frame.debug_keyboard = -1.0
+	print("=== ввод: %d проверок на %d типах экранов ===" % [checks, profiles.size()])
+	if problems.is_empty():
+		print("ИТОГ: OK — быстрые фразы работают, клавиатура не закрывает ввод")
+		tree.quit(0)
+	else:
+		for pr: String in problems.slice(0, 25):
+			print("  ✗ " + pr)
+		print("ИТОГ: НАРУШЕНИЙ: %d" % problems.size())
+		tree.quit(1)
+
+
+static func _text_sheet(s: Node) -> TextSheet:
+	for c: Node in s.get_children():
+		if c is TextSheet and not c.is_queued_for_deletion():
+			return c
+	return null
+
+
+# =============================================================
+# Подсказки новичку (Task 10): три штуки, исчезают после действия, не возвращаются.
+# =============================================================
+static func hints() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+	Save.hints_seen.clear()
+	var shown: Dictionary = {}
+	var vp := Nav.frame.get_viewport_rect().size
+
+	var door_seen := false
+	for attempt in range(25):
+		Nav.start_match()
+		await _settle(tree)
+		ok += _expect(fails, Nav.host.current.hint == null, "в прологе не должно быть подсказки")
+		Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+		await _settle(tree)
+		await _frames(tree, 5)
+		var day := Nav.host.current as DayScreen
+		if not Save.hint_seen("day"):
+			ok += _check_hint(day, "day", vp, fails)
+			shown["day"] = true
+			var bots := Game.m.alive_bots()
+			Nav.handle_intent(Intent.FIELD_TAP, {"pos": Nav.village.crowd.figures[bots[0].id].hit_rect_global().get_center()}, day)
+			await _frames(tree, 3)
+			var sh := _sheet(day)
+			if sh != null:
+				sh.close(-1)
+			await _frames(tree, 2)
+			ok += _expect(fails, day.hint == null and Save.hint_seen("day"), "дневная подсказка не исчезла после тапа по жителю")
+		else:
+			ok += _expect(fails, day.hint == null, "дневная подсказка вернулась после того, как её выполнили")
+		Game.end_day()
+		await _settle(tree)
+		if Game.m.phase == Match.Phase.VOTE:
+			Game.vote(-1)
+			await _settle(tree)
+			Game.proceed()
+			await _settle(tree)
+		await _frames(tree, 5)
+		var night := Nav.host.current as NightScreen
+		if night != null and Game.m.player().alive:
+			if not Save.hint_seen("night"):
+				ok += _check_hint(night, "night", vp, fails)
+				shown["night"] = true
+				Nav.handle_intent(Intent.CHOOSE_HOUSE, {"house": 0}, night)
+				await _settle(tree)
+				ok += _expect(fails, Save.hint_seen("night"), "ночная подсказка не засчиталась после выбора дома")
+			else:
+				ok += _expect(fails, night.hint == null, "ночная подсказка вернулась")
+				Nav.handle_intent(Intent.CHOOSE_HOUSE, {"house": 0}, night)
+				await _settle(tree)
+		await _frames(tree, 5)
+		if Game.m != null and Game.m.phase == Match.Phase.DOOR and Nav.host.current is DoorScreen:
+			var ds := Nav.host.current as DoorScreen
+			if not Save.hint_seen("door"):
+				ok += _check_hint(ds, "door", vp, fails)
+				shown["door"] = true
+				if ds.role == Match.DoorRole.GUEST:
+					Nav.handle_intent(Intent.PLEA, {"plea": "beg"}, ds)
+				else:
+					var none: Array[int] = []
+					Nav.handle_intent(Intent.ADMIT, {"ids": none}, ds)
+				await _frames(tree, 3)
+				ok += _expect(fails, Save.hint_seen("door"), "подсказка у двери не засчиталась после решения")
+				door_seen = true
+		if shown.size() == 3:
+			break
+	ok += _expect(fails, door_seen and shown.size() == 3, "показано подсказок: %s — ждём день, ночь и дверь" % ", ".join(PackedStringArray(shown.keys())))
+
+	# перезапуск: увиденные подсказки не возвращаются
+	Save.flush()
+	Save.load_all()
+	ok += _expect(fails, Save.hint_seen("day") and Save.hint_seen("night") and Save.hint_seen("door"),
+		"после перезапуска подсказки забылись")
+	Nav.start_match()
+	await _settle(tree)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	await _frames(tree, 5)
+	ok += _expect(fails, Nav.host.current.hint == null, "подсказка вернулась в новой партии")
+
+	# сброс через настройки
+	Nav.show_settings()
+	await _settle(tree)
+	var st := Nav.host.current as SettingsScreen
+	Nav.handle_intent(Intent.BACK, {"cfg": st.cfg, "haptics": st.haptics, "reset_hints": true}, st)
+	await _settle(tree)
+	ok += _expect(fails, not Save.hint_seen("day") and not Save.hint_seen("night") and not Save.hint_seen("door"),
+		"кнопка «Показать подсказки заново» не сбросила подсказки")
+
+	print("=== подсказки: %d проверок ===" % (ok + fails.size()))
+	if fails.is_empty():
+		print("ИТОГ: OK — три подсказки, исчезают после действия и не возвращаются")
+		tree.quit(0)
+	else:
+		for f: String in fails:
+			print("  ✗ " + f)
+		print("ИТОГ: НАРУШЕНИЙ: %d" % fails.size())
+		tree.quit(1)
+
+
+static func _check_hint(s: Screen, id: String, vp: Vector2, fails: PackedStringArray) -> int:
+	var n := 0
+	n += _expect(fails, s.hint != null and is_instance_valid(s.hint), "подсказка «%s» не показалась" % id)
+	if s.hint == null:
+		return n
+	var r := s.hint.card_rect_global()
+	n += _expect(fails, r.position.x >= -1.0 and r.end.x <= vp.x + 1.0 and r.position.y >= -1.0 and r.end.y <= vp.y + 1.0,
+		"подсказка «%s» за краем экрана: %s" % [id, r])
+	n += _expect(fails, not s.hint.text.is_empty() and r.size.y > 30.0, "подсказка «%s» пустая" % id)
+	n += _expect(fails, r.size.y < vp.y * 0.4, "подсказка «%s» высотой %d px — больше 40%% экрана" % [id, int(r.size.y)])
+	var lr := s.hint.text_rect_global()
+	n += _expect(fails, r.grow(1.0).encloses(lr), "текст подсказки «%s» вылезает из карточки (текст %s, карточка %s)" % [id, lr, r])
+	var blocks := false
+	for c: Control in _controls(s.hint) + ([s.hint] as Array[Control]):
+		if c.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+			blocks = true
+	n += _expect(fails, not blocks, "подсказка «%s» перехватывает касания" % id)
+	return n

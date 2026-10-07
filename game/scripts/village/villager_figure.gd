@@ -21,6 +21,12 @@ var _blink_in: float = 2.0
 var _eyes_closed := false
 var _font: Font
 var _tw: Tween
+var eye_level: int = 0
+var badges: PackedStringArray = []
+var pact: bool = false
+var _eye_pop: float = 0.0
+
+const MARK_X := 24.0       ## колонка отметок справа от головы
 
 
 func setup(name: String, l: LookDef, player: bool) -> void:
@@ -64,7 +70,37 @@ func label_rect_local() -> Rect2:
 
 func body_rect_local() -> Rect2:
 	var h := look.height if look != null else 1.0
-	return Rect2(-14, -54 * h, 28, 56 * h)
+	return Rect2(-14, -54 * h, 28 + MARK_X, 56 * h)
+
+
+## Зона касания в координатах экрана: не меньше 84×108 px (≈ 48 dp), даже если фигурка мелкая.
+func hit_rect_global() -> Rect2:
+	var c := get_global_transform_with_canvas() * Vector2(4, -26)
+	var sc := get_global_transform_with_canvas().get_scale().x
+	var half := Vector2(maxf(42.0, 30.0 * sc), maxf(54.0, 40.0 * sc))
+	return Rect2(c - half, half * 2.0)
+
+
+func set_marks(level: int, b: PackedStringArray, has_pact: bool) -> void:
+	var grew := level > eye_level
+	eye_level = level
+	badges = b
+	pact = has_pact
+	queue_redraw()
+	if grew and not Juice.instant:
+		var t := create_tween()
+		t.tween_method(func(v: float) -> void:
+			_eye_pop = v
+			queue_redraw(), 1.0, 0.0, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+## Отклик на тап: короткий подскок.
+func poke() -> void:
+	if state != State.IDLE or Juice.instant:
+		return
+	var t := create_tween()
+	t.tween_property(body, "scale", Vector2(_face * 1.16, 0.84), 0.06)
+	t.tween_property(body, "scale", Vector2(_face, 1.0), 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 func _global_rect(r: Rect2) -> Rect2:
@@ -198,9 +234,63 @@ func _draw() -> void:
 		draw_circle(Vector2(0, -17), 8.0, stone)
 		draw_line(Vector2(0, -22), Vector2(0, -8), Color("2a3236"), 2.0)
 		draw_line(Vector2(-4, -17), Vector2(4, -17), Color("2a3236"), 2.0)
+	if state != State.DEAD:
+		_draw_marks()
 	var col := ThemeFactory.LAMP if is_player else Color(ThemeFactory.BONE, 0.9 if state != State.DEAD else 0.45)
 	draw_string(_font, Vector2(-55, 17), who, HORIZONTAL_ALIGNMENT_CENTER, 110, LABEL_SIZE, Color(0, 0, 0, 0.65))
 	draw_string(_font, Vector2(-55, 16), who, HORIZONTAL_ALIGNMENT_CENTER, 110, LABEL_SIZE, col)
+
+
+const EYE_COLORS := [Color(0, 0, 0, 0), Color("8fa3ab"), Color("d9a24e"), Color("d0683a"), Color("c23a33")]
+
+
+func _draw_marks() -> void:
+	if pact:
+		var ring := _ellipse(Vector2(0, 2), Vector2(17, 6.5), 22)
+		ring.append(ring[0])
+		draw_polyline(ring, Color(ThemeFactory.LAMP, 0.85), 2.0)
+	var bg := Color(ThemeFactory.NIGHT, 0.8)
+	if eye_level > 0:
+		var c := Vector2(MARK_X, -44)
+		var s := 1.0 + 0.5 * _eye_pop
+		var col: Color = EYE_COLORS[clampi(eye_level, 0, 4)]
+		draw_circle(c, 11.0 * s, bg)
+		var open := (2.5 + eye_level * 1.1) * s
+		var pts := PackedVector2Array()
+		for i in range(9):
+			var t := float(i) / 8.0
+			pts.append(c + Vector2((t - 0.5) * 18.0 * s, -sin(t * PI) * open))
+		for i in range(7, 0, -1):
+			var t := float(i) / 8.0
+			pts.append(c + Vector2((t - 0.5) * 18.0 * s, sin(t * PI) * open))
+		draw_colored_polygon(pts, Color(col, 0.25))
+		var outline := pts.duplicate()
+		outline.append(pts[0])
+		draw_polyline(outline, col, 1.6)
+		draw_circle(c, minf(open, 2.2 + eye_level * 0.6), col)
+		draw_circle(c, 1.2 * s, Color("0d1214"))
+	var y := -25.0
+	for b: String in badges.slice(0, 2):
+		var accent := ThemeFactory.LAMP
+		match b:
+			"liar": accent = Color("e0533f")
+			"death": accent = Color("e0533f")
+		var r := Rect2(MARK_X - 9.0, y - 9.0, 18.0, 18.0)
+		draw_rect(r, Color(ThemeFactory.NIGHT, 0.9))
+		draw_rect(r, Color(accent, 0.9), false, 1.2)
+		match b:
+			"street":
+				draw_colored_polygon(_ellipse(Vector2(MARK_X - 3.2, y + 2.5), Vector2(2.6, 4.2), 10), ThemeFactory.LAMP)
+				draw_colored_polygon(_ellipse(Vector2(MARK_X + 3.2, y - 3.0), Vector2(2.6, 4.2), 10), ThemeFactory.LAMP)
+			"liar":
+				var hc := ThemeFactory.BONE
+				draw_polyline(PackedVector2Array([Vector2(MARK_X - 5.5, y + 5.5), Vector2(MARK_X - 5.5, y - 1), Vector2(MARK_X, y - 6.5),
+					Vector2(MARK_X + 5.5, y - 1), Vector2(MARK_X + 5.5, y + 5.5), Vector2(MARK_X - 5.5, y + 5.5)]), hc, 1.6)
+				draw_line(Vector2(MARK_X - 7, y + 7), Vector2(MARK_X + 7, y - 7), accent, 2.2)
+			"death":
+				draw_circle(Vector2(MARK_X, y + 2.5), 4.6, accent)
+				draw_colored_polygon(PackedVector2Array([Vector2(MARK_X - 4.2, y + 1), Vector2(MARK_X + 4.2, y + 1), Vector2(MARK_X, y - 7)]), accent)
+		y += 19.0
 
 
 func _draw_body() -> void:

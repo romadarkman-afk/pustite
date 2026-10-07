@@ -12,6 +12,8 @@ var _last_kb := 0.0
 var insets := Vector4.ZERO
 ## Для самотестов: имитация выреза камеры и жестовой панели. -1 — брать с устройства.
 var debug_insets := Vector4(-1, -1, -1, -1)
+## Для самотестов: высота экранной клавиатуры в px вьюпорта. -1 — брать с устройства.
+var debug_keyboard := -1.0
 
 
 func _ready() -> void:
@@ -54,6 +56,8 @@ func refresh() -> void:
 		if absf(keyboard - _last_kb) > 1.0:
 			_last_kb = keyboard
 			Diag.step("клавиатура: %d px" % int(keyboard))
+	if debug_keyboard >= 0.0:
+		keyboard = debug_keyboard
 	var side := maxf(0.0, (vp.x - MAX_WIDTH) * 0.5)
 
 	add_theme_constant_override("margin_left", int(BASE.x + maxf(inset.x, side)))

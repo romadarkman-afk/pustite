@@ -25,9 +25,15 @@ func mood() -> Vector2:
 	return Vector2(0.12, 0.25)
 
 
+var _press: Vector2 = Vector2.INF
+
+
 func build() -> void:
 	Diag.step("день-экран: сборка")
-	body.add_child(people_strip(_person_actions))
+	if field_spacer != null:
+		field_spacer.mouse_filter = Control.MOUSE_FILTER_STOP
+		field_spacer.gui_input.connect(_on_field_input)
+	body.add_child(people_strip(person_actions))
 	chat_box = W.vbox(12)
 	body.add_child(chat_box)
 	for line: ChatLine in m.chat.slice(maxi(0, m.chat.size() - MAX_BUBBLES)):
@@ -52,7 +58,7 @@ func build() -> void:
 	footer.add_child(quick)
 
 	var row := W.hbox(8)
-	var write := W.button("Написать своё…", &"Row")
+	var write := W.button("Сказать…", &"Row")
 	write.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	write.pressed.connect(_write_flow)
 	row.add_child(write)
@@ -61,6 +67,19 @@ func build() -> void:
 	ready_btn.pressed.connect(func() -> void: commit(Intent.END_DAY))
 	row.add_child(ready_btn)
 	footer.add_child(row)
+
+
+func hint_id() -> String:
+	return "day"
+
+
+func hint_text() -> String:
+	return "Нажмите на жителя на площади — обвинить, позвать с собой или спросить, где ночует."
+
+
+func hint_target() -> Rect2:
+	var f := field_rect_local()
+	return Rect2(Vector2(f.get_center().x, f.end.y - 30.0), Vector2.ZERO)
 
 
 func on_clock_expired() -> void:
@@ -100,7 +119,7 @@ func _bubble(line: ChatLine) -> Control:
 
 
 func _write_flow() -> void:
-	var t: String = await TextSheet.ask(self, "Сказать вслух")
+	var t: String = await TextSheet.ask(self, "Сказать вслух", Phrases.quick_for(m))
 	if not t.is_empty():
 		emit_intent(Intent.SAY, {"text": t})
 
@@ -109,8 +128,21 @@ func _defend() -> void:
 	emit_intent(Intent.DEFEND)
 
 
-func _person_actions(v: Villager) -> void:
-	var i: int = await ActionSheet.ask(self, v.name, PackedStringArray([
+## Тап по полю: короткое касание без сдвига — это выбор жителя, а не прокрутка.
+func _on_field_input(e: InputEvent) -> void:
+	if e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		var mb := e as InputEventMouseButton
+		if mb.pressed:
+			_press = mb.position
+		elif _press != Vector2.INF and mb.position.distance_to(_press) < 24.0:
+			emit_intent(Intent.FIELD_TAP, {"pos": field_spacer.get_global_rect().position + mb.position})
+			_press = Vector2.INF
+
+
+func person_actions(v: Villager) -> void:
+	var ev := director.evidence_text(v) if director != null else ""
+	var head := v.name if ev.is_empty() else "%s · %s" % [v.name, ev]
+	var i: int = await ActionSheet.ask(self, head, PackedStringArray([
 		"Обвинить: «Это %s»" % v.name,
 		"Позвать с собой на ночь",
 		"Спросить, где ночует",

@@ -49,6 +49,7 @@ const ROW_FRONT := 64.0
 const ROW_BACK := -12.0
 const WELL_GAP := 50.0
 const GAP := 12.0
+const MIN_W := 50.0        ## место под фигурку и колонку отметок справа от головы
 ## Ночью у двери: шаг шире самого длинного имени, ряды не налезают.
 const QUEUE_COL := 66.0
 const QUEUE_ROW := 78.0
@@ -56,7 +57,7 @@ const QUEUE_ROW := 78.0
 
 ## Прямоугольник, который занимает житель с именем шириной w: тело и подпись.
 static func slot_rect(p: Vector2, w: float) -> Rect2:
-	var ww := maxf(w, 28.0)
+	var ww := maxf(w, MIN_W)
 	return Rect2(p.x - ww * 0.5, p.y - 56.0, ww, 78.0)
 
 
@@ -97,7 +98,7 @@ func layout_day(widths: Array[float]) -> Array[Vector2]:
 	out.resize(widths.size())
 	if widths.is_empty():
 		return out
-	var w0 := maxf(widths[0], 28.0) + GAP
+	var w0 := maxf(widths[0], MIN_W) + GAP
 	out[0] = Vector2(c.x, a_y)
 	var a_left := c.x - w0 * 0.5
 	var a_right := c.x + w0 * 0.5
@@ -110,7 +111,7 @@ func layout_day(widths: Array[float]) -> Array[Vector2]:
 	var b_open := [true, true]
 	var side := 1
 	for i in range(1, widths.size()):
-		var w := maxf(widths[i], 28.0) + GAP
+		var w := maxf(widths[i], MIN_W) + GAP
 		var placed := false
 		for attempt in range(2):
 			var sd := side if attempt == 0 else -side
@@ -166,10 +167,20 @@ func layout_day(widths: Array[float]) -> Array[Vector2]:
 ## внутрь экрана. У домов перед площадью очередь стоит сбоку — иначе ушла бы за нижний край.
 ## avoid — точки, где уже кто-то стоит (например, вы): там очередь не встаёт.
 func door_spots(house: int, n: int, avoid: Array[Rect2] = []) -> Array[Vector2]:
+	var best: Array[Vector2] = []
+	for per_row in range(maxi(3, ceili(n / 2.0)), 11):
+		var got := _door_rows(house, n, per_row, avoid)
+		if got.size() >= n:
+			return got
+		if got.size() > best.size():
+			best = got
+	return best
+
+
+func _door_rows(house: int, n: int, per_row: int, avoid: Array[Rect2]) -> Array[Vector2]:
 	var h: HouseDef = view.def.shelters[house]
 	var c := view.def.square_center
 	var front := h.pos.y > c.y
-	var per_row := maxi(3, ceili(n / 2.0))
 	var out: Array[Vector2] = []
 	var row := 0
 	var band := VillageView.BAND
@@ -211,6 +222,33 @@ func _avoid() -> Array[Rect2]:
 	return obstacles(true)
 
 
+## Кто под пальцем: ближайший к точке касания житель, в чью зону касания она попала. -1 — никто.
+func figure_at(global_pos: Vector2) -> int:
+	var best := -1
+	var best_d := INF
+	for vid: int in figures:
+		var f: VillagerFigure = figures[vid]
+		if not f.visible or f.state == VillagerFigure.State.DEAD or f.state == VillagerFigure.State.GONE:
+			continue
+		var r := f.hit_rect_global()
+		if r.has_point(global_pos):
+			var d := r.get_center().distance_to(global_pos)
+			if d < best_d:
+				best_d = d
+				best = vid
+	return best
+
+
+func update_marks(d: Director, m: Match) -> void:
+	if d == null or m == null:
+		return
+	for v: Villager in m.villagers:
+		if not figures.has(v.id):
+			continue
+		var has_pact := not v.is_player and d.brains.has(v.id) and d.brains[v.id].pact_id == m.player().id
+		figures[v.id].set_marks(d.eye_level(v.id) if v.alive else 0, d.badges(v.id) if v.alive else PackedStringArray(), has_pact and v.alive)
+
+
 func sync(m: Match, phase: Match.Phase) -> void:
 	var at_house: Dictionary[int, int] = {}
 	for v: Villager in m.villagers:
@@ -233,15 +271,22 @@ func sync(m: Match, phase: Match.Phase) -> void:
 					f.run_to(ring[v.id])
 	if phase == Match.Phase.NIGHT:
 		var groups: Dictionary[int, Array] = {}
+		var me := m.player()
+		var me_goes := me.alive and me.announced_house >= 0 and me.announced_house < view.open_count
+		if me_goes:
+			groups[me.announced_house] = [me.id]     # вы — первым в очереди к своему дому
 		for v: Villager in m.alive_bots():
 			if v.announced_house >= 0 and v.announced_house < view.open_count and figures.has(v.id):
 				if not groups.has(v.announced_house):
 					groups[v.announced_house] = []
 				groups[v.announced_house].append(v.id)
+		var avoid: Array[Rect2] = []
+		if not me_goes:
+			avoid = _avoid()
 		for h: int in groups:
 			var ids: Array = groups[h]
-			var spots := door_spots(h, ids.size(), _avoid())
-			for k in range(ids.size()):
+			var spots := door_spots(h, ids.size(), avoid)
+			for k in range(mini(ids.size(), spots.size())):
 				figures[int(ids[k])].run_to(spots[k], 0.9)
 	if phase == Match.Phase.MORNING:
 		for v: Villager in m.villagers:

@@ -8,6 +8,7 @@ signal clock_ticked(seconds_left: int)
 signal clock_expired(phase: Match.Phase)
 signal vote_resolved(tally: Dictionary, exiled: Villager)
 signal guest_answered(admitted: bool)
+signal marks_changed      ## подозрения, улики или уговоры поменялись — пора обновить поле
 
 var m: Match
 var director: Director
@@ -40,6 +41,7 @@ func start(cfg: GameConfig) -> void:
 	m.phase_changed.connect(_on_phase)
 	m.chat_posted.connect(func(l: ChatLine) -> void: chat_line.emit(l))
 	_on_phase(m.phase)
+	marks_changed.emit()
 
 
 ## Бросить партию: остановить таймер и отменить очередь реплик.
@@ -139,6 +141,7 @@ func _finish_night() -> void:
 	director.after_door(m.seats)
 	var r := m.resolve_night()
 	director.read_report(r)
+	marks_changed.emit()
 
 
 # =============================================================
@@ -226,7 +229,9 @@ func _intent(kind: IntentParser.Kind, target: Villager) -> IntentParser.Result:
 
 func _player_says(text: String, it: IntentParser.Result) -> void:
 	m.post(ChatLine.say(m.player(), text))
-	_feed(director.react(it))
+	var replies := director.react(it)
+	marks_changed.emit()
+	_feed(replies)
 
 
 ## Реплики ботов приходят с человеческими паузами. Смена фазы отменяет очередь.

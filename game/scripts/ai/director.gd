@@ -16,6 +16,7 @@ var public_susp: Dictionary[int, float] = {}
 var brains: Dictionary[int, BotBrain] = {}
 var street_last_night: Dictionary[int, bool] = {}
 var liar_last_night: Dictionary[int, int] = {}   ## id -> дом, о котором врал
+var evidence: Dictionary = {}                    ## id -> {"street": n, "liar": n, "death": n} за всю партию
 
 
 func attach(match_ref: Match) -> void:
@@ -25,6 +26,7 @@ func attach(match_ref: Match) -> void:
 	brains.clear()
 	street_last_night.clear()
 	liar_last_night.clear()
+	evidence.clear()
 	for v: Villager in m.villagers:
 		public_susp[v.id] = 0.0
 		if not v.is_player:
@@ -37,6 +39,49 @@ func susp(vid: int) -> float:
 
 func view(bot: Villager, other: Villager) -> float:
 	return brains[bot.id].view(other.id, susp(other.id))
+
+
+func _note_evidence(vid: int, key: String) -> void:
+	if not evidence.has(vid):
+		evidence[vid] = {}
+	evidence[vid][key] = int(evidence[vid].get(key, 0)) + 1
+
+
+## Что видит посёлок: 0 — подозрений нет, 4 — почти уверены.
+func eye_level(vid: int) -> int:
+	var s := susp(vid)
+	if s < 0.3:
+		return 0
+	if s < 1.2:
+		return 1
+	if s < 2.2:
+		return 2
+	if s < 3.2:
+		return 3
+	return 4
+
+
+func badges(vid: int) -> PackedStringArray:
+	var out := PackedStringArray()
+	var ev: Dictionary = evidence.get(vid, {})
+	for k: String in ["death", "street", "liar"]:
+		if int(ev.get(k, 0)) > 0:
+			out.append(k)
+	return out
+
+
+## Улики словами — для шторки по тапу на жителя.
+func evidence_text(v: Villager) -> String:
+	var ev: Dictionary = evidence.get(v.id, {})
+	var parts := PackedStringArray()
+	var n := int(ev.get("street", 0))
+	if n > 0:
+		parts.append(Ru.g(v, "вернулся с улицы живым", "вернулась с улицы живой", "вернулись с улицы живыми") + (" (%d раза)" % n if n > 1 else ""))
+	if int(ev.get("liar", 0)) > 0:
+		parts.append(Ru.g(v, "соврал", "соврала", "соврали") + ", где ночует")
+	if int(ev.get("death", 0)) > 0:
+		parts.append(Ru.g(v, "был", "была", "были") + " рядом, когда кто-то погиб")
+	return "; ".join(parts)
 
 
 func _bump(vid: int, w: float) -> void:
@@ -337,11 +382,13 @@ func read_report(r: NightReport) -> void:
 			NightReport.Kind.SURVIVED_STREET:
 				_bump(e.who.id, W_STREET)
 				street_last_night[e.who.id] = true
+				_note_evidence(e.who.id, "street")
 			NightReport.Kind.SURVIVED_ALONE:
 				_bump(e.who.id, W_ALONE)
 			NightReport.Kind.KILLED_INSIDE:
 				for o: Villager in e.others:
 					_bump(o.id, W_DEATH_ROOM / float(e.others.size()))
+					_note_evidence(o.id, "death")
 			NightReport.Kind.CLEAN_ROOM:
 				for o: Villager in e.others:
 					_bump(o.id, -W_CLEAN)
@@ -352,6 +399,7 @@ func read_report(r: NightReport) -> void:
 			NightReport.Kind.LIAR:
 				_bump(e.who.id, W_LIAR)
 				liar_last_night[e.who.id] = e.said_house
+				_note_evidence(e.who.id, "liar")
 	for b: BotBrain in brains.values():
 		b.clear_pact()
 
