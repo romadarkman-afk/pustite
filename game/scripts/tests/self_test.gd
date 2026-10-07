@@ -894,13 +894,19 @@ static func field() -> void:
 		await _settle(tree)
 	var runners := 0
 	var wrong := PackedStringArray()
-	var at: Dictionary[int, int] = {}
+	var groups: Dictionary[int, Array] = {}
 	for vv: Villager in Game.m.alive_bots():
 		if vv.announced_house >= 0 and vv.announced_house < v.open_count:
-			var k: int = at.get(vv.announced_house, 0)
-			at[vv.announced_house] = k + 1
+			if not groups.has(vv.announced_house):
+				groups[vv.announced_house] = []
+			groups[vv.announced_house].append(vv)
+	for hh: int in groups:
+		var members: Array = groups[hh]
+		var spots := cr.door_spots(hh, members.size(), cr._avoid())
+		for k in range(members.size()):
+			var vv: Villager = members[k]
 			runners += 1
-			if cr.figures[vv.id].position.distance_to(cr.door_spot(vv.announced_house, k)) > 2.0:
+			if cr.figures[vv.id].position.distance_to(spots[k]) > 2.0:
 				wrong.append(vv.name)
 	ok += _expect(fails, runners > 0 and wrong.is_empty(), "ночью не добежали до своих домов: %s" % ", ".join(wrong))
 
@@ -948,3 +954,95 @@ static func _settle(tree: SceneTree) -> void:
 			break
 		await tree.process_frame
 	await _frames(tree, 2)
+
+
+
+# =============================================================
+# Толпа (Task 6): от 5 до 12 жителей на 7 типах экранов.
+# Днём на площади и ночью у каждой двери — все в кадре, имена не налезают
+# друг на друга и не прячутся за спинами тех, кто стоит ближе.
+# =============================================================
+static func crowd() -> void:
+	var tree := Nav.get_tree()
+	var problems: PackedStringArray = []
+	var checks := 0
+	var keep := Save.config.duplicate() as GameConfig
+	var profiles: Array[Array] = []
+	for sz: Vector2i in LAYOUT_SIZES:
+		profiles.append([sz, Vector4(-1, -1, -1, -1)])
+	profiles.append_array(LAYOUT_CUTOUTS)
+	for prof: Array in profiles:
+		var sz: Vector2i = prof[0]
+		Nav.frame.debug_insets = prof[1]
+		tree.root.size = sz
+		await _frames(tree, 3)
+		Nav.frame.refresh()
+		for n in range(5, 13):
+			var c := GameConfig.new()
+			c.players = n
+			c.monsters = maxi(1, int(round(n * 0.3)))
+			c.shelters = clampi(int(ceil(n * 0.3)), 1, 5)
+			Save.config = c.sanitized()
+			Nav.start_match()
+			await _settle(tree)
+			var tag := "%d×%d · %d жителей" % [sz.x, sz.y, n]
+			checks += _check_crowd(tag + " · день", problems)
+			# ночью: худший случай — все боты у одной двери, по очереди у каждой открытой
+			var cr := Nav.village.crowd
+			var bots := Game.m.alive_bots()
+			for hi in range(Game.m.config.shelters):
+				var spots := cr.door_spots(hi, bots.size(), cr._avoid())
+				for k in range(bots.size()):
+					cr.figures[bots[k].id].position = spots[k]
+				await _frames(tree, 1)
+				checks += _check_crowd("%s · ночь у «%s»" % [tag, Game.m.house_name(hi)], problems)
+	Nav.frame.debug_insets = Vector4(-1, -1, -1, -1)
+	Save.config = keep
+	print("=== толпа: %d раскладок проверено ===" % checks)
+	if problems.is_empty():
+		print("ИТОГ: OK — от 5 до 12 жителей, днём и ночью, все в кадре и все имена читаются")
+		tree.quit(0)
+	else:
+		for p: String in problems.slice(0, 25):
+			print("  ✗ " + p)
+		print("ИТОГ: НАРУШЕНИЙ: %d" % problems.size())
+		tree.quit(1)
+
+
+static func _check_crowd(tag: String, out: PackedStringArray) -> int:
+	var vp := Nav.frame.get_viewport_rect().size
+	var fld := Nav.host.current.field_rect_local()
+	fld.position += Nav.host.global_position
+	var bottom := Nav.scrim.top
+	var figs: Array[VillagerFigure] = []
+	for f: VillagerFigure in Nav.village.crowd.figures.values():
+		if f.visible and f.state != VillagerFigure.State.GONE:
+			figs.append(f)
+	for f: VillagerFigure in figs:
+		var lr := f.label_rect_global()
+		var br := f.body_rect_global()
+		var all := lr.merge(br)
+		if all.position.x < -1.0 or all.end.x > vp.x + 1.0:
+			out.append("%s: %s за краем экрана" % [tag, f.who])
+		if all.end.y > bottom + 2.0:
+			out.append("%s: %s уходит под нижнюю панель (низ %d, граница %d)" % [tag, f.who, int(all.end.y), int(bottom)])
+		if all.position.y < fld.position.y - 40.0:
+			out.append("%s: %s выше поля" % [tag, f.who])
+	var vv := Nav.village
+	for hi in range(vv.open_count):
+		var plaque := vv.shelter_label_rect_global(hi).grow(-1.0)
+		for f: VillagerFigure in figs:
+			if plaque.intersects(f.body_rect_global().grow(-2.0)) or plaque.intersects(f.label_rect_global().grow(-1.0)):
+				out.append("%s: табличку «%s» закрывает %s" % [tag, vv._title(hi), f.who])
+	for i in range(figs.size()):
+		for j in range(figs.size()):
+			if i == j:
+				continue
+			var a := figs[i]
+			var b := figs[j]
+			var la := a.label_rect_global().grow(-1.0)
+			if j > i and la.intersects(b.label_rect_global().grow(-1.0)):
+				out.append("%s: имена «%s» и «%s» налезают друг на друга" % [tag, a.who, b.who])
+			if b.position.y > a.position.y + 0.5 and la.intersects(b.body_rect_global().grow(-2.0)):
+				out.append("%s: имя «%s» закрыто фигурой %s" % [tag, a.who, b.who])
+	return 1

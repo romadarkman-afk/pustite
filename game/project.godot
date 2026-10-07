@@ -1,4 +1,4 @@
-; «Пустите» v0.4.0
+; «Пустите» v0.4.1
 ; Баланс: config/*.tres (ресурсы GameConfig). Правила: scripts/core/match.gd.
 ; Растягивать узлы только через set_anchors_and_offsets_preset — см. Task 1.
 
@@ -8,7 +8,7 @@ config_version=5
 
 config/name="Пустите"
 config/description="Социальная дедукция с убежищами"
-config/version="0.4.0"
+config/version="0.4.1"
 run/main_scene="res://scenes/boot.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 config/icon="res://icon.svg"

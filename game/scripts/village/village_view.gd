@@ -154,13 +154,32 @@ func _draw() -> void:
 		_draw_house(h, it[1], n)
 	_draw_fences(n)
 
-	# подписи открытых убежищ
+	# таблички открытых убежищ — на стене над дверью: очередь у двери их не закрывает
 	for i in range(open_count):
-		var h: HouseDef = def.shelters[i]
-		var label: String = titles[i] if i < titles.size() else h.title
-		var y := h.pos.y + 24.0
-		draw_string(_font, Vector2(h.pos.x - 90, y + 1), label, HORIZONTAL_ALIGNMENT_CENTER, 180, 17, Color(0, 0, 0, 0.6))
-		draw_string(_font, Vector2(h.pos.x - 90, y), label, HORIZONTAL_ALIGNMENT_CENTER, 180, 17, Color(ThemeFactory.BONE, 0.92))
+		var r := shelter_label_rect_local(i)
+		draw_rect(r, Color(ThemeFactory.NIGHT, 0.82))
+		draw_rect(r, Color(ThemeFactory.LAMP_D, 0.9), false, 1.0)
+		draw_string(_font, Vector2(r.position.x, r.end.y - 4), _title(i), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, PLAQUE_SIZE, ThemeFactory.BONE)
+
+
+const PLAQUE_SIZE := 14
+
+
+func _title(i: int) -> String:
+	return titles[i] if i < titles.size() else def.shelters[i].title
+
+
+## Табличка с названием убежища в координатах посёлка: верх стены, над дверью.
+func shelter_label_rect_local(i: int) -> Rect2:
+	var h: HouseDef = def.shelters[i]
+	var w := _font.get_string_size(_title(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE).x + 12.0
+	var top := h.pos.y - h.size.y
+	return Rect2(h.pos.x - w * 0.5, top + 3.0, w, 17.0)
+
+
+func shelter_label_rect_global(i: int) -> Rect2:
+	var r := shelter_label_rect_local(i)
+	return Rect2(to_global(r.position), r.size * scale)
 
 
 func _draw_river(n: float) -> void:

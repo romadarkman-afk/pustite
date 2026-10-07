@@ -45,8 +45,41 @@ func setup(name: String, l: LookDef, player: bool) -> void:
 		body.add_child(g)
 
 
+const LABEL_SIZE := 13
+
+
 func body_scale() -> Vector2:
 	return body.scale
+
+
+## Прямоугольники для раскладки и самотестов, в координатах фигурки.
+func label_width() -> float:
+	return _font.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, LABEL_SIZE).x
+
+
+func label_rect_local() -> Rect2:
+	var w := label_width()
+	return Rect2(-w * 0.5, 5, w, 15)
+
+
+func body_rect_local() -> Rect2:
+	var h := look.height if look != null else 1.0
+	return Rect2(-14, -54 * h, 28, 56 * h)
+
+
+func _global_rect(r: Rect2) -> Rect2:
+	var t := get_global_transform_with_canvas()
+	var a := t * r.position
+	var b := t * r.end
+	return Rect2(a, b - a).abs()
+
+
+func label_rect_global() -> Rect2:
+	return _global_rect(label_rect_local())
+
+
+func body_rect_global() -> Rect2:
+	return _global_rect(body_rect_local())
 
 
 # =============================================================
@@ -160,8 +193,8 @@ func _draw() -> void:
 		draw_line(Vector2(0, -22), Vector2(0, -8), Color("2a3236"), 2.0)
 		draw_line(Vector2(-4, -17), Vector2(4, -17), Color("2a3236"), 2.0)
 	var col := ThemeFactory.LAMP if is_player else Color(ThemeFactory.BONE, 0.9 if state != State.DEAD else 0.45)
-	draw_string(_font, Vector2(-55, 17), who, HORIZONTAL_ALIGNMENT_CENTER, 110, 13, Color(0, 0, 0, 0.65))
-	draw_string(_font, Vector2(-55, 16), who, HORIZONTAL_ALIGNMENT_CENTER, 110, 13, col)
+	draw_string(_font, Vector2(-55, 17), who, HORIZONTAL_ALIGNMENT_CENTER, 110, LABEL_SIZE, Color(0, 0, 0, 0.65))
+	draw_string(_font, Vector2(-55, 16), who, HORIZONTAL_ALIGNMENT_CENTER, 110, LABEL_SIZE, col)
 
 
 func _draw_body() -> void:
