@@ -1046,3 +1046,102 @@ static func _check_crowd(tag: String, out: PackedStringArray) -> int:
 			if b.position.y > a.position.y + 0.5 and la.intersects(b.body_rect_global().grow(-2.0)):
 				out.append("%s: имя «%s» закрыто фигурой %s" % [tag, a.who, b.who])
 	return 1
+
+
+
+# =============================================================
+# Пузыри реплик (Task 7): шквал реплик на 7 типах экранов. Пузыри не налезают
+# друг на друга, не выходят за поле и экран, свежая реплика видна над говорящим.
+# =============================================================
+static func bubbles() -> void:
+	var tree := Nav.get_tree()
+	var problems: PackedStringArray = []
+	var checks := 0
+	var texts: PackedStringArray = []
+	for bank: PackedStringArray in [Phrases.ACCUSE_STRONG, Phrases.UPYR_DEFLECT, Phrases.DEFEND, Phrases.FILLER, Phrases.ANNOUNCE]:
+		texts.append_array(bank)
+	texts.append("Я вчера сидел тихо и дожил. Значит, всё делал правильно, а вы тут спорите о пустом.")
+	var profiles: Array[Array] = []
+	for sz: Vector2i in LAYOUT_SIZES:
+		profiles.append([sz, Vector4(-1, -1, -1, -1)])
+	profiles.append_array(LAYOUT_CUTOUTS)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 77
+	for prof: Array in profiles:
+		var sz: Vector2i = prof[0]
+		Nav.frame.debug_insets = prof[1]
+		tree.root.size = sz
+		await _frames(tree, 3)
+		Nav.frame.refresh()
+		Nav.start_match()
+		await _settle(tree)
+		Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+		await _settle(tree)
+		var tag := "%d×%d" % [sz.x, sz.y]
+		var speakers := Game.m.alive()
+		var vp := Nav.frame.get_viewport_rect().size
+		var fld := Nav.bubbles.field
+		if fld.size.y < 150.0:
+			problems.append("%s: поле для пузырей не задано или мало (%s)" % [tag, fld])
+			continue
+		for k in range(14):
+			var who: Villager = speakers[rng.randi_range(0, speakers.size() - 1)]
+			var text: String = Phrases.fill(texts[rng.randi_range(0, texts.size() - 1)], {"who": "Тимур", "house": "Сарай", "me_f": who.female})
+			Game.m.post(ChatLine.say(who, text))
+			await tree.process_frame
+			checks += 1
+			var live := Nav.bubbles.alive()
+			if live.size() > Bubbles.MAX_ON_SCREEN:
+				problems.append("%s: на экране %d пузырей" % [tag, live.size()])
+			var newest: Bubbles.Bubble = null
+			for b: Bubbles.Bubble in live:
+				if newest == null or b.order > newest.order:
+					newest = b
+			if newest == null or newest.who != Ru.nom(who):
+				problems.append("%s: свежая реплика %s не видна" % [tag, who.name])
+			else:
+				var head: Vector2 = Nav.village.crowd.figures[who.id].head_global()
+				if absf(newest.tail_x - clampf(head.x, newest.rect.position.x + 14.0, newest.rect.end.x - 14.0)) > 1.0:
+					problems.append("%s: хвостик пузыря %s не указывает на говорящего" % [tag, who.name])
+				if newest.rect.end.y > head.y:
+					problems.append("%s: пузырь %s ниже головы говорящего" % [tag, who.name])
+			for i in range(live.size()):
+				var a := live[i]
+				if a.rect.position.x < -0.5 or a.rect.end.x > vp.x + 0.5:
+					problems.append("%s: пузырь %s за краем экрана" % [tag, a.who])
+				if a.rect.position.y < fld.position.y - 0.5 or a.rect.end.y > fld.end.y + 0.5:
+					problems.append("%s: пузырь %s выходит за поле" % [tag, a.who])
+				for j in range(i + 1, live.size()):
+					if a.rect.grow(-1.0).intersects(live[j].rect.grow(-1.0)):
+						problems.append("%s: пузыри %s и %s налезают друг на друга" % [tag, a.who, live[j].who])
+		Nav.bubbles.tick(20.0)
+		Nav.bubbles.tick(1.0)
+		if not Nav.bubbles.bubbles.is_empty():
+			problems.append("%s: пузыри не погасли за 20 секунд" % tag)
+		# соседи говорят по очереди — оба пузыря должны ужиться: второй встаёт над первым
+		var me: Villager = Game.m.player()
+		var near: Villager = null
+		var best := 9999.0
+		for v2: Villager in Game.m.alive_bots():
+			var d: float = Nav.village.crowd.figures[v2.id].position.distance_to(Nav.village.crowd.figures[me.id].position)
+			if d < best:
+				best = d
+				near = v2
+		Game.m.post(ChatLine.say(near, "Я с тобой."))
+		Game.m.post(ChatLine.say(me, "Идём вместе."))
+		await tree.process_frame
+		checks += 1
+		if Nav.bubbles.alive().size() != 2:
+			problems.append("%s: соседи сказали по реплике, а видно пузырей: %d — пузыри не уступают место" % [tag, Nav.bubbles.alive().size()])
+		Nav.bubbles.tick(20.0)
+		Nav.bubbles.tick(1.0)
+	Nav.frame.debug_insets = Vector4(-1, -1, -1, -1)
+	print("=== пузыри реплик: %d реплик на %d типах экранов ===" % [checks, profiles.size()])
+	if problems.is_empty():
+		print("ИТОГ: OK — пузыри не налезают, свежая реплика видна над говорящим, всё в кадре")
+		tree.quit(0)
+	else:
+		for pr: String in problems.slice(0, 25):
+			print("  ✗ " + pr)
+		print("ИТОГ: НАРУШЕНИЙ: %d" % problems.size())
+		tree.quit(1)

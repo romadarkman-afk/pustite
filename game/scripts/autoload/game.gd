@@ -232,8 +232,12 @@ func _player_says(text: String, it: IntentParser.Result) -> void:
 ## Реплики ботов приходят с человеческими паузами. Смена фазы отменяет очередь.
 func _feed(lines: Array[ChatLine]) -> void:
 	var gen := _feed_gen
+	var prev_len := -1
 	for line: ChatLine in lines:
-		await Juice.wait(randf_range(0.7, 1.5))
+		# первая реплика — когда жители добежали на места; дальше пауза по длине прошлой: успеть прочитать
+		var pause := randf_range(1.3, 1.8) if prev_len < 0 else (0.9 + 0.032 * prev_len) * randf_range(0.85, 1.15)
+		await Juice.wait(pause)
+		prev_len = line.text.length()
 		while held() and gen == _feed_gen:
 			await get_tree().process_frame
 		if gen != _feed_gen or m == null or m.phase != Match.Phase.DAY:

@@ -74,6 +74,12 @@ func _global_rect(r: Rect2) -> Rect2:
 	return Rect2(a, b - a).abs()
 
 
+## Точка над головой — сюда указывает хвостик пузыря с репликой.
+func head_global() -> Vector2:
+	var h := look.height if look != null else 1.0
+	return get_global_transform_with_canvas() * Vector2(0, -56.0 * h)
+
+
 func label_rect_global() -> Rect2:
 	return _global_rect(label_rect_local())
 

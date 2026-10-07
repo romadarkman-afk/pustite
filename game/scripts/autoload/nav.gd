@@ -8,6 +8,7 @@ var ui: Control
 var atmos: Atmosphere
 var village: VillageView
 var scrim: Scrim
+var bubbles: Bubbles
 var field_screen: Screen          ## экран, под который поле уже откадрировано (для самотестов)
 var frame: SafeFrame
 var host: ScreenHost
@@ -41,6 +42,9 @@ func _ready() -> void:
 	scrim = Scrim.new()
 	ui.add_child(scrim)
 	scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bubbles = Bubbles.new()
+	ui.add_child(bubbles)
+	bubbles.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	frame = SafeFrame.new()
 	ui.add_child(frame)
@@ -111,6 +115,8 @@ func start_match() -> void:
 
 func show(s: Screen) -> void:
 	Diag.step("экран: %s" % s.screen_id())
+	bubbles.clear()
+	bubbles.field = Rect2()
 	s.setup(Game.m, Game.director)
 	s.intent.connect(handle_intent.bind(s))
 	host.show_screen(s)
@@ -142,6 +148,7 @@ func _frame_field(s: Screen) -> void:
 		var r := s.field_rect_local()
 		r.position += host.global_position
 		village.frame_to(r, ui.size.x, dur)
+		bubbles.field = r
 		village.set_mood(s.mood().x, dur)
 		_tween_to(village, "modulate:a", 1.0, dur)
 		_tween_to(scrim, "top", r.end.y, dur)
@@ -190,6 +197,9 @@ func _on_phase(phase: Match.Phase) -> void:
 func _on_chat(line: ChatLine) -> void:
 	if host.current is DayScreen:
 		(host.current as DayScreen).append_line(line)
+		if line.speaker != null and village.crowd.figures.has(line.speaker.id):
+			var f: VillagerFigure = village.crowd.figures[line.speaker.id]
+			bubbles.say(Ru.nom(line.speaker), line.text, f.head_global(), line.speaker.is_player)
 
 
 # =============================================================

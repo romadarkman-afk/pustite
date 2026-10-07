@@ -14,7 +14,7 @@ func screen_id() -> String:
 
 
 func field_ratio() -> float:
-	return 0.28
+	return 0.40
 
 
 func title() -> String:
@@ -51,13 +51,16 @@ func build() -> void:
 		quick.add_child(q)
 	footer.add_child(quick)
 
+	var row := W.hbox(8)
 	var write := W.button("Написать своё…", &"Row")
+	write.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	write.pressed.connect(_write_flow)
-	footer.add_child(write)
-
+	row.add_child(write)
 	var ready_btn := W.button("Я готов к ночи", &"Ghost")
+	ready_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ready_btn.pressed.connect(func() -> void: commit(Intent.END_DAY))
-	footer.add_child(ready_btn)
+	row.add_child(ready_btn)
+	footer.add_child(row)
 
 
 func on_clock_expired() -> void:
@@ -78,16 +81,22 @@ func append_line(line: ChatLine) -> void:
 		scroll_to_end()
 
 
+## Журнал: компактная строка «Имя: текст» — чтобы перечитать, кто что говорил.
+## Живой разговор идёт пузырями над головами на поле.
 func _bubble(line: ChatLine) -> Control:
 	if line.kind == ChatLine.Kind.SYSTEM:
 		return W.label(line.text, &"Small")
-	var wrap := W.vbox(4)
-	if line.kind == ChatLine.Kind.SAY:
-		wrap.add_child(W.label(line.speaker.name, &"Speaker"))
-	var p := W.panel(&"BubbleMine" if line.kind == ChatLine.Kind.MINE else &"Bubble")
-	p.add_child(W.label(line.text, &"Body"))
-	wrap.add_child(p)
-	return wrap
+	var row := W.hbox(8)
+	var nm := W.label(("Вы" if line.kind == ChatLine.Kind.MINE else line.speaker.name) + ":", &"Speaker")
+	nm.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	nm.autowrap_mode = TextServer.AUTOWRAP_OFF
+	if line.kind == ChatLine.Kind.MINE:
+		nm.add_theme_color_override("font_color", ThemeFactory.LAMP)
+	var tx := W.label(line.text, &"Small")
+	tx.add_theme_color_override("font_color", ThemeFactory.BONE)
+	row.add_child(nm)
+	row.add_child(tx)
+	return row
 
 
 func _write_flow() -> void:
