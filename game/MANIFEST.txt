@@ -2,6 +2,8 @@
 # и недостающие файлы — ошибка с перечнем. Звуки и картинки в assets/ не сверяются.
 config/balance_10.tres
 config/balance_7.tres
+config/balance_easy.tres
+config/balance_hard.tres
 config/looks.tres
 config/village_default.tres
 export_presets.cfg
@@ -18,6 +20,7 @@ scripts/autoload/nav.gd
 scripts/autoload/save.gd
 scripts/boot.gd
 scripts/core/chat_line.gd
+scripts/core/difficulty.gd
 scripts/core/game_config.gd
 scripts/core/match.gd
 scripts/core/night_report.gd

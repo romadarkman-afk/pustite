@@ -98,7 +98,10 @@ func start() -> void:
 func show_menu() -> void:
 	Game.abandon()
 	village.crowd.clear()
-	show(MenuScreen.new())
+	var s := MenuScreen.new()
+	s.difficulty = Save.difficulty
+	s.cfg = Save.config
+	show(s)
 
 
 func show_settings() -> void:
@@ -107,6 +110,7 @@ func show_settings() -> void:
 	var s := SettingsScreen.new()
 	s.cfg = Save.config.duplicate() as GameConfig
 	s.haptics = Save.haptics
+	s.difficulty = Save.difficulty
 	show(s)
 
 
@@ -192,6 +196,8 @@ func _on_phase(phase: Match.Phase) -> void:
 		village.crowd.populate(Game.m)
 		village.crowd.update_marks(Game.director, Game.m)
 	village.crowd.sync(Game.m, phase)
+	# метка «Вы»: в первых трёх партиях всегда, потом — только в прологе
+	village.crowd.set_player_highlight(phase == Match.Phase.PROLOGUE or int(Save.stats["games"]) < 3)
 	match phase:
 		Match.Phase.PROLOGUE:
 			show(PrologueScreen.new())
@@ -210,7 +216,10 @@ func _on_phase(phase: Match.Phase) -> void:
 		Match.Phase.MORNING:
 			show(MorningScreen.new())
 		Match.Phase.OVER:
-			show(EndScreen.new())
+			var e := EndScreen.new()
+			e.offer = Save.offer
+			e.difficulty = Save.difficulty
+			show(e)
 
 
 func _on_chat(line: ChatLine) -> void:
@@ -232,21 +241,21 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 		_hint_done(sender, action)
 	match action:
 		Intent.START:
-			if data.get("reset_hints", false):
-				Save.reset_hints()
-			if data.has("cfg"):
-				Save.set_settings(data.cfg, data.haptics)
+			_apply_settings(data)
 			start_match()
 		Intent.OPEN_SETTINGS:
 			show_settings()
 		Intent.BACK:
-			if data.get("reset_hints", false):
-				Save.reset_hints()
-			if data.has("cfg"):
-				Save.set_settings(data.cfg, data.haptics)
+			_apply_settings(data)
 			show_menu()
 		Intent.AGAIN:
+			if data.has("difficulty"):
+				Save.set_difficulty(data.difficulty)
 			start_match()
+		Intent.SET_DIFFICULTY:
+			Save.set_difficulty(data.d)
+			if sender is MenuScreen:
+				(sender as MenuScreen).refresh(Save.difficulty, Save.config)
 		Intent.CONTINUE:
 			Game.proceed()
 		Intent.SAY:
@@ -298,6 +307,20 @@ func _notification(what: int) -> void:
 			Game.release(&"background")
 
 
+## Настройки: ступень лестницы или своя сложность, вибрация, сброс подсказок.
+func _apply_settings(data: Dictionary) -> void:
+	if data.get("reset_hints", false):
+		Save.reset_hints()
+	if not data.has("cfg"):
+		return
+	var d: String = data.get("difficulty", "custom")
+	if Difficulty.PRESETS.has(d):
+		Save.set_difficulty(d)
+		Save.set_haptics(data.haptics)
+	else:
+		Save.set_settings(data.cfg, data.haptics)
+
+
 func _on_back() -> void:
 	var s := host.current
 	if s != null and s.handle_back():
@@ -308,12 +331,12 @@ func _on_back() -> void:
 			get_tree().quit()
 			return
 		_exit_armed = true
-		toast("Нажмите ещё раз, чтобы выйти")
+		toast("Нажми ещё раз, чтобы выйти")
 		await get_tree().create_timer(2.0).timeout
 		_exit_armed = false
 	elif s is SettingsScreen:
 		var ss := s as SettingsScreen
-		Save.set_settings(ss.cfg, ss.haptics)
+		_apply_settings({"cfg": ss.cfg, "haptics": ss.haptics, "reset_hints": ss.reset_hints, "difficulty": ss.difficulty})
 		show_menu()
 	elif s is EndScreen:
 		show_menu()

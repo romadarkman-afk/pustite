@@ -1536,3 +1536,184 @@ static func _check_hint(s: Screen, id: String, vp: Vector2, fails: PackedStringA
 			blocks = true
 	n += _expect(fails, not blocks, "подсказка «%s» перехватывает касания" % id)
 	return n
+
+
+
+# =============================================================
+# Сложность, метка «Вы», предложение после партии (Task 11–13).
+# =============================================================
+static func difficulty() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	var keep_games: int = Save.stats["games"]
+
+	# 1. Первый запуск — лёгкая
+	var cf_path := ProjectSettings.globalize_path(Save.SETTINGS_PATH)
+	var backup := FileAccess.get_file_as_string(Save.SETTINGS_PATH) if FileAccess.file_exists(Save.SETTINGS_PATH) else ""
+	if FileAccess.file_exists(Save.SETTINGS_PATH):
+		DirAccess.remove_absolute(cf_path)
+	Save.load_all()
+	ok += _expect(fails, Save.difficulty == "easy" and Save.config.players == 5 and Save.config.player_always_human,
+		"первый запуск не на лёгкой: %s, %d жителей" % [Save.difficulty, Save.config.players])
+
+	# 2. Меню: ступени, подсветка, строка о партии
+	Nav.show_menu()
+	await _settle(tree)
+	var menu := Nav.host.current as MenuScreen
+	var play := _find_button(menu, "Играть")
+	var normal_b := _find_button(menu, "Обычная")
+	ok += _expect(fails, play != null and normal_b != null, "в меню нет «Играть» или выбора сложности")
+	ok += _expect(fails, (_find_button(menu, "Лёгкая") as Button).theme_type_variation == &"RowOn", "в меню не подсвечена текущая ступень")
+	if normal_b != null:
+		normal_b.pressed.emit()
+		await _frames(tree, 2)
+		ok += _expect(fails, Save.difficulty == "normal" and Save.config.players == 7, "«Обычная» не включилась")
+		ok += _expect(fails, normal_b.theme_type_variation == &"RowOn" and menu._diff_note.text.contains("7 жителей"),
+			"подсветка или строка о партии не обновились: «%s»" % menu._diff_note.text)
+	if play != null:
+		play.pressed.emit()
+		await _settle(tree)
+		ok += _expect(fails, Game.m != null and Game.m.villagers.size() == 7, "«Играть» начало не ту партию")
+
+	# 3. На лёгкой вы всегда человек
+	Save.set_difficulty("easy")
+	var upyr_times := 0
+	for g in range(40):
+		Game.start(Save.config)
+		if Game.m.player().is_upyr:
+			upyr_times += 1
+	ok += _expect(fails, upyr_times == 0, "на лёгкой игрок оказался упырём %d раз из 40" % upyr_times)
+
+	# 4. Предложения после партии
+	ok += await _offer_case(tree, "normal", false, 0, "easy", fails)
+	ok += await _offer_case(tree, "easy", false, 0, "", fails)
+	ok += await _offer_case(tree, "easy", true, 1, "normal", fails)
+	ok += await _offer_case(tree, "easy", true, 0, "", fails)
+	ok += await _offer_case(tree, "hard", true, 1, "", fails)
+	Save.set_settings(Difficulty.preset("normal"), Save.haptics)
+	ok += await _offer_case(tree, "custom", false, 0, "", fails)
+
+	# принять предложение — новая партия уже на другой ступени
+	Save.set_difficulty("normal")
+	Save.win_streak = 0
+	await _finish_match(tree, false)
+	var end := Nav.host.current as EndScreen
+	var easier := _find_button(end, "Сделать легче") if end != null else null
+	ok += _expect(fails, easier != null, "на итоге нет кнопки «Сделать легче»")
+	if easier != null:
+		easier.pressed.emit()
+		await _settle(tree)
+		ok += _expect(fails, Save.difficulty == "easy" and Game.m != null and Game.m.villagers.size() == 5,
+			"«Сделать легче» не перевело на лёгкую")
+
+	# 5. Настройки: ступень, затем ползунок — своя
+	Save.set_difficulty("normal")
+	Nav.show_settings()
+	await _settle(tree)
+	var st := Nav.host.current as SettingsScreen
+	var hard_b := _find_button(st, "Сложная")
+	if hard_b != null:
+		hard_b.pressed.emit()
+		await _frames(tree, 2)
+	ok += _expect(fails, st.difficulty == "hard" and st.cfg.players == 10, "в настройках «Сложная» не выбралась")
+	var slider: HSlider = null
+	for c: Control in _controls(st):
+		if c is HSlider:
+			slider = c
+			break
+	if slider != null:
+		slider.value = slider.value - 1.0
+		await _frames(tree, 1)
+	ok += _expect(fails, st.difficulty == "custom", "после ползунка сложность не стала «Своей»")
+	root_back(tree)
+	await _settle(tree)
+	ok += _expect(fails, Save.difficulty == "custom", "«Своя» сложность не сохранилась при выходе из настроек")
+	Save.flush()
+	Save.load_all()
+	ok += _expect(fails, Save.difficulty == "custom", "после перезапуска сложность забылась")
+
+	# 6. Метка «Вы»
+	Save.set_difficulty("easy")
+	Save.stats["games"] = 0
+	Nav.start_match()
+	await _settle(tree)
+	var me: VillagerFigure = Nav.village.crowd.figures[0]
+	var vp := Nav.frame.get_viewport_rect().size
+	ok += _expect(fails, me.highlight, "в прологе нет метки «Вы»")
+	var mr := me.marker_rect_global()
+	ok += _expect(fails, mr.position.x >= 0.0 and mr.end.x <= vp.x and mr.position.y >= 0.0 and mr.end.y <= Nav.scrim.top,
+		"метка «Вы» за краем поля: %s" % mr)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	ok += _expect(fails, me.highlight, "в первой партии днём нет метки «Вы»")
+	Save.stats["games"] = 5
+	Nav.start_match()
+	await _settle(tree)
+	me = Nav.village.crowd.figures[0]
+	ok += _expect(fails, me.highlight, "в прологе опытного игрока нет напоминания «Вы»")
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	ok += _expect(fails, not me.highlight, "у опытного игрока метка «Вы» не прячется днём")
+	Save.stats["games"] = keep_games
+
+	# 7. Ступени идут от лёгкой к сложной
+	var rates := {}
+	for d: String in Difficulty.LADDER:
+		rates[d] = balance(Difficulty.preset(d), 800).people_win
+	print("доля побед людей: лёгкая %.1f%%, обычная %.1f%%, сложная %.1f%%" % [100.0 * rates["easy"], 100.0 * rates["normal"], 100.0 * rates["hard"]])
+	ok += _expect(fails, rates["easy"] > rates["normal"] + 0.15 and rates["normal"] > rates["hard"] + 0.02 and rates["hard"] > 0.3,
+		"ступени не идут от лёгкой к сложной")
+
+	if backup != "":
+		var f := FileAccess.open(Save.SETTINGS_PATH, FileAccess.WRITE)
+		f.store_string(backup)
+		f.close()
+		Save.load_all()
+
+	print("=== сложность и метка «Вы»: %d проверок ===" % (ok + fails.size()))
+	if fails.is_empty():
+		print("ИТОГ: OK — лёгкий старт, выбор сложности, предложение после партии и метка «Вы» работают")
+		tree.quit(0)
+	else:
+		for f2: String in fails:
+			print("  ✗ " + f2)
+		print("ИТОГ: НАРУШЕНИЙ: %d" % fails.size())
+		tree.quit(1)
+
+
+static func root_back(tree: SceneTree) -> void:
+	tree.root.propagate_notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+
+
+static func _find_button(root: Node, text_start: String) -> Button:
+	if root == null:
+		return null
+	for c: Control in _controls(root):
+		if c is Button and (c as Button).text.begins_with(text_start) and c.is_visible_in_tree():
+			return c
+	return null
+
+
+## Довести партию до итога с нужным исходом для игрока.
+static func _finish_match(tree: SceneTree, player_wins: bool) -> void:
+	Nav.start_match()
+	await _settle(tree)
+	var human := not Game.m.player().is_upyr
+	Game.m.winner = Match.Team.PEOPLE if (player_wins == human) else Match.Team.UPYRI
+	Game.m.phase = Match.Phase.MORNING
+	Game.m.end_morning()
+	await _settle(tree)
+
+
+static func _offer_case(tree: SceneTree, diff: String, win: bool, streak_before: int, want: String, fails: PackedStringArray) -> int:
+	if diff != "custom":
+		Save.set_difficulty(diff)
+	Save.win_streak = streak_before
+	await _finish_match(tree, win)
+	var end := Nav.host.current as EndScreen
+	var got := end.offer if end != null else "?"
+	var has_card := end != null and (_find_button(end, "Сделать легче") != null or _find_button(end, "Попробовать сложнее") != null)
+	var good := got == want and has_card == (want != "")
+	return _expect(fails, good, "%s, %s (серия до этого %d): предложено «%s», ждали «%s»" % [
+		Difficulty.NAMES[diff], "победа" if win else "поражение", streak_before, got, want])

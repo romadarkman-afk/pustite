@@ -30,6 +30,17 @@ static func house_of(house: String) -> String:
 	return house
 
 
+## Числительные: 1 житель, 2 жителя, 5 жителей, 21 житель.
+static func plural(n: int, one: String, few: String, many: String) -> String:
+	var n10 := absi(n) % 10
+	var n100 := absi(n) % 100
+	if n10 == 1 and n100 != 11:
+		return one
+	if n10 >= 2 and n10 <= 4 and (n100 < 12 or n100 > 14):
+		return few
+	return many
+
+
 ## Винительный падеж: Марина → Марину, Женя → Женю, Тимур → Тимура.
 static func accusative(name: String) -> String:
 	if name.is_empty():

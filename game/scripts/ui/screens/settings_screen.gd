@@ -5,6 +5,8 @@ extends Screen
 var cfg: GameConfig
 var haptics: bool = true
 var reset_hints: bool = false
+var difficulty: String = "custom"
+var _chips: Dictionary = {}
 
 
 func screen_id() -> String:
@@ -23,16 +25,20 @@ func build() -> void:
 	W.clear(body)
 	W.clear(footer)
 
-	var presets := W.hbox(10)
-	for p: Array in [["7 игроков", "res://config/balance_7.tres"], ["10 игроков", "res://config/balance_10.tres"]]:
-		var b := W.button(p[0], &"Quick")
+	var presets := W.hbox(8)
+	_chips.clear()
+	for d: String in Difficulty.LADDER:
+		var b := W.button(String(Difficulty.NAMES[d]), &"RowOn" if d == difficulty else &"Row")
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var path: String = p[1]
+		var key := d
 		b.pressed.connect(func() -> void:
-			cfg = (load(path) as GameConfig).duplicate() as GameConfig
+			cfg = Difficulty.preset(key)
+			difficulty = key
 			build())
 		presets.add_child(b)
+		_chips[d] = b
 	body.add_child(presets)
+	body.add_child(W.label(("Своя сложность: " if difficulty == "custom" else String(Difficulty.NAMES[difficulty]) + ": ") + Difficulty.describe(difficulty, cfg), &"Small"))
 
 	for prop: Dictionary in cfg.get_property_list():
 		if not (int(prop.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE) or int(prop.hint) != PROPERTY_HINT_RANGE:
@@ -57,7 +63,8 @@ func build() -> void:
 		sl.focus_mode = Control.FOCUS_NONE
 		sl.value_changed.connect(func(v: float) -> void:
 			cfg.set(key, int(v))
-			val.text = str(int(v)))
+			val.text = str(int(v))
+			_to_custom())
 		row.add_child(top)
 		row.add_child(sl)
 		body.add_child(row)
@@ -74,12 +81,22 @@ func build() -> void:
 		hr.text = "Подсказки покажутся заново")
 	body.add_child(hr)
 	body.add_child(W.label(
-		"Пресеты проверены прогоном по 1500 партий: люди выигрывают 49–53%. Сильнее всего баланс двигают число убежищ и ночей.",
+		"Ступени проверены прогоном по 1500 партий. Сильнее всего баланс двигают число убежищ и ночей.",
 		&"Small"))
 
 	var go := W.button("Начать с этими настройками")
-	go.pressed.connect(func() -> void: emit_intent(Intent.START, {"cfg": cfg, "haptics": haptics, "reset_hints": reset_hints}))
+	go.pressed.connect(func() -> void: emit_intent(Intent.START, {"cfg": cfg, "haptics": haptics, "reset_hints": reset_hints, "difficulty": difficulty}))
 	footer.add_child(go)
 	var back := W.button("Назад", &"Ghost")
-	back.pressed.connect(func() -> void: emit_intent(Intent.BACK, {"cfg": cfg, "haptics": haptics, "reset_hints": reset_hints}))
+	back.pressed.connect(func() -> void: emit_intent(Intent.BACK, {"cfg": cfg, "haptics": haptics, "reset_hints": reset_hints, "difficulty": difficulty}))
 	footer.add_child(back)
+
+
+
+## Тронули ползунок: это уже своя сложность.
+func _to_custom() -> void:
+	if difficulty == "custom":
+		return
+	difficulty = "custom"
+	for k: String in _chips:
+		(_chips[k] as Button).theme_type_variation = &"Row"

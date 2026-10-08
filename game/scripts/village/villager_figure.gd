@@ -25,6 +25,7 @@ var eye_level: int = 0
 var badges: PackedStringArray = []
 var pact: bool = false
 var _eye_pop: float = 0.0
+var highlight: bool = false        ## метка «Вы»: стрелка над головой и кольцо под ногами
 
 const MARK_X := 24.0       ## колонка отметок справа от головы
 
@@ -70,7 +71,19 @@ func label_rect_local() -> Rect2:
 
 func body_rect_local() -> Rect2:
 	var h := look.height if look != null else 1.0
-	return Rect2(-14, -54 * h, 28 + MARK_X, 56 * h)
+	var extra := 26.0 if highlight else 0.0
+	return Rect2(-14, -54 * h - extra, 28 + MARK_X, 56 * h + extra)
+
+
+func set_highlight(on: bool) -> void:
+	highlight = on
+	queue_redraw()
+
+
+## Где стрелка метки «Вы» — для самотестов, в координатах экрана.
+func marker_rect_global() -> Rect2:
+	var h := look.height if look != null else 1.0
+	return _global_rect(Rect2(-9, -54 * h - 26, 18, 16))
 
 
 ## Зона касания в координатах экрана: не меньше 84×108 px (≈ 48 dp), даже если фигурка мелкая.
@@ -206,6 +219,8 @@ func _settle_idle() -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
+	if highlight:
+		queue_redraw()
 	match state:
 		State.IDLE:
 			var s := sin(_t * 1.7 + _phase)
@@ -236,6 +251,14 @@ func _draw() -> void:
 		draw_line(Vector2(-4, -17), Vector2(4, -17), Color("2a3236"), 2.0)
 	if state != State.DEAD:
 		_draw_marks()
+	if highlight and state != State.DEAD:
+		var p := 0.5 + 0.5 * sin(_t * 4.0)
+		var ring := _ellipse(Vector2(0, 2), Vector2(19.0 + 4.0 * p, 7.0 + 1.5 * p), 26)
+		ring.append(ring[0])
+		draw_polyline(ring, Color(ThemeFactory.LAMP, 0.45 + 0.45 * p), 2.5)
+		var hh := look.height if look != null else 1.0
+		var y0 := -54.0 * hh - 12.0 + 3.0 * sin(_t * 5.0)
+		draw_colored_polygon(PackedVector2Array([Vector2(-9, y0 - 12), Vector2(9, y0 - 12), Vector2(0, y0)]), ThemeFactory.LAMP)
 	var col := ThemeFactory.LAMP if is_player else Color(ThemeFactory.BONE, 0.9 if state != State.DEAD else 0.45)
 	draw_string(_font, Vector2(-55, 17), who, HORIZONTAL_ALIGNMENT_CENTER, 110, LABEL_SIZE, Color(0, 0, 0, 0.65))
 	draw_string(_font, Vector2(-55, 16), who, HORIZONTAL_ALIGNMENT_CENTER, 110, LABEL_SIZE, col)

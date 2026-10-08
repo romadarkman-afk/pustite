@@ -28,6 +28,8 @@ const LABELS := {
 @export_range(40, 100, 5) var outside_death: int = 80
 @export_range(0, 100, 5) var first_night_outside_death: int = 40
 @export_range(1, 4) var vote_from_day: int = 2
+## Лёгкая сложность: игрок всегда человек — новичок учится, а не проигрывает за упыря.
+@export var player_always_human: bool = false
 
 
 ## Чинит невозможные сочетания, которые можно накрутить ползунками.

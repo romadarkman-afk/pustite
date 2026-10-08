@@ -49,7 +49,7 @@ func _build(title: String, quick: PackedStringArray = PackedStringArray()) -> vo
 	quick_box.visible = not quick.is_empty()
 	box.add_child(quick_box)
 	field = LineEdit.new()
-	field.placeholder_text = "Или напишите своё"
+	field.placeholder_text = "Или напиши своё"
 	field.max_length = 120
 	field.custom_minimum_size = Vector2(0, ThemeFactory.TOUCH)
 	field.text_submitted.connect(func(t: String) -> void: close(t.strip_edges()))

@@ -155,8 +155,10 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 		villagers.append(v)
 
 	var order: Array = range(villagers.size())
+	if config.player_always_human:
+		order.erase(0)
 	_shuffle(order)
-	for k in range(config.monsters):
+	for k in range(mini(config.monsters, order.size())):
 		villagers[int(order[k])].is_upyr = true
 
 	houses = HOUSES.slice(0, config.shelters)

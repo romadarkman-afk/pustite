@@ -239,6 +239,11 @@ func figure_at(global_pos: Vector2) -> int:
 	return best
 
 
+func set_player_highlight(on: bool) -> void:
+	if figures.has(0):
+		figures[0].set_highlight(on)
+
+
 func update_marks(d: Director, m: Match) -> void:
 	if d == null or m == null:
 		return
