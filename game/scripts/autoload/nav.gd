@@ -4,6 +4,8 @@ extends Node
 ## передаёт в Game вызовами. Сам правила не трогает.
 
 var layer: CanvasLayer
+var back_layer: CanvasLayer
+var village_layer: CanvasLayer
 var ui: Control
 var atmos: Atmosphere
 var village: VillageView
@@ -18,7 +20,34 @@ var _started := false
 
 
 func _ready() -> void:
+	# слои: фон с туманом → посёлок со светом → интерфейс. Свет фонарей живёт в слое
+	# посёлка и не подсвечивает кнопки и текст.
+	back_layer = CanvasLayer.new()
+	back_layer.layer = -1
+	back_layer.visible = false
+	add_child(back_layer)
+	var back := Control.new()
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	back_layer.add_child(back)
+	back.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	atmos = Atmosphere.new()
+	back.add_child(atmos)
+
+	village_layer = CanvasLayer.new()
+	village_layer.layer = 0
+	village_layer.visible = false
+	add_child(village_layer)
+	var field_layer := Control.new()
+	field_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	village_layer.add_child(field_layer)
+	field_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	village = VillageView.new()
+	village.setup(load("res://config/village_default.tres") as VillageDef, Save.config.shelters, Match.HOUSES)
+	village.modulate.a = 0.0
+	field_layer.add_child(village)
+
 	layer = CanvasLayer.new()
+	layer.layer = 1
 	layer.visible = false
 	add_child(layer)
 
@@ -28,17 +57,6 @@ func _ready() -> void:
 	layer.add_child(ui)
 	ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
-	atmos = Atmosphere.new()
-	ui.add_child(atmos)
-
-	var field_layer := Control.new()
-	field_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ui.add_child(field_layer)
-	field_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	village = VillageView.new()
-	village.setup(load("res://config/village_default.tres") as VillageDef, Save.config.shelters, Match.HOUSES)
-	village.modulate.a = 0.0
-	field_layer.add_child(village)
 	scrim = Scrim.new()
 	ui.add_child(scrim)
 	scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -85,6 +103,8 @@ func start() -> void:
 		return
 	_started = true
 	layer.visible = true
+	back_layer.visible = true
+	village_layer.visible = true
 	if Diag.crashed_last_time:
 		Diag.crashed_last_time = false
 		show(CrashScreen.new())
@@ -236,12 +256,44 @@ func _on_phase(phase: Match.Phase) -> void:
 			show(e)
 
 
+## Обвинение в реплике: говорящий злится и показывает пальцем, названный пугается.
+const ACCUSE_WORDS := ["упыр", "голосую", "объясни", "врать", "Совпадение", "ничего не хочешь", "не нравится", "Люди так не умеют", "смотрел", "Посмотри лучше"]
+
+
+func _react_to_accusation(line: ChatLine) -> void:
+	if Game.m == null or line.speaker == null:
+		return
+	var hit := false
+	for wd: String in ACCUSE_WORDS:
+		if line.text.contains(wd):
+			hit = true
+			break
+	if not hit:
+		return
+	for v: Villager in Game.m.alive():
+		if v != line.speaker and not v.is_player and (line.text.contains(v.name) or line.text.contains(Ru.accusative(v.name))):
+			_accuse_fx(line.speaker, v)
+			return
+
+
+func _accuse_fx(who: Villager, target: Villager) -> void:
+	var cr := village.crowd
+	if not cr.figures.has(who.id) or not cr.figures.has(target.id):
+		return
+	var a: VillagerFigure = cr.figures[who.id]
+	var t: VillagerFigure = cr.figures[target.id]
+	a.set_emotion("angry", 2.6, signf(t.position.x - a.position.x) if t.position.x != a.position.x else 1.0)
+	t.set_emotion("shocked", 2.6)
+
+
 func _on_chat(line: ChatLine) -> void:
 	if host.current is DayScreen:
 		(host.current as DayScreen).append_line(line)
 		if line.speaker != null and village.crowd.figures.has(line.speaker.id):
 			var f: VillagerFigure = village.crowd.figures[line.speaker.id]
-			bubbles.say(Ru.nom(line.speaker), line.text, f.head_global(), line.speaker.is_player)
+			var b := bubbles.say(Ru.nom(line.speaker), line.text, f.head_global(), line.speaker.is_player)
+			f.talk(b.life if b != null else 2.5)
+			_react_to_accusation(line)
 
 
 # =============================================================
@@ -286,6 +338,8 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 		Intent.SAY:
 			Game.say(data.text)
 		Intent.ACCUSE:
+			if Game.m != null:
+				_accuse_fx(Game.m.player(), Game.m.get_villager(int(data.id)))
 			Game.accuse(data.id)
 		Intent.INVITE:
 			Game.invite(data.id, data.house)

@@ -502,8 +502,13 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 			out.append("%s: поле схлопнуто (%d px)" % [w, int(fld.size.y)])
 		if Nav.village.modulate.a < 0.9:
 			out.append("%s: посёлок не виден" % w)
-		if absf(band.get_center().y - fld.get_center().y) > 3.0:
-			out.append("%s: посёлок не по центру своей области (%d vs %d)" % [w, int(band.get_center().y), int(fld.get_center().y)])
+		# полоса с домами внутри поля; лишняя высота поля — 3/4 сверху (небо), 1/4 снизу
+		var extra := fld.size.y - band.size.y
+		var want_top := fld.position.y + maxf(0.0, extra) * VillageView.SKY_SHARE
+		if extra >= 0.0 and absf(band.position.y - want_top) > 3.0:
+			out.append("%s: посёлок не на своём месте в поле (верх %d, ждали %d)" % [w, int(band.position.y), int(want_top)])
+		if extra >= -1.0 and (band.position.y < fld.position.y - 1.0 or band.end.y > fld.end.y + 1.0):
+			out.append("%s: полоса с домами вылезает из поля" % w)
 		if band.size.y > fld.size.y + 3.0:
 			out.append("%s: дома не влезают в поле (%d > %d)" % [w, int(band.size.y), int(fld.size.y)])
 		if Nav.village.scale.x < MIN_FIELD_SCALE:
@@ -836,6 +841,7 @@ static func field() -> void:
 	var fails: PackedStringArray = []
 	var ok := 0
 	var v := Nav.village
+	Save.set_difficulty("normal")    # всегда обычная партия на 7 жителей, независимо от сохранённых настроек
 
 	var vd := load("res://config/village_default.tres") as VillageDef
 	ok += _expect(fails, vd != null and vd.shelters.size() == 5 and vd.decor.size() >= 3 and vd.lamps.size() == 3,
@@ -1041,13 +1047,19 @@ static func crowd() -> void:
 			await _settle(tree)
 			var tag := "%d×%d · %d жителей" % [sz.x, sz.y, n]
 			checks += _check_crowd(tag + " · день", problems)
-			# ночью: худший случай — все боты у одной двери, по очереди у каждой открытой
+			# ночью: дома распределяет сам ИИ — теми же правилами, что в партии (в доме не больше
+			# двух по своей воле, остальные — в самый пустой). Сверху нагрузка: к одной двери ещё
+			# один, как при уговоре сверх вместимости. Расставляет игровой код.
 			var cr := Nav.village.crowd
 			var bots := Game.m.alive_bots()
 			for hi in range(Game.m.config.shelters):
-				var spots := cr.door_spots(hi, bots.size(), cr._avoid())
-				for k in range(bots.size()):
-					cr.figures[bots[k].id].position = spots[k]
+				Game.director.plan_day()
+				var moved := 0
+				for b: Villager in bots:
+					if moved < 1 and b.announced_house != hi:
+						b.announced_house = hi
+						moved += 1
+				cr.arrange_night(Game.m, -1)
 				await _frames(tree, 1)
 				checks += _check_crowd("%s · ночь у «%s»" % [tag, Game.m.house_name(hi)], problems)
 	Nav.frame.debug_insets = Vector4(-1, -1, -1, -1)

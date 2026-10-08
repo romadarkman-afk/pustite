@@ -25,7 +25,7 @@ func min_content_ratio() -> float:
 ## На высоких телефонах картинка растёт, а не остаётся пустая полоса.
 func field_height(h: float) -> float:
 	var sep := float(get_theme_constant("separation", "VBoxContainer")) if has_theme_constant("separation", "VBoxContainer") else 18.0
-	var reserved := 46.0 + footer.get_combined_minimum_size().y + ThemeFactory.TOUCH + 4.0 * sep + 8.0
+	var reserved := 46.0 + footer.get_combined_minimum_size().y + ThemeFactory.TOUCH + 4.0 * sep + 24.0
 	return maxf(h * 0.55, h - reserved)
 
 

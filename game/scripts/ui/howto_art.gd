@@ -12,7 +12,7 @@ var _t := 0.0
 
 func setup(p: int) -> void:
 	page = p
-	_font = load("res://fonts/UI.ttf")
+	_font = ThemeFactory.font_bold()
 	_book = load("res://config/looks.tres") as LookBook
 	clip_contents = true
 	mouse_filter = Control.MOUSE_FILTER_PASS

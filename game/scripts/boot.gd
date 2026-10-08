@@ -91,9 +91,7 @@ func _play_logo() -> void:
 	_title = Label.new()
 	_title.text = "Пустите"
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var f := FontVariation.new()
-	f.base_font = load("res://fonts/Lora.ttf")
-	f.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): 560}
+	var f := ThemeFactory.font(900)
 	_title.add_theme_font_override("font", f)
 	_title.add_theme_font_size_override("font_size", 64)
 	_title.add_theme_color_override("font_color", ThemeFactory.BONE)

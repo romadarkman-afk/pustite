@@ -23,7 +23,7 @@ var _t := 0.0
 func setup(t: String) -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text = t
-	_font = load("res://fonts/UI.ttf")
+	_font = ThemeFactory.font(700)
 	if not Juice.instant:
 		modulate.a = 0.0
 		Juice.tween().tween_property(self, "modulate:a", 1.0, 0.35)

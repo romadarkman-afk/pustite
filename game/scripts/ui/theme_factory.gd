@@ -1,19 +1,37 @@
 class_name ThemeFactory
 extends RefCounted
 ## Один Theme на всё приложение. Узлы просто ставят theme_type_variation.
-## В v0.1 стиль вешался вручную на каждую ноду — сотни лишних объектов.
+## Стиль «уютный ужас»: глубокий фиолетово-чёрный фон, стеклянные панели,
+## тёплый янтарь, мягкий округлый шрифт Nunito (лицензия OFL, fonts/Nunito-OFL.txt).
 
-const NIGHT := Color("0a1013")
-const PANEL := Color("162126")
-const PANEL_2 := Color("1d2b32")
-const EDGE := Color("26363d")
-const BONE := Color("e3d9c8")
-const FROST := Color("74898f")
-const LAMP := Color("d9a24e")
-const LAMP_D := Color("8a6c39")
-const BLOOD := Color("8c3a33")
-const MINE := Color("20302a")
-const MINE_EDGE := Color("2f463a")
+const NIGHT := Color("110e1c")
+const PANEL := Color(0.10, 0.09, 0.16, 0.9)
+const PANEL_2 := Color("2a2440")
+const EDGE := Color(1, 1, 1, 0.14)
+const BONE := Color("f6f1e8")
+const FROST := Color("a3a8c6")
+const LAMP := Color("ffb54d")
+const LAMP_D := Color("e0a050")
+const BLOOD := Color("ff6b6b")
+const MINE := Color("2d2618")
+const MINE_EDGE := Color("e0a050")
+const RADIUS := 24
+
+static var _fonts: Dictionary = {}
+
+
+## Шрифт Nunito нужной толщины: 600 — текст, 800 — кнопки и имена, 900 — заголовки.
+static func font(weight: int = 650) -> FontVariation:
+	if not _fonts.has(weight):
+		var f := FontVariation.new()
+		f.base_font = load("res://fonts/Nunito.ttf")
+		f.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): weight}
+		_fonts[weight] = f
+	return _fonts[weight]
+
+
+static func font_bold() -> FontVariation:
+	return font(850)
 const CLEAR := Color(0, 0, 0, 0)
 
 ## Минимальная высота касания в пикселях вьюпорта.
@@ -23,43 +41,46 @@ const TOUCH := 88
 
 static func build() -> Theme:
 	var t := Theme.new()
-	var ui_font: FontFile = load("res://fonts/UI.ttf")
+	var ui_font := font(650)
+	var bold := font(850)
 	t.default_font = ui_font
 	t.default_font_size = 23
 
-	var serif_regular := _serif(400)
-	var serif_strong := _serif(560)
+	var serif_regular := font(600)
+	var serif_strong := font(900)
 
 	t.set_color("font_color", "Label", BONE)
 	t.set_constant("line_spacing", "Label", 6)
 
-	_label(t, "Title", serif_strong, 52, BONE, 10)
-	_label(t, "Tale", serif_regular, 27, BONE, 11)
+	_label(t, "Title", serif_strong, 50, BONE, 8)
+	_label(t, "Tale", serif_regular, 26, BONE, 9)
 	_label(t, "Body", ui_font, 23, BONE, 7)
 	_label(t, "Small", ui_font, 20, FROST, 6)
-	_label(t, "Speaker", ui_font, 18, LAMP_D, 2)
-	_label(t, "Hint", ui_font, 19, LAMP_D, 5)
+	_label(t, "Speaker", bold, 19, LAMP_D, 2)
+	_label(t, "Hint", bold, 19, LAMP_D, 5)
 	_label(t, "Clock", ui_font, 23, FROST, 0)
 	_label(t, "Danger", ui_font, 22, BLOOD, 6)
 
-	_button(t, "Primary", LAMP, Color("1c1408"), LAMP, 25)
-	_button(t, "Ghost", CLEAR, FROST, EDGE, 23)
-	_button(t, "Danger", CLEAR, BLOOD, BLOOD, 23)
+	_button(t, "Primary", LAMP, Color("2a1606"), Color("ffe1a0"), 25)
+	_button(t, "Ghost", Color(1, 1, 1, 0.05), BONE, Color(1, 1, 1, 0.3), 23)
+	_button(t, "Danger", Color(BLOOD, 0.12), BLOOD, BLOOD, 23)
 	_button(t, "Row", PANEL, BONE, EDGE, 23)
-	_button(t, "RowOn", PANEL_2, BONE, LAMP, 23)
-	_button(t, "Chip", CLEAR, FROST, EDGE, 19, 10)
-	_button(t, "ChipYou", CLEAR, LAMP, LAMP_D, 19, 10)
-	_button(t, "ChipDead", CLEAR, Color("54403d"), Color("3a2926"), 19, 10)
-	_button(t, "ChipUpyr", CLEAR, BLOOD, BLOOD, 19, 10)
-	_button(t, "Quick", PANEL, LAMP, EDGE, 20, 12)
+	_button(t, "RowOn", Color("3a2f22"), BONE, LAMP, 23)
+	_button(t, "Chip", Color(1, 1, 1, 0.05), FROST, EDGE, 19, 12)
+	_button(t, "ChipYou", Color(LAMP, 0.12), LAMP, LAMP_D, 19, 12)
+	_button(t, "ChipDead", CLEAR, Color("6a5a68"), Color(1, 1, 1, 0.08), 19, 12)
+	_button(t, "ChipUpyr", Color(BLOOD, 0.12), BLOOD, BLOOD, 19, 12)
+	_button(t, "Quick", PANEL, LAMP, EDGE, 20, 14)
+	for bn: StringName in [&"Primary", &"Ghost", &"Danger", &"Row", &"RowOn", &"Chip", &"ChipYou", &"ChipDead", &"ChipUpyr", &"Quick"]:
+		t.set_font("font", bn, bold)
 
 	_panel(t, "Bubble", PANEL, EDGE)
 	_panel(t, "BubbleMine", MINE, MINE_EDGE)
 	_panel(t, "Card", PANEL, EDGE)
-	_panel(t, "Sheet", Color("0f171b"), EDGE, 18)
+	_panel(t, "Sheet", Color(0.08, 0.07, 0.13, 0.97), EDGE, 22)
 
-	var le_normal := _box(NIGHT, EDGE)
-	var le_focus := _box(NIGHT, LAMP_D)
+	var le_normal := _box(Color(1, 1, 1, 0.06), EDGE, RADIUS)
+	var le_focus := _box(Color(1, 1, 1, 0.08), LAMP_D, RADIUS)
 	t.set_stylebox("normal", "LineEdit", le_normal)
 	t.set_stylebox("focus", "LineEdit", le_focus)
 	t.set_stylebox("read_only", "LineEdit", le_normal)
@@ -69,12 +90,12 @@ static func build() -> Theme:
 	t.set_font_size("font_size", "LineEdit", 23)
 
 	var track := StyleBoxFlat.new()
-	track.bg_color = EDGE
+	track.bg_color = Color(1, 1, 1, 0.12)
 	track.content_margin_top = 4
 	track.content_margin_bottom = 4
 	track.set_corner_radius_all(3)
 	var filled := track.duplicate() as StyleBoxFlat
-	filled.bg_color = LAMP_D
+	filled.bg_color = LAMP
 	t.set_stylebox("slider", "HSlider", track)
 	t.set_stylebox("grabber_area", "HSlider", filled)
 	t.set_stylebox("grabber_area_highlight", "HSlider", filled)
@@ -97,14 +118,6 @@ static func build() -> Theme:
 	t.set_constant("h_separation", "HFlowContainer", 8)
 	t.set_constant("v_separation", "HFlowContainer", 8)
 	return t
-
-
-static func _serif(weight: int) -> FontVariation:
-	var f := FontVariation.new()
-	f.base_font = load("res://fonts/Lora.ttf")
-	var tag: int = TextServerManager.get_primary_interface().name_to_tag("wght")
-	f.variation_opentype = {tag: weight}
-	return f
 
 
 static func _label(t: Theme, name: StringName, font: Font, size: int, col: Color, spacing: int) -> void:
@@ -130,11 +143,11 @@ static func _box(bg: Color, border: Color, radius: int = 4, pad: int = 20) -> St
 
 static func _button(t: Theme, name: StringName, bg: Color, fg: Color, edge: Color, size: int, pad: int = 20) -> void:
 	t.set_type_variation(name, "Button")
-	t.set_stylebox("normal", name, _box(bg, edge, 4, pad))
-	t.set_stylebox("hover", name, _box(bg, edge, 4, pad))
-	t.set_stylebox("pressed", name, _box(bg.darkened(0.2) if bg.a > 0 else Color(edge, 0.25), edge, 4, pad))
-	t.set_stylebox("hover_pressed", name, _box(bg.darkened(0.2) if bg.a > 0 else Color(edge, 0.25), edge, 4, pad))
-	t.set_stylebox("disabled", name, _box(Color(bg, bg.a * 0.35), Color(edge, 0.35), 4, pad))
+	t.set_stylebox("normal", name, _box(bg, edge, RADIUS, pad))
+	t.set_stylebox("hover", name, _box(bg, edge, RADIUS, pad))
+	t.set_stylebox("pressed", name, _box(bg.darkened(0.2) if bg.a > 0.2 else Color(1, 1, 1, 0.14), edge, RADIUS, pad))
+	t.set_stylebox("hover_pressed", name, _box(bg.darkened(0.2) if bg.a > 0.2 else Color(1, 1, 1, 0.14), edge, RADIUS, pad))
+	t.set_stylebox("disabled", name, _box(Color(bg, bg.a * 0.35), Color(edge, edge.a * 0.35), RADIUS, pad))
 	t.set_stylebox("focus", name, StyleBoxEmpty.new())
 	for state: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		t.set_color(state, name, fg)
@@ -144,7 +157,7 @@ static func _button(t: Theme, name: StringName, bg: Color, fg: Color, edge: Colo
 
 static func _panel(t: Theme, name: StringName, bg: Color, edge: Color, pad: int = 18) -> void:
 	t.set_type_variation(name, "PanelContainer")
-	t.set_stylebox("panel", name, _box(bg, edge, 4, pad))
+	t.set_stylebox("panel", name, _box(bg, edge, RADIUS, pad))
 
 
 static func _circle(d: int, col: Color) -> ImageTexture:

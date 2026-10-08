@@ -53,6 +53,7 @@ scripts/ui/scrim.gd
 scripts/ui/text_sheet.gd
 scripts/ui/theme_factory.gd
 scripts/ui/w.gd
+scripts/village/art.gd
 scripts/village/crowd.gd
 scripts/village/house_def.gd
 scripts/village/look_book.gd

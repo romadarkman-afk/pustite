@@ -9,6 +9,7 @@ const BAND := Rect2(0, 120, 720, 400)    ## полоса с домами — е�
 ## Сколько ширины посёлка обязано войти в кадр. По краям только фоновые дома и река —
 ## их можно подрезать, а фигурки от этого крупнее.
 const SIDE_VISIBLE := 0.88
+const SKY_SHARE := 0.75                   ## какая доля лишней высоты поля уходит в небо
 const SAFE_X := Vector2(84, 624)          ## куда можно ставить жителей: слева половина имени, справа колонка отметок
 
 var def: VillageDef
@@ -32,7 +33,9 @@ var _dust: CPUParticles2D
 var _lamp_glows: Array[Sprite2D] = []
 var _house_glows: Array[Sprite2D] = []
 var _stones: PackedVector3Array = PackedVector3Array()
-var _trees: PackedVector2Array = PackedVector2Array()
+var _tree_spots: PackedVector3Array = PackedVector3Array()
+var _grass: PackedVector2Array = PackedVector2Array()
+var _lamp_lights: Array[PointLight2D] = []
 var _tw_frame: Tween
 var _tw_night: Tween
 var _t: float = 0.0
@@ -41,13 +44,14 @@ var _t: float = 0.0
 func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	def = village
 	titles = names
-	_font = load("res://fonts/UI.ttf")
+	_font = ThemeFactory.font_bold()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
 	_build_trees(rng)
 	_build_stones(rng)
 	_build_particles()
 	_build_thresholds()
+	_build_lights()
 	eyes = Eyes.new()
 	add_child(eyes)
 	crowd = Crowd.new()
@@ -77,7 +81,8 @@ func set_night(v: float) -> void:
 		_fog.modulate.a = 0.35 + 0.65 * night
 		_dust.modulate.a = 0.12 + 0.88 * (1.0 - night)
 	if crowd != null:
-		crowd.modulate = Color(1, 1, 1).lerp(Color(0.6, 0.65, 0.76), night)
+		crowd.modulate = Color(1, 1, 1).lerp(Color(0.62, 0.64, 0.86), night)
+		crowd.set_night(night)
 	if eyes != null:
 		eyes.night = night
 	# статика перерисовывается ступеньками: сумерки плавные, а кадры не проседают
@@ -101,8 +106,11 @@ func set_mood(v: float, dur: float) -> void:
 func frame_to(rect: Rect2, vp_w: float, dur: float) -> void:
 	var s := minf(vp_w / (LOGICAL.x * SIDE_VISIBLE), rect.size.y / BAND.size.y)
 	s = maxf(s, 0.5)
+	# поле выше полосы с домами: лишнее место уходит в основном в небо (3/4 сверху),
+	# а не в пустую траву под толпой
+	var extra := maxf(0.0, rect.size.y - BAND.size.y * s)
 	var target := Vector2(vp_w * 0.5 - LOGICAL.x * 0.5 * s,
-		rect.position.y + rect.size.y * 0.5 - (BAND.position.y + BAND.size.y * 0.5) * s)
+		rect.position.y + extra * SKY_SHARE - BAND.position.y * s)
 	if _tw_frame != null:
 		_tw_frame.kill()
 	if dur <= 0.0:
@@ -167,6 +175,10 @@ func band_global_rect() -> Rect2:
 
 func _process(delta: float) -> void:
 	_t += delta
+	for i in range(_lamp_lights.size()):
+		var on_l := _lamp_on(i, night)
+		_lamp_lights[i].visible = on_l > 0.01
+		_lamp_lights[i].energy = 0.9 * on_l
 	for i in range(_lamp_glows.size()):
 		var g := _lamp_glows[i]
 		var on := _lamp_on(i, night)
@@ -182,67 +194,110 @@ func _process(delta: float) -> void:
 # =============================================================
 # Рисование
 # =============================================================
+const SHELTER_PALS := [
+	{"wall": Color("f2b880"), "wall_d": Color("d8955e"), "roof": Color("c9573f")},
+	{"wall": Color("d9674f"), "wall_d": Color("b54d38"), "roof": Color("7a3b2e")},
+	{"wall": Color("f6dfa4"), "wall_d": Color("dcbf7c"), "roof": Color("8e5a9e")},
+	{"wall": Color("7fae68"), "wall_d": Color("5f8c4c"), "roof": Color("5f8c4c")},
+	{"wall": Color("9fd0c7"), "wall_d": Color("78ada3"), "roof": Color("5b6fb3")},
+]
+const DECOR_PALS := [
+	{"wall": Color("c7b4e0"), "wall_d": Color("a58fc4"), "roof": Color("5b6fb3")},
+	{"wall": Color("f2d0a9"), "wall_d": Color("d6ad80"), "roof": Color("b8574a")},
+	{"wall": Color("b9dfb0"), "wall_d": Color("93c088"), "roof": Color("6b8e5a")},
+	{"wall": Color("f5c4b8"), "wall_d": Color("dba293"), "roof": Color("8a5a9e")},
+]
+
+
 func _draw() -> void:
 	if def == null:
 		return
 	draws += 1
 	var t0 := Time.get_ticks_usec()
 	var n := _q if _q >= 0.0 else night
+	var k := Art.ink(n)
 
-	# небо до горизонта
-	_vgrad(Rect2(-2000, -2400, 4720, 2590), Color("2f3e44").lerp(Color("091114"), n), Color("4d5d62").lerp(Color("16232a"), n))
-	# луна ночью, бледный диск днём
-	var moon := Vector2(568, 70)
-	for i in range(4):
-		draw_circle(moon, 30.0 + i * 16.0, Color(0.85, 0.87, 0.80, (0.05 - i * 0.011) * (0.3 + n)))
-	draw_circle(moon, 24.0, Color(0.86, 0.87, 0.80, 0.18 + 0.72 * n))
-	draw_circle(moon + Vector2(-7, -5), 6.0, Color(0.70, 0.72, 0.66, 0.25 * n))
-	# лес на горизонте
-	draw_colored_polygon(_trees, Color("101a1e").lerp(Color("060c0e"), n))
-	# земля
-	draw_rect(Rect2(-2000, 188, 4720, 3200), Color("2a353a").lerp(Color("10191d"), n))
+	# небо: день — голубое с облаками и солнцем; ночь — лиловое со звёздами и луной
+	var sky_top := Color("4fb0e0").lerp(Color("0b0a24"), n)
+	draw_rect(Rect2(-2000, -2400, 4720, 2000), sky_top)
+	Art.vgrad(self, Rect2(-2000, -400, 4720, 600), sky_top, Color("ffe0b8").lerp(Color("33285a"), n))
+	if n < 0.95:
+		Art.glow(self, Vector2(590, -60), 130, Color(1.0, 0.95, 0.7, 0.9 * (1.0 - n)))
+		draw_circle(Vector2(590, -60), 32, Color(1.0, 0.96, 0.77, 1.0 - n))
+	if n > 0.05:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 5
+		for i in range(70):
+			var sp := Vector2(rng.randf_range(-200, 920), rng.randf_range(-380, 150))
+			draw_circle(sp, rng.randf_range(0.7, 1.8), Color(1, 1, 1, rng.randf_range(0.4, 0.95) * n))
+		var mc := Vector2(560, -70)
+		Art.glow(self, mc, 130, Color(0.75, 0.75, 1.0, 0.7 * n))
+		draw_circle(mc, 34, Color(0.95, 0.93, 0.82, n))
+		for cr: Vector3 in [Vector3(-10, -7, 6), Vector3(9, 11, 4.5), Vector3(12, -13, 3.5)]:
+			draw_circle(mc + Vector2(cr.x, cr.y), cr.z, Color(0.87, 0.84, 0.72, n))
+	for cl: Vector3 in [Vector3(130, -150, 0.85), Vector3(420, -260, 0.7), Vector3(560, 40, 0.55), Vector3(170, 70, 0.5)]:
+		var cc := Color(1, 1, 1, 0.95).lerp(Color(0.16, 0.13, 0.3, 0.85), n)
+		for b: Vector3 in [Vector3(0, 0, 34), Vector3(40, 7, 26), Vector3(-36, 9, 24), Vector3(74, 14, 18), Vector3(8, -22, 24)]:
+			draw_circle(Vector2(cl.x + b.x * cl.z, cl.y + b.y * cl.z), b.z * cl.z, cc)
+	# холмы слоями — дальние светлее
+	var hills := [Color("9ec9b4"), Color("78ad94"), Color("5b9278")]
+	for li in range(3):
+		var pts := PackedVector2Array([Vector2(-600, 260)])
+		var x := -600.0
+		while x <= 1320.0:
+			pts.append(Vector2(x, 140 + li * 16 + sin(x * 0.012 + li * 1.7) * 16 + sin(x * 0.031 + li) * 6))
+			x += 24.0
+		pts.append(Vector2(1320, 260))
+		draw_colored_polygon(pts, Art.dn(hills[li], n))
+	for tp: Vector3 in _tree_spots:
+		Art.tree(self, Vector2(tp.x, tp.y), tp.z, Art.dn(Color("4f8a5c"), n), k)
+	# земля и трава
+	Art.vgrad(self, Rect2(-2000, 186, 4720, 3200), Art.dn(Color("a7cf78"), n), Art.dn(Color("7fb35e"), n))
+	var gc := Art.dn(Color("6aa04e"), n)
+	for g: Vector2 in _grass:
+		draw_line(g, g + Vector2(-2.5, -7), gc, 1.8, true)
+		draw_line(g, g + Vector2(2.5, -8), gc, 1.8, true)
 	if def.river:
-		_draw_river(n)
-	_draw_square(n)
+		_draw_river(n, k)
+	_draw_square(n, k)
 
 	# дома: дальние раньше ближних
 	var items: Array = []
-	for h: HouseDef in def.decor:
-		items.append([h, 0])
+	for di in range(def.decor.size()):
+		items.append([def.decor[di], 0, DECOR_PALS[di % DECOR_PALS.size()]])
 	for i in range(def.shelters.size()):
-		items.append([def.shelters[i], 1 if i < open_count else 2])
+		items.append([def.shelters[i], 1 if i < open_count else 2, SHELTER_PALS[i % SHELTER_PALS.size()]])
 	items.sort_custom(func(a: Array, b: Array) -> bool: return (a[0] as HouseDef).pos.y < (b[0] as HouseDef).pos.y)
 	for it: Array in items:
 		var h: HouseDef = it[0]
 		if h.pos.y > def.well.y:
 			continue
-		_draw_house(h, it[1], n)
-	_draw_well(n)
-	for li in range(def.lamps.size()):
-		_draw_lamp_post(def.lamps[li], n, _lamp_on(li, n))
+		Art.house(self, h.kind, h.pos, h.size.x, h.size.y, it[2], n, _lit(h, n), it[1])
+	_draw_well(n, k)
+	for li2 in range(def.lamps.size()):
+		_draw_lamp_post(def.lamps[li2], n, _lamp_on(li2, n))
 	for it: Array in items:
 		var h: HouseDef = it[0]
 		if h.pos.y <= def.well.y:
 			continue
-		_draw_house(h, it[1], n)
-	_draw_fences(n)
+		Art.house(self, h.kind, h.pos, h.size.x, h.size.y, it[2], n, _lit(h, n), it[1])
+	_draw_fences(n, k)
 
 	# выбранный ночью дом — тёплая рамка
 	if selected_house >= 0 and selected_house < open_count:
 		var sh: HouseDef = def.shelters[selected_house]
-		var sr := Rect2(sh.pos.x - sh.size.x * 0.5, sh.pos.y - sh.size.y, sh.size.x, sh.size.y).grow(7.0)
-		draw_rect(sr, Color(ThemeFactory.LAMP, 0.9), false, 3.0)
-	# таблички открытых убежищ — на стене над дверью: очередь у двери их не закрывает
+		var sr := Rect2(sh.pos.x - sh.size.x * 0.5, sh.pos.y - sh.size.y, sh.size.x, sh.size.y).grow(8.0)
+		Art._outline(self, Art.rrect(sr, 12), ThemeFactory.LAMP, 3.5)
+	# таблички открытых убежищ — капсулы на стене над дверью: очередь у двери их не закрывает
 	for i in range(open_count):
 		var r := shelter_label_rect_local(i)
 		var sel := i == selected_house
-		draw_rect(r, Color(ThemeFactory.NIGHT, 0.86))
-		draw_rect(r, ThemeFactory.LAMP if sel else Color(ThemeFactory.LAMP_D, 0.9), false, 2.0 if sel else 1.0)
+		Art.shape(self, Art.rrect(r, r.size.y * 0.5), Color(0.08, 0.06, 0.12, 0.82), ThemeFactory.LAMP if sel else Color(1, 1, 1, 0.3), 2.0 if sel else 1.2)
 		var name_w := _font.get_string_size(_title(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE).x
-		var x := r.position.x + 6.0
-		draw_string(_font, Vector2(x, r.end.y - 4), _title(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE, ThemeFactory.BONE)
+		var x2 := r.position.x + 8.0
+		draw_string(_font, Vector2(x2, r.end.y - 4.5), _title(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE, Color(1, 1, 1))
 		if _going_text(i) != "":
-			draw_string(_font, Vector2(x + name_w, r.end.y - 4), _going_text(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE, ThemeFactory.LAMP)
+			draw_string(_font, Vector2(x2 + name_w, r.end.y - 4.5), _going_text(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE, ThemeFactory.LAMP)
 	draw_usec_total += Time.get_ticks_usec() - t0
 
 
@@ -263,9 +318,9 @@ func _going_text(i: int) -> String:
 ## Табличка с названием убежища в координатах посёлка: верх стены, над дверью.
 func shelter_label_rect_local(i: int) -> Rect2:
 	var h: HouseDef = def.shelters[i]
-	var w := _font.get_string_size(_title(i) + _going_text(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE).x + 12.0
+	var w := _font.get_string_size(_title(i) + _going_text(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE).x + 16.0
 	var top := h.pos.y - h.size.y
-	return Rect2(h.pos.x - w * 0.5, top + 3.0, w, 17.0)
+	return Rect2(h.pos.x - w * 0.5, top + 3.0, w, 19.0)
 
 
 func shelter_label_rect_global(i: int) -> Rect2:
@@ -273,223 +328,64 @@ func shelter_label_rect_global(i: int) -> Rect2:
 	return Rect2(to_global(r.position), r.size * scale)
 
 
-func _draw_river(n: float) -> void:
+func _draw_river(n: float, k: Color) -> void:
 	var pts := PackedVector2Array([Vector2(-600, 214), Vector2(52, 214), Vector2(84, 262), Vector2(58, 330),
 		Vector2(96, 410), Vector2(64, 520), Vector2(102, 900), Vector2(-600, 900)])
-	var bank := PackedVector2Array()
-	for p: Vector2 in pts:
-		bank.append(p + (Vector2(9, 0) if p.x > 0.0 else Vector2.ZERO))
-	draw_colored_polygon(bank, Color("3b4636").lerp(Color("182019"), n))
-	draw_colored_polygon(pts, Color("456674").lerp(Color("132a35"), n))
-	var shine := Color(0.80, 0.88, 0.92, 0.16 + 0.10 * n)
-	for y in [246, 302, 368, 432, 494]:
-		var x: float = 22.0 + 14.0 * sin(y * 0.05)
-		draw_line(Vector2(x - 18, y), Vector2(x + 12, y), shine, 2.0)
+	draw_colored_polygon(pts, Art.dn(Color("6fb7d9"), n))
+	var o := pts.slice(1, 7)
+	draw_polyline(o, Color(k, 0.6), 3.0, true)
+	var shine := Color(1, 1, 1, 0.55 - 0.25 * n)
+	for y in [244, 300, 366, 432, 494]:
+		var x: float = 24.0 + 14.0 * sin(y * 0.05)
+		draw_line(Vector2(x - 16, y), Vector2(x + 12, y), shine, 2.6, true)
 
 
-func _draw_square(n: float) -> void:
+func _draw_square(n: float, k: Color) -> void:
 	var c := def.square_center
-	draw_colored_polygon(_ellipse(c, def.square_radii + Vector2(10, 6)), Color("323e43").lerp(Color("141e22"), n))
-	draw_colored_polygon(_ellipse(c, def.square_radii), Color("3a464b").lerp(Color("19242a"), n))
-	var stone := Color("47545a").lerp(Color("223038"), n)
-	for s: Vector3 in _stones:
-		draw_colored_polygon(_ellipse(Vector2(s.x, s.y), Vector2(s.z, s.z * 0.45), 10), stone)
-	# дорожки к убежищам
-	var path := Color("33403f").lerp(Color("172126"), n)
+	Art.shape(self, Art.ellipse(c, def.square_radii, 44), Art.dn(Color("e7cf98"), n), Color(k, 0.45), 2.6)
+	var stone := Art.dn(Color("d6b97c"), n)
+	for st: Vector3 in _stones:
+		Art.shape(self, Art.ellipse(Vector2(st.x, st.y), Vector2(st.z, st.z * 0.5), 10), stone, Color(k, 0.22), 1.2)
+	var path := Art.dn(Color("e2c88f"), n)
 	for i in range(def.shelters.size()):
 		var h: HouseDef = def.shelters[i]
 		var dir := (h.pos - c).normalized()
 		var a := c + Vector2(dir.x * def.square_radii.x, dir.y * def.square_radii.y) * 0.92
-		draw_line(a, h.pos + Vector2(0, 2), path, 16.0)
+		draw_line(a, h.pos + Vector2(0, 2), path, 15.0, true)
 
 
-func _draw_house(h: HouseDef, state: int, n: float) -> void:
-	var w := h.size.x
-	var hh := h.size.y
-	var x0 := h.pos.x - w * 0.5
-	var top := h.pos.y - hh
-	var wall := Color("2a3940").lerp(Color("172228"), n)
-	var edge := Color("41535a").lerp(Color("27373e"), n)
-	var roof := Color("1d282d").lerp(Color("0d1518"), n)
-	var wood := Color("4a3729").lerp(Color("2a1f18"), n)
-	var lit := state == 1
-	var l := _lit(h, n)
-	var win := Color("1b262b").lerp(ThemeFactory.LAMP, l * 0.92) if lit else (Color("1b262b").lerp(Color(ThemeFactory.LAMP_D, 1.0), l * 0.35) if state == 0 else Color("0f1619"))
-
-	# тень дома на земле
-	draw_colored_polygon(_ellipse(h.pos + Vector2(0, 3), Vector2(w * 0.62, 9)), Color(0, 0, 0, 0.28))
-
-	match h.kind:
-		HouseDef.Kind.CELLAR:
-			draw_colored_polygon(_half_ellipse(h.pos, Vector2(w * 0.5, hh)), Color("27352f").lerp(Color("111a17"), n))
-			draw_polyline(_half_ellipse(h.pos, Vector2(w * 0.5, hh)), edge, 2.0)
-			var dw := w * 0.3
-			var dr := Rect2(h.pos.x - dw * 0.5, h.pos.y - hh * 0.62, dw, hh * 0.62)
-			draw_rect(dr.grow(4), Color("3a3027").lerp(Color("1d1712"), n))
-			draw_rect(dr, wood if lit else wood.darkened(0.3))
-			draw_line(Vector2(h.pos.x + w * 0.28, h.pos.y - hh * 0.82), Vector2(h.pos.x + w * 0.28, h.pos.y - hh * 1.12), edge, 4.0)
-			_mark_door(dr, state, n)
-			if lit:
-				_door_light(dr, l)
-			return
-		HouseDef.Kind.GARAGE:
-			draw_rect(Rect2(x0, top, w, hh), wall)
-			draw_rect(Rect2(x0 - 6, top - 9, w + 12, 10), roof)
-			var dr2 := Rect2(h.pos.x - w * 0.3, top + hh * 0.28, w * 0.6, hh * 0.72)
-			draw_rect(dr2, Color("2c3639").lerp(Color("161e21"), n))
-			for k in range(1, 6):
-				var yy := dr2.position.y + dr2.size.y * k / 6.0
-				draw_line(Vector2(dr2.position.x, yy), Vector2(dr2.end.x, yy), edge, 1.5)
-			draw_rect(Rect2(x0 + w * 0.06, top + hh * 0.3, w * 0.1, hh * 0.22), win)
-			draw_rect(Rect2(x0, top, w, hh), edge, false, 2.0)
-			_mark_door(dr2, state, n)
-			if lit:
-				_door_light(dr2, l)
-			return
-		_:
-			pass
-
-	# стены
-	draw_rect(Rect2(x0, top, w, hh), wall)
-	# крыша
-	var roof_pts: PackedVector2Array
-	match h.kind:
-		HouseDef.Kind.BARN:
-			roof_pts = PackedVector2Array([Vector2(x0 - 8, top), Vector2(x0 + w * 0.12, top - hh * 0.36),
-				Vector2(h.pos.x, top - hh * 0.56), Vector2(x0 + w * 0.88, top - hh * 0.36), Vector2(x0 + w + 8, top)])
-		HouseDef.Kind.CHURCH:
-			roof_pts = PackedVector2Array([Vector2(x0 - 6, top), Vector2(h.pos.x, top - hh * 0.62), Vector2(x0 + w + 6, top)])
-		HouseDef.Kind.SHED:
-			roof_pts = PackedVector2Array([Vector2(x0 - 6, top + 6), Vector2(x0 - 6, top - hh * 0.28), Vector2(x0 + w + 6, top - 2), Vector2(x0 + w + 6, top + 6)])
-		_:
-			roof_pts = PackedVector2Array([Vector2(x0 - 9, top), Vector2(h.pos.x, top - hh * 0.58), Vector2(x0 + w + 9, top)])
-	draw_colored_polygon(roof_pts, roof)
-	draw_polyline(roof_pts, edge, 2.0)
-
-	if h.kind == HouseDef.Kind.CHURCH:
-		_draw_dome(h, top, roof, edge, n)
-	if h.kind == HouseDef.Kind.HOME:
-		draw_rect(Rect2(x0 + w * 0.68, top - hh * 0.5, w * 0.1, hh * 0.32), roof)
-
-	# окна
-	var ws := w * 0.16
-	var wy := top + hh * 0.24
-	match h.kind:
-		HouseDef.Kind.BARN:
-			draw_rect(Rect2(h.pos.x - ws * 0.4, top - hh * 0.22, ws * 0.8, ws * 0.6), win)
-		HouseDef.Kind.CHURCH:
-			for xx in [x0 + w * 0.16, x0 + w * 0.84 - ws * 0.7]:
-				draw_rect(Rect2(xx, wy, ws * 0.7, hh * 0.3), win)
-				draw_circle(Vector2(xx + ws * 0.35, wy), ws * 0.35, win)
-		HouseDef.Kind.SHED:
-			pass
-		_:
-			for xx in [x0 + w * 0.1, x0 + w * 0.9 - ws]:
-				draw_rect(Rect2(xx, wy, ws, ws), win)
-				draw_line(Vector2(xx + ws * 0.5, wy), Vector2(xx + ws * 0.5, wy + ws), wall, 2.0)
-				if state == 2:
-					_planks(Rect2(xx, wy, ws, ws), wood)
-
-	# дверь
-	var dw2 := w * (0.42 if h.kind == HouseDef.Kind.BARN else 0.22)
-	var dh := hh * (0.66 if h.kind == HouseDef.Kind.BARN else 0.52)
-	var dr3 := Rect2(h.pos.x - dw2 * 0.5, h.pos.y - dh, dw2, dh)
-	draw_rect(dr3, wood if state != 2 else wood.darkened(0.35))
-	if h.kind == HouseDef.Kind.BARN:
-		draw_line(dr3.position, dr3.end, wood.darkened(0.4), 3.0)
-		draw_line(Vector2(dr3.end.x, dr3.position.y), Vector2(dr3.position.x, dr3.end.y), wood.darkened(0.4), 3.0)
-		draw_line(Vector2(h.pos.x, dr3.position.y), Vector2(h.pos.x, dr3.end.y), wood.darkened(0.5), 2.0)
-	if h.kind == HouseDef.Kind.CHURCH:
-		draw_circle(Vector2(h.pos.x, dr3.position.y), dw2 * 0.5, wood if state != 2 else wood.darkened(0.35))
-	draw_rect(Rect2(x0, top, w, hh), edge, false, 2.0)
-	_mark_door(dr3, state, n)
-	if lit:
-		_door_light(dr3, l)
-
-
-func _draw_dome(h: HouseDef, top: float, roof: Color, edge: Color, n: float) -> void:
-	var tw := h.size.x * 0.3
-	var base_y := top - h.size.y * 0.5
-	var tower := Rect2(h.pos.x - tw * 0.5, base_y - h.size.y * 0.42, tw, h.size.y * 0.46)
-	draw_rect(tower, roof.lightened(0.06))
-	draw_rect(tower, edge, false, 2.0)
-	# луковка: правый профиль снизу вверх до острия, затем зеркально вниз — простой многоугольник
-	var dy := tower.position.y
-	var r := tw * 0.62
-	var prof: Array[Vector2] = [Vector2(0.42, 0.0), Vector2(0.80, -0.22), Vector2(1.0, -0.52),
-		Vector2(0.92, -0.84), Vector2(0.62, -1.16), Vector2(0.28, -1.42), Vector2(0.0, -1.72)]
-	var pts := PackedVector2Array()
-	for q: Vector2 in prof:
-		pts.append(Vector2(h.pos.x + q.x * r, dy + q.y * r))
-	for i in range(prof.size() - 2, -1, -1):
-		pts.append(Vector2(h.pos.x - prof[i].x * r, dy + prof[i].y * r))
-	draw_colored_polygon(pts, Color("44555b").lerp(Color("1e2b30"), n))
-	var outline := pts.duplicate()
-	outline.append(pts[0])
-	draw_polyline(outline, edge, 2.0)
-	var tip := dy - 1.72 * r
-	draw_line(Vector2(h.pos.x, tip), Vector2(h.pos.x, tip - r * 0.9), edge, 2.5)
-	draw_line(Vector2(h.pos.x - 7, tip - r * 0.6), Vector2(h.pos.x + 7, tip - r * 0.6), edge, 2.5)
-
-
-## Открытое убежище — тёплая рамка двери. Заколоченное — доски крест-накрест.
-func _mark_door(dr: Rect2, state: int, n: float) -> void:
-	if state == 1:
-		draw_rect(dr.grow(2), Color(ThemeFactory.LAMP_D, 0.55 + 0.4 * n), false, 2.0)
-	elif state == 2:
-		_planks(dr.grow(3), Color("5a4532").lerp(Color("33261c"), n))
-
-
-func _door_light(dr: Rect2, n: float) -> void:
-	if n < 0.2:
-		return
-	draw_line(Vector2(dr.position.x + 3, dr.end.y - 1), Vector2(dr.end.x - 3, dr.end.y - 1), Color(ThemeFactory.LAMP, 0.85 * n), 2.0)
-	draw_line(Vector2(dr.position.x + dr.size.x * 0.5, dr.position.y + 4), Vector2(dr.position.x + dr.size.x * 0.5, dr.end.y - 3), Color(ThemeFactory.LAMP, 0.55 * n), 2.0)
-
-
-func _planks(r: Rect2, c: Color) -> void:
-	draw_line(r.position + Vector2(-3, 4), r.end + Vector2(3, -4), c, 5.0)
-	draw_line(Vector2(r.end.x + 3, r.position.y + 4), Vector2(r.position.x - 3, r.end.y - 4), c, 5.0)
-
-
-func _draw_well(n: float) -> void:
+func _draw_well(n: float, k: Color) -> void:
 	var p := def.well
-	var stone := Color("4a565b").lerp(Color("25313a"), n)
-	draw_colored_polygon(_ellipse(p + Vector2(0, 4), Vector2(30, 11)), Color(0, 0, 0, 0.3))
-	draw_rect(Rect2(p.x - 26, p.y - 22, 52, 22), stone)
-	draw_colored_polygon(_ellipse(p - Vector2(0, 22), Vector2(26, 9)), stone.lightened(0.08))
-	draw_colored_polygon(_ellipse(p - Vector2(0, 22), Vector2(18, 5.5)), Color("0a1114"))
-	var post := Color("4a3729").lerp(Color("2a1f18"), n)
-	draw_line(Vector2(p.x - 22, p.y - 22), Vector2(p.x - 22, p.y - 64), post, 4.0)
-	draw_line(Vector2(p.x + 22, p.y - 22), Vector2(p.x + 22, p.y - 64), post, 4.0)
-	draw_colored_polygon(PackedVector2Array([Vector2(p.x - 34, p.y - 60), Vector2(p.x, p.y - 82), Vector2(p.x + 34, p.y - 60)]),
-		Color("1d282d").lerp(Color("0d1518"), n))
+	draw_colored_polygon(Art.ellipse(p + Vector2(0, 4), Vector2(30, 9)), Color(0, 0, 0, 0.22))
+	Art.shape(self, Art.rrect(Rect2(p.x - 25, p.y - 26, 50, 26), 7), Art.dn(Color("b0a59a"), n), k, 3.0)
+	Art.shape(self, Art.ellipse(p - Vector2(0, 26), Vector2(25, 8.5), 20), Art.dn(Color("c8beb2"), n), k, 3.0)
+	draw_colored_polygon(Art.ellipse(p - Vector2(0, 26), Vector2(17, 5), 16), Art.dn(Color("2a4a6a"), n))
+	for sx in [-21.0, 21.0]:
+		draw_line(p + Vector2(sx, -26), p + Vector2(sx, -66), k, 7.0, true)
+		draw_line(p + Vector2(sx, -26), p + Vector2(sx, -66), Art.dn(Color("8a5a3a"), n), 4.0, true)
+	Art.shape(self, PackedVector2Array([p + Vector2(-34, -62), p + Vector2(0, -84), p + Vector2(34, -62)]), Art.dn(Color("c9573f"), n), k, 3.0)
 
 
 func _draw_lamp_post(p: Vector2, n: float, on: float = -1.0) -> void:
 	if on < 0.0:
 		on = n
-	var post := Color("3a464b").lerp(Color("1d282d"), n)
-	draw_colored_polygon(_ellipse(p + Vector2(0, 2), Vector2(10, 4)), Color(0, 0, 0, 0.3))
-	draw_line(p, p - Vector2(0, 76), post, 4.0)
-	draw_line(p - Vector2(0, 72), p - Vector2(-12, 72), post, 3.0)
-	draw_rect(Rect2(p.x + 6, p.y - 72, 12, 14), post)
-	draw_rect(Rect2(p.x + 8, p.y - 70, 8, 10), Color(0.30, 0.30, 0.28).lerp(ThemeFactory.LAMP, 0.25 + 0.75 * on))
+	var k := Art.ink(n)
+	draw_colored_polygon(Art.ellipse(p + Vector2(0, 2), Vector2(9, 3.5)), Color(0, 0, 0, 0.22))
+	draw_line(p, p + Vector2(0, -74), k, 7.0, true)
+	draw_line(p, p + Vector2(0, -74), Art.dn(Color("4a4458"), n), 4.0, true)
+	draw_line(p + Vector2(0, -71), p + Vector2(13, -71), k, 4.0, true)
+	var lr := Rect2(p.x + 5, p.y - 70, 15, 18)
+	Art.shape(self, Art.rrect(lr, 4), Color("fff0c0").lerp(Color("ffcf6b"), on).lerp(Color("4a4458"), n * (1.0 - on)), k, 2.4)
 
 
-func _draw_fences(n: float) -> void:
-	var c := Color("3a3229").lerp(Color("1f1a15"), n)
-	for row: Array in [[Vector2(18, 560), 9], [Vector2(612, 560), 9]]:
-		var o: Vector2 = row[0]
-		for i in range(int(row[1])):
-			var x := o.x + i * 11.0
-			draw_line(Vector2(x, o.y), Vector2(x, o.y - 26), c, 3.0)
-		draw_line(Vector2(o.x - 3, o.y - 17), Vector2(o.x + int(row[1]) * 11.0 - 8, o.y - 17), c, 2.5)
+func _draw_fences(n: float, k: Color) -> void:
+	var wood := Art.dn(Color("c8925e"), n)
+	for row: Vector2 in [Vector2(14, 560), Vector2(604, 560)]:
+		for i in range(6):
+			Art.shape(self, Art.rrect(Rect2(row.x + i * 17, row.y - 32, 11, 34), 4), wood, k, 2.4)
+		draw_line(Vector2(row.x - 3, row.y - 19), Vector2(row.x + 6 * 17, row.y - 19), k, 3.6, true)
 
 
-# =============================================================
-# Подготовка
-# =============================================================
 ## Окна загораются по одному: у каждого дома свой порог «ночи». Убежища — раньше.
 func _build_thresholds() -> void:
 	var rng := RandomNumberGenerator.new()
@@ -504,6 +400,39 @@ func _build_thresholds() -> void:
 		_lamp_th.append(rng.randf_range(0.40, 0.70))
 
 
+## Ночью фонари — настоящие источники света: дома отбрасывают от них тени.
+## Днём источники выключены и ничего не стоят. Работает, потому что посёлок
+## живёт в своём слое и свет не задевает интерфейс.
+func _build_lights() -> void:
+	var tex := _soft_texture()
+	for i in range(def.lamps.size()):
+		var l := PointLight2D.new()
+		l.texture = tex
+		l.position = def.lamps[i] + Vector2(12, -61)
+		l.texture_scale = 2.4
+		l.color = Color(1.0, 0.74, 0.42)
+		l.energy = 0.0
+		l.visible = false
+		l.shadow_enabled = true
+		l.shadow_color = Color(0, 0, 0, 0.7)
+		l.shadow_filter = Light2D.SHADOW_FILTER_PCF5
+		l.shadow_filter_smooth = 4.0
+		add_child(l)
+		_lamp_lights.append(l)
+	for h: HouseDef in def.shelters + def.decor:
+		var occ := LightOccluder2D.new()
+		var poly := OccluderPolygon2D.new()
+		var x0 := h.pos.x - h.size.x * 0.5
+		poly.polygon = PackedVector2Array([Vector2(x0, h.pos.y - h.size.y), Vector2(x0 + h.size.x, h.pos.y - h.size.y),
+			Vector2(x0 + h.size.x, h.pos.y - 2), Vector2(x0, h.pos.y - 2)])
+		occ.occluder = poly
+		add_child(occ)
+
+
+func lamp_lights() -> Array[PointLight2D]:
+	return _lamp_lights
+
+
 func _lit(h: HouseDef, n: float) -> float:
 	var th: float = _light_th.get(h, 0.5)
 	return clampf((n - th) / 0.12, 0.0, 1.0)
@@ -515,15 +444,17 @@ func _lamp_on(i: int, n: float) -> float:
 
 
 func _build_trees(rng: RandomNumberGenerator) -> void:
-	_trees = PackedVector2Array([Vector2(-900, 200)])
-	var x := -900.0
-	while x < 1620.0:
-		var h := rng.randf_range(16, 46)
-		_trees.append(Vector2(x + 10, 192 - h * 0.45))
-		_trees.append(Vector2(x + 20, 192 - h))
-		_trees.append(Vector2(x + 30, 192 - h * 0.45))
-		x += rng.randf_range(22, 38)
-	_trees.append(Vector2(1620, 200))
+	_tree_spots = PackedVector3Array()
+	var x := -260.0
+	while x < 980.0:
+		_tree_spots.append(Vector3(x + rng.randf_range(-6, 6), 204 + rng.randf_range(-6, 4), rng.randf_range(0.55, 0.8)))
+		x += rng.randf_range(34, 46)
+	_grass = PackedVector2Array()
+	for i in range(170):
+		var g := Vector2(rng.randf_range(-200, 920), rng.randf_range(214, 600))
+		var d := (g - def.square_center) / def.square_radii
+		if d.length() > 1.05:
+			_grass.append(g)
 
 
 func _build_stones(rng: RandomNumberGenerator) -> void:
@@ -712,6 +643,10 @@ class Eyes extends Node2D:
 		var a := alpha()
 		if a <= 0.0:
 			return
+		# тварь выглядывает из просвета между домами — застывшая улыбка, медленный наклон головы
+		var pal := {"coat": Color("5d4a6b", a), "coat_d": Color("463652", a), "skin": Color("e2d6c4", a), "skin_d": Color("c2b39e", a),
+			"hair": Color("1e1a1a", a), "scarf": Color("2a2a3a", a), "hat": Color("2a2a3a", a), "top": "hat"}
+		Art.villager(self, 0.32, pal, "grin", {"origin": Vector2(292, 214), "ink": Color(Art.INK_N, a), "tilt": 0.18 + 0.06 * sin(_t * 0.7)})
 		for i in range(SPOTS.size()):
 			if _closed[i] == 1:
 				continue

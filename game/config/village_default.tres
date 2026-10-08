@@ -73,5 +73,5 @@ decor = Array[ExtResource("2_house")]([SubResource("house_5"), SubResource("hous
 lamps = PackedVector2Array(258, 352, 462, 352, 360, 468)
 well = Vector2(360, 384)
 square_center = Vector2(360, 392)
-square_radii = Vector2(238, 94)
+square_radii = Vector2(270, 100)
 river = true

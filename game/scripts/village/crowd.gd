@@ -35,7 +35,7 @@ func populate(m: Match) -> void:
 		figs.append(f)
 	var widths: Array[float] = []
 	for f: VillagerFigure in figs:
-		widths.append(f.label_width())
+		widths.append(f.label_rect_local().size.x)        # ширина имени вместе с капсулой
 	var spots := layout_day(widths)
 	for i in range(figs.size()):
 		figs[i].position = spots[i]
@@ -45,20 +45,29 @@ func populate(m: Match) -> void:
 ## Днём — два ряда. Передний перед колодцем (вы в центре), задний на уровне колодца,
 ## место у самого колодца свободно. Шаг в ряду — по ширине имени, между рядами 76 px:
 ## имя заднего не прячется за спиной переднего.
-const ROW_FRONT := 64.0
-const ROW_BACK := -12.0
-const WELL_GAP := 50.0
-const GAP := 12.0
-const MIN_W := 50.0        ## место под фигурку и колонку отметок справа от головы
+const ROW_FRONT := 70.0
+const ROW_BACK := -50.0
+const WELL_GAP := 66.0
+const GAP := 4.0
+const MIN_W := 58.0        ## место под фигурку и колонку отметок справа от головы
 ## Ночью у двери: шаг шире самого длинного имени, ряды не налезают.
-const QUEUE_COL := 66.0
-const QUEUE_ROW := 78.0
+const QUEUE_COL := 72.0
+const QUEUE_ROW := 122.0
 
 
 ## Прямоугольник, который занимает житель с именем шириной w: тело и подпись.
+## Дневной ряд: прямоугольник по настоящей форме фигурки — справа колонка значков шире.
+## Проверяется только против табличек, поэтому места в ряду меньше не становится.
+static func fig_rect(p: Vector2, w: float) -> Rect2:
+	var ww := maxf(w, MIN_W)
+	var left := maxf(ww * 0.5, 19.0)
+	var right := maxf(ww * 0.5, VillagerFigure.MARK_X + 14.0)
+	return Rect2(p.x - left, p.y - 90.0, left + right, 117.0)
+
+
 static func slot_rect(p: Vector2, w: float) -> Rect2:
 	var ww := maxf(w, MIN_W)
-	return Rect2(p.x - ww * 0.5, p.y - 56.0, ww, 78.0)
+	return Rect2(p.x - ww * 0.5, p.y - 90.0, ww, 117.0)
 
 
 ## Препятствия для расстановки: таблички открытых убежищ (и, если нужно, место игрока).
@@ -67,8 +76,12 @@ func obstacles(with_player: bool) -> Array[Rect2]:
 	for i in range(view.open_count):
 		out.append(view.shelter_label_rect_local(i).grow(4.0))
 	if with_player and figures.has(0):
-		var p: Vector2 = ring.get(0, figures[0].position)
-		out.append(slot_rect(p, figures[0].label_width()).grow(4.0))
+		# настоящий прямоугольник твоей фигурки: тело, стрелка «ты» над головой, имя
+		var f: VillagerFigure = figures[0]
+		var p: Vector2 = ring.get(0, f.position)
+		var r := f.body_rect_local().merge(f.label_rect_local())
+		r.position += p
+		out.append(r.grow(4.0))
 	return out
 
 
@@ -87,13 +100,29 @@ func spots_for(n: int) -> Array[Vector2]:
 	return layout_day(widths)
 
 
+## Дневная расстановка в два захода: сначала строго на площади; если все не поместились
+## в два ряда (11–12 человек с длинными именами), ряды расширяются до краёв кадра.
 func layout_day(widths: Array[float]) -> Array[Vector2]:
+	var strict := _layout_day(widths, false)
+	var third_y := view.def.square_center.y + ROW_BACK - QUEUE_ROW
+	for p: Vector2 in strict:
+		if absf(p.y - third_y) < 0.5:
+			return _layout_day(widths, true)
+	return strict
+
+
+func _layout_day(widths: Array[float], wide: bool) -> Array[Vector2]:
 	var c := view.def.square_center
 	var r := view.def.square_radii
 	var a_y := c.y + ROW_FRONT
 	var b_y := c.y + ROW_BACK
 	var a_half := r.x * sqrt(1.0 - pow(ROW_FRONT / r.y, 2.0)) - 6.0
 	var b_half := r.x * sqrt(1.0 - pow(ROW_BACK / r.y, 2.0)) - 6.0
+	if wide:
+		a_half = minf(c.x - VillageView.SAFE_X.x, VillageView.SAFE_X.y - c.x)   # передний ряд — на всю безопасную ширину
+		b_half = c.x - VillageView.SAFE_X.x                                       # задний ряд — тоже
+	var b_max := VillageView.SAFE_X.y
+	var c_used: Array[Rect2] = []
 	var out: Array[Vector2] = []
 	out.resize(widths.size())
 	if widths.is_empty():
@@ -116,14 +145,14 @@ func layout_day(widths: Array[float]) -> Array[Vector2]:
 		for attempt in range(2):
 			var sd := side if attempt == 0 else -side
 			if sd > 0 and a_open[1] and a_right + w <= c.x + a_half:
-				if _free(slot_rect(Vector2(a_right + w * 0.5, a_y), w - GAP), obs):
+				if _free(fig_rect(Vector2(a_right + w * 0.5, a_y), w - GAP), obs):
 					out[i] = Vector2(a_right + w * 0.5, a_y)
 					a_right += w
 					placed = true
 				else:
 					a_open[1] = false
 			elif sd < 0 and a_open[0] and a_left - w >= c.x - a_half:
-				if _free(slot_rect(Vector2(a_left - w * 0.5, a_y), w - GAP), obs):
+				if _free(fig_rect(Vector2(a_left - w * 0.5, a_y), w - GAP), obs):
 					out[i] = Vector2(a_left - w * 0.5, a_y)
 					a_left -= w
 					placed = true
@@ -134,15 +163,15 @@ func layout_day(widths: Array[float]) -> Array[Vector2]:
 		if not placed:
 			for attempt in range(2):
 				var sd := side if attempt == 0 else -side
-				if sd > 0 and b_open[1] and b_right + w <= c.x + b_half:
-					if _free(slot_rect(Vector2(b_right + w * 0.5, b_y), w - GAP), obs):
+				if sd > 0 and b_open[1] and b_right + w <= minf(c.x + b_half, b_max):
+					if _free(fig_rect(Vector2(b_right + w * 0.5, b_y), w - GAP), obs):
 						out[i] = Vector2(b_right + w * 0.5, b_y)
 						b_right += w
 						placed = true
 					else:
 						b_open[1] = false
 				elif sd < 0 and b_open[0] and b_left - w >= c.x - b_half:
-					if _free(slot_rect(Vector2(b_left - w * 0.5, b_y), w - GAP), obs):
+					if _free(fig_rect(Vector2(b_left - w * 0.5, b_y), w - GAP), obs):
 						out[i] = Vector2(b_left - w * 0.5, b_y)
 						b_left -= w
 						placed = true
@@ -151,14 +180,23 @@ func layout_day(widths: Array[float]) -> Array[Vector2]:
 				if placed:
 					break
 		if not placed:
-			# запасной третий ряд позади — на случай очень длинных имён
+			# запасной третий ряд позади: свободное место от центра в обе стороны, только в кадре
 			var y3 := b_y - QUEUE_ROW
-			if side > 0:
-				out[i] = Vector2(c_right + w * 0.5, y3)
-				c_right += w
-			else:
-				out[i] = Vector2(c_left - w * 0.5, y3)
-				c_left -= w
+			var best := Vector2.INF
+			for off in range(0, 320, 10):
+				for sgn: float in ([1.0, -1.0] if side > 0 else [-1.0, 1.0]):
+					var cx := c.x + sgn * (WELL_GAP + w * 0.5 + off)
+					if cx - w * 0.5 < VillageView.SAFE_X.x or cx + w * 0.5 > VillageView.SAFE_X.y:
+						continue
+					if _free(fig_rect(Vector2(cx, y3), w - GAP), obs + c_used):
+						best = Vector2(cx, y3)
+						break
+				if best != Vector2.INF:
+					break
+			if best == Vector2.INF:
+				best = Vector2(c.x, y3)
+			out[i] = best
+			c_used.append(fig_rect(best, w - GAP))
 		side = -side
 	return out
 
@@ -168,7 +206,9 @@ func layout_day(widths: Array[float]) -> Array[Vector2]:
 ## avoid — точки, где уже кто-то стоит (например, вы): там очередь не встаёт.
 func door_spots(house: int, n: int, avoid: Array[Rect2] = []) -> Array[Vector2]:
 	var best: Array[Vector2] = []
-	for per_row in range(maxi(3, ceili(n / 2.0)), 11):
+	# самый широкий ряд: крайние фигуры вместе со своей шириной должны остаться в кадре
+	var max_row := int((VillageView.SAFE_X.y - VillageView.SAFE_X.x - QUEUE_COL) / QUEUE_COL) + 1
+	for per_row in range(mini(maxi(3, ceili(n / 2.0)), max_row), max_row + 1):
 		var got := _door_rows(house, n, per_row, avoid)
 		if got.size() >= n:
 			return got
@@ -188,12 +228,16 @@ func _door_rows(house: int, n: int, per_row: int, avoid: Array[Rect2]) -> Array[
 		var xs: Array[float] = []
 		for col in range(per_row):
 			xs.append(h.pos.x + (col - (per_row - 1) * 0.5) * QUEUE_COL)
-		var base_y := h.pos.y + 24.0 + row * QUEUE_ROW
+		# все очереди стоят на общей сетке уровней: люди из соседних очередей — ровно в линию
+		# и не задевают друг друга именами и головами
+		var k0 := ceili((h.pos.y + 20.0 - c.y - 66.0) / QUEUE_ROW)
+		var base_y := c.y + 66.0 + (k0 + row) * QUEUE_ROW
 		if front:
 			var shift := signf(c.x - h.pos.x) * (h.size.x * 0.5 + QUEUE_COL * (per_row * 0.5 + 0.2))
 			for k in range(xs.size()):
 				xs[k] += shift
-			base_y = h.pos.y - 4.0 - row * QUEUE_ROW
+			var k1 := floori((h.pos.y - 4.0 - c.y - 66.0) / QUEUE_ROW)
+			base_y = c.y + 66.0 + (k1 - row) * QUEUE_ROW
 		var lo: float = xs.min()
 		var hi: float = xs.max()
 		var delta := 0.0
@@ -205,7 +249,7 @@ func _door_rows(house: int, n: int, per_row: int, avoid: Array[Rect2]) -> Array[
 			if out.size() >= n:
 				break
 			var p := Vector2(x + delta, base_y)
-			var r := slot_rect(p, QUEUE_COL - 6.0)
+			var r := slot_rect(p, QUEUE_COL - 2.0)
 			var inside := r.position.y >= band.position.y and r.end.y <= band.end.y - 2.0
 			if inside and _free(r, avoid):
 				out.append(p)
@@ -237,6 +281,11 @@ func figure_at(global_pos: Vector2) -> int:
 				best_d = d
 				best = vid
 	return best
+
+
+func set_night(n: float) -> void:
+	for f: VillagerFigure in figures.values():
+		f.set_night(n)
 
 
 func set_player_highlight(on: bool) -> void:
@@ -272,11 +321,26 @@ func arrange_night(m: Match, player_house: int) -> void:
 		avoid = _avoid()
 		if figures.has(me.id) and figures[me.id].position.distance_to(ring.get(me.id, figures[me.id].position)) > 4.0:
 			figures[me.id].run_to(ring[me.id])
+	var leftovers: Array = []
 	for h: int in groups:
 		var ids: Array = groups[h]
 		var spots := door_spots(h, ids.size(), avoid)
-		for k in range(mini(ids.size(), spots.size())):
-			figures[int(ids[k])].run_to(spots[k], 0.9)
+		for k in range(ids.size()):
+			if k < spots.size():
+				figures[int(ids[k])].run_to(spots[k], 0.9)
+				avoid.append(slot_rect(spots[k], QUEUE_COL - 2.0))   # очередь у соседней двери обойдёт этих
+			else:
+				leftovers.append(int(ids[k]))
+	# не поместился у своей двери — встаёт в ближайшее свободное место у другого дома
+	for vid: int in leftovers:
+		var order: Array = range(view.open_count)
+		order.sort_custom(func(x: int, y: int) -> bool: return (groups.get(x, []) as Array).size() < (groups.get(y, []) as Array).size())
+		for h2: int in order:
+			var one := door_spots(h2, 1, avoid)
+			if not one.is_empty():
+				figures[vid].run_to(one[0], 0.9)
+				avoid.append(slot_rect(one[0], QUEUE_COL - 2.0))
+				break
 
 
 func sync(m: Match, phase: Match.Phase) -> void:

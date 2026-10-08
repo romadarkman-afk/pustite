@@ -27,32 +27,80 @@ var pact: bool = false
 var _eye_pop: float = 0.0
 var highlight: bool = false        ## метка «Вы»: стрелка над головой и кольцо под ногами
 
-const MARK_X := 24.0       ## колонка отметок справа от головы
+const MARK_X := 30.0       ## колонка отметок справа от головы
+const S := 0.55            ## масштаб рисунка жителя относительно стиль-кадра
+const FIG_TOP := 88.0      ## высота жителя с шапкой, логических единиц
+
+var emotion: String = ""   ## временная эмоция: angry, shocked, happy, suspicious
+var night: float = 0.0
+var lantern_light: PointLight2D
+var _emotion_t: float = 0.0
+var _talk_t: float = 0.0
+var _point_dir: float = 0.0
+var _last_face: String = ""
 
 
 func setup(name: String, l: LookDef, player: bool) -> void:
 	who = name
 	look = l
 	is_player = player
-	_font = load("res://fonts/UI.ttf")
+	_font = ThemeFactory.font_bold()
 	_phase = float(absi(name.hash()) % 628) / 100.0
 	_blink_in = 1.0 + fmod(_phase, 3.0)
 	body = Node2D.new()
 	add_child(body)
 	body.draw.connect(_draw_body)
 	if player:
-		var g := Sprite2D.new()
-		g.texture = _soft()
-		var add := CanvasItemMaterial.new()
-		add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-		g.material = add
-		g.position = Vector2(12, -15)
-		g.scale = Vector2(0.75, 0.75)
-		g.modulate = Color(ThemeFactory.LAMP, 0.55)
-		body.add_child(g)
+		lantern_light = PointLight2D.new()
+		lantern_light.texture = _soft()
+		lantern_light.position = Vector2(25 * S, -28 * S)
+		lantern_light.texture_scale = 2.6
+		lantern_light.color = Color(1.0, 0.8, 0.5)
+		lantern_light.energy = 0.0
+		lantern_light.visible = false
+		add_child(lantern_light)
 
 
-const LABEL_SIZE := 13
+## Ночью фонарь игрока светит, днём погашен; ночью у всех встревоженные лица.
+func set_night(n: float) -> void:
+	night = n
+	if lantern_light != null:
+		lantern_light.visible = n > 0.05
+		lantern_light.energy = 0.85 * n
+
+
+## Эмоция на время: обвинили — shocked, обвиняет — angry (и показывает пальцем в сторону point_dir).
+func set_emotion(e: String, seconds: float, point_dir: float = 0.0) -> void:
+	if state == State.DEAD or state == State.GONE:
+		return
+	emotion = e
+	_emotion_t = seconds
+	_point_dir = point_dir
+	if point_dir != 0.0:
+		_face = signf(point_dir)
+	body.queue_redraw()
+
+
+## Говорит — рот открывается и закрывается, пока висит пузырь.
+func talk(seconds: float) -> void:
+	_talk_t = maxf(_talk_t, seconds)
+
+
+func current_face() -> String:
+	if state == State.SCARED:
+		return "shocked"
+	if _emotion_t > 0.0 and emotion != "":
+		return emotion
+	if _talk_t > 0.0:
+		return "talk" if fmod(_t * 6.0, 1.0) < 0.5 else "normal"
+	if _eyes_closed:
+		return "blink"
+	if night > 0.6:
+		return "worried"
+	return "normal"
+
+
+const LABEL_SIZE := 14
 
 
 func body_scale() -> Vector2:
@@ -66,13 +114,13 @@ func label_width() -> float:
 
 func label_rect_local() -> Rect2:
 	var w := label_width()
-	return Rect2(-w * 0.5, 5, w, 15)
+	return Rect2(-w * 0.5 - 8.0, 6, w + 16.0, 21)
 
 
 func body_rect_local() -> Rect2:
 	var h := look.height if look != null else 1.0
 	var extra := 26.0 if highlight else 0.0
-	return Rect2(-14, -54 * h - extra, 28 + MARK_X, 56 * h + extra)
+	return Rect2(-17, -FIG_TOP * h - extra, 17 + MARK_X + 12, FIG_TOP * h + 2 + extra)
 
 
 func set_highlight(on: bool) -> void:
@@ -83,14 +131,14 @@ func set_highlight(on: bool) -> void:
 ## Где стрелка метки «Вы» — для самотестов, в координатах экрана.
 func marker_rect_global() -> Rect2:
 	var h := look.height if look != null else 1.0
-	return _global_rect(Rect2(-9, -54 * h - 26, 18, 16))
+	return _global_rect(Rect2(-9, -FIG_TOP * h - 26, 18, 16))
 
 
 ## Зона касания в координатах экрана: не меньше 84×108 px (≈ 48 dp), даже если фигурка мелкая.
 func hit_rect_global() -> Rect2:
-	var c := get_global_transform_with_canvas() * Vector2(4, -26)
+	var c := get_global_transform_with_canvas() * Vector2(4, -42)
 	var sc := get_global_transform_with_canvas().get_scale().x
-	var half := Vector2(maxf(42.0, 30.0 * sc), maxf(54.0, 40.0 * sc))
+	var half := Vector2(maxf(42.0, 30.0 * sc), maxf(54.0, 50.0 * sc))
 	return Rect2(c - half, half * 2.0)
 
 
@@ -126,7 +174,7 @@ func _global_rect(r: Rect2) -> Rect2:
 ## Точка над головой — сюда указывает хвостик пузыря с репликой.
 func head_global() -> Vector2:
 	var h := look.height if look != null else 1.0
-	return get_global_transform_with_canvas() * Vector2(0, -56.0 * h)
+	return get_global_transform_with_canvas() * Vector2(0, -FIG_TOP * h)
 
 
 func label_rect_global() -> Rect2:
@@ -221,6 +269,17 @@ func _process(delta: float) -> void:
 	_t += delta
 	if highlight:
 		queue_redraw()
+	if _emotion_t > 0.0:
+		_emotion_t -= delta
+		if _emotion_t <= 0.0:
+			emotion = ""
+			_point_dir = 0.0
+	if _talk_t > 0.0:
+		_talk_t -= delta
+	var f := current_face()
+	if f != _last_face:
+		_last_face = f
+		body.queue_redraw()
 	match state:
 		State.IDLE:
 			var s := sin(_t * 1.7 + _phase)
@@ -242,26 +301,30 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	if state == State.GONE:
 		return
-	draw_colored_polygon(_ellipse(Vector2(0, 2), Vector2(12, 4)), Color(0, 0, 0, 0.32))
+	draw_colored_polygon(_ellipse(Vector2(0, 2), Vector2(18, 5.5)), Color(0, 0, 0, 0.26))
 	if state == State.DEAD:
-		var stone := Color("4d585d")
-		draw_rect(Rect2(-8, -17, 16, 17), stone)
-		draw_circle(Vector2(0, -17), 8.0, stone)
-		draw_line(Vector2(0, -22), Vector2(0, -8), Color("2a3236"), 2.0)
-		draw_line(Vector2(-4, -17), Vector2(4, -17), Color("2a3236"), 2.0)
+		# надгробие: пухлый камень с крестом и травой
+		var k := Art.INK
+		Art.shape(self, Art.rrect(Rect2(-13, -30, 26, 30), 12), Color("9a9aa8"), k, 2.6)
+		draw_line(Vector2(0, -24), Vector2(0, -8), Color(k, 0.7), 2.6, true)
+		draw_line(Vector2(-6, -18), Vector2(6, -18), Color(k, 0.7), 2.6, true)
+		for gx in [-12.0, -6.0, 7.0, 12.0]:
+			draw_line(Vector2(gx, 0), Vector2(gx - 2, -6), Color("6aa04e"), 1.8, true)
 	if state != State.DEAD:
 		_draw_marks()
 	if highlight and state != State.DEAD:
 		var p := 0.5 + 0.5 * sin(_t * 4.0)
-		var ring := _ellipse(Vector2(0, 2), Vector2(19.0 + 4.0 * p, 7.0 + 1.5 * p), 26)
+		var ring := _ellipse(Vector2(0, 2), Vector2(24.0 + 4.0 * p, 8.0 + 1.5 * p), 26)
 		ring.append(ring[0])
-		draw_polyline(ring, Color(ThemeFactory.LAMP, 0.45 + 0.45 * p), 2.5)
+		draw_polyline(ring, Color(ThemeFactory.LAMP, 0.5 + 0.45 * p), 3.0, true)
 		var hh := look.height if look != null else 1.0
-		var y0 := -54.0 * hh - 12.0 + 3.0 * sin(_t * 5.0)
+		var y0 := -FIG_TOP * hh - 10.0 + 3.0 * sin(_t * 5.0)
 		draw_colored_polygon(PackedVector2Array([Vector2(-9, y0 - 12), Vector2(9, y0 - 12), Vector2(0, y0)]), ThemeFactory.LAMP)
-	var col := ThemeFactory.LAMP if is_player else Color(ThemeFactory.BONE, 0.9 if state != State.DEAD else 0.45)
-	draw_string(_font, Vector2(-55, 17), who, HORIZONTAL_ALIGNMENT_CENTER, 110, LABEL_SIZE, Color(0, 0, 0, 0.65))
-	draw_string(_font, Vector2(-55, 16), who, HORIZONTAL_ALIGNMENT_CENTER, 110, LABEL_SIZE, col)
+	# имя — в тёмной капсуле
+	var lr := label_rect_local()
+	var col := ThemeFactory.LAMP if is_player else Color(1, 1, 1, 0.95 if state != State.DEAD else 0.45)
+	Art.shape(self, Art.rrect(lr, lr.size.y * 0.5), Color(0.08, 0.06, 0.12, 0.72 if state != State.DEAD else 0.4), Color(col, 0.35), 1.2)
+	draw_string(_font, Vector2(lr.position.x + 8.0, lr.end.y - 5.0), who, HORIZONTAL_ALIGNMENT_LEFT, -1, LABEL_SIZE, col)
 
 
 const EYE_COLORS := [Color(0, 0, 0, 0), Color("8fa3ab"), Color("d9a24e"), Color("d0683a"), Color("c23a33")]
@@ -274,7 +337,7 @@ func _draw_marks() -> void:
 		draw_polyline(ring, Color(ThemeFactory.LAMP, 0.85), 2.0)
 	var bg := Color(ThemeFactory.NIGHT, 0.8)
 	if eye_level > 0:
-		var c := Vector2(MARK_X, -44)
+		var c := Vector2(MARK_X, -66)
 		var s := 1.0 + 0.5 * _eye_pop
 		var col: Color = EYE_COLORS[clampi(eye_level, 0, 4)]
 		draw_circle(c, 11.0 * s, bg)
@@ -292,7 +355,7 @@ func _draw_marks() -> void:
 		draw_polyline(outline, col, 1.6)
 		draw_circle(c, minf(open, 2.2 + eye_level * 0.6), col)
 		draw_circle(c, 1.2 * s, Color("0d1214"))
-	var y := -25.0
+	var y := -46.0
 	for b: String in badges.slice(0, 2):
 		var accent := ThemeFactory.LAMP
 		match b:
@@ -316,60 +379,28 @@ func _draw_marks() -> void:
 		y += 19.0
 
 
-func _draw_body() -> void:
-	var h := look.height
-	var dark := Color("1b2125")
-	var coat := look.coat
-	# ноги
-	body.draw_rect(Rect2(-6, -10 * h, 4, 10 * h), dark)
-	body.draw_rect(Rect2(2, -10 * h, 4, 10 * h), dark)
-	# руки
-	body.draw_line(Vector2(-8, -27 * h), Vector2(-12, -14 * h), coat.darkened(0.25), 4.0)
-	body.draw_line(Vector2(8, -27 * h), Vector2(12, -14 * h), coat.darkened(0.25), 4.0)
-	# пальто
-	body.draw_colored_polygon(PackedVector2Array([Vector2(-11, -8 * h), Vector2(11, -8 * h), Vector2(9, -28 * h),
-		Vector2(5, -32 * h), Vector2(-5, -32 * h), Vector2(-9, -28 * h)]), coat)
-	body.draw_line(Vector2(0, -30 * h), Vector2(0, -9 * h), coat.darkened(0.3), 1.5)
-	# шарф
-	body.draw_rect(Rect2(-6, -32 * h, 12, 4), look.accent)
-	var hy := -39.0 * h
-	if look.head == LookDef.Head.HOOD:
-		body.draw_circle(Vector2(0, hy - 1), 9.5, coat.darkened(0.15))
-	# голова
-	body.draw_circle(Vector2(0, hy), 7.0, look.skin)
+## Палитра из внешности: цвета насыщеннее прежних приглушённых, шапка по типу головы.
+func _pal() -> Dictionary:
+	var coat := _bright(look.coat)
+	var tops := {LookDef.Head.BARE: "hair", LookDef.Head.CAP: "cap", LookDef.Head.SCARF: "kerchief", LookDef.Head.HAT: "hat", LookDef.Head.HOOD: "beanie"}
+	var hat := Color("3b3b58")
 	match look.head:
-		LookDef.Head.BARE:
-			body.draw_colored_polygon(_arc(Vector2(0, hy - 1), 7.4), look.hair)
-		LookDef.Head.CAP:
-			body.draw_colored_polygon(_arc(Vector2(0, hy - 1), 7.4), look.hair)
-			body.draw_rect(Rect2(-8, hy - 9, 16, 5), look.accent.darkened(0.35))
-			body.draw_rect(Rect2(-2, hy - 5, 11, 2), look.accent.darkened(0.5))
-		LookDef.Head.SCARF:
-			body.draw_colored_polygon(PackedVector2Array([Vector2(-8.5, hy + 3), Vector2(-7, hy - 6), Vector2(0, hy - 10),
-				Vector2(7, hy - 6), Vector2(8.5, hy + 3), Vector2(6, hy - 2), Vector2(-6, hy - 2)]), look.accent)
-		LookDef.Head.HAT:
-			body.draw_rect(Rect2(-10, hy - 6, 20, 3), dark)
-			body.draw_rect(Rect2(-6, hy - 14, 12, 9), dark)
-			body.draw_rect(Rect2(-6, hy - 8, 12, 2), look.accent)
-		LookDef.Head.HOOD:
-			pass
-	# глаза
-	var eye := Color("161a1c")
-	if state == State.SCARED:
-		body.draw_circle(Vector2(-2.6, hy), 1.7, eye)
-		body.draw_circle(Vector2(2.6, hy), 1.7, eye)
-		body.draw_circle(Vector2(0, hy + 3.5), 1.2, eye)
-	elif _eyes_closed:
-		body.draw_line(Vector2(-3.8, hy), Vector2(-1.4, hy), eye, 1.2)
-		body.draw_line(Vector2(1.4, hy), Vector2(3.8, hy), eye, 1.2)
-	else:
-		body.draw_circle(Vector2(-2.6, hy), 1.1, eye)
-		body.draw_circle(Vector2(2.6, hy), 1.1, eye)
-	# фонарь у игрока
-	if is_player:
-		body.draw_line(Vector2(12, -14 * h), Vector2(12, -19), dark, 1.5)
-		body.draw_rect(Rect2(9, -19, 6, 8), dark)
-		body.draw_rect(Rect2(10, -18, 4, 6), ThemeFactory.LAMP)
+		LookDef.Head.CAP: hat = coat.darkened(0.4)
+		LookDef.Head.SCARF: hat = _bright(look.accent)
+		LookDef.Head.HOOD: hat = _bright(look.accent).darkened(0.1)
+	return {"coat": coat, "coat_d": coat.darkened(0.2), "skin": look.skin.lightened(0.08), "skin_d": look.skin.darkened(0.08),
+		"hair": look.hair, "scarf": _bright(look.accent), "hat": hat, "top": tops.get(look.head, "hair")}
+
+
+func _bright(c: Color) -> Color:
+	return Color.from_hsv(c.h, minf(1.0, c.s * 1.3 + 0.08), minf(1.0, c.v * 1.45 + 0.08), c.a)
+
+
+func _draw_body() -> void:
+	var h := look.height if look != null else 1.0
+	var f := current_face()
+	var pointing := f == "angry" and _point_dir != 0.0
+	Art.villager(body, S * h, _pal(), f, {"lantern": is_player, "point": pointing, "dir": 1.0})
 
 
 func _ellipse(c: Vector2, r: Vector2, seg: int = 18) -> PackedVector2Array:
