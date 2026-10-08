@@ -1,12 +1,11 @@
 class_name DayScreen
 extends Screen
-## День. Главное отличие от v0.1: слова игрока имеют последствия.
-## Тап по жителю → обвинить / позвать с собой / спросить. Печатать не обязательно —
-## на телефоне это неудобно, поэтому все ключевые действия доступны в два касания.
+## День. Картинка главнее текста: поле занимает 60% экрана, разговор идёт пузырями
+## над головами, жители выбираются тапом по полю. Журнал свёрнут в одну строку
+## и раскрывается по касанию — чтобы перечитать, кто что говорил.
 
-const MAX_BUBBLES := 40
-
-var chat_box: VBoxContainer
+var journal_button: Button
+var journal_preview: Label
 
 
 func screen_id() -> String:
@@ -14,7 +13,20 @@ func screen_id() -> String:
 
 
 func field_ratio() -> float:
-	return 0.40
+	return 0.60
+
+
+## Под полем остаётся только строка журнала.
+func min_content_ratio() -> float:
+	return 0.04
+
+
+## Поле резиновое: всё, что осталось после шапки, строки журнала и кнопок.
+## На высоких телефонах картинка растёт, а не остаётся пустая полоса.
+func field_height(h: float) -> float:
+	var sep := float(get_theme_constant("separation", "VBoxContainer")) if has_theme_constant("separation", "VBoxContainer") else 18.0
+	var reserved := 46.0 + footer.get_combined_minimum_size().y + ThemeFactory.TOUCH + 4.0 * sep + 8.0
+	return maxf(h * 0.55, h - reserved)
 
 
 func title() -> String:
@@ -33,12 +45,22 @@ func build() -> void:
 	if field_spacer != null:
 		field_spacer.mouse_filter = Control.MOUSE_FILTER_STOP
 		field_spacer.gui_input.connect(_on_field_input)
-	body.add_child(people_strip(person_actions))
-	chat_box = W.vbox(12)
-	body.add_child(chat_box)
-	for line: ChatLine in m.chat.slice(maxi(0, m.chat.size() - MAX_BUBBLES)):
-		chat_box.add_child(_bubble(line))
-	scroll_to_end()
+	var jr := W.hbox(10)
+	journal_button = W.button("Журнал", &"Quick")
+	journal_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	journal_button.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	journal_button.pressed.connect(open_journal)
+	jr.add_child(journal_button)
+	journal_preview = W.label("", &"Small")
+	journal_preview.autowrap_mode = TextServer.AUTOWRAP_OFF
+	journal_preview.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	journal_preview.clip_text = true
+	journal_preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	journal_preview.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	journal_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	jr.add_child(journal_preview)
+	body.add_child(jr)
+	_update_journal()
 
 	if not m.player().alive:
 		body.add_child(W.label("Тебя больше нет. Ты только смотришь.", &"Small"))
@@ -87,35 +109,25 @@ func on_clock_expired() -> void:
 
 
 ## Nav вызывает при каждой новой реплике.
-func append_line(line: ChatLine) -> void:
-	if not is_instance_valid(chat_box):
+func append_line(_line: ChatLine) -> void:
+	_update_journal()
+
+
+func open_journal() -> void:
+	JournalSheet.open(self, m.chat)
+
+
+func _update_journal() -> void:
+	if not is_instance_valid(journal_button):
 		return
-	var near_bottom := scroll.scroll_vertical >= int(scroll.get_v_scroll_bar().max_value - scroll.size.y - 120)
-	var b := _bubble(line)
-	chat_box.add_child(b)
-	Juice.pop_in(b)
-	while chat_box.get_child_count() > MAX_BUBBLES:
-		chat_box.get_child(0).free()
-	if near_bottom or line.kind == ChatLine.Kind.MINE:
-		scroll_to_end()
-
-
-## Журнал: компактная строка «Имя: текст» — чтобы перечитать, кто что говорил.
-## Живой разговор идёт пузырями над головами на поле.
-func _bubble(line: ChatLine) -> Control:
-	if line.kind == ChatLine.Kind.SYSTEM:
-		return W.label(line.text, &"Small")
-	var row := W.hbox(8)
-	var nm := W.label(("Вы" if line.kind == ChatLine.Kind.MINE else line.speaker.name) + ":", &"Speaker")
-	nm.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	nm.autowrap_mode = TextServer.AUTOWRAP_OFF
-	if line.kind == ChatLine.Kind.MINE:
-		nm.add_theme_color_override("font_color", ThemeFactory.LAMP)
-	var tx := W.label(line.text, &"Small")
-	tx.add_theme_color_override("font_color", ThemeFactory.BONE)
-	row.add_child(nm)
-	row.add_child(tx)
-	return row
+	journal_button.text = "Журнал (%d)" % m.chat.size()
+	var last: ChatLine = m.chat[m.chat.size() - 1] if not m.chat.is_empty() else null
+	if last == null:
+		journal_preview.text = ""
+	elif last.kind == ChatLine.Kind.SYSTEM:
+		journal_preview.text = last.text
+	else:
+		journal_preview.text = "%s: %s" % ["Вы" if last.kind == ChatLine.Kind.MINE else last.speaker.name, last.text]
 
 
 func _write_flow() -> void:

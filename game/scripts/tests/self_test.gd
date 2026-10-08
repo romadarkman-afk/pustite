@@ -339,6 +339,12 @@ static func layout() -> void:
 		Nav.show_settings()
 		await _settle(tree)
 		checks += _check(tag, problems)
+		Nav.show_howto(false)
+		await _settle(tree)
+		for pg in range(HowToScreen.PAGES.size()):
+			checks += _check(tag + " · карточка %d" % (pg + 1), problems)
+			(Nav.host.current as HowToScreen).next_page()
+			await _settle(tree)
 
 		Nav.start_match()
 		await _settle(tree)
@@ -478,8 +484,10 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 		out.append("%s: область экранов слишком мала: %s" % [w, Nav.host.size])
 	if not _near(s.size, Nav.host.size):
 		out.append("%s: экран %s не растянут на область %s" % [w, s.size, Nav.host.size])
-	if s.scroll.size.y < vp.y * 0.3:
+	if s.scroll.size.y < maxf(56.0, vp.y * s.min_content_ratio()):
 		out.append("%s: под содержимое всего %d px из %d" % [w, int(s.scroll.size.y), int(vp.y)])
+	if s is DayScreen and s.field_rect_local().size.y < Nav.host.size.y * 0.55:
+		out.append("%s: поле дня %d px — меньше 55%% экрана (%d)" % [w, int(s.field_rect_local().size.y), int(Nav.host.size.y)])
 	var ins := Nav.frame.insets
 	var safe := Rect2(ins.x, ins.y, vp.x - ins.x - ins.z, vp.y - ins.y - ins.w)
 	var hr := Nav.host.get_global_rect()
@@ -740,6 +748,39 @@ static func lifecycle() -> void:
 		if c is TextSheet and not c.is_queued_for_deletion():
 			still = true
 	passed += _expect(fails, not still and Game.active(), "«Назад» должно закрыть поле ввода и оставить партию")
+
+	# 9б. Журнал дня: ряда плашек нет, строка журнала свежая, шторка со всеми репликами
+	Nav.start_match()
+	await _frames(tree, 2)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _frames(tree, 3)
+	var dj := Nav.host.current as DayScreen
+	var chips_row := false
+	for c: Control in _controls(dj):
+		if c is HFlowContainer and c.is_visible_in_tree():
+			chips_row = true
+	passed += _expect(fails, not chips_row, "на экране дня остался ряд плашек с именами")
+	Game.say("Проверка журнала.")
+	await _frames(tree, 3)
+	var lastl: ChatLine = Game.m.chat[Game.m.chat.size() - 1]
+	var want_prev := lastl.text if lastl.kind == ChatLine.Kind.SYSTEM else "%s: %s" % ["Вы" if lastl.kind == ChatLine.Kind.MINE else lastl.speaker.name, lastl.text]
+	passed += _expect(fails, dj.journal_button.text == "Журнал (%d)" % Game.m.chat.size() and dj.journal_preview.text == want_prev,
+		"строка журнала не обновилась: «%s» / «%s»" % [dj.journal_button.text, dj.journal_preview.text])
+	dj.journal_button.pressed.emit()
+	await _frames(tree, 3)
+	var js: JournalSheet = null
+	for c: Node in dj.get_children():
+		if c is JournalSheet and not c.is_queued_for_deletion():
+			js = c
+	passed += _expect(fails, js != null and js.list.get_child_count() == Game.m.chat.size(),
+		"шторка журнала не открылась или в ней не все реплики")
+	root.propagate_notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	await _frames(tree, 3)
+	var still_js := false
+	for c: Node in dj.get_children():
+		if c is JournalSheet and not c.is_queued_for_deletion():
+			still_js = true
+	passed += _expect(fails, not still_js and Game.active(), "«Назад» должно закрыть журнал и оставить партию")
 
 	# 10. Самописец: после аварийного выхода — экран отчёта с последними шагами
 	Diag.enabled = true
@@ -1554,6 +1595,8 @@ static func difficulty() -> void:
 	if FileAccess.file_exists(Save.SETTINGS_PATH):
 		DirAccess.remove_absolute(cf_path)
 	Save.load_all()
+	ok += _expect(fails, not Save.howto_seen, "при первом запуске «Как играть» уже отмечено просмотренным")
+	Save.howto_seen = true      # этот тест про сложность; показ «Как играть» проверяет --howto
 	ok += _expect(fails, Save.difficulty == "easy" and Save.config.players == 5 and Save.config.player_always_human,
 		"первый запуск не на лёгкой: %s, %d жителей" % [Save.difficulty, Save.config.players])
 
@@ -1717,3 +1760,95 @@ static func _offer_case(tree: SceneTree, diff: String, win: bool, streak_before:
 	var good := got == want and has_card == (want != "")
 	return _expect(fails, good, "%s, %s (серия до этого %d): предложено «%s», ждали «%s»" % [
 		Difficulty.NAMES[diff], "победа" if win else "поражение", streak_before, got, want])
+
+
+
+# =============================================================
+# «Как играть» (Task 15): один раз перед первой партией, повтор из меню.
+# =============================================================
+static func howto() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+	Save.howto_seen = false
+
+	Nav.show_menu()
+	await _settle(tree)
+	_find_button(Nav.host.current, "Играть").pressed.emit()
+	await _settle(tree)
+	var h := Nav.host.current as HowToScreen
+	ok += _expect(fails, h != null and h.then_play, "первое «Играть» не открыло «Как играть»")
+	if h != null:
+		var host_h := Nav.host.size.y
+		for pg in range(HowToScreen.PAGES.size()):
+			var ar := h.art.get_global_rect()
+			ok += _expect(fails, h.page == pg and ar.size.y >= host_h * 0.3, "карточка %d: картинка %d px — меньше 30%% экрана" % [pg + 1, int(ar.size.y)])
+			var inside := true
+			for f: VillagerFigure in h.art.figures:
+				if not ar.grow(2.0).encloses(f.body_rect_global()):
+					inside = false
+			ok += _expect(fails, inside and not h.art.figures.is_empty(), "карточка %d: фигурки вне картинки или их нет" % (pg + 1))
+			var last := pg == HowToScreen.PAGES.size() - 1
+			var btn := _find_button(h, "Играть" if last else "Дальше")
+			ok += _expect(fails, btn != null, "карточка %d: нет кнопки «%s»" % [pg + 1, "Играть" if last else "Дальше"])
+			if btn != null:
+				btn.pressed.emit()
+				await _settle(tree)
+		ok += _expect(fails, Nav.host.current is PrologueScreen and Save.howto_seen, "после «Как играть» не началась партия")
+
+	Nav.show_menu()
+	await _settle(tree)
+	_find_button(Nav.host.current, "Играть").pressed.emit()
+	await _settle(tree)
+	ok += _expect(fails, Nav.host.current is PrologueScreen, "второе «Играть» снова показало «Как играть»")
+
+	Nav.show_menu()
+	await _settle(tree)
+	_find_button(Nav.host.current, "Как играть").pressed.emit()
+	await _settle(tree)
+	h = Nav.host.current as HowToScreen
+	ok += _expect(fails, h != null and not h.then_play, "кнопка «Как играть» в меню не открыла карточки")
+	if h != null:
+		h.next_page()
+		await _settle(tree)
+		h.next_page()
+		await _settle(tree)
+		var done := _find_button(Nav.host.current, "Понятно")
+		ok += _expect(fails, done != null, "из меню на последней карточке нет «Понятно»")
+		if done != null:
+			done.pressed.emit()
+			await _settle(tree)
+		ok += _expect(fails, Nav.host.current is MenuScreen, "«Понятно» не вернуло в меню")
+
+	Save.howto_seen = false
+	_find_button(Nav.host.current, "Играть").pressed.emit()
+	await _settle(tree)
+	var skip := _find_button(Nav.host.current, "Пропустить")
+	ok += _expect(fails, skip != null, "нет «Пропустить»")
+	if skip != null:
+		skip.pressed.emit()
+		await _settle(tree)
+	ok += _expect(fails, Nav.host.current is PrologueScreen and Save.howto_seen, "«Пропустить» не начало партию")
+
+	Nav.show_howto(false)
+	await _settle(tree)
+	root_back(tree)
+	await _settle(tree)
+	ok += _expect(fails, Nav.host.current is MenuScreen, "«Назад» в «Как играть» не вернуло в меню")
+
+	Save.flush()
+	Save.load_all()
+	ok += _expect(fails, Save.howto_seen, "после перезапуска «Как играть» забылось")
+
+	print("=== «Как играть»: %d проверок ===" % (ok + fails.size()))
+	if fails.is_empty():
+		print("ИТОГ: OK — показывается один раз перед первой партией и открывается из меню")
+		tree.quit(0)
+	else:
+		for f2: String in fails:
+			print("  ✗ " + f2)
+		print("ИТОГ: НАРУШЕНИЙ: %d" % fails.size())
+		tree.quit(1)

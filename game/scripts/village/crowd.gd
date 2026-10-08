@@ -197,10 +197,10 @@ func _door_rows(house: int, n: int, per_row: int, avoid: Array[Rect2]) -> Array[
 		var lo: float = xs.min()
 		var hi: float = xs.max()
 		var delta := 0.0
-		if lo < 40.0:
-			delta = 40.0 - lo
-		elif hi > 680.0:
-			delta = 680.0 - hi
+		if lo < VillageView.SAFE_X.x:
+			delta = VillageView.SAFE_X.x - lo
+		elif hi > VillageView.SAFE_X.y:
+			delta = VillageView.SAFE_X.y - hi
 		for x: float in xs:
 			if out.size() >= n:
 				break

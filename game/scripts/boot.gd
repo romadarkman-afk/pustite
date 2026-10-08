@@ -1,8 +1,8 @@
 extends Control
 ## Точка входа. Логотип ровно 1 секунду → меню. Тап — пропустить.
-## Для сборки здесь же запускаются самотесты: --sim, --flow, --layout, --lifecycle, --field, --crowd, --bubbles, --marks, --input, --hints, --difficulty.
+## Для сборки здесь же запускаются самотесты: --sim, --flow, --layout, --lifecycle, --field, --crowd, --bubbles, --marks, --input, --hints, --difficulty, --howto.
 
-const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty"]
+const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto"]
 const TEST_TIMEOUT_SEC := 240.0
 const LOGO_SEC := 1.0
 
@@ -32,6 +32,7 @@ func _run_test(flag: String) -> void:
 		get_tree().quit(2))
 	visible = false
 	Save.hints_seen.clear()   # самотесты всегда видят подсказки — и проверяют их раскладку
+	Save.howto_seen = true    # «Играть» в самотестах сразу начинает партию; --howto проверяет это отдельно
 	match flag:
 		"--sim":
 			SelfTest.cli_balance()
@@ -75,6 +76,10 @@ func _run_test(flag: String) -> void:
 			Juice.instant = true
 			Nav.start()
 			SelfTest.difficulty()
+		"--howto":
+			Juice.instant = true
+			Nav.start()
+			SelfTest.howto()
 
 
 # ---------------------------------------------------------------

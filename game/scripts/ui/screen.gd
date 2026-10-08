@@ -11,6 +11,7 @@ var body: VBoxContainer
 var footer: VBoxContainer
 var scroll: ScrollContainer
 var field_spacer: Control
+var _title_label: Label
 var hint: Hint
 var _clock: Label
 var _locked := false
@@ -39,6 +40,11 @@ func field_ratio() -> float:
 	return 0.0
 
 
+## Переопределяется: высота поля при высоте экрана h. По умолчанию — доля field_ratio().
+func field_height(h: float) -> float:
+	return h * field_ratio()
+
+
 ## Прямоугольник поля в координатах экрана (без учёта анимации появления).
 func field_rect_local() -> Rect2:
 	if field_spacer == null:
@@ -58,6 +64,12 @@ func mood() -> Vector2:
 
 func door_open() -> float:
 	return -1.0
+
+
+## Переопределяется: какая доля экрана обязана остаться под текст и кнопки в теле экрана.
+## Самотест раскладки проверяет это правило.
+func min_content_ratio() -> float:
+	return 0.3
 
 
 ## Переопределяется: id подсказки новичку на этом экране ("" — без подсказки) и её текст.
@@ -125,6 +137,9 @@ func handle_back() -> bool:
 		if c is TextSheet:
 			(c as TextSheet).close("")
 			return true
+		if c is JournalSheet:
+			(c as JournalSheet).close()
+			return true
 	return false
 
 
@@ -179,6 +194,7 @@ func _chrome() -> void:
 	if title() != "":
 		var bar := W.hbox(14)
 		var t := W.label(title(), &"Body")
+		_title_label = t
 		t.autowrap_mode = TextServer.AUTOWRAP_OFF
 		bar.add_child(t)
 		if m != null and m.config != null:
@@ -200,7 +216,7 @@ func _chrome() -> void:
 		field_spacer = Control.new()
 		field_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		col.add_child(field_spacer)
-		resized.connect(func() -> void: field_spacer.custom_minimum_size.y = floorf(size.y * field_ratio()))
+		resized.connect(func() -> void: field_spacer.custom_minimum_size.y = floorf(field_height(size.y)))
 
 	scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL

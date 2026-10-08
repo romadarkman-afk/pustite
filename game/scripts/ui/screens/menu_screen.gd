@@ -29,6 +29,11 @@ func build() -> void:
 		&"Tale"))
 	body.add_child(W.gap(6))
 	body.add_child(W.label("Упыри среди вас. Они и сами не знают друг друга.", &"Hint"))
+	var how := W.button("Как играть", &"Row")
+	how.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	how.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	how.pressed.connect(func() -> void: emit_intent(Intent.OPEN_HOWTO))
+	body.add_child(how)
 
 	var start := W.button("Играть")
 	start.pressed.connect(func() -> void: emit_intent(Intent.START))

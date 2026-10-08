@@ -118,6 +118,14 @@ func start_match() -> void:
 	Game.start(Save.config)
 
 
+func show_howto(then_play: bool) -> void:
+	Game.abandon()
+	village.crowd.clear()
+	var s := HowToScreen.new()
+	s.then_play = then_play
+	show(s)
+
+
 func show(s: Screen) -> void:
 	Diag.step("экран: %s" % s.screen_id())
 	bubbles.clear()
@@ -242,7 +250,18 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 	match action:
 		Intent.START:
 			_apply_settings(data)
-			start_match()
+			if not Save.howto_seen:
+				show_howto(true)          # первая партия: сначала «Как играть»
+			else:
+				start_match()
+		Intent.OPEN_HOWTO:
+			show_howto(false)
+		Intent.HOWTO_DONE:
+			Save.mark_howto()
+			if data.get("play", false):
+				start_match()
+			else:
+				show_menu()
 		Intent.OPEN_SETTINGS:
 			show_settings()
 		Intent.BACK:
@@ -339,6 +358,9 @@ func _on_back() -> void:
 		_apply_settings({"cfg": ss.cfg, "haptics": ss.haptics, "reset_hints": ss.reset_hints, "difficulty": ss.difficulty})
 		show_menu()
 	elif s is EndScreen:
+		show_menu()
+	elif s is HowToScreen:
+		Save.mark_howto()
 		show_menu()
 	elif Game.active():
 		Game.hold(&"dialog")

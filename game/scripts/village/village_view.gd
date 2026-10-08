@@ -6,6 +6,10 @@ extends Node2D
 
 const LOGICAL := Vector2(720, 600)
 const BAND := Rect2(0, 120, 720, 400)    ## полоса с домами — её кадрирует камера
+## Сколько ширины посёлка обязано войти в кадр. По краям только фоновые дома и река —
+## их можно подрезать, а фигурки от этого крупнее.
+const SIDE_VISIBLE := 0.86
+const SAFE_X := Vector2(84, 624)          ## куда можно ставить жителей: слева половина имени, справа колонка отметок
 
 var def: VillageDef
 var open_count: int = 2
@@ -78,7 +82,7 @@ func set_mood(v: float, dur: float) -> void:
 
 ## Вписать полосу с домами в прямоугольник поля. vp_w — ширина экрана.
 func frame_to(rect: Rect2, vp_w: float, dur: float) -> void:
-	var s := minf(vp_w / LOGICAL.x, rect.size.y / BAND.size.y)
+	var s := minf(vp_w / (LOGICAL.x * SIDE_VISIBLE), rect.size.y / BAND.size.y)
 	s = maxf(s, 0.5)
 	var target := Vector2(vp_w * 0.5 - LOGICAL.x * 0.5 * s,
 		rect.position.y + rect.size.y * 0.5 - (BAND.position.y + BAND.size.y * 0.5) * s)

@@ -12,6 +12,7 @@ var config: GameConfig
 var haptics: bool = true
 var difficulty: String = "easy"
 var win_streak: int = 0
+var howto_seen: bool = false
 var offer: String = ""                 ## что предложить после партии: ступень сложности или ""
 var hints_seen: Dictionary = {}       ## id подсказки -> true: больше не показывать
 var stats: Dictionary[String, int] = {
@@ -30,6 +31,7 @@ func load_all() -> void:
 	if not Difficulty.NAMES.has(difficulty):
 		difficulty = "easy"
 	win_streak = int(cf.get_value("game", "win_streak", 0)) if has else 0
+	howto_seen = bool(cf.get_value("game", "howto_seen", false)) if has else false
 	var loaded: GameConfig = null
 	if difficulty == "custom" and ResourceLoader.exists(BALANCE_PATH):
 		loaded = load(BALANCE_PATH) as GameConfig
@@ -97,11 +99,18 @@ func flush() -> void:
 	cf.set_value("meta", "schema", SCHEMA)
 	cf.set_value("game", "difficulty", difficulty)
 	cf.set_value("game", "win_streak", win_streak)
+	cf.set_value("game", "howto_seen", howto_seen)
 	cf.set_value("ui", "haptics", haptics)
 	for k: String in stats.keys():
 		cf.set_value("stats", k, stats[k])
 	cf.set_value("hints", "seen", ",".join(PackedStringArray(hints_seen.keys())))
 	cf.save(SETTINGS_PATH)
+
+
+func mark_howto() -> void:
+	if not howto_seen:
+		howto_seen = true
+		flush()
 
 
 func hint_seen(id: String) -> bool:

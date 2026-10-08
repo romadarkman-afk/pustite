@@ -31,7 +31,9 @@ scripts/ui/action_sheet.gd
 scripts/ui/atmosphere.gd
 scripts/ui/bubbles.gd
 scripts/ui/hint.gd
+scripts/ui/howto_art.gd
 scripts/ui/intent.gd
+scripts/ui/journal_sheet.gd
 scripts/ui/phase_clock.gd
 scripts/ui/safe_frame.gd
 scripts/ui/screen.gd
@@ -40,6 +42,7 @@ scripts/ui/screens/crash_screen.gd
 scripts/ui/screens/day_screen.gd
 scripts/ui/screens/door_screen.gd
 scripts/ui/screens/end_screen.gd
+scripts/ui/screens/howto_screen.gd
 scripts/ui/screens/menu_screen.gd
 scripts/ui/screens/morning_screen.gd
 scripts/ui/screens/night_screen.gd
