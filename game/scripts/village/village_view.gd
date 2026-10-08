@@ -8,7 +8,7 @@ const LOGICAL := Vector2(720, 600)
 const BAND := Rect2(0, 120, 720, 400)    ## полоса с домами — её кадрирует камера
 ## Сколько ширины посёлка обязано войти в кадр. По краям только фоновые дома и река —
 ## их можно подрезать, а фигурки от этого крупнее.
-const SIDE_VISIBLE := 0.86
+const SIDE_VISIBLE := 0.88
 const SAFE_X := Vector2(84, 624)          ## куда можно ставить жителей: слева половина имени, справа колонка отметок
 
 var def: VillageDef
@@ -16,7 +16,15 @@ var open_count: int = 2
 var titles: PackedStringArray = []
 var night: float = 1.0: set = set_night
 var draws: int = 0                         ## счётчик перерисовок — для самотеста
+var draw_usec_total: int = 0               ## суммарное время рисования, мкс — для самотеста
 var crowd: Crowd
+var eyes: Eyes
+var selected_house: int = -1               ## ночью: дом, который выбрал игрок
+var show_going: bool = false               ## ночью: на табличках число тех, кто туда идёт
+var house_going: PackedInt32Array = PackedInt32Array()
+var _q: float = -1.0                       ## ночь, с которой посёлок нарисован (ступеньками по 0.025)
+var _light_th: Dictionary = {}             ## дом -> порог, с которого загораются его окна
+var _lamp_th: PackedFloat32Array = PackedFloat32Array()
 
 var _font: Font
 var _fog: CPUParticles2D
@@ -39,6 +47,9 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	_build_trees(rng)
 	_build_stones(rng)
 	_build_particles()
+	_build_thresholds()
+	eyes = Eyes.new()
+	add_child(eyes)
 	crowd = Crowd.new()
 	crowd.view = self
 	crowd.book = load("res://config/looks.tres") as LookBook
@@ -67,7 +78,13 @@ func set_night(v: float) -> void:
 		_dust.modulate.a = 0.12 + 0.88 * (1.0 - night)
 	if crowd != null:
 		crowd.modulate = Color(1, 1, 1).lerp(Color(0.6, 0.65, 0.76), night)
-	queue_redraw()
+	if eyes != null:
+		eyes.night = night
+	# статика перерисовывается ступеньками: сумерки плавные, а кадры не проседают
+	var q := snappedf(night, 0.025)
+	if q != _q:
+		_q = q
+		queue_redraw()
 
 
 func set_mood(v: float, dur: float) -> void:
@@ -97,6 +114,53 @@ func frame_to(rect: Rect2, vp_w: float, dur: float) -> void:
 	_tw_frame.tween_property(self, "scale", Vector2(s, s), dur)
 
 
+func set_selected_house(i: int) -> void:
+	selected_house = i
+	queue_redraw()
+
+
+func set_house_going(counts: PackedInt32Array, on: bool) -> void:
+	house_going = counts
+	show_going = on
+	queue_redraw()
+
+
+## Дом под пальцем: открытое убежище, в чью зону касания попала точка. -1 — мимо.
+func house_at(global_pos: Vector2) -> int:
+	var best := -1
+	var best_d := INF
+	for i in range(open_count):
+		var r := house_hit_rect_global(i)
+		if r.has_point(global_pos):
+			var d := r.get_center().distance_to(global_pos)
+			if d < best_d:
+				best_d = d
+				best = i
+	return best
+
+
+## Зона касания дома в координатах экрана: дом с крышей, не меньше 84×84 px.
+func house_hit_rect_global(i: int) -> Rect2:
+	var h: HouseDef = def.shelters[i]
+	var lr := Rect2(h.pos.x - h.size.x * 0.5, h.pos.y - h.size.y * 1.5, h.size.x, h.size.y * 1.5)
+	var g := Rect2(to_global(lr.position), lr.size * scale)
+	var grow := Vector2(maxf(0.0, (84.0 - g.size.x) * 0.5), maxf(0.0, (84.0 - g.size.y) * 0.5))
+	return g.grow_individual(grow.x, grow.y, grow.x, grow.y)
+
+
+## Сколько окон уже горит (дома с огнём не меньше половины) — для самотеста сумерек.
+func lit_count() -> int:
+	var n := 0
+	for h: HouseDef in _light_th:
+		if _lit(h, night) >= 0.5:
+			n += 1
+	return n
+
+
+func lights_total() -> int:
+	return _light_th.size()
+
+
 func band_global_rect() -> Rect2:
 	return Rect2(to_global(BAND.position), BAND.size * scale)
 
@@ -105,10 +169,14 @@ func _process(delta: float) -> void:
 	_t += delta
 	for i in range(_lamp_glows.size()):
 		var g := _lamp_glows[i]
-		var base: float = 0.02 + 0.24 * night
-		g.modulate.a = base * (0.88 + 0.12 * sin(_t * 7.3 + i * 1.9) * sin(_t * 3.1 + i))
-	for g: Sprite2D in _house_glows:
-		g.modulate.a = 0.28 * night
+		var on := _lamp_on(i, night)
+		var flick := 0.88 + 0.12 * sin(_t * 7.3 + i * 1.9) * sin(_t * 3.1 + i)
+		if on > 0.0 and on < 1.0 and randf() < 0.35:
+			flick *= 0.15               # включение: лампа пару раз мигает
+		g.modulate.a = (0.02 + 0.24 * on) * flick
+	for i in range(_house_glows.size()):
+		var lit := _lit(def.shelters[i], night) if i < def.shelters.size() else night
+		_house_glows[i].modulate.a = (0.28 + (0.22 if i == selected_house else 0.0)) * lit
 
 
 # =============================================================
@@ -118,7 +186,8 @@ func _draw() -> void:
 	if def == null:
 		return
 	draws += 1
-	var n := night
+	var t0 := Time.get_ticks_usec()
+	var n := _q if _q >= 0.0 else night
 
 	# небо до горизонта
 	_vgrad(Rect2(-2000, -2400, 4720, 2590), Color("2f3e44").lerp(Color("091114"), n), Color("4d5d62").lerp(Color("16232a"), n))
@@ -149,8 +218,8 @@ func _draw() -> void:
 			continue
 		_draw_house(h, it[1], n)
 	_draw_well(n)
-	for p: Vector2 in def.lamps:
-		_draw_lamp_post(p, n)
+	for li in range(def.lamps.size()):
+		_draw_lamp_post(def.lamps[li], n, _lamp_on(li, n))
 	for it: Array in items:
 		var h: HouseDef = it[0]
 		if h.pos.y <= def.well.y:
@@ -158,12 +227,23 @@ func _draw() -> void:
 		_draw_house(h, it[1], n)
 	_draw_fences(n)
 
+	# выбранный ночью дом — тёплая рамка
+	if selected_house >= 0 and selected_house < open_count:
+		var sh: HouseDef = def.shelters[selected_house]
+		var sr := Rect2(sh.pos.x - sh.size.x * 0.5, sh.pos.y - sh.size.y, sh.size.x, sh.size.y).grow(7.0)
+		draw_rect(sr, Color(ThemeFactory.LAMP, 0.9), false, 3.0)
 	# таблички открытых убежищ — на стене над дверью: очередь у двери их не закрывает
 	for i in range(open_count):
 		var r := shelter_label_rect_local(i)
-		draw_rect(r, Color(ThemeFactory.NIGHT, 0.82))
-		draw_rect(r, Color(ThemeFactory.LAMP_D, 0.9), false, 1.0)
-		draw_string(_font, Vector2(r.position.x, r.end.y - 4), _title(i), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, PLAQUE_SIZE, ThemeFactory.BONE)
+		var sel := i == selected_house
+		draw_rect(r, Color(ThemeFactory.NIGHT, 0.86))
+		draw_rect(r, ThemeFactory.LAMP if sel else Color(ThemeFactory.LAMP_D, 0.9), false, 2.0 if sel else 1.0)
+		var name_w := _font.get_string_size(_title(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE).x
+		var x := r.position.x + 6.0
+		draw_string(_font, Vector2(x, r.end.y - 4), _title(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE, ThemeFactory.BONE)
+		if _going_text(i) != "":
+			draw_string(_font, Vector2(x + name_w, r.end.y - 4), _going_text(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE, ThemeFactory.LAMP)
+	draw_usec_total += Time.get_ticks_usec() - t0
 
 
 const PLAQUE_SIZE := 14
@@ -173,10 +253,17 @@ func _title(i: int) -> String:
 	return titles[i] if i < titles.size() else def.shelters[i].title
 
 
+## Ночью на табличке: сколько жителей туда собирается.
+func _going_text(i: int) -> String:
+	if not show_going or i >= house_going.size():
+		return ""
+	return " · %d" % house_going[i]
+
+
 ## Табличка с названием убежища в координатах посёлка: верх стены, над дверью.
 func shelter_label_rect_local(i: int) -> Rect2:
 	var h: HouseDef = def.shelters[i]
-	var w := _font.get_string_size(_title(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE).x + 12.0
+	var w := _font.get_string_size(_title(i) + _going_text(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE).x + 12.0
 	var top := h.pos.y - h.size.y
 	return Rect2(h.pos.x - w * 0.5, top + 3.0, w, 17.0)
 
@@ -226,7 +313,8 @@ func _draw_house(h: HouseDef, state: int, n: float) -> void:
 	var roof := Color("1d282d").lerp(Color("0d1518"), n)
 	var wood := Color("4a3729").lerp(Color("2a1f18"), n)
 	var lit := state == 1
-	var win := Color("1b262b").lerp(ThemeFactory.LAMP, n * 0.92) if lit else (Color("1b262b").lerp(Color(ThemeFactory.LAMP_D, 1.0), n * 0.35) if state == 0 else Color("0f1619"))
+	var l := _lit(h, n)
+	var win := Color("1b262b").lerp(ThemeFactory.LAMP, l * 0.92) if lit else (Color("1b262b").lerp(Color(ThemeFactory.LAMP_D, 1.0), l * 0.35) if state == 0 else Color("0f1619"))
 
 	# тень дома на земле
 	draw_colored_polygon(_ellipse(h.pos + Vector2(0, 3), Vector2(w * 0.62, 9)), Color(0, 0, 0, 0.28))
@@ -242,7 +330,7 @@ func _draw_house(h: HouseDef, state: int, n: float) -> void:
 			draw_line(Vector2(h.pos.x + w * 0.28, h.pos.y - hh * 0.82), Vector2(h.pos.x + w * 0.28, h.pos.y - hh * 1.12), edge, 4.0)
 			_mark_door(dr, state, n)
 			if lit:
-				_door_light(dr, n)
+				_door_light(dr, l)
 			return
 		HouseDef.Kind.GARAGE:
 			draw_rect(Rect2(x0, top, w, hh), wall)
@@ -256,7 +344,7 @@ func _draw_house(h: HouseDef, state: int, n: float) -> void:
 			draw_rect(Rect2(x0, top, w, hh), edge, false, 2.0)
 			_mark_door(dr2, state, n)
 			if lit:
-				_door_light(dr2, n)
+				_door_light(dr2, l)
 			return
 		_:
 			pass
@@ -316,7 +404,7 @@ func _draw_house(h: HouseDef, state: int, n: float) -> void:
 	draw_rect(Rect2(x0, top, w, hh), edge, false, 2.0)
 	_mark_door(dr3, state, n)
 	if lit:
-		_door_light(dr3, n)
+		_door_light(dr3, l)
 
 
 func _draw_dome(h: HouseDef, top: float, roof: Color, edge: Color, n: float) -> void:
@@ -378,13 +466,15 @@ func _draw_well(n: float) -> void:
 		Color("1d282d").lerp(Color("0d1518"), n))
 
 
-func _draw_lamp_post(p: Vector2, n: float) -> void:
+func _draw_lamp_post(p: Vector2, n: float, on: float = -1.0) -> void:
+	if on < 0.0:
+		on = n
 	var post := Color("3a464b").lerp(Color("1d282d"), n)
 	draw_colored_polygon(_ellipse(p + Vector2(0, 2), Vector2(10, 4)), Color(0, 0, 0, 0.3))
 	draw_line(p, p - Vector2(0, 76), post, 4.0)
 	draw_line(p - Vector2(0, 72), p - Vector2(-12, 72), post, 3.0)
 	draw_rect(Rect2(p.x + 6, p.y - 72, 12, 14), post)
-	draw_rect(Rect2(p.x + 8, p.y - 70, 8, 10), Color(0.30, 0.30, 0.28).lerp(ThemeFactory.LAMP, 0.25 + 0.75 * n))
+	draw_rect(Rect2(p.x + 8, p.y - 70, 8, 10), Color(0.30, 0.30, 0.28).lerp(ThemeFactory.LAMP, 0.25 + 0.75 * on))
 
 
 func _draw_fences(n: float) -> void:
@@ -400,6 +490,30 @@ func _draw_fences(n: float) -> void:
 # =============================================================
 # Подготовка
 # =============================================================
+## Окна загораются по одному: у каждого дома свой порог «ночи». Убежища — раньше.
+func _build_thresholds() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	_light_th.clear()
+	for h: HouseDef in def.shelters:
+		_light_th[h] = rng.randf_range(0.32, 0.62)
+	for h: HouseDef in def.decor:
+		_light_th[h] = rng.randf_range(0.45, 0.85)
+	_lamp_th = PackedFloat32Array()
+	for i in range(def.lamps.size()):
+		_lamp_th.append(rng.randf_range(0.40, 0.70))
+
+
+func _lit(h: HouseDef, n: float) -> float:
+	var th: float = _light_th.get(h, 0.5)
+	return clampf((n - th) / 0.12, 0.0, 1.0)
+
+
+func _lamp_on(i: int, n: float) -> float:
+	var th: float = _lamp_th[i] if i < _lamp_th.size() else 0.5
+	return clampf((n - th) / 0.08, 0.0, 1.0)
+
+
 func _build_trees(rng: RandomNumberGenerator) -> void:
 	_trees = PackedVector2Array([Vector2(-900, 200)])
 	var x := -900.0
@@ -548,3 +662,60 @@ func _half_ellipse(base: Vector2, r: Vector2, seg: int = 24) -> PackedVector2Arr
 		var a := PI * i / seg
 		pts.append(base + Vector2(cos(a) * r.x, -sin(a) * r.y))
 	return pts
+
+
+
+## Глаза в темноте: пары огоньков в лесу и у реки. Появляются к концу сумерек и моргают.
+## Отдельный слой — ради них посёлок не перерисовывается.
+class Eyes extends Node2D:
+	const SPOTS := [Vector2(160, 158), Vector2(300, 176), Vector2(432, 178), Vector2(640, 162), Vector2(28, 330)]
+	var night: float = 0.0
+	var _blink: PackedFloat32Array = PackedFloat32Array()
+	var _closed: PackedByteArray = PackedByteArray()
+	var _t := 0.0
+
+	func _ready() -> void:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 23
+		for i in range(SPOTS.size()):
+			_blink.append(rng.randf_range(1.0, 4.0))
+			_closed.append(0)
+
+	func alpha() -> float:
+		return clampf((night - 0.75) / 0.2, 0.0, 1.0)
+
+	## Сколько пар сейчас смотрят — для самотеста.
+	func visible_pairs() -> int:
+		if alpha() < 0.5:
+			return 0
+		var n := 0
+		for c in _closed:
+			if c == 0:
+				n += 1
+		return n
+
+	func _process(delta: float) -> void:
+		if alpha() <= 0.0:
+			if _t != 0.0:
+				_t = 0.0
+				queue_redraw()
+			return
+		_t += delta
+		for i in range(_blink.size()):
+			_blink[i] -= delta
+			if _blink[i] <= 0.0:
+				_closed[i] = 1 - _closed[i]
+				_blink[i] = 0.14 if _closed[i] == 1 else randf_range(1.8, 5.0)
+		queue_redraw()
+
+	func _draw() -> void:
+		var a := alpha()
+		if a <= 0.0:
+			return
+		for i in range(SPOTS.size()):
+			if _closed[i] == 1:
+				continue
+			var p: Vector2 = SPOTS[i] + Vector2(sin(_t * 0.4 + i) * 2.0, 0)
+			for dx in [-3.6, 3.6]:
+				draw_circle(p + Vector2(dx, 0), 6.0, Color(1.0, 0.3, 0.15, 0.12 * a))
+				draw_circle(p + Vector2(dx, 0), 2.2, Color(1.0, 0.42, 0.22, 0.95 * a))

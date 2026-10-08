@@ -254,6 +254,31 @@ func update_marks(d: Director, m: Match) -> void:
 		figures[v.id].set_marks(d.eye_level(v.id) if v.alive else 0, d.badges(v.id) if v.alive else PackedStringArray(), has_pact and v.alive)
 
 
+## Ночь: все бегут к домам, о которых говорили. player_house — куда идёшь ты
+## (днём объявил или ночью выбрал тапом); ты первым в очереди к той двери.
+func arrange_night(m: Match, player_house: int) -> void:
+	var groups: Dictionary[int, Array] = {}
+	var me := m.player()
+	var me_goes := me.alive and player_house >= 0 and player_house < view.open_count
+	if me_goes:
+		groups[player_house] = [me.id]
+	for v: Villager in m.alive_bots():
+		if v.announced_house >= 0 and v.announced_house < view.open_count and figures.has(v.id):
+			if not groups.has(v.announced_house):
+				groups[v.announced_house] = []
+			groups[v.announced_house].append(v.id)
+	var avoid: Array[Rect2] = []
+	if not me_goes:
+		avoid = _avoid()
+		if figures.has(me.id) and figures[me.id].position.distance_to(ring.get(me.id, figures[me.id].position)) > 4.0:
+			figures[me.id].run_to(ring[me.id])
+	for h: int in groups:
+		var ids: Array = groups[h]
+		var spots := door_spots(h, ids.size(), avoid)
+		for k in range(mini(ids.size(), spots.size())):
+			figures[int(ids[k])].run_to(spots[k], 0.9)
+
+
 func sync(m: Match, phase: Match.Phase) -> void:
 	var at_house: Dictionary[int, int] = {}
 	for v: Villager in m.villagers:
@@ -275,24 +300,7 @@ func sync(m: Match, phase: Match.Phase) -> void:
 				if f.position.distance_to(ring[v.id]) > 4.0:
 					f.run_to(ring[v.id])
 	if phase == Match.Phase.NIGHT:
-		var groups: Dictionary[int, Array] = {}
-		var me := m.player()
-		var me_goes := me.alive and me.announced_house >= 0 and me.announced_house < view.open_count
-		if me_goes:
-			groups[me.announced_house] = [me.id]     # вы — первым в очереди к своему дому
-		for v: Villager in m.alive_bots():
-			if v.announced_house >= 0 and v.announced_house < view.open_count and figures.has(v.id):
-				if not groups.has(v.announced_house):
-					groups[v.announced_house] = []
-				groups[v.announced_house].append(v.id)
-		var avoid: Array[Rect2] = []
-		if not me_goes:
-			avoid = _avoid()
-		for h: int in groups:
-			var ids: Array = groups[h]
-			var spots := door_spots(h, ids.size(), avoid)
-			for k in range(mini(ids.size(), spots.size())):
-				figures[int(ids[k])].run_to(spots[k], 0.9)
+		arrange_night(m, m.player().announced_house)
 	if phase == Match.Phase.MORNING:
 		for v: Villager in m.villagers:
 			if v.alive and figures.has(v.id):

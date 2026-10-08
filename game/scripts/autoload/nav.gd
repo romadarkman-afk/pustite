@@ -130,6 +130,8 @@ func show(s: Screen) -> void:
 	Diag.step("экран: %s" % s.screen_id())
 	bubbles.clear()
 	bubbles.field = Rect2()
+	village.set_selected_house(-1)
+	village.set_house_going(PackedInt32Array(), false)
 	s.setup(Game.m, Game.director)
 	s.intent.connect(handle_intent.bind(s))
 	host.show_screen(s)
@@ -144,6 +146,10 @@ func show(s: Screen) -> void:
 		d.open_fx.connect(func(a: float) -> void: atmos.door(a, 0.5))
 	if s is MorningScreen:
 		(s as MorningScreen).death_fx.connect(atmos.blood_flash)
+	if s is NightScreen and Game.m != null:
+		var ns := s as NightScreen
+		village.set_house_going(ns.going_counts(), true)
+		village.set_selected_house(ns.picked)
 	_frame_field(s)
 	if Game.m != null and s.hint_id() != "" and not Save.hint_seen(s.hint_id()):
 		s.show_hint()
@@ -152,7 +158,7 @@ func show(s: Screen) -> void:
 ## Подсказка выполнила своё: игрок сделал то, о чём она говорила.
 const HINT_DONE := {
 	"day": [&"field_tap", &"accuse", &"invite", &"ask", &"defend", &"say"],
-	"night": [&"choose_house"],
+	"night": [&"choose_house", &"select_house"],
 	"door": [&"admit", &"plea"],
 }
 
@@ -179,7 +185,7 @@ func _frame_field(s: Screen) -> void:
 		r.position += host.global_position
 		village.frame_to(r, ui.size.x, dur)
 		bubbles.field = r
-		village.set_mood(s.mood().x, dur)
+		village.set_mood(s.mood().x, 0.0 if Juice.instant else s.mood_duration())
 		_tween_to(village, "modulate:a", 1.0, dur)
 		_tween_to(scrim, "top", r.end.y, dur)
 		_tween_to(scrim, "strength", 1.0, dur)
@@ -299,7 +305,17 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			Game.admit(ids)
 		Intent.PLEA:
 			Game.plea(data.plea)
+		Intent.SELECT_HOUSE:
+			village.set_selected_house(int(data.house))
+			if Game.m != null:
+				village.crowd.arrange_night(Game.m, int(data.house))
 		Intent.FIELD_TAP:
+			if sender is NightScreen:
+				var hi := village.house_at(data.pos)
+				if hi >= 0:
+					Juice.haptic(Juice.Haptic.TAP)
+					(sender as NightScreen).select_house(hi)
+				return
 			var vid := village.crowd.figure_at(data.pos)
 			if vid < 0 or Game.m == null:
 				return

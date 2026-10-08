@@ -37,14 +37,9 @@ func mood() -> Vector2:
 	return Vector2(0.12, 0.25)
 
 
-var _press: Vector2 = Vector2.INF
-
-
 func build() -> void:
 	Diag.step("день-экран: сборка")
-	if field_spacer != null:
-		field_spacer.mouse_filter = Control.MOUSE_FILTER_STOP
-		field_spacer.gui_input.connect(_on_field_input)
+	enable_field_taps()
 	var jr := W.hbox(10)
 	journal_button = W.button("Журнал", &"Quick")
 	journal_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -138,17 +133,6 @@ func _write_flow() -> void:
 
 func _defend() -> void:
 	emit_intent(Intent.DEFEND)
-
-
-## Тап по полю: короткое касание без сдвига — это выбор жителя, а не прокрутка.
-func _on_field_input(e: InputEvent) -> void:
-	if e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
-		var mb := e as InputEventMouseButton
-		if mb.pressed:
-			_press = mb.position
-		elif _press != Vector2.INF and mb.position.distance_to(_press) < 24.0:
-			emit_intent(Intent.FIELD_TAP, {"pos": field_spacer.get_global_rect().position + mb.position})
-			_press = Vector2.INF
 
 
 func person_actions(v: Villager) -> void:

@@ -1852,3 +1852,100 @@ static func howto() -> void:
 			print("  ✗ " + f2)
 		print("ИТОГ: НАРУШЕНИЙ: %d" % fails.size())
 		tree.quit(1)
+
+
+
+# =============================================================
+# Ночь на картинке (Task 16–17): сумерки, выбор дома тапом, кто куда идёт.
+# =============================================================
+static func night() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+	Save.set_difficulty("easy")
+	var v := Nav.village
+
+	Nav.start_match()
+	await _settle(tree)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	ok += _expect(fails, v.eyes.visible_pairs() == 0, "днём в темноте видны глаза")
+
+	# сумерки в живом темпе
+	Juice.instant = false
+	var d0 := v.draws
+	var u0 := v.draw_usec_total
+	Game.end_day()
+	if Game.m.phase == Match.Phase.VOTE:
+		Game.vote(-1)
+		Game.proceed()
+	var total := v.lights_total()
+	var mid_lit := -1
+	var t := 0.0
+	while t < 2.6:
+		await tree.process_frame
+		t += tree.root.get_process_delta_time() if tree.root.get_process_delta_time() > 0.0 else 0.016
+		if mid_lit < 0 and v.night > 0.5 and v.night < 0.8:
+			mid_lit = v.lit_count()
+	var redraws := v.draws - d0
+	var avg_us := float(v.draw_usec_total - u0) / maxf(1.0, float(redraws))
+	var eyes_max := 0
+	for k in range(30):
+		await tree.process_frame
+		eyes_max = maxi(eyes_max, v.eyes.visible_pairs())
+	Juice.instant = true
+	print("сумерки: перерисовок %d, в среднем %.1f мс на перерисовку, окон к середине %d из %d, глаз %d пар" % [redraws, avg_us / 1000.0, mid_lit, total, eyes_max])
+	ok += _expect(fails, Nav.host.current is NightScreen and v.night > 0.99, "ночь не наступила полностью (%.2f)" % v.night)
+	ok += _expect(fails, mid_lit >= 1 and mid_lit < total, "окна загорелись не по одному: к середине %d из %d" % [mid_lit, total])
+	ok += _expect(fails, v.lit_count() == total, "к концу сумерек горят не все окна: %d из %d" % [v.lit_count(), total])
+	ok += _expect(fails, eyes_max >= 4, "ночью в темноте не видно глаз (%d пар)" % eyes_max)
+	ok += _expect(fails, redraws <= 70, "сумерки перерисовали посёлок %d раз — кадры будут проседать" % redraws)
+	ok += _expect(fails, avg_us < 8000.0, "одна перерисовка посёлка %.1f мс — слишком долго" % (avg_us / 1000.0))
+
+	# тап по дому
+	var ns := Nav.host.current as NightScreen
+	await _settle(tree)
+	var hr := v.house_hit_rect_global(0)
+	ok += _expect(fails, hr.size.x >= 84.0 and hr.size.y >= 84.0, "зона касания дома меньше 84 px")
+	Nav.handle_intent(Intent.FIELD_TAP, {"pos": hr.get_center()}, ns)
+	await _settle(tree)
+	var me: VillagerFigure = v.crowd.figures[0]
+	var go := _find_button(ns, "Идти")
+	ok += _expect(fails, ns.picked == 0 and v.selected_house == 0 and go != null and not go.disabled,
+		"тап по дому не выбрал его (выбран %d, на поле %d)" % [ns.picked, v.selected_house])
+	ok += _expect(fails, me.position.distance_to(v.def.shelters[0].pos) < 130.0, "твоя фигурка не пошла к выбранному дому")
+	Nav.handle_intent(Intent.FIELD_TAP, {"pos": v.house_hit_rect_global(1).get_center()}, ns)
+	await _settle(tree)
+	ok += _expect(fails, ns.picked == 1 and v.selected_house == 1 and me.position.distance_to(v.def.shelters[1].pos) < 130.0,
+		"выбор не перешёл на второй дом")
+	if v.open_count < v.def.shelters.size():
+		var bh: HouseDef = v.def.shelters[v.open_count]
+		Nav.handle_intent(Intent.FIELD_TAP, {"pos": v.to_global(bh.pos - Vector2(0, bh.size.y * 0.5))}, ns)
+		await _settle(tree)
+		ok += _expect(fails, ns.picked == 1, "тап по заколоченному дому сменил выбор")
+	Nav.handle_intent(Intent.FIELD_TAP, {"pos": Nav.host.global_position + ns.field_rect_local().position + Vector2(10, 10)}, ns)
+	await _settle(tree)
+	ok += _expect(fails, ns.picked == 1, "тап по небу сменил выбор")
+
+	# кто куда идёт — на табличках
+	ok += _expect(fails, v.show_going and v.house_going == ns.going_counts(), "числа на табличках не совпадают с тем, кто куда собирался")
+
+	# «Идти» — именно в выбранный дом
+	if go != null:
+		go.pressed.emit()
+		await _settle(tree)
+	ok += _expect(fails, Game.m.player().night_house == 1, "«Идти» отправило не в выбранный дом (%d)" % Game.m.player().night_house)
+	ok += _expect(fails, not v.show_going and v.selected_house == -1, "после ночи на поле осталась рамка или числа")
+
+	print("=== ночь на картинке: %d проверок ===" % (ok + fails.size()))
+	if fails.is_empty():
+		print("ИТОГ: OK — сумерки по шагам, выбор дома тапом, кто куда идёт видно на поле")
+		tree.quit(0)
+	else:
+		for f2: String in fails:
+			print("  ✗ " + f2)
+		print("ИТОГ: НАРУШЕНИЙ: %d" % fails.size())
+		tree.quit(1)

@@ -66,6 +66,32 @@ func door_open() -> float:
 	return -1.0
 
 
+## Переопределяется: за сколько секунд посёлок переходит к настроению этого экрана.
+func mood_duration() -> float:
+	return 0.6
+
+
+var _field_press: Vector2 = Vector2.INF
+
+
+## Касание по полю: короткий тап без сдвига уходит наверх намерением FIELD_TAP.
+func enable_field_taps() -> void:
+	if field_spacer == null:
+		return
+	field_spacer.mouse_filter = Control.MOUSE_FILTER_STOP
+	field_spacer.gui_input.connect(_on_field_tap_input)
+
+
+func _on_field_tap_input(e: InputEvent) -> void:
+	if e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		var mb := e as InputEventMouseButton
+		if mb.pressed:
+			_field_press = mb.position
+		elif _field_press != Vector2.INF and mb.position.distance_to(_field_press) < 24.0:
+			emit_intent(Intent.FIELD_TAP, {"pos": field_spacer.get_global_rect().position + mb.position})
+			_field_press = Vector2.INF
+
+
 ## Переопределяется: какая доля экрана обязана остаться под текст и кнопки в теле экрана.
 ## Самотест раскладки проверяет это правило.
 func min_content_ratio() -> float:
