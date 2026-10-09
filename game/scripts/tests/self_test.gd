@@ -57,6 +57,19 @@ static func grammar(cfg: GameConfig, games: int = 250) -> Dictionary:
 								texts.append(Phrases.fill(line, {"who": t.name, "who_f": t.female, "me_f": true, "place": j.place}))
 							for line: String in Phrases.JOB_FAKE_AT_PLAYER:
 								texts.append(Phrases.fill(line, {"me_f": t.female, "place": j.place}))
+					# Подражатель, саботаж, ящик: все реплики для каждого жителя
+					for t: Villager in m.villagers:
+						if t.is_player:
+							continue
+						for line: String in Phrases.MIMIC_PLEAS:
+							texts.append(Phrases.fill(line, {"who": t.name, "me_f": t.female}))
+						for line: String in Phrases.SABOTAGE_SEEN:
+							texts.append(Phrases.fill(line, {"who": t.name, "who_f": t.female, "me_f": not t.female, "place": "у колодца"}))
+						for line: String in Phrases.SABOTAGE_SEEN_AT_PLAYER:
+							texts.append(Phrases.fill(line, {"me_f": t.female, "place": "у колодца"}))
+						for bank: PackedStringArray in [Phrases.BOX_NOTE, Phrases.BOX_OIL, Phrases.BOX_CHALK]:
+							for line: String in bank:
+								texts.append(Phrases.fill(line, {"me_f": t.female, "a": t.name, "b": "Вы", "house": m.houses[0]}))
 					m.end_day()
 				Match.Phase.VOTE:
 					var tally: Dictionary[int, int] = {}
@@ -2204,7 +2217,8 @@ static func sound() -> void:
 static func _portions(m: Match) -> int:
 	var n := 0
 	for j: JobDef in m.jobs:
-		n += j.portions
+		if j.kind != JobDef.Kind.BOX:
+			n += j.portions
 	return n
 
 
@@ -2855,3 +2869,633 @@ static func bell() -> void:
 			print("  ✗ " + f2)
 		print("ИТОГ: НАРУШЕНИЙ: %d" % fails.size())
 		tree.quit(1)
+
+
+
+# =============================================================
+# Общее для задач 27–30: партия по правилам, доведённая до ночи нужного дня.
+# =============================================================
+static func _rules_to_night(seed_v: int, night: int, force_event: int = -1) -> Match:
+	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
+	var m := Match.new()
+	m.start(c, seed_v)
+	m.force_event = force_event
+	m.begin_day()
+	m.day = night
+	m.end_day()
+	if m.phase == Match.Phase.VOTE:
+		var none: Dictionary[int, int] = {}
+		m.apply_vote(none)
+		m.after_vote()
+	return m
+
+
+## Ночь по правилам: все разбегаются как попало, двери открывают боты (и игрок — первому в очереди).
+static func _rules_seat(m: Match, d: Director) -> void:
+	var ch := d.night_choices()
+	ch[0] = m.rng.randi_range(0, m.houses.size() - 1)
+	m.seat_night(ch)
+
+
+static func _all_text(root: Node) -> String:
+	var out := PackedStringArray()
+	for c: Control in _controls(root):
+		if c is Label and c.is_visible_in_tree():
+			out.append((c as Label).text)
+		elif c is Button and c.is_visible_in_tree():
+			out.append((c as Button).text)
+	return "\n".join(out)
+
+
+static func _finish(fails: PackedStringArray, ok: int, title: String, good: String) -> void:
+	var tree := Nav.get_tree()
+	print("=== %s: %d проверок ===" % [title, ok + fails.size()])
+	if fails.is_empty():
+		print("ИТОГ: OK — " + good)
+		tree.quit(0)
+	else:
+		for f2: String in fails:
+			print("  ✗ " + f2)
+		print("ИТОГ: НАРУШЕНИЙ: %d" % fails.size())
+		tree.quit(1)
+
+
+# =============================================================
+# События ночи (Task 30): туман, полная луна, тихая ночь, ливень. Со второй ночи,
+# примерно в половине ночей. Объявляются с колоколом, утром — в сводке.
+# =============================================================
+static func events() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+
+	# 1. Первая ночь всегда обычная; со второй — около половины ночей, все четыре события бывают
+	var first := 0
+	for i in range(200):
+		if _rules_to_night(100 + i, 1).night_event != Match.Event.NONE:
+			first += 1
+	var seen: Dictionary[int, int] = {}
+	var nights := 0
+	var with_event := 0
+	for i in range(400):
+		var m := _rules_to_night(700 + i, 2)
+		if m.phase != Match.Phase.NIGHT:
+			continue
+		nights += 1
+		if m.night_event != Match.Event.NONE:
+			with_event += 1
+			seen[m.night_event] = seen.get(m.night_event, 0) + 1
+	print("события: первая ночь %d из 200, со второй %d из %d, виды %s" % [first, with_event, nights, seen])
+	ok += _expect(fails, first == 0, "событие в первую ночь (%d раз)" % first)
+	ok += _expect(fails, absf(float(with_event) / maxf(1, nights) - Match.EVENT_P) < 0.08, "события в %d из %d ночей, ждём около половины" % [with_event, nights])
+	ok += _expect(fails, seen.size() == 4, "бывают не все события: %s" % seen)
+
+	# 2. Что меняет каждое событие
+	var fog := _rules_to_night(5, 2, Match.Event.FOG)
+	var calm := _rules_to_night(5, 2, Match.Event.NONE)
+	ok += _expect(fails, fog.run_seconds() == fog.config.run_seconds - Match.FOG_RUN and calm.run_seconds() == calm.config.run_seconds, "туман не укорачивает звон")
+	ok += _expect(fails, absf(fog.outside_death_chance() - calm.outside_death_chance() - Match.FOG_DEATH) < 0.001, "в тумане улица не опаснее")
+	var quiet := _rules_to_night(5, 2, Match.Event.QUIET)
+	ok += _expect(fails, absf(calm.outside_death_chance() - quiet.outside_death_chance() - Match.QUIET_SAFE) < 0.001, "тихая ночь не бережёт на улице")
+	var rain := _rules_to_night(5, 2, Match.Event.RAIN)
+	calm.supply_done = calm.supply_total
+	rain.supply_done = rain.supply_total
+	ok += _expect(fails, rain.outside_death_chance() > calm.outside_death_chance() + Match.SUPPLY_BONUS - 0.001, "в ливень запасы всё ещё спасают на улице")
+	# полная луна: к утру слабеют все обереги
+	var moon := _rules_to_night(5, 2, Match.Event.MOON)
+	var d := Director.new()
+	d.attach(moon)
+	_rules_seat(moon, d)
+	for s: Match.Seat in moon.seats:
+		var none: Array[int] = []
+		moon.admit(s, none)
+	var before := moon.talisman.duplicate()
+	moon.resolve_night()
+	var all_down := true
+	for h in range(before.size()):
+		if before[h] > 0 and moon.talisman[h] != before[h] - 1:
+			all_down = false
+	ok += _expect(fails, all_down, "в полнолуние ослабли не все обереги")
+	# тихая ночь: Подражатель не приходит
+	var mimics := 0
+	for i in range(200):
+		var mq := _rules_to_night(900 + i, 2, Match.Event.QUIET)
+		if mq.phase != Match.Phase.NIGHT:
+			continue
+		var dq := Director.new()
+		dq.attach(mq)
+		_rules_seat(mq, dq)
+		for s: Match.Seat in mq.seats:
+			if s.mimic != null:
+				mimics += 1
+	ok += _expect(fails, mimics == 0, "в тихую ночь пришёл Подражатель (%d раз)" % mimics)
+
+	# 3. На экране: колокол объявляет событие, в тумане отсчёт короче, в ливень фонари не горят
+	Save.set_difficulty("normal")
+	var v := Nav.village
+	Nav.start_match()
+	await _settle(tree)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	Game.m.force_event = Match.Event.FOG
+	Game.m.day = 2
+	Game.m.config.vote_from_day = 9      # без изгнания: игрок точно жив и бежит по колоколу
+	await _to_night(tree)
+	var ns := Nav.host.current as NightScreen
+	ok += _expect(fails, ns != null and _all_text(ns).contains(Match.EVENT_TEXT[Match.Event.FOG]), "колокол не объявил туман")
+	ok += _expect(fails, Game.clock.time_left() <= float(Game.m.config.run_seconds - Match.FOG_RUN) + 0.01, "в тумане отсчёт не короче (%.1f с)" % Game.clock.time_left())
+	Game.choose_house(0)
+	await _settle(tree)
+	if Game.m.phase == Match.Phase.DOOR:
+		if Game.door_role() == Match.DoorRole.GUEST:
+			Game.plea("beg")
+			await _settle(tree)
+			Game.proceed()
+		else:
+			var none: Array[int] = []
+			Game.admit(none)
+		await _settle(tree)
+	if Game.m.phase == Match.Phase.MORNING:
+		await tree.create_timer(0.3).timeout
+		await _settle(tree)
+		ok += _expect(fails, _all_text(Nav.host.current).contains("Этой ночью: туман."), "утром не сказано про туман")
+		Game.proceed()
+		await _settle(tree)
+	if Game.m.phase == Match.Phase.DAY:
+		ok += _expect(fails, Game.m.night_event == Match.Event.NONE, "событие ночи осталось на день")
+	# ливень: при полных запасах фонари не горят; без ливня — горят
+	for ev: int in [Match.Event.NONE, Match.Event.RAIN]:
+		Nav.start_match()
+		await _settle(tree)
+		Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+		await _settle(tree)
+		Game.m.force_event = ev
+		Game.m.day = 2
+		Game.m.config.vote_from_day = 9
+		Game.m.supply_done = Game.m.supply_total
+		await _to_night(tree)
+		var lit := v.lamps_fueled
+		if ev == Match.Event.RAIN:
+			ok += _expect(fails, Game.m.phase == Match.Phase.NIGHT and lit == 0, "в ливень горят фонари (%d)" % lit)
+		else:
+			ok += _expect(fails, Game.m.phase == Match.Phase.NIGHT and lit == v.def.lamps.size(), "без ливня при полных запасах горят не все фонари (%d)" % lit)
+
+	_finish(fails, ok, "события ночи", "туман, луна, тишина и ливень меняют ночь и видны игроку")
+
+
+# =============================================================
+# Подражатель у двери (Task 27): со второй ночи тварь стучит в одну из дверей голосом
+# жителя, которого там быть не может. Впустили — забирает одного из тех, кто внутри.
+# =============================================================
+static func mimic() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+
+	# 1. Когда и чьим голосом
+	var first := 0
+	var later := 0
+	var nights := 0
+	var voice_ok := true
+	var sample: Match = null
+	for i in range(400):
+		var m1 := _rules_to_night(300 + i, 1, Match.Event.NONE)
+		var d1 := Director.new()
+		d1.attach(m1)
+		_rules_seat(m1, d1)
+		for s: Match.Seat in m1.seats:
+			if s.mimic != null:
+				first += 1
+		var m2 := _rules_to_night(300 + i, 2, Match.Event.NONE)
+		if m2.phase != Match.Phase.NIGHT:
+			continue
+		var d2 := Director.new()
+		d2.attach(m2)
+		_rules_seat(m2, d2)
+		nights += 1
+		for s: Match.Seat in m2.seats:
+			if s.mimic == null:
+				continue
+			later += 1
+			if sample == null:
+				sample = m2
+			if s.mimic.is_player or s.mimic == s.host or s.queue.has(s.mimic) or (s.mimic.alive and s.mimic.night_house == s.house):
+				voice_ok = false
+			var kn := s.knockers()
+			if kn.size() != s.queue.size() + 1 or kn[s.mimic_at] != s.mimic:
+				voice_ok = false
+	print("Подражатель: первая ночь %d, вторая %d из %d ночей" % [first, later, nights])
+	ok += _expect(fails, first == 0, "Подражатель пришёл в первую ночь")
+	ok += _expect(fails, absf(float(later) / maxf(1, nights) - Match.MIMIC_P) < 0.08, "Подражатель приходит в %d из %d ночей, ждём около %d%%" % [later, nights, int(Match.MIMIC_P * 100)])
+	ok += _expect(fails, voice_ok, "Подражатель говорит голосом того, кто стоит у этой же двери, или игрока")
+
+	# 2. Впустили — забирает одного (около 85%), не впустили — стук слышат все
+	var killed := 0
+	var admitted := 0
+	var knocks := 0
+	var cap_ok := true
+	var texts_ok := true
+	for i in range(600):
+		var m := _rules_to_night(2000 + i, 2, Match.Event.NONE)
+		if m.phase != Match.Phase.NIGHT:
+			continue
+		var d := Director.new()
+		d.attach(m)
+		_rules_seat(m, d)
+		var let_in := i % 2 == 0
+		for s: Match.Seat in m.seats:
+			var ids: Array[int] = []
+			if s.mimic != null and let_in:
+				s.mimic_at = 0               # голос первым в очереди: открыли ему — места больше нет
+				ids.append(s.mimic.id)
+			if not s.queue.is_empty():
+				ids.append(s.queue[0].id)    # места на всех нет: кто стоит раньше, тот и войдёт
+			m.admit(s, ids)
+			if s.mimic_in:
+				admitted += 1
+				if s.admitted.size() + 1 > m.config.capacity - 1:
+					cap_ok = false
+		var r := m.resolve_night()
+		var ms := MorningScreen.new()
+		ms.m = m
+		for e: NightReport.Entry in r.entries:
+			match e.kind:
+				NightReport.Kind.KILLED_MIMIC:
+					killed += 1
+					var t := ms._text(e)
+					if not (t.contains("голос") and t.contains(e.voice.name) and t.contains("Подражатель")):
+						texts_ok = false
+				NightReport.Kind.MIMIC_KNOCK:
+					knocks += 1
+					if not ms._text(e).contains("стучали голосом"):
+						texts_ok = false
+		ms.free()
+	print("Подражатель впущен %d раз, забрал %d; стучал без ответа %d" % [admitted, killed, knocks])
+	ok += _expect(fails, admitted > 40 and float(killed) / admitted > 0.7 and float(killed) / admitted < 0.95, "впущенный Подражатель забирает %d из %d, ждём 70–95%%" % [killed, admitted])
+	ok += _expect(fails, knocks > 20, "стук Подражателя не попадает в утреннюю сводку")
+	ok += _expect(fails, cap_ok, "Подражатель не занимает место в доме")
+	ok += _expect(fails, texts_ok, "утром не сказано, чьим голосом стучали")
+
+	# 3. Боты-хозяева: голос погибшего почти не пускают, голос живого — иногда
+	var dead_in := 0
+	var alive_in := 0
+	var tries := 400
+	var base := _rules_to_night(77, 2, Match.Event.NONE)
+	var db := Director.new()
+	db.attach(base)
+	var host: Villager = base.alive_bots()[0]
+	var voice: Villager = base.alive_bots()[1]
+	for i in range(tries):
+		var s := Match.Seat.new()
+		s.house = 0
+		s.host = host
+		s.mimic = voice
+		voice.alive = false
+		if db.host_decide(s).has(voice.id):
+			dead_in += 1
+		voice.alive = true
+		voice.announced_house = -1
+		if db.host_decide(s).has(voice.id):
+			alive_in += 1
+	print("боты впускают голос: погибшего %d, живого %d из %d" % [dead_in, alive_in, tries])
+	ok += _expect(fails, float(dead_in) / tries < 0.1, "боты впускают голос погибшего (%d из %d)" % [dead_in, tries])
+	ok += _expect(fails, alive_in > dead_in * 3 and float(alive_in) / tries < 0.5, "боты-хозяева не различают голоса (%d против %d)" % [alive_in, dead_in])
+
+	# 4. Экран двери: голос стоит в очереди со своей мольбой; впустил — Подражатель внутри
+	Save.set_difficulty("normal")
+	Nav.start_match()
+	await _settle(tree)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	var m := Game.m
+	var bots := m.alive_bots()
+	var seat := Match.Seat.new()
+	seat.house = 0
+	seat.host = m.player()
+	seat.queue = [bots[0]] as Array[Villager]
+	seat.mimic = bots[1]
+	seat.mimic_at = 0
+	var other := Match.Seat.new()
+	other.house = 1
+	other.host = bots[1]        # тот, чьим голосом стучат, на самом деле у другой двери
+	m.seats = [seat, other] as Array[Match.Seat]
+	var ds := DoorScreen.new()
+	ds.role = Match.DoorRole.HOST
+	ds.seat = seat
+	ds.pleas = {bots[0].id: Game.director.plea_for(bots[0]), bots[1].id: Game.director.mimic_plea(bots[1])}
+	Nav.show(ds)
+	await _settle(tree)
+	var txt := _all_text(ds)
+	ok += _expect(fails, txt.contains("У других дверей: %s." % bots[1].name), "хозяин не видит, кто сейчас у других дверей")
+	ok += _expect(fails, ds._rows.size() == 2 and ds._rows.has(bots[1].id) and txt.contains(bots[1].name), "голоса за дверью нет в очереди")
+	var plea_ok := false
+	for line: String in Phrases.MIMIC_PLEAS:
+		if txt.contains(Phrases.fill(line, {"who": bots[1].name, "me_f": bots[1].female})):
+			plea_ok = true
+	ok += _expect(fails, plea_ok, "у голоса за дверью не его странная мольба")
+	# гость: слышит голос за спиной
+	var gseat := Match.Seat.new()
+	gseat.house = 1
+	gseat.host = bots[2]
+	gseat.queue = [m.player()] as Array[Villager]
+	gseat.mimic = bots[3]
+	var gs := DoorScreen.new()
+	gs.role = Match.DoorRole.GUEST
+	gs.seat = gseat
+	Nav.show(gs)
+	await _settle(tree)
+	ok += _expect(fails, _all_text(gs).contains("голосом %s" % Ru.genitive(bots[3].name)), "гость не слышит голоса Подражателя за спиной")
+	Nav.show_menu()
+	await _settle(tree)
+
+	_finish(fails, ok, "Подражатель", "стучит со второй ночи чужим голосом, впустили — забирает, утром все знают")
+
+
+# =============================================================
+# Саботаж (Task 28): упырь портит сделанное — запасы −1, порция возвращается делу.
+# Испорченное видят все, кто это был — иногда видит сосед. Игрок-упырь тоже может портить.
+# =============================================================
+static func sabotage() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+
+	# 1. Правила: портить можно только сделанное
+	var m0 := Match.new()
+	m0.start((load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig, 41)
+	m0.begin_day()
+	var w := m0.job_index(&"water")
+	ok += _expect(fails, not m0.can_sabotage(w) and not m0.sabotage(w), "испортили дело, где ещё ничего не сделано")
+	m0.do_job(m0.player(), m0.job_index(&"wood"), true)
+	ok += _expect(fails, not m0.can_sabotage(w), "у колодца ничего не сделано, а испортить можно (запасы есть у дров)")
+	m0.do_job(m0.player(), w, true)
+	var left := m0.job_left[w]
+	ok += _expect(fails, m0.can_sabotage(w) and m0.sabotage(w) and m0.supply_done == 1 and m0.job_left[w] == left + 1, "саботаж не забрал запасы или не вернул порцию")
+	var tj := -1
+	for i in range(m0.jobs.size()):
+		if m0.jobs[i].kind == JobDef.Kind.TALISMAN:
+			tj = i
+	if tj >= 0:
+		m0.do_job(m0.player(), w, true)
+		m0.do_job(m0.player(), tj, true)
+		ok += _expect(fails, not m0.can_sabotage(tj), "оберег можно испортить как дело")
+
+	# 2. Боты: портят только упыри и только вместо настоящей работы
+	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
+	var sab := 0
+	var fake_upyr := 0
+	var wrong := false
+	for i in range(300):
+		var m := Match.new()
+		var d := Director.new()
+		m.start(c, 600 + i)
+		d.attach(m)
+		m.begin_day()
+		for t: Director.JobTask in d.plan_jobs(90):
+			var who := m.get_villager(t.vid)
+			if t.sabotage:
+				sab += 1
+				if not who.is_upyr or t.real:
+					wrong = true
+			if who.is_upyr and not t.real:
+				fake_upyr += 1
+	print("саботаж: %d из %d пустых работ упырей" % [sab, fake_upyr])
+	ok += _expect(fails, not wrong, "портит человек или тот, кто работает по-настоящему")
+	ok += _expect(fails, absf(float(sab) / maxf(1, fake_upyr) - Director.SABOTAGE_P) < 0.1, "упыри портят в %d из %d случаев" % [sab, fake_upyr])
+
+	# 3. Испорченное видят все; кто это был — иногда видит сосед, это улика
+	var seen := 0
+	var sys_ok := true
+	var md := Match.new()
+	var dd := Director.new()
+	md.start(c, 9)
+	dd.attach(md)
+	md.begin_day()
+	var upyr: Villager = null
+	for b: Villager in md.alive_bots():
+		if b.is_upyr:
+			upyr = b
+	for k in range(200):
+		md.do_job(md.player(), w, true)
+		var spoiled := md.sabotage(w)
+		var lines := dd.after_sabotage(upyr.id, w, spoiled)
+		if lines.is_empty() or lines[0].speaker != null or not lines[0].text.contains(md.jobs[w].place):
+			sys_ok = false
+		if lines.size() > 1:
+			seen += 1
+	ok += _expect(fails, sys_ok, "испорченное не видно всем: нет строки с местом")
+	ok += _expect(fails, seen > 20 and seen < 160, "соседи замечают саботаж в %d из 200 случаев" % seen)
+	ok += _expect(fails, dd.badges(upyr.id).has("sabotage") and dd.evidence_text(upyr).contains("испорченного"), "у замеченного нет улики")
+
+	# 4. На поле: бот-упырь испортил — «−1» над делом, запасы меньше
+	Save.set_difficulty("normal")
+	var v := Nav.village
+	Nav.start_match()
+	await _settle(tree)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	var m := Game.m
+	var day := Nav.host.current as DayScreen
+	var ji := m.job_index(&"water")
+	m.do_job(m.player(), ji, true)
+	var bad: Villager = m.alive_bots()[0]
+	for b: Villager in m.alive_bots():
+		if b.is_upyr:
+			bad = b
+	var t := Director.JobTask.new()
+	t.vid = bad.id
+	t.job = ji
+	t.start = Game.day_t
+	t.real = false
+	t.sabotage = true
+	var only: Array[Director.JobTask] = [t]
+	Game.tasks = only
+	await _frames(tree, 3)
+	Sfx.played.clear()
+	t.start = Game.day_t - Director.WORK_SEC - 0.1
+	await _frames(tree, 3)
+	var popped := false
+	for p: Dictionary in v.jobs_layer._pops:
+		if p.text == "−1":
+			popped = true
+	ok += _expect(fails, m.supply_done == 0 and popped and Sfx.played.has(&"job_fail"), "на поле не видно, что дело испортили")
+	ok += _expect(fails, day.supplies.text() == "Запасы 0 из %d" % m.supply_total, "капсула запасов не обновилась")
+
+	# 5. Игрок-упырь: у сделанного дела выбор «работать или испортить»; человек выбора не видит
+	m.do_job(m.player(), ji, true)
+	var was_upyr := m.player().is_upyr
+	m.player().is_upyr = false
+	await _frames(tree, 2)
+	Nav.handle_intent(Intent.FIELD_TAP, {"pos": v.jobs_layer.icon_rect_global(ji).get_center()}, day)
+	await _frames(tree, 3)
+	ok += _expect(fails, _sheet(day) == null and Game.player_job == ji, "человеку предложили испортить дело")
+	Game.cancel_player_job()
+	m.player().is_upyr = true
+	Nav.handle_intent(Intent.FIELD_TAP, {"pos": v.jobs_layer.icon_rect_global(ji).get_center()}, day)
+	await _frames(tree, 3)
+	var sh := _sheet(day)
+	ok += _expect(fails, sh != null, "упырю не предложили испортить дело")
+	if sh != null:
+		var done0 := m.supply_done
+		sh.close(1)
+		await _frames(tree, 4)
+		ok += _expect(fails, Game.player_job == ji and Game.player_sab, "упырь не пошёл портить")
+		var guard := 0.0
+		while Game.player_job >= 0 and guard < 8.0:
+			await tree.create_timer(0.1).timeout
+			guard += 0.1
+		await _frames(tree, 2)
+		ok += _expect(fails, m.supply_done == done0 - 1, "игрок-упырь ничего не испортил (запасы %d, было %d)" % [m.supply_done, done0])
+	m.player().is_upyr = was_upyr
+	Nav.show_menu()
+	await _settle(tree)
+
+	_finish(fails, ok, "саботаж", "упыри портят сделанное, все видят, сосед иногда замечает, игрок-упырь тоже может")
+
+
+# =============================================================
+# Ящик (Task 29): со второго дня днём на площади появляется ящик. Кто первым откроет,
+# тому находка. Записка честная: один из двоих — упырь. Упырь-бот врёт о ней.
+# =============================================================
+static func box() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
+
+	# 1. Когда бывает и что внутри
+	var day1 := 0
+	var day2 := 0
+	var loot: Dictionary[int, int] = {}
+	var note_ok := true
+	var supply_ok := true
+	for i in range(400):
+		var m := Match.new()
+		m.start(c, 1500 + i)
+		m.begin_day()
+		if m.box_today:
+			day1 += 1
+		m.day = 2
+		m.phase = Match.Phase.MORNING
+		m.begin_day()
+		if not m.box_today:
+			continue
+		day2 += 1
+		var total := m.supply_total
+		var ji := m.place_box()
+		if ji < 0 or m.jobs[ji].kind != JobDef.Kind.BOX or m.supply_total != total or m.place_box() != ji:
+			supply_ok = false
+		var opener: Villager = m.alive_bots()[0]
+		var before := m.supply_done
+		var res := m.open_box(opener)
+		loot[int(res.loot)] = loot.get(int(res.loot), 0) + 1
+		if not m.open_box(m.alive_bots()[1]).is_empty() or m.box_opened_by != opener.id:
+			note_ok = false
+		match int(res.loot):
+			Match.Loot.NOTE:
+				var a: Villager = res.a
+				var b: Villager = res.b
+				if a == opener or b == opener or a.is_upyr == b.is_upyr:
+					note_ok = false
+			Match.Loot.OIL:
+				if m.supply_done != mini(m.supply_total, before + Match.BOX_OIL):
+					supply_ok = false
+	print("ящик: в первый день %d, во второй %d из 400; находки %s" % [day1, day2, loot])
+	ok += _expect(fails, day1 == 0, "ящик в первый день")
+	ok += _expect(fails, absf(day2 / 400.0 - Match.BOX_P) < 0.08, "ящик во второй день %d из 400, ждём около 60%%" % day2)
+	ok += _expect(fails, loot.size() == 3, "бывают не все находки: %s" % loot)
+	ok += _expect(fails, note_ok, "записка не честная или ящик открыли дважды")
+	ok += _expect(fails, supply_ok, "ящик меняет план запасов или масло не прибавило запасов")
+
+	# 2. Что говорит бот: человек — правду, упырь — называет двух людей
+	var mm := Match.new()
+	var dm := Director.new()
+	mm.start(c, 5)
+	dm.attach(mm)
+	mm.begin_day()
+	var human: Villager = null
+	var upyr: Villager = null
+	for b: Villager in mm.alive_bots():
+		if b.is_upyr and upyr == null:
+			upyr = b
+		if not b.is_upyr and human == null:
+			human = b
+	var ups: Array[Villager] = []
+	for b: Villager in mm.villagers:
+		if b.is_upyr and b != upyr:
+			ups.append(b)
+	var hl := dm.after_box(human.id, {"loot": Match.Loot.NOTE, "a": ups[0], "b": mm.villagers[0]})
+	ok += _expect(fails, hl.size() == 1 and hl[0].text.contains(ups[0].name), "человек не рассказал, что в записке")
+	var lie_ok := true
+	for k in range(30):
+		var ul := dm.after_box(upyr.id, {"loot": Match.Loot.NOTE, "a": human, "b": upyr})
+		for b: Villager in mm.villagers:
+			if b.is_upyr and ul[0].text.contains("«%s " % b.name) or b.is_upyr and ul[0].text.contains(" %s»" % b.name):
+				lie_ok = false
+	ok += _expect(fails, lie_ok, "упырь честно пересказал записку")
+	ok += _expect(fails, dm.after_box(0, {"loot": Match.Loot.NOTE, "a": human, "b": upyr}).is_empty(), "за игрока рассказали, что в записке")
+
+	# 3. На поле: ящик появился, игрок успел первым и прочитал записку
+	Save.set_difficulty("normal")
+	var v := Nav.village
+	Nav.start_match()
+	await _settle(tree)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	var m := Game.m
+	var day := Nav.host.current as DayScreen
+	m.box_today = true
+	m.box_pos = v.def.box_spots[0]
+	m.box_loot = Match.Loot.NOTE
+	Game.tasks.clear()
+	Sfx.played.clear()
+	Game.box_at = Game.day_t + 0.05
+	await tree.create_timer(0.3).timeout
+	var bj := m.job_index(&"box")
+	ok += _expect(fails, bj >= 0 and v.jobs_layer.icon_rect_global(bj).size.x >= 84.0, "ящик не появился на поле")
+	var announced := false
+	for l: ChatLine in m.chat:
+		if l.text.contains("ящик"):
+			announced = true
+	ok += _expect(fails, announced and Sfx.played.has(&"knock"), "о ящике не сказано или не слышно")
+	var runner := -1
+	for t: Director.JobTask in Game.tasks:
+		if t.job == bj:
+			runner = t.vid
+	ok += _expect(fails, runner > 0, "за ящиком не пошёл ни один бот")
+	Nav.handle_intent(Intent.FIELD_TAP, {"pos": v.jobs_layer.icon_rect_global(bj).get_center()}, day)
+	await _frames(tree, 3)
+	ok += _expect(fails, Game.player_job == bj, "тап по ящику не поставил игрока его открывать")
+	var guard := 0.0
+	while Game.player_job >= 0 and guard < 6.0:
+		await tree.create_timer(0.1).timeout
+		guard += 0.1
+	await _frames(tree, 2)
+	var note_line := ""
+	for l: ChatLine in m.chat:
+		if l.text.begins_with("В ящике записка"):
+			note_line = l.text
+	ok += _expect(fails, m.box_opened_by == 0 and note_line.contains("видишь только ты"), "игрок открыл ящик, но не увидел записку")
+	# бот добежал позже — ящик уже пуст, ничего не говорит
+	var said := m.chat.size()
+	for t: Director.JobTask in Game.tasks:
+		if t.job == bj:
+			t.start = Game.day_t - Director.WORK_SEC - 0.1
+	await _frames(tree, 4)
+	ok += _expect(fails, m.chat.size() == said, "бот рассказал про ящик, который уже открыли")
+	Nav.show_menu()
+	await _settle(tree)
+
+	_finish(fails, ok, "ящик", "появляется со второго дня, первый открывший получает находку, записка честная")

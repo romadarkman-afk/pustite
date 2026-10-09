@@ -23,3 +23,4 @@ const SET_DIFFICULTY := &"set_difficulty"
 const OPEN_HOWTO := &"open_howto"
 const SELECT_HOUSE := &"select_house"
 const HOWTO_DONE := &"howto_done"
+const WORK := &"work"            ## встать к делу: {"ji": индекс, "sab": портить вместо работы}

@@ -21,6 +21,14 @@ const DONE_LINE_P := 0.25  ## шанс, что житель похвастает
 const LIE_P := 0.2         ## шанс, что упырь оболжёт честного работника: «работал впустую»
 const RUN_SPEED := 190.0                  ## как шаг фигурки на поле, единиц посёлка в секунду
 const RUN_REACT := Vector2(0.4, 1.6)      ## через сколько секунд бот замечает колокол
+const SABOTAGE_P := 0.5    ## упырь, который не работает по-настоящему, портит сделанное в половине случаев
+const W_SABOTAGE := 1.0    ## видели у испорченного дела
+const SABOTAGE_NOTICE := 0.35   ## шанс, что кто-то из людей заметит, кто испортил
+const W_NOTE := 0.8        ## назван в записке из ящика
+## Подражатель у двери: шанс, что бот-хозяин впустит голос. Погибшего узнают почти всегда.
+const MIMIC_TRUST_DEAD := 0.05
+const MIMIC_TRUST_ELSEWHERE := 0.2   ## говорил днём, что ночует в другом доме
+const MIMIC_TRUST := 0.35
 
 
 class JobTask:
@@ -28,6 +36,7 @@ class JobTask:
 	var job: int
 	var start: float
 	var real: bool
+	var sabotage := false     ## упырь идёт портить сделанное
 	var started := false
 	var done := false
 
@@ -85,7 +94,7 @@ func eye_level(vid: int) -> int:
 func badges(vid: int) -> PackedStringArray:
 	var out := PackedStringArray()
 	var ev: Dictionary = evidence.get(vid, {})
-	for k: String in ["death", "street", "liar", "fake"]:
+	for k: String in ["death", "sabotage", "street", "liar", "fake"]:
 		if int(ev.get(k, 0)) > 0:
 			out.append(k)
 	return out
@@ -104,6 +113,8 @@ func evidence_text(v: Villager) -> String:
 		parts.append(Ru.g(v, "был", "была", "были") + " рядом, когда кто-то погиб")
 	if int(ev.get("fake", 0)) > 0:
 		parts.append(Ru.g(v, "работал", "работала", "работали") + " впустую")
+	if int(ev.get("sabotage", 0)) > 0:
+		parts.append(Ru.g(v, "был", "была", "были") + " у испорченного дела")
 	return "; ".join(parts)
 
 
@@ -140,6 +151,7 @@ func plan_jobs(day_sec: float) -> Array[JobTask]:
 			task.job = ji
 			task.start = t
 			task.real = rng.randf() < (UPYR_REAL if bot.is_upyr else 1.0 - HUMAN_FAIL)
+			task.sabotage = bot.is_upyr and not task.real and rng.randf() < SABOTAGE_P
 			out.append(task)
 			t += WORK_SEC + rng.randf_range(6.0, 14.0)
 	out.sort_custom(func(a: JobTask, b: JobTask) -> bool: return a.start < b.start)
@@ -200,6 +212,7 @@ func _blame_fake(speaker: Villager, worker: Villager, job: JobDef) -> ChatLine:
 
 
 ## Для прогона без экрана: все дела дня разом. Игрок делает одно дело с шансом 50%.
+## Ящик, если он сегодня есть, открывает случайный живой житель.
 func run_jobs_instant(tasks: Array[JobTask]) -> Array[ChatLine]:
 	var out: Array[ChatLine] = []
 	var me := m.player()
@@ -207,9 +220,91 @@ func run_jobs_instant(tasks: Array[JobTask]) -> Array[ChatLine]:
 		var pj := rng.randi_range(0, m.jobs.size() - 1)
 		out.append_array(after_job(me.id, pj, m.do_job(me, pj, true), true))
 	for t: JobTask in tasks:
+		if t.sabotage:
+			out.append_array(after_sabotage(t.vid, t.job, m.sabotage(t.job)))
+			continue
 		var counted := m.do_job(m.get_villager(t.vid), t.job, t.real)
 		out.append_array(after_job(t.vid, t.job, counted, t.real))
+	if m.box_today and m.place_box() >= 0:
+		var al := m.alive()
+		var opener: Villager = al[rng.randi_range(0, al.size() - 1)]
+		out.append_array(after_box(opener.id, m.open_box(opener)))
 	return out
+
+
+# =============================================================
+# Саботаж
+# =============================================================
+## Упырь закончил портить. spoiled — правда ли что-то испортилось (было что портить).
+## Испорченное видят все: системная строка. Сосед мог заметить, кто это был.
+func after_sabotage(vid: int, ji: int, spoiled: bool) -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	var worker := m.get_villager(vid)
+	if worker == null or not worker.alive or ji < 0 or ji >= m.jobs.size():
+		return out
+	var job: JobDef = m.jobs[ji]
+	if not spoiled:
+		return after_job(vid, ji, false, false)   # портить было нечего — со стороны пустая работа
+	out.append(ChatLine.system("Кто-то напакостил %s: %s. Запасов стало меньше." % [job.place, Phrases.SPOIL.get(job.kind, "всё испорчено")]))
+	if rng.randf() >= SABOTAGE_NOTICE:
+		return out
+	var eyes: Array[Villager] = []
+	for o: Villager in m.alive_bots():
+		if o != worker and not o.is_upyr:
+			eyes.append(o)
+	if eyes.is_empty():
+		return out
+	var o: Villager = eyes[rng.randi_range(0, eyes.size() - 1)]
+	_bump(worker.id, W_SABOTAGE)
+	_note_evidence(worker.id, "sabotage")
+	if worker.is_player:
+		out.append(ChatLine.say(o, Phrases.pick(Phrases.SABOTAGE_SEEN_AT_PLAYER, rng, {"place": job.place, "me_f": o.female})))
+	else:
+		out.append(_say(o, Phrases.SABOTAGE_SEEN, worker, {"place": job.place}))
+	return out
+
+
+# =============================================================
+# Ящик
+# =============================================================
+## Открывший ящик рассказывает, что нашёл. Человек говорит правду. Упырь, нашедший записку,
+## называет двух людей. Игрок решает сам: его находку видит только он.
+func after_box(vid: int, res: Dictionary) -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	var who := m.get_villager(vid)
+	if res.is_empty() or who == null or who.is_player:
+		return out
+	var g := {"me_f": who.female}
+	match int(res.loot):
+		Match.Loot.NOTE:
+			var a: Villager = res.a
+			var b: Villager = res.b
+			if who.is_upyr:
+				var hums: Array[Villager] = []
+				for o: Villager in m.alive():
+					if o != who and not o.is_upyr:
+						hums.append(o)
+				_shuffle(hums)
+				if hums.size() >= 2:
+					a = hums[0]
+					b = hums[1]
+			g["a"] = Ru.nom(a)
+			g["b"] = Ru.nom(b)
+			_bump(a.id, W_NOTE)
+			_bump(b.id, W_NOTE)
+			out.append(ChatLine.say(who, Phrases.pick(Phrases.BOX_NOTE, rng, g)))
+		Match.Loot.OIL:
+			out.append(ChatLine.say(who, Phrases.pick(Phrases.BOX_OIL, rng, g)))
+		Match.Loot.CHALK:
+			g["house"] = m.house_name(int(res.get("house", 0)))
+			out.append(ChatLine.say(who, Phrases.pick(Phrases.BOX_CHALK, rng, g)))
+	return out
+
+
+## Кто из ботов пойдёт к ящику: случайный живой бот.
+func box_runner() -> Villager:
+	var bots := m.alive_bots()
+	return bots[rng.randi_range(0, bots.size() - 1)] if not bots.is_empty() else null
 
 
 func _bump(vid: int, w: float) -> void:
@@ -455,6 +550,11 @@ func plan_run(choices: Dictionary[int, int], dist: Callable) -> Dictionary:
 	return {"react": react, "arrive": arrive}
 
 
+## Подражатель говорит голосом жителя — с повторами, будто заучил слова.
+func mimic_plea(voice: Villager) -> String:
+	return Phrases.pick(Phrases.MIMIC_PLEAS, rng, {"who": voice.name, "me_f": voice.female})
+
+
 func plea_for(bot: Villager) -> String:
 	var b: BotBrain = brains[bot.id]
 	var g := {"me_f": bot.female}
@@ -486,12 +586,22 @@ func host_decide(seat: Match.Seat, player_plea: String = "") -> Array[int]:
 	scored.sort_custom(func(a: Array, c: Array) -> bool: return a[0] > c[0])
 
 	var out: Array[int] = []
-	if scored.is_empty():
-		return out
-	if not host.is_upyr and float(scored[0][0]) < -2.8 and rng.randf() < 0.6:
-		return out   # всем не верит — рискнёт остаться один
-	for i in range(mini(m.config.capacity - 1, scored.size())):
-		out.append(int(scored[i][1]))
+	var cap := m.config.capacity - 1
+	if not scored.is_empty():
+		if not host.is_upyr and float(scored[0][0]) < -2.8 and rng.randf() < 0.6:
+			return out   # всем не верит — рискнёт остаться один
+		for i in range(mini(cap, scored.size())):
+			out.append(int(scored[i][1]))
+	# голос за дверью, а места ещё есть: погибшего узнают, про ночующего в другом доме — сомневаются
+	if seat.mimic != null and out.size() < cap:
+		var voice := seat.mimic
+		var p := MIMIC_TRUST
+		if not voice.alive:
+			p = MIMIC_TRUST_DEAD
+		elif voice.announced_house >= 0 and voice.announced_house != seat.house:
+			p = MIMIC_TRUST_ELSEWHERE
+		if rng.randf() < p:
+			out.append(voice.id)
 	return out
 
 

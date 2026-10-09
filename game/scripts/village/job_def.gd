@@ -5,7 +5,7 @@ extends Resource
 ## и тем больше шансов дожить до утра на улице или одному в доме.
 ## Координаты — в логическом пространстве посёлка 720×600.
 
-enum Kind { WATER, WOOD, LAMP, TALISMAN, FISH }
+enum Kind { WATER, WOOD, LAMP, TALISMAN, FISH, BOX }
 
 @export var id: StringName = &""
 @export var title: String = ""             ## «Натаскать воды» — подпись в шторке и подсказке

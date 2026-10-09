@@ -47,6 +47,8 @@ func _reveal(r: NightReport) -> void:
 	for e: NightReport.Entry in r.entries:
 		if not e.is_death():
 			lines.append([_text(e), &"Hint" if e.kind != NightReport.Kind.CLEAN_ROOM else &"Small", false])
+	if m.night_event != Match.Event.NONE:
+		lines.append(["Этой ночью: %s." % String(Match.EVENT_TITLE[m.night_event]).to_lower(), &"Small", false])
 
 	await Juice.wait(0.6)
 	for l: Array in lines:
@@ -101,6 +103,14 @@ func _text(e: NightReport.Entry) -> String:
 		NightReport.Kind.TALISMAN_WORN:
 			var lvl: int = m.talisman[e.house] if e.house >= 0 and e.house < m.talisman.size() else 1
 			return "Оберег у «%s» %s. Днём его можно подправить." % [Ru.house_of(house), "треснул" if lvl > 0 else "раскололся"]
+		NightReport.Kind.KILLED_MIMIC:
+			return "В «%s» впустили голос %s. Это был не %s: Подражатель забрал %s." % [here, Ru.gen(e.voice), e.voice.name, Ru.acc(v)]
+		NightReport.Kind.MIMIC_SPARED:
+			return "В «%s» впустили голос %s. Это был не %s, но до утра все целы." % [here, Ru.gen(e.voice), e.voice.name]
+		NightReport.Kind.MIMIC_KNOCK:
+			return "Ночью в дверь «%s» стучали голосом %s. Не открыли. %s" % [Ru.house_of(house), Ru.gen(e.voice),
+				"А %s в это время %s в «%s»." % [e.voice.name, Ru.g(e.voice, "был", "была", "были"), Ru.house_in(m.house_name(e.voice.night_house))]
+				if e.voice.alive and e.voice.night_house >= 0 else "Это был Подражатель."]
 	return ""
 
 

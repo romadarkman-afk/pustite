@@ -390,6 +390,7 @@ func _draw_marks() -> void:
 		match b:
 			"liar": accent = Color("e0533f")
 			"death": accent = Color("e0533f")
+			"sabotage": accent = Color("e0533f")
 		var r := Rect2(MARK_X - 9.0, y - 9.0, 18.0, 18.0)
 		draw_rect(r, Color(ThemeFactory.NIGHT, 0.9))
 		draw_rect(r, Color(accent, 0.9), false, 1.2)
@@ -405,6 +406,11 @@ func _draw_marks() -> void:
 			"death":
 				draw_circle(Vector2(MARK_X, y + 2.5), 4.6, accent)
 				draw_colored_polygon(PackedVector2Array([Vector2(MARK_X - 4.2, y + 1), Vector2(MARK_X + 4.2, y + 1), Vector2(MARK_X, y - 7)]), accent)
+			"fake":   # пустое ведро
+				draw_polyline(PackedVector2Array([Vector2(MARK_X - 5, y - 4), Vector2(MARK_X - 3.6, y + 5.5), Vector2(MARK_X + 3.6, y + 5.5), Vector2(MARK_X + 5, y - 4)]), ThemeFactory.BONE, 1.6)
+				draw_arc(Vector2(MARK_X, y - 4), 5.0, PI, TAU, 8, ThemeFactory.BONE, 1.2)
+			"sabotage":   # трещина
+				draw_polyline(PackedVector2Array([Vector2(MARK_X - 1, y - 7), Vector2(MARK_X + 3, y - 2), Vector2(MARK_X - 2.5, y + 1.5), Vector2(MARK_X + 2, y + 7)]), accent, 2.0)
 		y += 19.0
 
 

@@ -14,6 +14,9 @@ signal job_finished(vid: int, ji: int, counted: bool, real: bool)  ## дело �
 signal supplies_changed                                            ## запасы дня изменились
 signal player_job_changed                                          ## игрок начал или бросил дело
 signal run_changed                                                 ## колокол: начался бег или игрок сменил дом
+signal sabotaged(vid: int, ji: int)                                ## у дела испортили сделанное
+signal box_appeared(ji: int)                                       ## на площади появился ящик
+signal box_opened(vid: int, res: Dictionary)                       ## ящик открыт, res — находка (Match.open_box)
 
 var m: Match
 var director: Director
@@ -27,6 +30,8 @@ var tasks: Array[Director.JobTask] = []
 var day_t: float = 0.0
 var player_job: int = -1
 var player_job_left: float = 0.0
+var player_sab: bool = false       ## игрок-упырь не работает, а портит
+var box_at: float = -1.0           ## на какой секунде дня появится ящик; -1 — сегодня его нет
 
 ## Бег до дома по колоколу. Время бега идёт вместе с часами: пауза — стоят и бегущие.
 var run_on: bool = false
@@ -126,23 +131,35 @@ func _process(delta: float) -> void:
 			job_started.emit(t.vid, t.job)
 		elif t.started and not t.done and day_t >= t.start + Director.WORK_SEC:
 			t.done = true
-			_finish_job(t.vid, t.job, t.real)
+			_finish_job(t.vid, t.job, t.real, t.sabotage)
+	if box_at >= 0.0 and day_t >= box_at:
+		box_at = -1.0
+		_show_box()
 	if player_job >= 0:
-		if not m.job_available(player_job):
+		if not (m.can_sabotage(player_job) if player_sab else m.job_available(player_job)):
 			var lost := player_job
 			player_job = -1
+			player_sab = false
 			player_job_changed.emit()
 			job_finished.emit(0, lost, false, true)
 			return
 		player_job_left -= d
 		if player_job_left <= 0.0:
 			var ji := player_job
+			var sab := player_sab
 			player_job = -1
+			player_sab = false
 			player_job_changed.emit()
-			_finish_job(0, ji, true)
+			_finish_job(0, ji, not sab, sab)
 
 
-func _finish_job(vid: int, ji: int, real: bool) -> void:
+func _finish_job(vid: int, ji: int, real: bool, sab: bool = false) -> void:
+	if m.jobs[ji].kind == JobDef.Kind.BOX:
+		_finish_box(vid, ji)
+		return
+	if sab:
+		_finish_sabotage(vid, ji)
+		return
 	var counted := m.do_job(m.get_villager(vid), ji, real)
 	var lines := director.after_job(vid, ji, counted, real)
 	Diag.step("дело: %s %s %s" % [m.get_villager(vid).name, m.jobs[ji].id, "засчитано" if counted else "впустую"])
@@ -155,11 +172,87 @@ func _finish_job(vid: int, ji: int, real: bool) -> void:
 		marks_changed.emit()
 
 
+func _finish_sabotage(vid: int, ji: int) -> void:
+	var spoiled := m.sabotage(ji)
+	var lines := director.after_sabotage(vid, ji, spoiled)
+	Diag.step("саботаж: %s %s %s" % [m.get_villager(vid).name, m.jobs[ji].id, "испорчено" if spoiled else "нечего портить"])
+	if spoiled:
+		sabotaged.emit(vid, ji)
+	job_finished.emit(vid, ji, false, false)
+	if spoiled:
+		supplies_changed.emit()
+	_post_all(lines)
+
+
+# =============================================================
+# Ящик
+# =============================================================
+func _show_box() -> void:
+	var ji := m.place_box()
+	if ji < 0:
+		return
+	m.post(ChatLine.system("На краю площади стоит ящик. Вчера его не было."))
+	box_appeared.emit(ji)
+	# к ящику идёт свободный бот; игрок может успеть раньше
+	var free: Array[Villager] = []
+	for b: Villager in m.alive_bots():
+		if busy_job(b.id) < 0:
+			free.append(b)
+	if free.is_empty():
+		return
+	var t := Director.JobTask.new()
+	t.vid = free[director.rng.randi_range(0, free.size() - 1)].id
+	t.job = ji
+	t.start = day_t + director.rng.randf_range(3.0, 7.0)
+	t.real = true
+	tasks.append(t)
+
+
+func _finish_box(vid: int, ji: int) -> void:
+	var who := m.get_villager(vid)
+	var res := m.open_box(who)
+	job_finished.emit(vid, ji, false, true)
+	if res.is_empty():
+		return
+	Diag.step("ящик: открыл %s" % who.name)
+	box_opened.emit(vid, res)
+	if int(res.loot) == Match.Loot.OIL or int(res.loot) == Match.Loot.CHALK:
+		supplies_changed.emit()
+	if who.is_player:
+		m.post(ChatLine.system(box_text(res)))
+	_post_all(director.after_box(vid, res))
+
+
+## Что нашёл игрок — словами. Записку видит только он.
+func box_text(res: Dictionary) -> String:
+	match int(res.get("loot", 0)):
+		Match.Loot.NOTE:
+			return "В ящике записка: «%s или %s». Один из них упырь. Записку видишь только ты." % [Ru.nom(res.a), Ru.nom(res.b)]
+		Match.Loot.OIL:
+			return "В ящике масло для фонарей: запасы +%d." % Match.BOX_OIL
+		Match.Loot.CHALK:
+			return "В ящике мел: оберег у «%s» подновлён." % Ru.house_of(m.house_name(int(res.get("house", 0))))
+	return "Ящик пуст."
+
+
+func _post_all(lines: Array[ChatLine]) -> void:
+	for l: ChatLine in lines:
+		m.post(l)
+	if not lines.is_empty():
+		marks_changed.emit()
+
+
 ## Игрок встал к делу. false — дело уже сделано или сейчас не день.
-func start_player_job(ji: int) -> bool:
-	if m == null or m.phase != Match.Phase.DAY or not m.player().alive or not m.job_available(ji):
+## sab — игрок-упырь портит сделанное (можно только там, где сегодня уже работали).
+func start_player_job(ji: int, sab: bool = false) -> bool:
+	if m == null or m.phase != Match.Phase.DAY or not m.player().alive:
+		return false
+	if sab and (not m.player().is_upyr or not m.can_sabotage(ji)):
+		return false
+	if not sab and not m.job_available(ji):
 		return false
 	player_job = ji
+	player_sab = sab
 	player_job_left = m.jobs[ji].work_sec
 	player_job_changed.emit()
 	return true
@@ -168,6 +261,7 @@ func start_player_job(ji: int) -> bool:
 func cancel_player_job() -> void:
 	if player_job >= 0:
 		player_job = -1
+		player_sab = false
 		player_job_changed.emit()
 
 
@@ -206,6 +300,8 @@ func _on_phase(p: Match.Phase) -> void:
 			tasks = director.plan_jobs(m.config.day_seconds)
 			day_t = 0.0
 			player_job = -1
+			player_sab = false
+			box_at = m.config.day_seconds * director.rng.randf_range(0.2, 0.4) if m.box_today else -1.0
 			Diag.step("день: боты спланировали")
 			phase_entered.emit(p)
 			Diag.step("день: экран показан")
@@ -219,7 +315,7 @@ func _on_phase(p: Match.Phase) -> void:
 				_start_run()
 			phase_entered.emit(p)
 			if run_on:
-				clock.start(m.config.run_seconds)
+				clock.start(m.run_seconds())
 				run_changed.emit()
 		Match.Phase.DOOR:
 			run_on = false
@@ -250,7 +346,7 @@ func _prepare_door() -> void:
 			continue
 		if not s.host.is_player:
 			m.admit(s, director.host_decide(s))
-		elif s.queue.is_empty():
+		elif s.knockers().is_empty():
 			var none: Array[int] = []
 			m.admit(s, none)
 
@@ -259,8 +355,8 @@ func _prepare_door() -> void:
 		return
 	host_pleas.clear()
 	if role == Match.DoorRole.HOST:
-		for g: Villager in mine.queue:
-			host_pleas[g.id] = director.plea_for(g)
+		for g: Villager in mine.knockers():
+			host_pleas[g.id] = director.mimic_plea(g) if g == mine.mimic else director.plea_for(g)
 	phase_entered.emit(Match.Phase.DOOR)
 	if role != Match.DoorRole.ALONE:
 		clock.start(m.config.door_seconds)

@@ -53,6 +53,22 @@ static func accusative(name: String) -> String:
 	return name + "а"
 
 
+## Родительный падеж: Марина → Марины, Гриша → Гриши, Женя → Жени, Тимур → Тимура.
+static func genitive(name: String) -> String:
+	if name.is_empty():
+		return name
+	var stem := name.substr(0, name.length() - 1)
+	match name.right(1):
+		"а": return stem + ("и" if "гкхжшчщ".contains(stem.right(1)) else "ы")
+		"я": return stem + "и"
+		"й", "ь": return stem + "я"
+	return name + "а"
+
+
+static func gen(v: Villager) -> String:
+	return "вас" if v.is_player else genitive(v.name)
+
+
 ## Форма по роду: мужская, женская или «вы» для игрока.
 static func g(v: Villager, male: String, female: String, you: String) -> String:
 	if v.is_player:

@@ -68,7 +68,7 @@ func _build_host() -> void:
 	var cap := m.config.capacity - 1
 	body.add_child(W.label("Впустить можно: %d" % cap, &"Hint"))
 
-	for g: Villager in seat.queue:
+	for g: Villager in seat.knockers():
 		var card := W.panel(&"Card")
 		var row := W.hbox(14)
 		var texts := W.vbox(4)
@@ -86,6 +86,17 @@ func _build_host() -> void:
 		card.add_child(row)
 		body.add_child(card)
 
+	# кто сейчас у других дверей: если голос за дверью — один из них, это не он
+	var elsewhere := PackedStringArray()
+	for other: Match.Seat in m.seats:
+		if other == seat:
+			continue
+		for v: Villager in [other.host] + other.queue:
+			if not v.is_player:
+				elsewhere.append(v.name)
+	if not elsewhere.is_empty():
+		body.add_child(W.label("У других дверей: %s." % ", ".join(elsewhere), &"Small"))
+
 	body.add_child(W.label(
 		"Тот, кого впустишь, до утра не доживёт." if m.player().is_upyr
 		else "Не откроешь никому — останешься один, и оберег погаснет.", &"Hint"))
@@ -97,7 +108,7 @@ func _build_host() -> void:
 	var refuse := W.button("Не открывать никому", &"Danger")
 	refuse.pressed.connect(func() -> void: _finish_host([]))
 	footer.add_child(refuse)
-	_knock_sequence(seat.queue.size())
+	_knock_sequence(seat.knockers().size())
 
 
 func _toggle(gid: int, cap: int) -> void:
@@ -146,6 +157,8 @@ func _build_guest() -> void:
 			rivals.append(g.name)
 	if not rivals.is_empty():
 		body.add_child(W.label("Рядом с тобой у двери: %s. Мест на всех не хватит." % ", ".join(rivals), &"Hint"))
+	if seat.mimic != null:
+		body.add_child(W.label("В темноте за спиной кто-то говорит голосом %s. Но %s здесь нет." % [Ru.gen(seat.mimic), seat.mimic.name], &"Hint"))
 	body.add_child(W.label("Что скажешь через дверь?", &"Small"))
 
 	for p: Dictionary in Phrases.PLAYER_PLEAS:

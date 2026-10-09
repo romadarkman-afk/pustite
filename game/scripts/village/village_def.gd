@@ -13,6 +13,8 @@ extends Resource
 @export var river: bool = true
 ## Дела по посёлку на день. Порядок — порядок значков на поле.
 @export var jobs: Array[JobDef] = []
+## Где может появиться ящик: края площади, в стороне от дел и табличек.
+@export var box_spots: PackedVector2Array = PackedVector2Array([Vector2(190, 420), Vector2(530, 432), Vector2(292, 492), Vector2(446, 500)])
 
 
 func job_index(id: StringName) -> int:

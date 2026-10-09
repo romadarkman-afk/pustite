@@ -40,6 +40,7 @@ func build() -> void:
 	enable_field_taps()
 	if not m.player().alive:
 		body.add_child(W.label("Темнеет. Звонит колокол.", &"Tale"))
+		_event_label()
 		body.add_child(W.label("Тебя больше нет. Ночь идёт без тебя.", &"Small"))
 		var go_dead := W.button("Дальше")
 		go_dead.pressed.connect(func() -> void: commit(Intent.CHOOSE_HOUSE, {"house": -1}))
@@ -48,6 +49,7 @@ func build() -> void:
 
 	_status = W.label("Звонит колокол! Беги к дому: нажми на него.", &"Tale")
 	body.add_child(_status)
+	_event_label()
 	var me := m.player()
 	var list := W.vbox(10)
 	for i in range(m.houses.size()):
@@ -73,6 +75,14 @@ func build() -> void:
 		list.add_child(b)
 	body.add_child(list)
 	body.add_child(W.label("Кто первым добежит до двери, тот внутри и решает, кого впустить. Не выбрал дом за звон — побежишь туда, куда собирался, последним.", &"Small"))
+
+
+## Событие ночи — строкой под призывом бежать.
+func _event_label() -> void:
+	if m.night_event != Match.Event.NONE:
+		var l := W.label(Match.EVENT_TEXT[m.night_event], &"Hint")
+		l.name = "Event"
+		body.add_child(l)
 
 
 func hint_id() -> String:

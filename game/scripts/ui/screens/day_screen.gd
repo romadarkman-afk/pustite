@@ -165,6 +165,16 @@ func person_actions(v: Villager) -> void:
 		2: emit_intent(Intent.ASK, {"id": v.id})
 
 
+## Игрок-упырь у дела, где сегодня уже работали: поработать по-настоящему или испортить сделанное.
+func job_actions(ji: int) -> void:
+	var j: JobDef = m.jobs[ji]
+	var opts := PackedStringArray(["Работать: %s" % j.title.to_lower()])
+	opts.append("Испортить сделанное %s" % j.place)
+	var i: int = await ActionSheet.ask(self, j.title, opts)
+	if i >= 0:
+		emit_intent(Intent.WORK, {"ji": ji, "sab": i == 1})
+
+
 func _accuse_flow() -> void:
 	var v := await _pick_person("Кого обвинить?")
 	if v != null:

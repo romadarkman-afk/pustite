@@ -26,6 +26,17 @@ class Seat:
 	var queue: Array[Villager] = []
 	var admitted: Array[Villager] = []
 	var decided: bool = false
+	## Подражатель: тварь стучит голосом этого жителя (он в другом доме или уже погиб).
+	var mimic: Villager = null
+	var mimic_at: int = 0          ## каким по счёту он стоит среди стучащих
+	var mimic_in: bool = false     ## его впустили
+
+	## Все, кто стучит в дверь: очередь и, если пришёл, Подражатель на своём месте.
+	func knockers() -> Array[Villager]:
+		var out: Array[Villager] = queue.duplicate()
+		if mimic != null:
+			out.insert(clampi(mimic_at, 0, out.size()), mimic)
+		return out
 
 	func inside() -> Array[Villager]:
 		var out: Array[Villager] = [host]
@@ -73,6 +84,37 @@ var talisman: PackedInt32Array = PackedInt32Array()
 var job_left: PackedInt32Array = PackedInt32Array()
 var supply_done: int = 0
 var supply_total: int = 0
+
+## Подражатель (со второй ночи): тварь стучит в одну из дверей голосом жителя,
+## который сейчас в другом доме или уже погиб. Впустили — забирает одного из тех, кто внутри.
+const MIMIC_P := 0.4
+const MIMIC_KILL := 0.85
+
+## События ночи (со второй ночи): меняют правила на одну ночь. Объявляются с колоколом.
+enum Event { NONE, FOG, MOON, QUIET, RAIN }
+const EVENT_P := 0.5
+const EVENT_TITLE := {Event.FOG: "Туман", Event.MOON: "Полная луна", Event.QUIET: "Тихая ночь", Event.RAIN: "Ливень"}
+const EVENT_TEXT := {
+	Event.FOG: "Туман глушит колокол: на бег меньше времени, на улице опаснее.",
+	Event.MOON: "Полная луна: к утру ослабнут все обереги.",
+	Event.QUIET: "Тихая ночь: на улице спокойнее, Подражатель не придёт.",
+	Event.RAIN: "Ливень заливает фонари: масло из запасов этой ночью не поможет.",
+}
+const FOG_RUN := 3              ## туман: на столько секунд короче звон
+const FOG_DEATH := 0.1          ## туман: настолько опаснее улица
+const QUIET_SAFE := 0.25        ## тихая ночь: настолько безопаснее улица
+var night_event: Event = Event.NONE
+var force_event: int = -1       ## самотесты: следующее событие ночи будет этим (со второй ночи)
+
+## Ящик (со второго дня): днём на краю площади появляется ящик. Кто первым откроет,
+## тому достаётся находка: записка (один из двоих — упырь), масло (+2 к запасам) или мел (чинит оберег).
+enum Loot { NONE, NOTE, OIL, CHALK }
+const BOX_P := 0.6
+const BOX_OIL := 2
+var box_today: bool = false
+var box_pos: Vector2 = Vector2.ZERO
+var box_loot: Loot = Loot.NONE
+var box_opened_by: int = -1
 
 
 # =============================================================
@@ -144,7 +186,7 @@ func player_door_role() -> DoorRole:
 		return DoorRole.DEAD
 	if s.host != player():
 		return DoorRole.GUEST
-	return DoorRole.HOST if not s.queue.is_empty() else DoorRole.ALONE
+	return DoorRole.HOST if not s.knockers().is_empty() else DoorRole.ALONE
 
 
 # =============================================================
@@ -209,10 +251,12 @@ func begin_day() -> void:
 	assert(phase == Phase.PROLOGUE or phase == Phase.MORNING)
 	for v: Villager in villagers:
 		v.announced_house = -1
+	night_event = Event.NONE
 	jobs = base_jobs.duplicate()
 	for h in range(houses.size()):
 		if talisman[h] < TALISMAN_MAX:
 			jobs.append(_talisman_job(h))
+	_roll_box()
 	job_left = PackedInt32Array()
 	supply_total = 0
 	for j: JobDef in jobs:
@@ -229,7 +273,7 @@ func begin_day() -> void:
 func do_job(_v: Villager, ji: int, real: bool) -> bool:
 	if phase != Phase.DAY or ji < 0 or ji >= job_left.size():
 		return false
-	if not real or job_left[ji] <= 0:
+	if not real or job_left[ji] <= 0 or jobs[ji].kind == JobDef.Kind.BOX:
 		return false
 	job_left[ji] -= 1
 	supply_done += 1
@@ -281,7 +325,115 @@ func supplies() -> float:
 
 
 func outside_death_chance() -> float:
-	return maxf(0.05, config.outside_death_chance(day) - SUPPLY_BONUS * supplies())
+	var p := config.outside_death_chance(day)
+	if night_event != Event.RAIN:
+		p -= SUPPLY_BONUS * supplies()
+	match night_event:
+		Event.FOG: p += FOG_DEATH
+		Event.QUIET: p -= QUIET_SAFE
+	return clampf(p, 0.05, 0.95)
+
+
+## Сколько звонит колокол этой ночью: в тумане меньше.
+func run_seconds() -> int:
+	return maxi(5, config.run_seconds - (FOG_RUN if night_event == Event.FOG else 0))
+
+
+# =============================================================
+# Саботаж: упырь портит уже сделанное
+# =============================================================
+## Испортить сделанное у дела: запасы −1, порция возвращается делу — её можно сделать заново.
+## Портить можно только там, где сегодня уже что-то сделали. Обереги не портятся.
+func can_sabotage(ji: int) -> bool:
+	return phase == Phase.DAY and ji >= 0 and ji < jobs.size() and supply_done > 0 \
+		and jobs[ji].house < 0 and jobs[ji].kind != JobDef.Kind.BOX and job_left[ji] < jobs[ji].portions
+
+
+func sabotage(ji: int) -> bool:
+	if not can_sabotage(ji):
+		return false
+	job_left[ji] += 1
+	supply_done -= 1
+	return true
+
+
+# =============================================================
+# Ящик
+# =============================================================
+func _roll_box() -> void:
+	box_today = false
+	box_loot = Loot.NONE
+	box_opened_by = -1
+	if day < 2 or village == null or village.box_spots.is_empty() or rng.randf() >= BOX_P:
+		return
+	box_today = true
+	box_pos = village.box_spots[rng.randi_range(0, village.box_spots.size() - 1)]
+	var r := rng.randf()
+	box_loot = Loot.NOTE if r < 0.5 else (Loot.OIL if r < 0.75 else Loot.CHALK)
+
+
+## Ящик появился на площади: становится делом дня «Открыть ящик». Запасов не прибавляет.
+func place_box() -> int:
+	if not box_today or phase != Phase.DAY or job_index(&"box") >= 0:
+		return job_index(&"box")
+	var j := JobDef.new()
+	j.id = &"box"
+	j.title = "Открыть ящик"
+	j.place = "у ящика"
+	j.done_line = ""
+	j.kind = JobDef.Kind.BOX
+	j.portions = 1
+	j.work_sec = 3.0
+	j.pos = box_pos
+	jobs.append(j)
+	job_left.append(1)
+	return jobs.size() - 1
+
+
+## Открыть ящик. Ответ: {"loot": Loot, "a": Villager, "b": Villager, "house": int} или пусто, если уже открыт.
+## Записка честная: ровно один из двоих — упырь. Что с ней делать — решает открывший.
+func open_box(v: Villager) -> Dictionary:
+	var ji := job_index(&"box")
+	if ji < 0 or job_left[ji] <= 0 or v == null or not v.alive:
+		return {}
+	job_left[ji] = 0
+	box_opened_by = v.id
+	var loot := box_loot
+	var out := {"loot": loot}
+	if loot == Loot.NOTE:
+		var ups: Array[Villager] = []
+		var hums: Array[Villager] = []
+		for o: Villager in alive():
+			if o == v:
+				continue
+			if o.is_upyr:
+				ups.append(o)
+			else:
+				hums.append(o)
+		if ups.is_empty() or hums.is_empty():
+			loot = Loot.OIL
+		else:
+			var pair: Array[Villager] = [ups[rng.randi_range(0, ups.size() - 1)], hums[rng.randi_range(0, hums.size() - 1)]]
+			_shuffle(pair)
+			out["a"] = pair[0]
+			out["b"] = pair[1]
+	if loot == Loot.CHALK:
+		var worst := -1
+		for h in range(talisman.size()):
+			if talisman[h] < TALISMAN_MAX and (worst < 0 or talisman[h] < talisman[worst]):
+				worst = h
+		if worst < 0:
+			loot = Loot.OIL
+		else:
+			talisman[worst] += 1
+			out["house"] = worst
+			var tj := job_index(StringName("talisman_%d" % worst))
+			if tj >= 0:
+				job_left[tj] = maxi(0, job_left[tj] - 1)
+	if loot == Loot.OIL:
+		supply_done = mini(supply_total, supply_done + BOX_OIL)
+	out["loot"] = loot
+	return out
 
 
 func end_day() -> void:
@@ -318,8 +470,6 @@ func after_vote() -> void:
 		_set_phase(Phase.NIGHT)
 
 
-## choices: id -> индекс убежища. Порядок прихода случаен — хозяином двери
-## может оказаться кто угодно, включая игрока.
 ## Рассадка на ночь. arrival — когда кто добежал до двери (секунды от колокола):
 ## первый добежавший внутри и решает, остальные в очереди в порядке прибытия.
 ## Кого нет в arrival, тот добегает после всех известных, между собой — в случайном порядке.
@@ -349,15 +499,38 @@ func seat_night(choices: Dictionary[int, int], arrival: Dictionary[int, float] =
 		for k in range(1, arrivals.size()):
 			s.queue.append(arrivals[k])
 		seats.append(s)
+	_place_mimic()
 	_set_phase(Phase.DOOR)
+
+
+## Подражатель выбирает дверь и голос: житель не из этого дома — живой в другом месте или погибший.
+func _place_mimic() -> void:
+	if day < 2 or seats.is_empty() or night_event == Event.QUIET or rng.randf() >= MIMIC_P:
+		return
+	var s: Seat = seats[rng.randi_range(0, seats.size() - 1)]
+	var voices: Array[Villager] = []
+	for v: Villager in villagers:
+		if v.is_player or v == s.host or s.queue.has(v):
+			continue
+		voices.append(v)
+	if voices.is_empty():
+		return
+	s.mimic = voices[rng.randi_range(0, voices.size() - 1)]
+	s.mimic_at = rng.randi_range(0, s.queue.size())
 
 
 func admit(seat: Seat, ids: Array[int]) -> void:
 	assert(phase == Phase.DOOR)
 	seat.admitted.clear()
-	for v: Villager in seat.queue:
-		if ids.has(v.id) and seat.admitted.size() < config.capacity - 1:
-			seat.admitted.append(v)
+	seat.mimic_in = false
+	var n := 0
+	for v: Villager in seat.knockers():
+		if ids.has(v.id) and n < config.capacity - 1:
+			n += 1
+			if v == seat.mimic:
+				seat.mimic_in = true
+			else:
+				seat.admitted.append(v)
 	seat.decided = true
 
 
@@ -389,9 +562,42 @@ func resolve_night() -> NightReport:
 				r.add(NightReport.Kind.SURVIVED_STREET, v, s.house)
 				_log("Ночь %d: %s %s на улице и %s." % [day, Ru.nom(v), Ru.g(v, "ночевал", "ночевала", "ночевали"), Ru.g(v, "выжил", "выжила", "выжили")])
 
-	# 2. Что было за дверьми
+	# 1б. Подражатель: впустили — забирает одного из тех, кто внутри. Не впустили — стук слышали все.
 	for s: Seat in seats:
-		var inside := s.inside()
+		if s.mimic == null:
+			continue
+		if not s.mimic_in:
+			var ek := r.add(NightReport.Kind.MIMIC_KNOCK, null, s.house)
+			ek.voice = s.mimic
+			_log("Ночь %d: в дверь «%s» стучали голосом %s. Не открыли." % [day, Ru.house_of(house_name(s.house)), Ru.gen(s.mimic)])
+			continue
+		var inside3: Array[Villager] = []
+		for v: Villager in s.inside():
+			if v.alive:
+				inside3.append(v)
+		if inside3.is_empty() or rng.randf() >= MIMIC_KILL:
+			var es := r.add(NightReport.Kind.MIMIC_SPARED, null, s.house)
+			es.voice = s.mimic
+			_log("Ночь %d: в «%s» впустили голос %s. Это был не %s, но до утра все целы." % [day, Ru.house_in(house_name(s.house)), Ru.gen(s.mimic), s.mimic.name])
+			continue
+		var gone: Villager = inside3[rng.randi_range(0, inside3.size() - 1)]
+		gone.alive = false
+		var left: Array[Villager] = []
+		for v: Villager in inside3:
+			if v != gone:
+				left.append(v)
+		var em := r.add(NightReport.Kind.KILLED_MIMIC, gone, s.house, left)
+		em.voice = s.mimic
+		_log("Ночь %d: в «%s» впустили голос %s. Это был Подражатель: он забрал %s." % [day, Ru.house_in(house_name(s.house)), Ru.gen(s.mimic), Ru.acc(gone)])
+
+	# 2. Что было за дверьми. Кто остался один после визита Подражателя, до утра в безопасности:
+	# тварь насытилась или ушла, второй раз за ночь в этот дом никто не придёт.
+	for s: Seat in seats:
+		var inside: Array[Villager] = s.inside().filter(func(v: Villager) -> bool: return v.alive)
+		if inside.is_empty():
+			continue
+		if s.mimic_in and inside.size() == 1:
+			continue
 		if inside.size() == 1:
 			var lone: Villager = inside[0]
 			if lone.is_upyr:
@@ -459,7 +665,7 @@ func resolve_night() -> NightReport:
 
 	# 4. За ночь обереги слабеют
 	for h in range(talisman.size()):
-		if talisman[h] > 0 and rng.randf() < TALISMAN_DECAY:
+		if talisman[h] > 0 and (night_event == Event.MOON or rng.randf() < TALISMAN_DECAY):
 			talisman[h] -= 1
 			r.add(NightReport.Kind.TALISMAN_WORN, null, h)
 			_log("Утром: оберег у «%s» %s." % [Ru.house_of(house_name(h)), "треснул" if talisman[h] == 1 else "раскололся"])
@@ -492,7 +698,21 @@ func _settle_winner() -> bool:
 
 func _set_phase(p: Phase) -> void:
 	phase = p
+	if p == Phase.NIGHT:
+		_roll_event()
 	phase_changed.emit(p)
+
+
+func _roll_event() -> void:
+	night_event = Event.NONE
+	if day < 2:
+		return
+	if force_event >= 0:
+		night_event = force_event as Event
+	elif rng.randf() < EVENT_P:
+		night_event = (rng.randi_range(1, Event.size() - 1)) as Event
+	if night_event != Event.NONE:
+		_log("Ночь %d: %s." % [day, String(EVENT_TITLE[night_event]).to_lower()])
 
 
 func _log(t: String) -> void:

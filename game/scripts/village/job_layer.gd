@@ -52,10 +52,17 @@ func job_at(global_pos: Vector2) -> int:
 	return best
 
 
-## Всплывашка над делом: «+1» — засчитано, «×» — впустую, «·» — уже кто-то сделал.
+## Всплывашка над делом: «+1» — засчитано, «×» — впустую, «·» — уже кто-то сделал,
+## «−1» — испортили сделанное, «!» — ящик открыт.
+const POP_TEXT := {"done": "+1", "fail": "×", "spoil": "−1", "box": "!"}
+
+
 func pop(ji: int, kind: String) -> void:
-	var text := "+1" if kind == "done" else ("×" if kind == "fail" else "·")
-	var col := ThemeFactory.LAMP if kind == "done" else Color(0.75, 0.75, 0.82)
+	var text: String = POP_TEXT.get(kind, "·")
+	var col := Color(0.75, 0.75, 0.82)
+	match kind:
+		"done", "box": col = ThemeFactory.LAMP
+		"spoil": col = Color("e0533f")
 	_pops.append({"pos": icon_pos(ji) + Vector2(0, -R - 8), "text": text, "col": col, "t": 0.0})
 	queue_redraw()
 
@@ -83,6 +90,8 @@ func _draw() -> void:
 	for i in range(m.jobs.size()):
 		var j: JobDef = m.jobs[i]
 		var left := m.job_left[i] if i < m.job_left.size() else 0
+		if j.kind == JobDef.Kind.BOX:
+			_crate(j.pos, left <= 0)
 		var done := left <= 0
 		var c := icon_pos(i) + Vector2(0, 0.0 if done else sin(_t * 2.2 + i) * 2.5)
 		var a := 0.5 if done else 1.0
@@ -133,7 +142,27 @@ func _icon(kind: JobDef.Kind, c: Vector2, k: Color, dim: bool) -> void:
 			draw_line(c + Vector2(0, -8), c + Vector2(0, -5), k, 1.5)
 			draw_line(c + Vector2(-5.5, 4), c + Vector2(-3, 2), k, 1.5)
 			draw_line(c + Vector2(5.5, 4), c + Vector2(3, 2), k, 1.5)
+		JobDef.Kind.BOX:
+			Art.shape(self, Art.rrect(Rect2(c.x - 10, c.y - 7, 20, 15), 2), Color(0.72, 0.52, 0.32, a), k, 2.0)
+			draw_line(c + Vector2(-10, -1), c + Vector2(10, -1), k, 1.6)
+			draw_line(c + Vector2(-4, -7), c + Vector2(-4, 8), Color(k, 0.6), 1.2)
+			draw_line(c + Vector2(4, -7), c + Vector2(4, 8), Color(k, 0.6), 1.2)
 		JobDef.Kind.FISH:
 			Art.shape(self, Art.ellipse(c + Vector2(-2, 0), Vector2(9, 5.5), 14), Color(0.55, 0.7, 0.85, a), k, 2.0)
 			Art.shape(self, PackedVector2Array([c + Vector2(6, 0), c + Vector2(12, -5), c + Vector2(12, 5)]), Color(0.55, 0.7, 0.85, a), k, 1.8)
 			draw_circle(c + Vector2(-7, -1), 1.4, k)
+
+
+## Сам ящик на земле: закрытый — с крышкой, открытый — крышка откинута.
+func _crate(p: Vector2, open: bool) -> void:
+	var k := Art.INK
+	var wood := Color(0.72, 0.52, 0.32)
+	Art.shape(self, Art.ellipse(p + Vector2(0, 4), Vector2(26, 6), 16), Color(0, 0, 0, 0.22), Color(0, 0, 0, 0), 0.0)
+	Art.shape(self, Art.rrect(Rect2(p.x - 22, p.y - 28, 44, 30), 3), wood, k, 2.4)
+	for x: float in [-8.0, 8.0]:
+		draw_line(p + Vector2(x, -27), p + Vector2(x, 1), Color(k, 0.55), 1.6)
+	draw_line(p + Vector2(-21, -14), p + Vector2(21, -14), Color(k, 0.55), 1.6)
+	if open:
+		Art.shape(self, PackedVector2Array([p + Vector2(-22, -28), p + Vector2(22, -28), p + Vector2(26, -40), p + Vector2(-18, -40)]), wood.darkened(0.15), k, 2.0)
+	else:
+		Art.shape(self, Art.rrect(Rect2(p.x - 24, p.y - 33, 48, 8), 2), wood.lightened(0.08), k, 2.2)

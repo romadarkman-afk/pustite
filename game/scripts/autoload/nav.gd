@@ -18,6 +18,7 @@ var _toast: Label
 var _exit_armed := false
 var _started := false
 var _walk_gen := 0                 ## каждая новая прогулка игрока отменяет прежнюю цель
+var _spoiled_ji := -1              ## у этого дела только что испортили сделанное: всплывашка уже показана
 
 
 func _ready() -> void:
@@ -86,6 +87,9 @@ func _ready() -> void:
 	Game.player_job_changed.connect(_on_player_job)
 	Game.supplies_changed.connect(_on_supplies)
 	Game.run_changed.connect(_on_run)
+	Game.sabotaged.connect(_on_sabotaged)
+	Game.box_appeared.connect(_on_box_appeared)
+	Game.box_opened.connect(_on_box_opened)
 	Game.run_distance = _run_distance
 	Game.chat_line.connect(_on_chat)
 	Game.clock_ticked.connect(func(s: int) -> void:
@@ -251,7 +255,8 @@ func _on_phase(phase: Match.Phase) -> void:
 	village.crowd.sync(Game.m, phase)
 	# ночью горит столько фонарей, сколько заправили днём
 	var night_phase := phase == Match.Phase.NIGHT or phase == Match.Phase.DOOR
-	village.set_lamps_fueled(roundi(Game.m.supplies() * village.def.lamps.size()) if night_phase else 99)
+	var fueled := 0 if Game.m.night_event == Match.Event.RAIN else roundi(Game.m.supplies() * village.def.lamps.size())
+	village.set_lamps_fueled(fueled if night_phase else 99)
 	# метка «Вы»: в первых трёх партиях всегда, потом — только в прологе
 	village.crowd.set_player_highlight(phase == Match.Phase.PROLOGUE or int(Save.stats["games"]) < 3)
 	match phase:
@@ -382,6 +387,8 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			Game.admit(ids)
 		Intent.PLEA:
 			Game.plea(data.plea)
+		Intent.WORK:
+			go_work(int(data.ji), bool(data.get("sab", false)))
 		Intent.SELECT_HOUSE:
 			village.set_selected_house(int(data.house))
 			Game.run_to_house(int(data.house))
@@ -401,7 +408,10 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 					var ji := village.jobs_layer.job_at(data.pos)
 					if ji >= 0:
 						_hint_done(sender, action)
-						go_work(ji)
+						if Game.m.player().is_upyr and Game.m.can_sabotage(ji):
+							(sender as DayScreen).job_actions(ji)
+						else:
+							go_work(ji)
 					else:
 						walk_player(data.pos)
 				return
@@ -429,13 +439,13 @@ func walk_player(global_pos: Vector2) -> void:
 	(cr.figures[0] as VillagerFigure).walk_to(target)
 
 
-## Игрок идёт к делу и, дойдя, берётся за него.
-func go_work(ji: int) -> void:
+## Игрок идёт к делу и, дойдя, берётся за него. sab — игрок-упырь идёт портить.
+func go_work(ji: int, sab: bool = false) -> void:
 	var cr := village.crowd
 	if Game.m == null or not cr.figures.has(0):
 		return
-	if not Game.m.job_available(ji):
-		toast("«%s» — на сегодня уже сделано" % Game.m.jobs[ji].title)
+	if not sab and not Game.m.job_available(ji):
+		toast(_done_text(ji))
 		return
 	_walk_gen += 1
 	var gen := _walk_gen
@@ -446,9 +456,36 @@ func go_work(ji: int) -> void:
 	Sfx.play(&"tap")
 	f.arrived.connect(func() -> void:
 		if gen == _walk_gen and Game.m != null and Game.m.phase == Match.Phase.DAY:
-			if not Game.start_player_job(ji):
-				toast("«%s» — на сегодня уже сделано" % Game.m.jobs[ji].title), CONNECT_ONE_SHOT)
+			if not Game.start_player_job(ji, sab):
+				toast(_done_text(ji)), CONNECT_ONE_SHOT)
 	f.walk_to(spot)
+
+
+func _done_text(ji: int) -> String:
+	if Game.m.jobs[ji].kind == JobDef.Kind.BOX:
+		return "Ящик уже открыли"
+	return "«%s»: на сегодня уже сделано" % Game.m.jobs[ji].title
+
+
+func _on_sabotaged(_vid: int, ji: int) -> void:
+	_spoiled_ji = ji
+	village.jobs_layer.pop(ji, "spoil")
+	Sfx.play(&"job_fail")
+
+
+func _on_box_appeared(_ji: int) -> void:
+	Sfx.play(&"knock", 0.7, -4.0)
+	toast("На площади появился ящик")
+
+
+func _on_box_opened(vid: int, res: Dictionary) -> void:
+	var ji := Game.m.job_index(&"box")
+	if ji >= 0:
+		village.jobs_layer.pop(ji, "box")
+	Sfx.play(&"reveal", 1.0, 0.0 if vid == 0 else -8.0)
+	if vid == 0:
+		Juice.haptic(Juice.Haptic.SUCCESS)
+		toast(Game.box_text(res))
 
 
 func _on_job_started(vid: int, ji: int) -> void:
@@ -457,9 +494,12 @@ func _on_job_started(vid: int, ji: int) -> void:
 
 
 func _on_job_finished(vid: int, ji: int, counted: bool, real: bool) -> void:
-	var kind := "done" if counted else ("fail" if not real else "none")
-	village.jobs_layer.pop(ji, kind)
-	Sfx.play(&"job_done" if counted else &"job_fail", 1.0, 0.0 if vid == 0 else -9.0)
+	# ящик и испорченное дело показывают свою всплывашку сами
+	if ji != _spoiled_ji and Game.m.jobs[ji].kind != JobDef.Kind.BOX:
+		var kind := "done" if counted else ("fail" if not real else "none")
+		village.jobs_layer.pop(ji, kind)
+		Sfx.play(&"job_done" if counted else &"job_fail", 1.0, 0.0 if vid == 0 else -9.0)
+	_spoiled_ji = -1
 	if vid == 0:
 		village.crowd.at_job.erase(0)
 		if counted:

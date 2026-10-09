@@ -12,6 +12,9 @@ enum Kind {
 	LIAR,              ## говорил одно, ночевал в другом месте
 	KILLED_CREATURE,   ## оберег был расколот — в дом вошла тварь из леса
 	TALISMAN_WORN,     ## за ночь оберег ослаб: треснул или раскололся (who = null)
+	KILLED_MIMIC,      ## впустили Подражателя — он забрал who; voice — чьим голосом он говорил
+	MIMIC_SPARED,      ## впустили Подражателя, но до утра все целы (who = null)
+	MIMIC_KNOCK,       ## Подражатель стучал, не открыли (who = null)
 }
 
 class Entry:
@@ -20,9 +23,11 @@ class Entry:
 	var house: int = -1
 	var said_house: int = -1
 	var others: Array[Villager] = []
+	var voice: Villager = null      ## Подражатель: чьим голосом стучал
 
 	func is_death() -> bool:
-		return kind == Kind.KILLED_STREET or kind == Kind.KILLED_INSIDE or kind == Kind.KILLED_ALONE or kind == Kind.KILLED_CREATURE
+		return kind == Kind.KILLED_STREET or kind == Kind.KILLED_INSIDE or kind == Kind.KILLED_ALONE \
+			or kind == Kind.KILLED_CREATURE or kind == Kind.KILLED_MIMIC
 
 var entries: Array[Entry] = []
 
