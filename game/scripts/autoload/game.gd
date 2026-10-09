@@ -9,6 +9,10 @@ signal clock_expired(phase: Match.Phase)
 signal vote_resolved(tally: Dictionary, exiled: Villager)
 signal guest_answered(admitted: bool)
 signal marks_changed      ## подозрения, улики или уговоры поменялись — пора обновить поле
+signal job_started(vid: int, ji: int)                              ## житель пошёл делать дело
+signal job_finished(vid: int, ji: int, counted: bool, real: bool)  ## дело закончено; counted — запасы выросли
+signal supplies_changed                                            ## запасы дня изменились
+signal player_job_changed                                          ## игрок начал или бросил дело
 
 var m: Match
 var director: Director
@@ -16,6 +20,12 @@ var host_pleas: Dictionary[int, String] = {}
 var clock: PhaseClock
 var screen_kept_on: bool = false
 var _feed_gen: int = 0
+
+## Дела дня. Время дня идёт вместе с часами фазы: пауза — стоят и дела.
+var tasks: Array[Director.JobTask] = []
+var day_t: float = 0.0
+var player_job: int = -1
+var player_job_left: float = 0.0
 
 
 func _ready() -> void:
@@ -47,6 +57,8 @@ func start(cfg: GameConfig) -> void:
 ## Бросить партию: остановить таймер и отменить очередь реплик.
 func abandon() -> void:
 	_feed_gen += 1
+	tasks.clear()
+	player_job = -1
 	clock.stop()
 	if m != null and m.phase_changed.is_connected(_on_phase):
 		m.phase_changed.disconnect(_on_phase)
@@ -76,15 +88,104 @@ func _keep_screen(on: bool) -> void:
 
 
 # =============================================================
+# Дела по посёлку
+# =============================================================
+func _process(delta: float) -> void:
+	if m == null or m.phase != Match.Phase.DAY or held():
+		return
+	var d := minf(delta, PhaseClock.MAX_STEP)
+	day_t += d
+	for t: Director.JobTask in tasks:
+		if not t.started and day_t >= t.start:
+			var v := m.get_villager(t.vid)
+			if v == null or not v.alive:
+				t.started = true
+				t.done = true
+				continue
+			t.started = true
+			job_started.emit(t.vid, t.job)
+		elif t.started and not t.done and day_t >= t.start + Director.WORK_SEC:
+			t.done = true
+			_finish_job(t.vid, t.job, t.real)
+	if player_job >= 0:
+		if not m.job_available(player_job):
+			var lost := player_job
+			player_job = -1
+			player_job_changed.emit()
+			job_finished.emit(0, lost, false, true)
+			return
+		player_job_left -= d
+		if player_job_left <= 0.0:
+			var ji := player_job
+			player_job = -1
+			player_job_changed.emit()
+			_finish_job(0, ji, true)
+
+
+func _finish_job(vid: int, ji: int, real: bool) -> void:
+	var counted := m.do_job(m.get_villager(vid), ji, real)
+	var lines := director.after_job(vid, ji, counted, real)
+	Diag.step("дело: %s %s %s" % [m.get_villager(vid).name, m.jobs[ji].id, "засчитано" if counted else "впустую"])
+	job_finished.emit(vid, ji, counted, real)
+	if counted:
+		supplies_changed.emit()
+	for l: ChatLine in lines:
+		m.post(l)
+	if not lines.is_empty():
+		marks_changed.emit()
+
+
+## Игрок встал к делу. false — дело уже сделано или сейчас не день.
+func start_player_job(ji: int) -> bool:
+	if m == null or m.phase != Match.Phase.DAY or not m.player().alive or not m.job_available(ji):
+		return false
+	player_job = ji
+	player_job_left = m.jobs[ji].work_sec
+	player_job_changed.emit()
+	return true
+
+
+func cancel_player_job() -> void:
+	if player_job >= 0:
+		player_job = -1
+		player_job_changed.emit()
+
+
+## Сколько сделано, 0..1. -1 — игрок сейчас ничего не делает.
+func player_job_progress() -> float:
+	if player_job < 0:
+		return -1.0
+	return clampf(1.0 - player_job_left / m.jobs[player_job].work_sec, 0.0, 1.0)
+
+
+## Работает ли сейчас житель над делом — и над каким. -1 — нет.
+func busy_job(vid: int) -> int:
+	if vid == 0:
+		return player_job
+	for t: Director.JobTask in tasks:
+		if t.vid == vid and t.started and not t.done:
+			return t.job
+	return -1
+
+
+# =============================================================
 # Фазы
 # =============================================================
 func _on_phase(p: Match.Phase) -> void:
 	clock.stop()
+	if p != Match.Phase.DAY:
+		tasks.clear()
+		if player_job >= 0:
+			player_job = -1
+			player_job_changed.emit()
 	_feed_gen += 1
 	Diag.step("фаза: %s" % Match.Phase.keys()[p])
 	match p:
 		Match.Phase.DAY:
 			director.plan_day()
+			tasks = director.plan_jobs(m.config.day_seconds)
+			day_t = 0.0
+			player_job = -1
 			Diag.step("день: боты спланировали")
 			phase_entered.emit(p)
 			Diag.step("день: экран показан")

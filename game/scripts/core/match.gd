@@ -54,6 +54,15 @@ var last_exiled: Villager
 var last_tally: Dictionary[int, int] = {}
 var rng := RandomNumberGenerator.new()
 
+## Дела по посёлку и запасы дня. Запасы снижают шанс погибнуть ночью на улице
+## и одному в доме: фонари горят, обереги держатся.
+const SUPPLY_BONUS := 0.2           ## полные запасы срезают столько от шанса гибели
+const DEFAULT_VILLAGE := "res://config/village_default.tres"
+var jobs: Array[JobDef] = []
+var job_left: PackedInt32Array = PackedInt32Array()
+var supply_done: int = 0
+var supply_total: int = 0
+
 
 # =============================================================
 # Запросы (только чтение)
@@ -162,6 +171,10 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 		villagers[int(order[k])].is_upyr = true
 
 	houses = HOUSES.slice(0, config.shelters)
+	if jobs.is_empty():
+		var vd := load(DEFAULT_VILLAGE) as VillageDef
+		if vd != null:
+			jobs = vd.jobs
 	day = 1
 	winner = Team.NONE
 	chat.clear()
@@ -176,9 +189,40 @@ func begin_day() -> void:
 	assert(phase == Phase.PROLOGUE or phase == Phase.MORNING)
 	for v: Villager in villagers:
 		v.announced_house = -1
+	job_left = PackedInt32Array()
+	supply_total = 0
+	for j: JobDef in jobs:
+		job_left.append(j.portions)
+		supply_total += j.portions
+	supply_done = 0
 	_set_phase(Phase.DAY)
 	post(ChatLine.system("Светает. Все выходят на площадь." if day == 1
 		else "День %d. Живых осталось %d." % [day, alive().size()]))
+
+
+## Сделал дело. Засчитывается, если работа настоящая и у дела ещё есть порции.
+## Возвращает true, если запасы выросли.
+func do_job(_v: Villager, ji: int, real: bool) -> bool:
+	if phase != Phase.DAY or ji < 0 or ji >= job_left.size():
+		return false
+	if not real or job_left[ji] <= 0:
+		return false
+	job_left[ji] -= 1
+	supply_done += 1
+	return true
+
+
+func job_available(ji: int) -> bool:
+	return ji >= 0 and ji < job_left.size() and job_left[ji] > 0
+
+
+## Запасы дня 0..1.
+func supplies() -> float:
+	return float(supply_done) / float(supply_total) if supply_total > 0 else 0.0
+
+
+func outside_death_chance() -> float:
+	return maxf(0.05, config.outside_death_chance(day) - SUPPLY_BONUS * supplies())
 
 
 func end_day() -> void:
@@ -253,7 +297,9 @@ func admit(seat: Seat, ids: Array[int]) -> void:
 func resolve_night() -> NightReport:
 	assert(phase == Phase.DOOR)
 	var r := NightReport.new()
-	var p_out := config.outside_death_chance(day)
+	var p_out := outside_death_chance()
+	if supply_total > 0:
+		_log("Ночь %d: запасов набрали на %d%%." % [day, roundi(100.0 * supplies())])
 
 	var was_fed: Dictionary[int, bool] = {}
 	for v: Villager in villagers:

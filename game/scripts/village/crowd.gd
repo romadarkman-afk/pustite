@@ -283,6 +283,67 @@ func figure_at(global_pos: Vector2) -> int:
 	return best
 
 
+# =============================================================
+# Ходьба и дела
+# =============================================================
+var at_job: Dictionary[int, int] = {}      ## кто сейчас у какого дела
+
+
+## Куда можно ходить: площадь с небольшим запасом по краям. Точку за её пределами
+## притягивает к краю — так фигурка не уходит в дома и за реку.
+func walk_clamp(p: Vector2) -> Vector2:
+	var c := view.def.square_center
+	var r := view.def.square_radii * Vector2(1.12, 1.22)
+	var d := (p - c) / r
+	if d.length() > 1.0:
+		d = d.normalized()
+		p = c + d * r
+	p.x = clampf(p.x, VillageView.SAFE_X.x, VillageView.SAFE_X.y)
+	return p
+
+
+## Место у дела: первый работник встаёт на само место, следующие — по бокам.
+func job_spot(ji: int, vid: int) -> Vector2:
+	var base := view.def.jobs[ji].pos
+	var k := 0
+	for other: int in at_job:
+		if other != vid and at_job[other] == ji:
+			k += 1
+	var offs := [0.0, -50.0, 50.0, -100.0]
+	return walk_clamp(base + Vector2(offs[k % offs.size()], 0))
+
+
+## Бот идёт к делу и, дойдя, работает.
+func send_to_job(vid: int, ji: int) -> void:
+	if not figures.has(vid):
+		return
+	var f: VillagerFigure = figures[vid]
+	var spot := job_spot(ji, vid)
+	at_job[vid] = ji
+	f.set_working(false)
+	f.arrived.connect(func() -> void:
+		if at_job.get(vid, -1) == ji and f.position.distance_to(spot) < 2.0:
+			f.set_working(true), CONNECT_ONE_SHOT)
+	f.walk_to(spot)
+
+
+## Дело закончено: бот возвращается на своё место у колодца.
+func leave_job(vid: int) -> void:
+	at_job.erase(vid)
+	if not figures.has(vid):
+		return
+	var f: VillagerFigure = figures[vid]
+	f.set_working(false)
+	if vid != 0 and ring.has(vid):
+		f.walk_to(ring[vid])
+
+
+func stop_all_work() -> void:
+	at_job.clear()
+	for f: VillagerFigure in figures.values():
+		f.set_working(false)
+
+
 func set_night(n: float) -> void:
 	for f: VillagerFigure in figures.values():
 		f.set_night(n)
@@ -344,6 +405,7 @@ func arrange_night(m: Match, player_house: int) -> void:
 
 
 func sync(m: Match, phase: Match.Phase) -> void:
+	stop_all_work()
 	var at_house: Dictionary[int, int] = {}
 	for v: Villager in m.villagers:
 		var f: VillagerFigure = figures.get(v.id)

@@ -47,6 +47,16 @@ static func grammar(cfg: GameConfig, games: int = 250) -> Dictionary:
 							for l: ChatLine in d.react(it):
 								texts.append(l.text)
 						texts.append(d.plea_for(t))
+					for l: ChatLine in d.run_jobs_instant(d.plan_jobs(m.config.day_seconds)):
+						texts.append(l.text)
+					# все реплики о пустой работе — для каждого жителя и каждого дела
+					for t: Villager in m.alive_bots():
+						for j: JobDef in m.jobs:
+							for line: String in Phrases.JOB_FAKE:
+								texts.append(Phrases.fill(line, {"who": t.name, "who_f": t.female, "me_f": false, "place": j.place}))
+								texts.append(Phrases.fill(line, {"who": t.name, "who_f": t.female, "me_f": true, "place": j.place}))
+							for line: String in Phrases.JOB_FAKE_AT_PLAYER:
+								texts.append(Phrases.fill(line, {"me_f": t.female, "place": j.place}))
 					m.end_day()
 				Match.Phase.VOTE:
 					var tally: Dictionary[int, int] = {}
@@ -138,6 +148,7 @@ static func balance(cfg: GameConfig, runs: int = 3000) -> Dictionary:
 			match m.phase:
 				Match.Phase.DAY:
 					d.plan_day()
+					d.run_jobs_instant(d.plan_jobs(m.config.day_seconds))
 					m.end_day()
 				Match.Phase.VOTE:
 					var tally: Dictionary[int, int] = {}
@@ -513,8 +524,21 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 			out.append("%s: дома не влезают в поле (%d > %d)" % [w, int(band.size.y), int(fld.size.y)])
 		if Nav.village.scale.x < MIN_FIELD_SCALE:
 			out.append("%s: дома мельче %d%% от задуманного (масштаб %.2f)" % [w, int(MIN_FIELD_SCALE * 100), Nav.village.scale.x])
-		if absf(band.get_center().x - vp.x * 0.5) > 2.0:
+		var zoomed := s.field_zoom() > 1.0
+		var me_f: VillagerFigure = Nav.village.crowd.figures.get(0)
+		if not zoomed and absf(band.get_center().x - vp.x * 0.5) > 2.0:
 			out.append("%s: посёлок не по центру по горизонтали" % w)
+		if zoomed:
+			# день: камера приближена и смотрит на игрока; посёлок шире экрана, но без пустых краёв
+			var left_edge: float = Nav.village.to_global(Vector2(0, 0)).x
+			var right_edge: float = Nav.village.to_global(Vector2(VillageView.LOGICAL.x, 0)).x
+			if left_edge > 20.0 * Nav.village.scale.x + 1.0 or right_edge < vp.x - 20.0 * Nav.village.scale.x - 1.0:
+				out.append("%s: камера дня ушла за край посёлка (%d…%d)" % [w, int(left_edge), int(right_edge)])
+			if me_f != null:
+				var mx: float = me_f.get_global_transform_with_canvas().origin.x
+				if mx < vp.x * 0.2 or mx > vp.x * 0.8:
+					out.append("%s: днём игрок не в середине кадра (x=%d)" % [w, int(mx)])
+
 		field_scales.append(Nav.village.scale.x)
 		if absf(Nav.scrim.top - fld.end.y) > 3.0:
 			out.append("%s: затемнение не у нижнего края поля (%d vs %d)" % [w, int(Nav.scrim.top), int(fld.end.y)])
@@ -523,7 +547,14 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 				continue
 			var gp := f.get_global_transform_with_canvas().origin
 			var half := 16.0 * Nav.village.scale.x
-			if gp.x - half < -1.0 or gp.x + half > vp.x + 1.0:
+			if zoomed:
+				# днём край кадра — не край посёлка: житель обязан стоять внутри посёлка,
+				# а игрок — целиком на экране
+				if f.position.x < VillageView.SAFE_X.x - 1.0 or f.position.x > VillageView.SAFE_X.y + 1.0:
+					out.append("%s: житель %s вне посёлка (x=%d)" % [w, f.who, int(f.position.x)])
+				if f.is_player and (gp.x - half < -1.0 or gp.x + half > vp.x + 1.0):
+					out.append("%s: игрок за краем экрана (x=%d)" % [w, int(gp.x)])
+			elif gp.x - half < -1.0 or gp.x + half > vp.x + 1.0:
 				out.append("%s: житель %s за краем экрана (x=%d)" % [w, f.who, int(gp.x)])
 	elif Nav.village.modulate.a > 0.05:
 		out.append("%s: посёлок виден там, где должен быть скрыт" % w)
@@ -1062,6 +1093,10 @@ static func crowd() -> void:
 				cr.arrange_night(Game.m, -1)
 				await _frames(tree, 1)
 				checks += _check_crowd("%s · ночь у «%s»" % [tag, Game.m.house_name(hi)], problems)
+			# настоящий экран дня: камера ближе и смотрит на игрока
+			Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+			await _settle(tree)
+			checks += _check_crowd(tag + " · экран дня", problems)
 	Nav.frame.debug_insets = Vector4(-1, -1, -1, -1)
 	Save.config = keep
 	print("=== толпа: %d раскладок проверено ===" % checks)
@@ -1084,11 +1119,19 @@ static func _check_crowd(tag: String, out: PackedStringArray) -> int:
 	for f: VillagerFigure in Nav.village.crowd.figures.values():
 		if f.visible and f.state != VillagerFigure.State.GONE:
 			figs.append(f)
+	var zoomed := Nav.host.current.field_zoom() > 1.0
 	for f: VillagerFigure in figs:
 		var lr := f.label_rect_global()
 		var br := f.body_rect_global()
 		var all := lr.merge(br)
-		if all.position.x < -1.0 or all.end.x > vp.x + 1.0:
+		var off := all.position.x < -1.0 or all.end.x > vp.x + 1.0
+		if zoomed:
+			# днём камера ближе: край кадра — не край посёлка
+			if f.position.x < VillageView.SAFE_X.x - 1.0 or f.position.x > VillageView.SAFE_X.y + 1.0:
+				out.append("%s: %s вне посёлка" % [tag, f.who])
+			if f.is_player and off:
+				out.append("%s: игрок за краем экрана" % tag)
+		elif off:
 			out.append("%s: %s за краем экрана" % [tag, f.who])
 		if all.end.y > bottom + 2.0:
 			out.append("%s: %s уходит под нижнюю панель (низ %d, граница %d)" % [tag, f.who, int(all.end.y), int(bottom)])
@@ -2119,6 +2162,259 @@ static func sound() -> void:
 	print("=== звук: %d проверок ===" % (ok + fails.size()))
 	if fails.is_empty():
 		print("ИТОГ: OK — все звуки на месте, каждое событие звучит, громкость и сворачивание работают")
+		tree.quit(0)
+	else:
+		for f2: String in fails:
+			print("  ✗ " + f2)
+		print("ИТОГ: НАРУШЕНИЙ: %d" % fails.size())
+		tree.quit(1)
+
+
+
+# =============================================================
+# Живой день (Task 23–24): камера ближе и идёт за игроком, ходьба тапом,
+# дела по посёлку, запасы, пустая работа и клевета, фонари ночью.
+# =============================================================
+static func village() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+	Save.set_difficulty("normal")
+	var v := Nav.village
+	var vp := Nav.frame.get_viewport_rect().size
+
+	Nav.start_match()
+	await _settle(tree)
+	var scale_wide := v.scale.x
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	var day := Nav.host.current as DayScreen
+	var scale_day := v.scale.x
+	var m := Game.m
+	var cr := v.crowd
+	var me: VillagerFigure = cr.figures[0]
+
+	# 1. Камера: днём ближе, игрок в кадре
+	ok += _expect(fails, v.scale.x > scale_wide * 1.2, "днём камера не приблизилась (%.2f против %.2f)" % [v.scale.x, scale_wide])
+	ok += _expect(fails, v.follow == me, "камера не следит за игроком")
+	# 2. Запасы и значки дел
+	ok += _expect(fails, m.supply_total == v.def.total_portions() and m.supply_total >= 8, "запасов на день %d — ждём сумму порций дел" % m.supply_total)
+	ok += _expect(fails, day.supplies != null and day.supplies.text() == "Запасы 0 из %d" % m.supply_total, "капсула запасов не показана или врёт")
+	ok += _expect(fails, v.jobs_layer.visible and v.def.jobs.size() >= 5, "значков дел нет на поле")
+	var small := false
+	for ji in range(v.def.jobs.size()):
+		var r := v.jobs_layer.icon_rect_global(ji)
+		if r.size.x < 84.0 or r.size.y < 84.0:
+			small = true
+	ok += _expect(fails, not small, "значок дела меньше 84 px (48 dp)")
+
+	# 3. Ходьба тапом и камера за игроком
+	var target_g := v.to_global(Vector2(150, 420))
+	Nav.handle_intent(Intent.FIELD_TAP, {"pos": target_g}, day)
+	await _frames(tree, 4)
+	ok += _expect(fails, me.position.distance_to(cr.walk_clamp(Vector2(150, 420))) < 2.0, "тап по земле не увёл игрока (%s)" % me.position)
+	var mx := me.get_global_transform_with_canvas().origin.x
+	var left_edge := v.to_global(Vector2(0, 0)).x
+	var at_left := absf(v.cam_x - v._clamp_cam(-9999.0, v.scale.x)) < 0.5
+	ok += _expect(fails, (mx > vp.x * 0.25 and mx < vp.x * 0.75) or at_left, "камера не пошла за игроком (игрок на x=%d)" % int(mx))
+	ok += _expect(fails, left_edge <= 20.0 * v.scale.x + 1.0, "камера ушла за левый край посёлка")
+	Nav.handle_intent(Intent.FIELD_TAP, {"pos": v.to_global(Vector2(900, 380))}, day)
+	await _frames(tree, 4)
+	ok += _expect(fails, me.position.x <= VillageView.SAFE_X.y + 0.5, "игрок ушёл за край посёлка (x=%d)" % int(me.position.x))
+	ok += _expect(fails, v.to_global(Vector2(VillageView.LOGICAL.x, 0)).x >= vp.x - 20.0 * v.scale.x - 1.0, "камера ушла за правый край посёлка")
+
+	# 4. Дело игрока: дошёл, поработал, запасы выросли
+	var ji := v.def.job_index(&"water")
+	var left0 := m.job_left[ji]
+	Sfx.played.clear()
+	Nav.handle_intent(Intent.FIELD_TAP, {"pos": v.jobs_layer.icon_rect_global(ji).get_center()}, day)
+	await _frames(tree, 3)
+	ok += _expect(fails, Game.player_job == ji and me.working, "тап по делу не поставил игрока работать")
+	ok += _expect(fails, me.position.distance_to(v.def.jobs[ji].pos) < 60.0, "игрок работает не у дела")
+	var t_start := Game.day_t
+	var guard := 0.0
+	while Game.player_job >= 0 and guard < 10.0:
+		await tree.create_timer(0.1).timeout
+		guard += 0.1
+	var waited := Game.day_t - t_start
+	await _frames(tree, 2)
+	ok += _expect(fails, m.supply_done == 1 and m.job_left[ji] == left0 - 1, "дело не засчиталось (запасы %d, осталось %d)" % [m.supply_done, m.job_left[ji]])
+	ok += _expect(fails, waited >= v.def.jobs[ji].work_sec - 0.6, "дело сделалось слишком быстро (%.1f с)" % waited)
+	ok += _expect(fails, Sfx.played.has(&"job_done") and not me.working, "без звука «готово» или игрок всё ещё работает")
+	ok += _expect(fails, day.supplies.text() == "Запасы 1 из %d" % m.supply_total, "капсула запасов не обновилась: «%s»" % day.supplies.text())
+
+	# 5. Ушёл от дела — работа брошена, запасы не растут
+	var wood := v.def.job_index(&"wood")
+	Nav.handle_intent(Intent.FIELD_TAP, {"pos": v.jobs_layer.icon_rect_global(wood).get_center()}, day)
+	await _frames(tree, 3)
+	ok += _expect(fails, Game.player_job == wood, "к дровам не встал")
+	Nav.handle_intent(Intent.FIELD_TAP, {"pos": v.to_global(Vector2(360, 470))}, day)
+	await _frames(tree, 3)
+	await tree.create_timer(0.4).timeout
+	ok += _expect(fails, Game.player_job == -1 and not me.working and m.supply_done == 1, "ушёл от дела, а работа продолжилась")
+
+	# 6. Пауза: открыт вопрос — время дня и работа стоят
+	Nav.handle_intent(Intent.FIELD_TAP, {"pos": v.jobs_layer.icon_rect_global(wood).get_center()}, day)
+	await _frames(tree, 3)
+	Game.hold(&"dialog")
+	var t0 := Game.day_t
+	var p0 := Game.player_job_progress()
+	await tree.create_timer(0.5).timeout
+	ok += _expect(fails, Game.day_t == t0 and Game.player_job_progress() == p0, "на паузе время дня или работа идут")
+	Game.release(&"dialog")
+	Game.cancel_player_job()
+
+	# 7. Дело уже сделано — не встать
+	m.job_left[wood] = 0
+	Nav.handle_intent(Intent.FIELD_TAP, {"pos": v.jobs_layer.icon_rect_global(wood).get_center()}, day)
+	await _frames(tree, 3)
+	ok += _expect(fails, Game.player_job == -1, "встал к делу, которое на сегодня сделано")
+	m.job_left[wood] = v.def.jobs[wood].portions
+
+	# 8. Бот: пошёл к делу, работал, вернулся; пустая работа запасов не даёт
+	var bot: Villager = m.alive_bots()[0]
+	var bf: VillagerFigure = cr.figures[bot.id]
+	var home: Vector2 = cr.ring[bot.id]
+	for real: bool in [false, true]:
+		var t := Director.JobTask.new()
+		t.vid = bot.id
+		t.job = ji
+		t.start = Game.day_t
+		t.real = real
+		var only: Array[Director.JobTask] = [t]
+		Game.tasks = only
+		await _frames(tree, 3)
+		ok += _expect(fails, bf.working and bf.position.distance_to(v.def.jobs[ji].pos) < 110.0, "бот не пошёл к делу или не работает")
+		ok += _expect(fails, Game.busy_job(bot.id) == ji, "сессия не знает, что бот занят делом")
+		var before := m.supply_done
+		Sfx.played.clear()
+		t.start = Game.day_t - Director.WORK_SEC - 0.1
+		await _frames(tree, 3)
+		ok += _expect(fails, t.done and not bf.working and bf.position.distance_to(home) < 2.0, "бот не вернулся на своё место")
+		if real:
+			ok += _expect(fails, m.supply_done == before + 1, "честная работа бота не дала запасов")
+		else:
+			ok += _expect(fails, m.supply_done == before and Sfx.played.has(&"job_fail"), "пустая работа дала запасы или прошла без звука")
+
+	# 9. Пустую работу замечают: улика и реплика с местом
+	var upyr: Villager = null
+	var human: Villager = null
+	for b: Villager in m.alive_bots():
+		if b.is_upyr and upyr == null:
+			upyr = b
+		if not b.is_upyr and human == null:
+			human = b
+	var seen_line: ChatLine = null
+	for k in range(80):
+		var ls := Game.director.after_job(bot.id, ji, false, false)
+		if not ls.is_empty():
+			seen_line = ls[0]
+			break
+	ok += _expect(fails, seen_line != null and seen_line.text.contains(v.def.jobs[ji].place.split(" ")[1].left(5)), "пустую работу никто не заметил или реплика без места")
+	ok += _expect(fails, Game.director.badges(bot.id).has("fake"), "у замеченного нет улики «работал впустую»")
+	ok += _expect(fails, Game.director.evidence_text(bot).contains("впустую"), "в шторке нет улики словами")
+	# клевета: упырь говорит «впустую» про честного работника
+	if upyr != null and human != null:
+		var lie: ChatLine = null
+		for k in range(120):
+			var ls2 := Game.director.after_job(human.id, ji, true, true)
+			for l: ChatLine in ls2:
+				if l.speaker.is_upyr and l.speaker != human:
+					lie = l
+			if lie != null:
+				break
+		ok += _expect(fails, lie != null and Game.director.badges(human.id).has("fake"), "упыри не клевещут на честных работников")
+
+	# 10. Пузырь едет за говорящим
+	var speaker: Villager = m.alive_bots()[1]
+	var sf: VillagerFigure = cr.figures[speaker.id]
+	m.post(ChatLine.say(speaker, "Пойду-ка я за водой."))
+	await _frames(tree, 2)
+	sf.walk_to(sf.position + Vector2(-90, 20))
+	await _frames(tree, 3)
+	var bb: Bubbles.Bubble = null
+	for b: Bubbles.Bubble in Nav.bubbles.alive():
+		if b.who == speaker.name:
+			bb = b
+	var head := sf.head_global()
+	ok += _expect(fails, bb != null and absf(bb.anchor.x - head.x) < 1.0 and bb.rect.end.y <= head.y + 1.0, "пузырь не поехал за говорящим")
+	# двое из одного ряда, далеко друг от друга: пузыри рядом на одной высоте.
+	# Оба идут в одну точку — пузыри обязаны расступиться, а не лечь друг на друга
+	Nav.bubbles.clear()
+	var row: Array[Villager] = []
+	var row_y: float = cr.ring[m.alive_bots()[0].id].y
+	for b2: Villager in m.alive_bots():
+		if absf(cr.ring[b2.id].y - row_y) < 1.0:
+			cr.figures[b2.id].walk_to(cr.ring[b2.id])
+			row.append(b2)
+	await _frames(tree, 4)
+	# двое ближе всех к середине кадра — их пузыри стоят ровно над головами, а не прижаты к краю
+	var cx := vp.x * 0.5
+	row.sort_custom(func(a: Villager, c: Villager) -> bool:
+		return absf(cr.figures[a.id].head_global().x - cx) < absf(cr.figures[c.id].head_global().x - cx))
+	var pair: Array[Villager] = [row[0], row[1]]
+	for tv: Villager in pair:
+		m.post(ChatLine.say(tv, "Я тут."))
+		await _frames(tree, 1)
+	var meet := (cr.figures[pair[0].id].position + cr.figures[pair[1].id].position) * 0.5
+	for tv: Villager in pair:
+		(cr.figures[tv.id] as VillagerFigure).walk_to(meet)
+	await _frames(tree, 3)
+	var stacked := true
+	var live := Nav.bubbles.alive()
+	for i in range(live.size()):
+		for j in range(i + 1, live.size()):
+			if live[i].rect.grow(-1.0).intersects(live[j].rect.grow(-1.0)):
+				stacked = false
+	ok += _expect(fails, stacked and live.size() == 2, "говорящие сошлись — пузыри налезли друг на друга (пузырей %d)" % live.size())
+
+	# 11. Ночь: горит столько фонарей, сколько заправили; полные запасы — меньше гибели на улице
+	m.supply_done = m.supply_total
+	var full := m.outside_death_chance()
+	ok += _expect(fails, absf(m.config.outside_death_chance(m.day) - full - Match.SUPPLY_BONUS) < 0.001, "полные запасы не снижают шанс гибели на улице")
+	Game.end_day()
+	await _settle(tree)
+	if m.phase == Match.Phase.VOTE:
+		Game.vote(-1)
+		await _settle(tree)
+		Game.proceed()
+		await _settle(tree)
+	ok += _expect(fails, v.lamps_fueled == v.def.lamps.size(), "при полных запасах горят не все фонари (%d)" % v.lamps_fueled)
+	ok += _expect(fails, not v.jobs_layer.visible and v.follow == null, "ночью остались значки дел или камера следит")
+	ok += _expect(fails, v.scale.x < scale_day / 1.2, "ночью камера не отъехала (%.2f, днём %.2f)" % [v.scale.x, scale_day])
+	# новый день — запасы с нуля, пустые фонари ночью
+	Game.choose_house(0)
+	await _settle(tree)
+	if m.phase == Match.Phase.DOOR:
+		if Game.door_role() == Match.DoorRole.GUEST:
+			Game.plea("beg")
+			await _settle(tree)
+			Game.proceed()
+		else:
+			var none: Array[int] = []
+			Game.admit(none)
+		await _settle(tree)
+	if m.phase == Match.Phase.MORNING:
+		Game.proceed()
+		await _settle(tree)
+	if m.phase == Match.Phase.DAY:
+		ok += _expect(fails, m.supply_done == 0 and m.job_left[ji] == v.def.jobs[ji].portions, "новый день начался не с пустыми запасами")
+		Game.end_day()
+		await _settle(tree)
+		if m.phase == Match.Phase.VOTE:
+			Game.vote(-1)
+			await _settle(tree)
+			Game.proceed()
+			await _settle(tree)
+		if m.phase == Match.Phase.NIGHT:
+			ok += _expect(fails, v.lamps_fueled == 0, "без запасов ночью горят фонари (%d)" % v.lamps_fueled)
+
+	print("=== живой день: %d проверок ===" % (ok + fails.size()))
+	if fails.is_empty():
+		print("ИТОГ: OK — камера идёт за игроком, ходьба и дела работают, запасы зажигают фонари")
 		tree.quit(0)
 	else:
 		for f2: String in fails:

@@ -20,6 +20,8 @@ const SOUNDS := {
 	&"lose": "res://assets/sfx/lose.ogg",
 	&"reveal": "res://assets/sfx/reveal.ogg",
 	&"dawn": "res://assets/sfx/dawn.ogg",
+	&"job_done": "res://assets/sfx/job_done.ogg",
+	&"job_fail": "res://assets/sfx/job_fail.ogg",
 }
 const LOOPS := {
 	&"amb_day": "res://assets/sfx/amb_day.ogg",

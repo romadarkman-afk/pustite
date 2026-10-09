@@ -25,6 +25,7 @@ class Bubble:
 	var dying: bool = false
 	var order: int = 0
 	var text_w: float = 0.0
+	var fig: Node2D            ## кто говорит: пузырь едет за ним и за камерой
 
 var field: Rect2 = Rect2()
 var bubbles: Array[Bubble] = []
@@ -51,7 +52,7 @@ func alive() -> Array[Bubble]:
 
 
 ## Новая реплика. head — точка над головой говорящего в координатах экрана.
-func say(who: String, text: String, head: Vector2, mine: bool) -> Bubble:
+func say(who: String, text: String, head: Vector2, mine: bool, fig: Node2D = null) -> Bubble:
 	if field.size.x <= 0.0:
 		return null
 	for b: Bubble in bubbles:
@@ -87,6 +88,7 @@ func say(who: String, text: String, head: Vector2, mine: bool) -> Bubble:
 	b.tail_x = clampf(head.x, r.position.x + 14.0, r.end.x - 14.0)
 	b.life = clampf(2.2 + 0.055 * text.length(), 3.0, 7.0)
 	b.text_w = inner
+	b.fig = fig
 	_order += 1
 	b.order = _order
 	bubbles.append(b)
@@ -94,6 +96,27 @@ func say(who: String, text: String, head: Vector2, mine: bool) -> Bubble:
 		_kill(_oldest())
 	queue_redraw()
 	return b
+
+
+## Пузырь сдвинулся за говорящим и наехал на соседа — встать над ним; не влезает сверху —
+## под ним; не влезает нигде — уступить место и погаснуть раньше.
+func _unstack(b: Bubble) -> void:
+	for attempt in range(4):
+		var hit: Bubble = null
+		for o: Bubble in bubbles:
+			if o != b and not o.dying and o.rect.grow(GAP * 0.5).intersects(b.rect.grow(GAP * 0.5)):
+				hit = o
+				break
+		if hit == null:
+			return
+		var up := hit.rect.position.y - GAP - b.rect.size.y
+		if up >= field.position.y + 2.0:
+			b.rect.position.y = up
+		elif hit.rect.end.y + GAP + b.rect.size.y <= field.end.y - 4.0:
+			b.rect.position.y = hit.rect.end.y + GAP
+		else:
+			_kill(b if b.order < hit.order else hit)
+			return
 
 
 func _first_overlap(r: Rect2) -> Bubble:
@@ -122,6 +145,19 @@ func tick(delta: float) -> void:
 	if bubbles.is_empty():
 		return
 	var changed := false
+	for b: Bubble in bubbles:
+		if b.fig != null and is_instance_valid(b.fig) and b.fig.has_method("head_global"):
+			var h: Vector2 = b.fig.head_global()
+			var dv := h - b.anchor
+			if dv.length_squared() > 0.01:
+				b.anchor = h
+				b.rect.position += dv
+				# поле не покидает: если говорящий ушёл за край, пузырь ждёт у края со стрелкой
+				b.rect.position.x = clampf(b.rect.position.x, field.position.x + 4.0, field.end.x - 4.0 - b.rect.size.x)
+				b.rect.position.y = clampf(b.rect.position.y, field.position.y + 2.0, field.end.y - b.rect.size.y - 4.0)
+				_unstack(b)
+				b.tail_x = clampf(h.x, b.rect.position.x + 14.0, b.rect.end.x - 14.0)
+				changed = true
 	for b: Bubble in bubbles:
 		b.age += delta
 		if not b.dying and b.age >= b.life:
@@ -166,6 +202,13 @@ func _draw() -> void:
 		var tip := Vector2(b.tail_x, b.rect.end.y + 9.0)
 		draw_colored_polygon(PackedVector2Array([Vector2(b.tail_x - 7, b.rect.end.y - 1), Vector2(b.tail_x + 7, b.rect.end.y - 1), tip]), Color(bg, 0.96 * a))
 		draw_style_box(sb, b.rect)
+		# говорящий за краем кадра — стрелка в его сторону
+		if b.anchor.x < field.position.x or b.anchor.x > field.end.x:
+			var left := b.anchor.x < field.position.x
+			var ax := b.rect.position.x - 2.0 if left else b.rect.end.x + 2.0
+			var ay := b.rect.get_center().y
+			var d := -1.0 if left else 1.0
+			draw_colored_polygon(PackedVector2Array([Vector2(ax, ay - 8), Vector2(ax, ay + 8), Vector2(ax + d * 10.0, ay)]), Color(edge, a))
 		var x := b.rect.position.x + PAD.x
 		var y := b.rect.position.y + PAD.y
 		draw_string(_font, Vector2(x, y + _font.get_ascent(NAME_SIZE)), b.who, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE,

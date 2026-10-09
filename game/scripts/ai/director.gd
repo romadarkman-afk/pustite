@@ -9,6 +9,25 @@ const W_ALONE := 1.0       ## погас оберег, а он цел
 const W_DEATH_ROOM := 2.2  ## ночевал там, где кто-то умер
 const W_LIAR := 1.3        ## сказал одно, сделал другое
 const W_CLEAN := 0.4       ## тихая ночь слегка обеляет
+const W_FAKE := 0.6        ## стоял у дела, а запасов не прибавилось
+
+## Дела по посёлку. Люди работают по-настоящему и изредка срываются;
+## упыри делают вид и чаще всего впустую. Сосед может это заметить.
+const WORK_SEC := 8.0      ## дорога к делу и работа бота
+const HUMAN_FAIL := 0.15   ## ведро сорвалось — у человека тоже бывает
+const UPYR_REAL := 0.6    ## упырь доделывает дело по-настоящему чуть больше чем в половине случаев
+const NOTICE_P := 0.25      ## шанс, что каждый отдельный сосед заметит пустую работу
+const DONE_LINE_P := 0.25  ## шанс, что житель похвастается сделанным
+const LIE_P := 0.2         ## шанс, что упырь оболжёт честного работника: «работал впустую»
+
+
+class JobTask:
+	var vid: int
+	var job: int
+	var start: float
+	var real: bool
+	var started := false
+	var done := false
 
 var m: Match
 var rng := RandomNumberGenerator.new()
@@ -64,7 +83,7 @@ func eye_level(vid: int) -> int:
 func badges(vid: int) -> PackedStringArray:
 	var out := PackedStringArray()
 	var ev: Dictionary = evidence.get(vid, {})
-	for k: String in ["death", "street", "liar"]:
+	for k: String in ["death", "street", "liar", "fake"]:
 		if int(ev.get(k, 0)) > 0:
 			out.append(k)
 	return out
@@ -81,7 +100,114 @@ func evidence_text(v: Villager) -> String:
 		parts.append(Ru.g(v, "соврал", "соврала", "соврали") + ", где ночует")
 	if int(ev.get("death", 0)) > 0:
 		parts.append(Ru.g(v, "был", "была", "были") + " рядом, когда кто-то погиб")
+	if int(ev.get("fake", 0)) > 0:
+		parts.append(Ru.g(v, "работал", "работала", "работали") + " впустую")
 	return "; ".join(parts)
+
+
+# =============================================================
+# Дела по посёлку
+# =============================================================
+## План дел ботов на день: кто, какое дело, с какой секунды дня, по-настоящему или нет.
+## Боты оставляют пару порций игроку — иначе ему нечего делать.
+func plan_jobs(day_sec: float) -> Array[JobTask]:
+	var out: Array[JobTask] = []
+	if m.jobs.is_empty():
+		return out
+	var load: Array[int] = []
+	load.resize(m.jobs.size())
+	var cap := maxi(0, m.supply_total - 2)
+	var planned := 0
+	for bot: Villager in m.alive_bots():
+		var n := 0
+		if bot.is_upyr:
+			n = 1 if rng.randf() < 0.75 else 0
+		elif rng.randf() < 0.8:
+			n = 2 if rng.randf() < 0.35 else 1
+		var t := rng.randf_range(6.0, maxf(8.0, day_sec * 0.45))
+		for k in range(n):
+			if t > day_sec - WORK_SEC - 3.0 or planned >= cap:
+				break
+			var ji := _pick_job(load)
+			if ji < 0:
+				break
+			load[ji] += 1
+			planned += 1
+			var task := JobTask.new()
+			task.vid = bot.id
+			task.job = ji
+			task.start = t
+			task.real = rng.randf() < (UPYR_REAL if bot.is_upyr else 1.0 - HUMAN_FAIL)
+			out.append(task)
+			t += WORK_SEC + rng.randf_range(6.0, 14.0)
+	out.sort_custom(func(a: JobTask, b: JobTask) -> bool: return a.start < b.start)
+	return out
+
+
+func _pick_job(load: Array[int]) -> int:
+	var total := 0
+	for i in range(m.jobs.size()):
+		total += maxi(0, m.jobs[i].portions - load[i])
+	if total <= 0:
+		return -1
+	var r := rng.randi_range(1, total)
+	for i in range(m.jobs.size()):
+		r -= maxi(0, m.jobs[i].portions - load[i])
+		if r <= 0:
+			return i
+	return -1
+
+
+## Дело закончено. counted — запасы выросли. Пустая работа (упырь или сорвалось)
+## может попасться соседу на глаза: улика «работал впустую» и реплика вслух.
+func after_job(vid: int, ji: int, counted: bool, real: bool) -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	var worker := m.get_villager(vid)
+	if worker == null or not worker.alive or ji < 0 or ji >= m.jobs.size():
+		return out
+	var job: JobDef = m.jobs[ji]
+	if counted:
+		if not worker.is_player and rng.randf() < DONE_LINE_P:
+			out.append(ChatLine.say(worker, job.done_line))
+		# упырь клевещет на честного: игрок, видевший «+1» над делом, может поймать его на лжи
+		if not worker.is_upyr and rng.randf() < LIE_P:
+			var liars: Array[Villager] = []
+			for b: Villager in m.alive_bots():
+				if b.is_upyr and b != worker:
+					liars.append(b)
+			if not liars.is_empty():
+				out.append(_blame_fake(liars[rng.randi_range(0, liars.size() - 1)], worker, job))
+		return out
+	if real or worker.is_player:
+		return out
+	for o: Villager in m.alive_bots():
+		if o == worker or rng.randf() >= NOTICE_P:
+			continue
+		out.append(_blame_fake(o, worker, job))
+		break
+	return out
+
+
+## Сказать вслух «работал впустую» — честно или облыжно. Посёлок верит на слово.
+func _blame_fake(speaker: Villager, worker: Villager, job: JobDef) -> ChatLine:
+	_bump(worker.id, W_FAKE)
+	_note_evidence(worker.id, "fake")
+	if worker.is_player:
+		return ChatLine.say(speaker, Phrases.pick(Phrases.JOB_FAKE_AT_PLAYER, rng, {"place": job.place, "me_f": speaker.female}))
+	return _say(speaker, Phrases.JOB_FAKE, worker, {"place": job.place})
+
+
+## Для прогона без экрана: все дела дня разом. Игрок делает одно дело с шансом 50%.
+func run_jobs_instant(tasks: Array[JobTask]) -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	var me := m.player()
+	if me.alive and not m.jobs.is_empty() and rng.randf() < 0.5:
+		var pj := rng.randi_range(0, m.jobs.size() - 1)
+		out.append_array(after_job(me.id, pj, m.do_job(me, pj, true), true))
+	for t: JobTask in tasks:
+		var counted := m.do_job(m.get_villager(t.vid), t.job, t.real)
+		out.append_array(after_job(t.vid, t.job, counted, t.real))
+	return out
 
 
 func _bump(vid: int, w: float) -> void:

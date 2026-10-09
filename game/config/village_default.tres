@@ -1,7 +1,8 @@
-[gd_resource type="Resource" script_class="VillageDef" load_steps=12 format=3]
+[gd_resource type="Resource" script_class="VillageDef" load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://scripts/village/village_def.gd" id="1_village"]
 [ext_resource type="Script" path="res://scripts/village/house_def.gd" id="2_house"]
+[ext_resource type="Script" path="res://scripts/village/job_def.gd" id="3_job"]
 
 [sub_resource type="Resource" id="house_0"]
 script = ExtResource("2_house")
@@ -66,6 +67,61 @@ kind = 5
 pos = Vector2(690, 218)
 size = Vector2(72, 56)
 
+[sub_resource type="Resource" id="job_water"]
+script = ExtResource("3_job")
+id = &"water"
+title = "Натаскать воды"
+place = "у колодца"
+done_line = "Воды до утра хватит."
+kind = 0
+pos = Vector2(406, 402)
+portions = 3
+work_sec = 3.0
+
+[sub_resource type="Resource" id="job_wood"]
+script = ExtResource("3_job")
+id = &"wood"
+title = "Нарубить дров"
+place = "у поленницы"
+done_line = "Дров на всю ночь."
+kind = 1
+pos = Vector2(596, 402)
+portions = 2
+work_sec = 3.5
+
+[sub_resource type="Resource" id="job_lamp"]
+script = ExtResource("3_job")
+id = &"lamp"
+title = "Заправить фонари"
+place = "у фонаря"
+done_line = "Фонари заправлены."
+kind = 2
+pos = Vector2(234, 366)
+portions = 2
+work_sec = 3.0
+
+[sub_resource type="Resource" id="job_talisman"]
+script = ExtResource("3_job")
+id = &"talisman"
+title = "Подправить оберег"
+place = "у оберега"
+done_line = "Оберег как новый."
+kind = 3
+pos = Vector2(160, 334)
+portions = 1
+work_sec = 4.0
+
+[sub_resource type="Resource" id="job_fish"]
+script = ExtResource("3_job")
+id = &"fish"
+title = "Наловить рыбы"
+place = "у реки"
+done_line = "Рыба на ужин есть."
+kind = 4
+pos = Vector2(110, 428)
+portions = 2
+work_sec = 3.5
+
 [resource]
 script = ExtResource("1_village")
 shelters = Array[ExtResource("2_house")]([SubResource("house_0"), SubResource("house_1"), SubResource("house_2"), SubResource("house_3"), SubResource("house_4")])
@@ -75,3 +131,4 @@ well = Vector2(360, 384)
 square_center = Vector2(360, 392)
 square_radii = Vector2(270, 100)
 river = true
+jobs = Array[ExtResource("3_job")]([SubResource("job_water"), SubResource("job_wood"), SubResource("job_lamp"), SubResource("job_talisman"), SubResource("job_fish")])

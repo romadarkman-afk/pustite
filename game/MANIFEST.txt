@@ -51,12 +51,15 @@ scripts/ui/screens/prologue_screen.gd
 scripts/ui/screens/settings_screen.gd
 scripts/ui/screens/vote_screen.gd
 scripts/ui/scrim.gd
+scripts/ui/supplies_badge.gd
 scripts/ui/text_sheet.gd
 scripts/ui/theme_factory.gd
 scripts/ui/w.gd
 scripts/village/art.gd
 scripts/village/crowd.gd
 scripts/village/house_def.gd
+scripts/village/job_def.gd
+scripts/village/job_layer.gd
 scripts/village/look_book.gd
 scripts/village/look_def.gd
 scripts/village/village_def.gd

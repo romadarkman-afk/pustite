@@ -38,6 +38,9 @@ var _emotion_t: float = 0.0
 var _talk_t: float = 0.0
 var _point_dir: float = 0.0
 var _last_face: String = ""
+var working := false        ## занят делом: работает в охотку
+
+const WALK_SPEED := 190.0   ## единиц посёлка в секунду
 
 
 func setup(name: String, l: LookDef, player: bool) -> void:
@@ -93,6 +96,8 @@ func current_face() -> String:
 		return emotion
 	if _talk_t > 0.0:
 		return "talk" if fmod(_t * 6.0, 1.0) < 0.5 else "normal"
+	if working:
+		return "happy"
 	if _eyes_closed:
 		return "blink"
 	if night > 0.6:
@@ -211,6 +216,17 @@ func run_to(target: Vector2, dur: float = 0.75) -> void:
 		arrived.emit())
 
 
+## Идти шагом с постоянной скоростью — длина пути решает, сколько идти.
+func walk_to(target: Vector2) -> void:
+	run_to(target, clampf(position.distance_to(target) / WALK_SPEED, 0.25, 4.0))
+
+
+func set_working(on: bool) -> void:
+	if working != on:
+		working = on
+		body.queue_redraw()
+
+
 func scare(seconds: float = 1.2) -> void:
 	if state != State.IDLE:
 		return
@@ -282,6 +298,12 @@ func _process(delta: float) -> void:
 		body.queue_redraw()
 	match state:
 		State.IDLE:
+			if working:
+				var w := sin(_t * 9.0 + _phase)
+				body.scale = Vector2(_face * (1.0 - 0.06 * w), 1.0 + 0.08 * w)
+				body.position.y = -absf(w) * 2.0
+				return
+			body.position.y = 0.0
 			var s := sin(_t * 1.7 + _phase)
 			body.scale = Vector2(_face * (1.0 - 0.02 * s), 1.0 + 0.03 * s)
 			_blink_in -= delta

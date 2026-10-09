@@ -5,6 +5,7 @@ extends Screen
 ## и раскрывается по касанию — чтобы перечитать, кто что говорил.
 
 var journal_button: Button
+var supplies: SuppliesBadge
 var journal_preview: Label
 
 
@@ -40,6 +41,11 @@ func mood() -> Vector2:
 func build() -> void:
 	Diag.step("день-экран: сборка")
 	enable_field_taps()
+	if field_spacer != null:
+		supplies = SuppliesBadge.new()
+		field_spacer.add_child(supplies)
+		supplies.position = Vector2(20, 64)
+		update_supplies()
 	var jr := W.hbox(10)
 	journal_button = W.button("Журнал", &"Quick")
 	journal_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -86,12 +92,22 @@ func build() -> void:
 	footer.add_child(row)
 
 
+## Днём камера ближе: жители крупнее, камера идёт за тобой.
+func field_zoom() -> float:
+	return 1.3
+
+
+func update_supplies() -> void:
+	if is_instance_valid(supplies) and m != null:
+		supplies.set_value(m.supply_done, m.supply_total)
+
+
 func hint_id() -> String:
 	return "day"
 
 
 func hint_text() -> String:
-	return "Нажми на жителя на площади: обвини, позови с собой или спроси, где ночует."
+	return "Нажми на жителя: обвини, позови с собой или спроси, где ночует. Нажми на значок дела — запасы зажгут фонари ночью."
 
 
 func hint_target() -> Rect2:

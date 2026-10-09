@@ -80,6 +80,12 @@ func heart() -> bool:
 	return false
 
 
+## Переопределяется: во сколько раз приблизить посёлок на этом экране.
+## Днём камера ближе и идёт за игроком; в остальных фазах посёлок виден целиком.
+func field_zoom() -> float:
+	return 1.0
+
+
 ## Переопределяется: за сколько секунд посёлок переходит к настроению этого экрана.
 func mood_duration() -> float:
 	return 0.6
@@ -218,6 +224,25 @@ func set_clock(seconds: int) -> void:
 		Sfx.play(&"tick")
 
 
+## Тёмная полупрозрачная капсула под текстом шапки — читается на любом небе.
+func _capsule(inner: Control) -> Control:
+	var p := PanelContainer.new()
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.05, 0.1, 0.6)
+	sb.border_color = Color(1, 1, 1, 0.16)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(22)
+	sb.content_margin_left = 18
+	sb.content_margin_right = 18
+	sb.content_margin_top = 5
+	sb.content_margin_bottom = 5
+	p.add_theme_stylebox_override("panel", sb)
+	p.add_child(inner)
+	return p
+
+
 func scroll_to_end() -> void:
 	if not is_inside_tree():
 		await ready
@@ -233,24 +258,33 @@ func _chrome() -> void:
 	add_child(col)
 
 	if title() != "":
+		# над полем шапка лежит на небе — днём оно светлое, поэтому заголовок и часы в тёмных капсулах
+		var over_sky := field_ratio() > 0.0
 		var bar := W.hbox(14)
+		var left := W.hbox(12)
 		var t := W.label(title(), &"Body")
 		_title_label = t
 		t.autowrap_mode = TextServer.AUTOWRAP_OFF
-		bar.add_child(t)
+		left.add_child(t)
 		if m != null and m.config != null:
 			var marks := W.hbox(7)
 			marks.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			for i in range(m.config.nights):
 				var dot := ColorRect.new()
 				dot.custom_minimum_size = Vector2(10, 10)
-				dot.color = ThemeFactory.LAMP_D if i + 1 < m.day else (ThemeFactory.LAMP if i + 1 == m.day else ThemeFactory.EDGE)
+				dot.color = ThemeFactory.LAMP_D if i + 1 < m.day else (ThemeFactory.LAMP if i + 1 == m.day else Color(1, 1, 1, 0.3))
 				marks.add_child(dot)
-			bar.add_child(marks)
+			left.add_child(marks)
+		bar.add_child(_capsule(left) if over_sky else left)
+		var gap := Control.new()
+		gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bar.add_child(gap)
 		_clock = W.label("", &"Clock")
 		_clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		_clock.autowrap_mode = TextServer.AUTOWRAP_OFF
-		bar.add_child(_clock)
+		_clock.custom_minimum_size = Vector2(62, 0)
+		bar.add_child(_capsule(_clock) if over_sky else _clock)
 		col.add_child(bar)
 
 	if field_ratio() > 0.0:

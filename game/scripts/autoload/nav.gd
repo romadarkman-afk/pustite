@@ -17,6 +17,7 @@ var host: ScreenHost
 var _toast: Label
 var _exit_armed := false
 var _started := false
+var _walk_gen := 0                 ## каждая новая прогулка игрока отменяет прежнюю цель
 
 
 func _ready() -> void:
@@ -80,6 +81,10 @@ func _ready() -> void:
 
 	Game.phase_entered.connect(_on_phase)
 	Game.marks_changed.connect(func() -> void: village.crowd.update_marks(Game.director, Game.m))
+	Game.job_started.connect(_on_job_started)
+	Game.job_finished.connect(_on_job_finished)
+	Game.player_job_changed.connect(_on_player_job)
+	Game.supplies_changed.connect(_on_supplies)
 	Game.chat_line.connect(_on_chat)
 	Game.clock_ticked.connect(func(s: int) -> void:
 		if host.current != null:
@@ -206,13 +211,20 @@ func _frame_field(s: Screen) -> void:
 	if visible_field:
 		var r := s.field_rect_local()
 		r.position += host.global_position
-		village.frame_to(r, ui.size.x, dur)
+		var me_fig: VillagerFigure = village.crowd.figures.get(0) if Game.m != null else null
+		var is_day := s is DayScreen and me_fig != null
+		village.follow = me_fig if is_day and Game.m.player().alive else null
+		village.frame_to(r, ui.size.x, dur, s.field_zoom(), me_fig.position.x if is_day else -1.0)
+		village.jobs_layer.m = Game.m
+		village.jobs_layer.visible = is_day
 		bubbles.field = r
 		village.set_mood(s.mood().x, 0.0 if Juice.instant else s.mood_duration())
 		_tween_to(village, "modulate:a", 1.0, dur)
 		_tween_to(scrim, "top", r.end.y, dur)
 		_tween_to(scrim, "strength", 1.0, dur)
 	else:
+		village.follow = null
+		village.jobs_layer.visible = false
 		_tween_to(village, "modulate:a", 0.0, dur * 0.6)
 		_tween_to(scrim, "strength", 0.0, dur * 0.6)
 	field_screen = s
@@ -233,6 +245,9 @@ func _on_phase(phase: Match.Phase) -> void:
 		village.crowd.populate(Game.m)
 		village.crowd.update_marks(Game.director, Game.m)
 	village.crowd.sync(Game.m, phase)
+	# ночью горит столько фонарей, сколько заправили днём
+	var night_phase := phase == Match.Phase.NIGHT or phase == Match.Phase.DOOR
+	village.set_lamps_fueled(roundi(Game.m.supplies() * village.def.lamps.size()) if night_phase else 99)
 	# метка «Вы»: в первых трёх партиях всегда, потом — только в прологе
 	village.crowd.set_player_highlight(phase == Match.Phase.PROLOGUE or int(Save.stats["games"]) < 3)
 	match phase:
@@ -294,7 +309,7 @@ func _on_chat(line: ChatLine) -> void:
 		(host.current as DayScreen).append_line(line)
 		if line.speaker != null and village.crowd.figures.has(line.speaker.id):
 			var f: VillagerFigure = village.crowd.figures[line.speaker.id]
-			var b := bubbles.say(Ru.nom(line.speaker), line.text, f.head_global(), line.speaker.is_player)
+			var b := bubbles.say(Ru.nom(line.speaker), line.text, f.head_global(), line.speaker.is_player, f)
 			f.talk(b.life if b != null else 2.5)
 			Sfx.voice(line.speaker.id, line.speaker.female, line.text.length())
 			_react_to_accusation(line)
@@ -376,7 +391,16 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 					(sender as NightScreen).select_house(hi)
 				return
 			var vid := village.crowd.figure_at(data.pos)
-			if vid < 0 or Game.m == null:
+			if Game.m == null:
+				return
+			if vid < 0:
+				if sender is DayScreen and Game.m.player().alive and Game.m.phase == Match.Phase.DAY:
+					var ji := village.jobs_layer.job_at(data.pos)
+					if ji >= 0:
+						_hint_done(sender, action)
+						go_work(ji)
+					else:
+						walk_player(data.pos)
 				return
 			var v := Game.m.get_villager(vid)
 			_hint_done(sender, action)
@@ -385,6 +409,77 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			Sfx.play(&"tap")
 			if v.alive and not v.is_player and sender is DayScreen:
 				(sender as DayScreen).person_actions(v)
+
+
+# =============================================================
+# Ходьба и дела днём
+# =============================================================
+## Игрок идёт в точку на поле (координаты экрана). Работу, если была, бросает.
+func walk_player(global_pos: Vector2) -> void:
+	var cr := village.crowd
+	if not cr.figures.has(0):
+		return
+	_walk_gen += 1
+	Game.cancel_player_job()
+	cr.at_job.erase(0)
+	var target := cr.walk_clamp(village.to_local(global_pos))
+	(cr.figures[0] as VillagerFigure).walk_to(target)
+
+
+## Игрок идёт к делу и, дойдя, берётся за него.
+func go_work(ji: int) -> void:
+	var cr := village.crowd
+	if Game.m == null or not cr.figures.has(0):
+		return
+	if not Game.m.job_available(ji):
+		toast("«%s» — на сегодня уже сделано" % Game.m.jobs[ji].title)
+		return
+	_walk_gen += 1
+	var gen := _walk_gen
+	Game.cancel_player_job()
+	var f: VillagerFigure = cr.figures[0]
+	var spot := cr.job_spot(ji, 0)
+	cr.at_job[0] = ji
+	Sfx.play(&"tap")
+	f.arrived.connect(func() -> void:
+		if gen == _walk_gen and Game.m != null and Game.m.phase == Match.Phase.DAY:
+			if not Game.start_player_job(ji):
+				toast("«%s» — на сегодня уже сделано" % Game.m.jobs[ji].title), CONNECT_ONE_SHOT)
+	f.walk_to(spot)
+
+
+func _on_job_started(vid: int, ji: int) -> void:
+	if vid != 0:
+		village.crowd.send_to_job(vid, ji)
+
+
+func _on_job_finished(vid: int, ji: int, counted: bool, real: bool) -> void:
+	var kind := "done" if counted else ("fail" if not real else "none")
+	village.jobs_layer.pop(ji, kind)
+	Sfx.play(&"job_done" if counted else &"job_fail", 1.0, 0.0 if vid == 0 else -9.0)
+	if vid == 0:
+		village.crowd.at_job.erase(0)
+		if counted:
+			Juice.haptic(Juice.Haptic.SUCCESS)
+	else:
+		village.crowd.leave_job(vid)
+
+
+func _on_player_job() -> void:
+	var cr := village.crowd
+	if cr.figures.has(0):
+		(cr.figures[0] as VillagerFigure).set_working(Game.player_job >= 0)
+	village.jobs_layer.set_progress(Game.player_job, Game.player_job_progress())
+
+
+func _on_supplies() -> void:
+	if host.current is DayScreen:
+		(host.current as DayScreen).update_supplies()
+
+
+func _process(_delta: float) -> void:
+	if Game.player_job >= 0 and village != null and village.jobs_layer.visible:
+		village.jobs_layer.set_progress(Game.player_job, Game.player_job_progress())
 
 
 # =============================================================

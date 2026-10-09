@@ -36,6 +36,15 @@ var _stones: PackedVector3Array = PackedVector3Array()
 var _tree_spots: PackedVector3Array = PackedVector3Array()
 var _grass: PackedVector2Array = PackedVector2Array()
 var _lamp_lights: Array[PointLight2D] = []
+
+## Камера. Днём приближена и следует за игроком по горизонтали; в остальных фазах
+## показывает посёлок целиком. Двигается только узел: посёлок от этого не перерисовывается.
+var follow: Node2D                         ## за кем следит камера; null — стоит на месте
+var cam_x: float = 360.0                   ## какая точка посёлка по горизонтали в центре кадра
+var _vp_w: float = 720.0
+var _framing := false                      ## идёт переход кадра — камера не дёргается
+var lamps_fueled: int = 99                 ## сколько фонарей заправлено на эту ночь
+var jobs_layer: JobLayer
 var _tw_frame: Tween
 var _tw_night: Tween
 var _t: float = 0.0
@@ -58,6 +67,10 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	crowd.view = self
 	crowd.book = load("res://config/looks.tres") as LookBook
 	add_child(crowd)
+	jobs_layer = JobLayer.new()
+	jobs_layer.view = self
+	jobs_layer.visible = false
+	add_child(jobs_layer)
 	set_open_count(open)
 
 
@@ -103,23 +116,66 @@ func set_mood(v: float, dur: float) -> void:
 
 
 ## Вписать полосу с домами в прямоугольник поля. vp_w — ширина экрана.
-func frame_to(rect: Rect2, vp_w: float, dur: float) -> void:
-	var s := minf(vp_w / (LOGICAL.x * SIDE_VISIBLE), rect.size.y / BAND.size.y)
+## Кадрировать поле в прямоугольник экрана rect. zoom > 1 — приблизить посёлок
+## (по высоте он всё равно поместится в поле), камера встаёт на focus_x.
+func frame_to(rect: Rect2, vp_w: float, dur: float, zoom: float = 1.0, focus_x: float = -1.0) -> void:
+	var base := minf(vp_w / (LOGICAL.x * SIDE_VISIBLE), rect.size.y / BAND.size.y)
+	var s := minf(base * zoom, rect.size.y / BAND.size.y)
 	s = maxf(s, 0.5)
+	_vp_w = vp_w
+	if focus_x >= 0.0:
+		cam_x = focus_x
+	elif zoom <= 1.0:
+		cam_x = LOGICAL.x * 0.5
+	cam_x = _clamp_cam(cam_x, s)
 	# поле выше полосы с домами: лишнее место уходит в основном в небо (3/4 сверху),
 	# а не в пустую траву под толпой
 	var extra := maxf(0.0, rect.size.y - BAND.size.y * s)
-	var target := Vector2(vp_w * 0.5 - LOGICAL.x * 0.5 * s,
-		rect.position.y + extra * SKY_SHARE - BAND.position.y * s)
+	var target := Vector2(vp_w * 0.5 - cam_x * s, rect.position.y + extra * SKY_SHARE - BAND.position.y * s)
 	if _tw_frame != null:
 		_tw_frame.kill()
 	if dur <= 0.0:
 		position = target
 		scale = Vector2(s, s)
+		_framing = false
 		return
+	_framing = true
 	_tw_frame = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_tw_frame.tween_property(self, "position", target, dur)
 	_tw_frame.tween_property(self, "scale", Vector2(s, s), dur)
+	_tw_frame.chain().tween_callback(func() -> void: _framing = false)
+
+
+## Центр кадра не уводит камеру за края посёлка.
+func _clamp_cam(x: float, s: float) -> float:
+	var half := _vp_w / (2.0 * s)
+	var lo := half - 20.0
+	var hi := LOGICAL.x - half + 20.0
+	if lo >= hi:
+		return LOGICAL.x * 0.5
+	return clampf(x, lo, hi)
+
+
+## Камера мягко догоняет того, за кем следит.
+func _follow_step(delta: float) -> void:
+	if follow == null or not is_instance_valid(follow) or _framing:
+		return
+	var want := _clamp_cam(follow.position.x, scale.x)
+	if absf(want - cam_x) < 0.05:
+		return
+	cam_x = want if Juice.instant else lerpf(cam_x, want, 1.0 - exp(-5.0 * delta))
+	position.x = _vp_w * 0.5 - cam_x * scale.x
+
+
+## Ночью горит столько фонарей, сколько заправили днём.
+func set_lamps_fueled(n: int) -> void:
+	if n != lamps_fueled:
+		lamps_fueled = n
+		queue_redraw()
+
+
+func _lamp_fuel(i: int) -> float:
+	return 1.0 if i < lamps_fueled else 0.0
 
 
 func set_selected_house(i: int) -> void:
@@ -174,14 +230,15 @@ func band_global_rect() -> Rect2:
 
 
 func _process(delta: float) -> void:
+	_follow_step(delta)
 	_t += delta
 	for i in range(_lamp_lights.size()):
-		var on_l := _lamp_on(i, night)
+		var on_l := _lamp_on(i, night) * _lamp_fuel(i)
 		_lamp_lights[i].visible = on_l > 0.01
 		_lamp_lights[i].energy = 0.9 * on_l
 	for i in range(_lamp_glows.size()):
 		var g := _lamp_glows[i]
-		var on := _lamp_on(i, night)
+		var on := _lamp_on(i, night) * _lamp_fuel(i)
 		var flick := 0.88 + 0.12 * sin(_t * 7.3 + i * 1.9) * sin(_t * 3.1 + i)
 		if on > 0.0 and on < 1.0 and randf() < 0.35:
 			flick *= 0.15               # включение: лампа пару раз мигает
@@ -273,9 +330,10 @@ func _draw() -> void:
 		if h.pos.y > def.well.y:
 			continue
 		Art.house(self, h.kind, h.pos, h.size.x, h.size.y, it[2], n, _lit(h, n), it[1])
+	_draw_props(n, k)
 	_draw_well(n, k)
 	for li2 in range(def.lamps.size()):
-		_draw_lamp_post(def.lamps[li2], n, _lamp_on(li2, n))
+		_draw_lamp_post(def.lamps[li2], n, _lamp_on(li2, n) * _lamp_fuel(li2))
 	for it: Array in items:
 		var h: HouseDef = it[0]
 		if h.pos.y <= def.well.y:
@@ -352,6 +410,41 @@ func _draw_square(n: float, k: Color) -> void:
 		var dir := (h.pos - c).normalized()
 		var a := c + Vector2(dir.x * def.square_radii.x, dir.y * def.square_radii.y) * 0.92
 		draw_line(a, h.pos + Vector2(0, 2), path, 15.0, true)
+
+
+## Реквизит дел: поленница и мостки с ведром у реки. Остальные дела — у колодца,
+## фонаря и оберега, которые и так стоят на карте.
+func _draw_props(n: float, k: Color) -> void:
+	for j: JobDef in def.jobs:
+		match j.kind:
+			JobDef.Kind.WOOD:
+				var b := j.pos + Vector2(26, -2)
+				var wood := Art.dn(Color("b07a4a"), n)
+				var cut := Art.dn(Color("e8c590"), n)
+				draw_colored_polygon(Art.ellipse(b + Vector2(0, 3), Vector2(30, 7)), Color(0, 0, 0, 0.22))
+				for row in range(3):
+					for c in range(3 - row):
+						var lc := b + Vector2(-17 + c * 17 + row * 8.5, -8 - row * 14)
+						Art.shape(self, Art.ellipse(lc, Vector2(8.5, 7.5), 12), wood, k, 2.2)
+						Art.shape(self, Art.ellipse(lc, Vector2(4.5, 4.0), 10), cut, Color(k, 0.5), 1.2)
+				# колода с топором
+				var st := b + Vector2(-44, 0)
+				Art.shape(self, Art.rrect(Rect2(st.x - 10, st.y - 14, 20, 14), 4), wood.darkened(0.15), k, 2.2)
+				draw_line(st + Vector2(-2, -14), st + Vector2(10, -32), k, 4.0, true)
+				draw_line(st + Vector2(-2, -14), st + Vector2(10, -32), Art.dn(Color("8a5a3a"), n), 2.4, true)
+				Art.shape(self, PackedVector2Array([st + Vector2(6, -34), st + Vector2(18, -30), st + Vector2(14, -24), st + Vector2(4, -27)]), Art.dn(Color("c8c8d0"), n), k, 1.8)
+			JobDef.Kind.FISH:
+				var b2 := j.pos + Vector2(-30, 6)
+				var plank := Art.dn(Color("c8925e"), n)
+				Art.shape(self, Art.rrect(Rect2(b2.x - 40, b2.y - 8, 52, 12), 4), plank, k, 2.2)
+				for px in [-34.0, 2.0]:
+					draw_line(b2 + Vector2(px, 4), b2 + Vector2(px, 16), k, 4.0, true)
+				# ведро с рыбой
+				var bk := j.pos + Vector2(22, 0)
+				Art.shape(self, PackedVector2Array([bk + Vector2(-9, -16), bk + Vector2(9, -16), bk + Vector2(7, 0), bk + Vector2(-7, 0)]), Art.dn(Color("9aa6b2"), n), k, 2.2)
+				draw_arc(bk + Vector2(0, -16), 9, PI, TAU, 10, k, 1.6, true)
+			_:
+				pass
 
 
 func _draw_well(n: float, k: Color) -> void:

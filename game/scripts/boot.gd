@@ -1,8 +1,8 @@
 extends Control
 ## Точка входа. Логотип ровно 1 секунду → меню. Тап — пропустить.
-## Для сборки здесь же запускаются самотесты: --sim, --flow, --layout, --lifecycle, --field, --crowd, --bubbles, --marks, --input, --hints, --difficulty, --howto, --night, --sound.
+## Для сборки здесь же запускаются самотесты: --sim, --flow, --layout, --lifecycle, --field, --crowd, --bubbles, --marks, --input, --hints, --difficulty, --howto, --night, --sound, --village.
 
-const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--sound"]
+const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--sound", "--village"]
 const TEST_TIMEOUT_SEC := 240.0
 const LOGO_SEC := 1.0
 
@@ -88,6 +88,10 @@ func _run_test(flag: String) -> void:
 			Juice.instant = true
 			Nav.start()
 			SelfTest.sound()
+		"--village":
+			Juice.instant = true
+			Nav.start()
+			SelfTest.village()
 
 
 # ---------------------------------------------------------------
