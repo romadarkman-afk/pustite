@@ -132,7 +132,7 @@ jobs:
             echo "::error title=Не хватает файлов в game::Не загрузились: $(echo $missing). Загрузите папку game заново целиком."
           fi
           [ -z "$extra" ] && [ -z "$missing" ] || exit 1
-          for flag in sim flow layout lifecycle field crowd bubbles marks input hints difficulty howto night sound village; do
+          for flag in sim flow layout lifecycle field crowd bubbles marks input hints difficulty howto night sound village talisman bell; do
             grep -q -- "\"--$flag\"" scripts/boot.gd || { echo "::error::В scripts/boot.gd нет режима --$flag."; exit 1; }
           done
           echo "Комплект совпадает с описью: $(wc -l < /tmp/expected.txt) файлов"
@@ -289,6 +289,26 @@ jobs:
           timeout 300 godot --headless --path game -- --village 2>&1 | tee /tmp/village.log
           if grep -q "SCRIPT ERROR" /tmp/village.log; then
             echo "::error title=Ошибки скриптов::Во время самотеста --village в логе есть SCRIPT ERROR — см. выше."
+            exit 1
+          fi
+
+      - name: Самотест оберегов (слабеют, чинятся, тварь у расколотого)
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          timeout 300 godot --headless --path game -- --talisman 2>&1 | tee /tmp/talisman.log
+          if grep -q "SCRIPT ERROR" /tmp/talisman.log; then
+            echo "::error title=Ошибки скриптов::Во время самотеста --talisman в логе есть SCRIPT ERROR — см. выше."
+            exit 1
+          fi
+
+      - name: Самотест колокола (бег до дома, очередь по прибытию)
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          timeout 300 godot --headless --path game -- --bell 2>&1 | tee /tmp/bell.log
+          if grep -q "SCRIPT ERROR" /tmp/bell.log; then
+            echo "::error title=Ошибки скриптов::Во время самотеста --bell в логе есть SCRIPT ERROR — см. выше."
             exit 1
           fi
 
