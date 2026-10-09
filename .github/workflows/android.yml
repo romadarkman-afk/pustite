@@ -132,7 +132,7 @@ jobs:
             echo "::error title=Не хватает файлов в game::Не загрузились: $(echo $missing). Загрузите папку game заново целиком."
           fi
           [ -z "$extra" ] && [ -z "$missing" ] || exit 1
-          for flag in sim flow layout lifecycle field crowd bubbles marks input hints difficulty howto night sound village talisman bell; do
+          for flag in sim flow layout lifecycle field crowd bubbles marks input hints difficulty howto night sound village talisman bell events mimic sabotage box; do
             grep -q -- "\"--$flag\"" scripts/boot.gd || { echo "::error::В scripts/boot.gd нет режима --$flag."; exit 1; }
           done
           echo "Комплект совпадает с описью: $(wc -l < /tmp/expected.txt) файлов"
@@ -309,6 +309,46 @@ jobs:
           timeout 300 godot --headless --path game -- --bell 2>&1 | tee /tmp/bell.log
           if grep -q "SCRIPT ERROR" /tmp/bell.log; then
             echo "::error title=Ошибки скриптов::Во время самотеста --bell в логе есть SCRIPT ERROR — см. выше."
+            exit 1
+          fi
+
+      - name: Самотест событий ночи (туман, луна, тишина, ливень)
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          timeout 300 godot --headless --path game -- --events 2>&1 | tee /tmp/events.log
+          if grep -q "SCRIPT ERROR" /tmp/events.log; then
+            echo "::error title=Ошибки скриптов::Во время самотеста --events в логе есть SCRIPT ERROR — см. выше."
+            exit 1
+          fi
+
+      - name: Самотест Подражателя у двери
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          timeout 300 godot --headless --path game -- --mimic 2>&1 | tee /tmp/mimic.log
+          if grep -q "SCRIPT ERROR" /tmp/mimic.log; then
+            echo "::error title=Ошибки скриптов::Во время самотеста --mimic в логе есть SCRIPT ERROR — см. выше."
+            exit 1
+          fi
+
+      - name: Самотест саботажа (упыри портят запасы)
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          timeout 300 godot --headless --path game -- --sabotage 2>&1 | tee /tmp/sabotage.log
+          if grep -q "SCRIPT ERROR" /tmp/sabotage.log; then
+            echo "::error title=Ошибки скриптов::Во время самотеста --sabotage в логе есть SCRIPT ERROR — см. выше."
+            exit 1
+          fi
+
+      - name: Самотест ящика (находка на площади)
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          timeout 300 godot --headless --path game -- --box 2>&1 | tee /tmp/box.log
+          if grep -q "SCRIPT ERROR" /tmp/box.log; then
+            echo "::error title=Ошибки скриптов::Во время самотеста --box в логе есть SCRIPT ERROR — см. выше."
             exit 1
           fi
 
