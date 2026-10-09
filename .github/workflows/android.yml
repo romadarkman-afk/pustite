@@ -132,7 +132,7 @@ jobs:
             echo "::error title=Не хватает файлов в game::Не загрузились: $(echo $missing). Загрузите папку game заново целиком."
           fi
           [ -z "$extra" ] && [ -z "$missing" ] || exit 1
-          for flag in sim flow layout lifecycle field crowd bubbles marks input hints difficulty howto night sound; do
+          for flag in sim flow layout lifecycle field crowd bubbles marks input hints difficulty howto night sound village; do
             grep -q -- "\"--$flag\"" scripts/boot.gd || { echo "::error::В scripts/boot.gd нет режима --$flag."; exit 1; }
           done
           echo "Комплект совпадает с описью: $(wc -l < /tmp/expected.txt) файлов"
@@ -279,6 +279,16 @@ jobs:
           timeout 300 godot --headless --path game -- --sound 2>&1 | tee /tmp/sound.log
           if grep -q "SCRIPT ERROR" /tmp/sound.log; then
             echo "::error title=Ошибки скриптов::Во время самотеста --sound в логе есть SCRIPT ERROR — см. выше."
+            exit 1
+          fi
+
+      - name: Самотест живого дня (камера, ходьба, дела, запасы, фонари)
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          timeout 300 godot --headless --path game -- --village 2>&1 | tee /tmp/village.log
+          if grep -q "SCRIPT ERROR" /tmp/village.log; then
+            echo "::error title=Ошибки скриптов::Во время самотеста --village в логе есть SCRIPT ERROR — см. выше."
             exit 1
           fi
 
