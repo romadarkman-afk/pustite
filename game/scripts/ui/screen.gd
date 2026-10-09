@@ -66,6 +66,20 @@ func door_open() -> float:
 	return -1.0
 
 
+## Звуковая картина экрана: фон, музыка, сердцебиение. Nav включает её при показе экрана.
+## По умолчанию — экраны вне партии: музыка меню, без фона.
+func ambience() -> StringName:
+	return &""
+
+
+func music() -> StringName:
+	return &"menu"
+
+
+func heart() -> bool:
+	return false
+
+
 ## Переопределяется: за сколько секунд посёлок переходит к настроению этого экрана.
 func mood_duration() -> float:
 	return 0.6
@@ -201,6 +215,7 @@ func set_clock(seconds: int) -> void:
 		ThemeFactory.BLOOD if seconds <= 10 else ThemeFactory.FROST)
 	if seconds <= 5 and seconds > 0:
 		Juice.haptic(Juice.Haptic.TAP)
+		Sfx.play(&"tick")
 
 
 func scroll_to_end() -> void:

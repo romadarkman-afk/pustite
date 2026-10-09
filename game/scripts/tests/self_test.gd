@@ -1674,7 +1674,7 @@ static func difficulty() -> void:
 	ok += _expect(fails, st.difficulty == "hard" and st.cfg.players == 10, "в настройках «Сложная» не выбралась")
 	var slider: HSlider = null
 	for c: Control in _controls(st):
-		if c is HSlider:
+		if c is HSlider and not c.name.begins_with("Volume_"):      # ползунок баланса, а не громкости
 			slider = c
 			break
 	if slider != null:
@@ -1955,6 +1955,170 @@ static func night() -> void:
 	print("=== ночь на картинке: %d проверок ===" % (ok + fails.size()))
 	if fails.is_empty():
 		print("ИТОГ: OK — сумерки по шагам, выбор дома тапом, кто куда идёт видно на поле")
+		tree.quit(0)
+	else:
+		for f2: String in fails:
+			print("  ✗ " + f2)
+		print("ИТОГ: НАРУШЕНИЙ: %d" % fails.size())
+		tree.quit(1)
+
+
+
+# =============================================================
+# Звук (Task 21): все звуки на месте, у каждого события свой звук, громкость
+# каналов работает и сохраняется, свёрнутая игра молчит.
+# =============================================================
+static func sound() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	Save.set_difficulty("easy")
+
+	# 1. Файлы, каналы, циклы
+	var missing := PackedStringArray()
+	for k: StringName in Sfx.SOUNDS.keys() + Sfx.LOOPS.keys():
+		if not Sfx.has_sound(k):
+			missing.append(String(k))
+	ok += _expect(fails, missing.is_empty(), "не загрузились звуки: %s" % ", ".join(missing))
+	var not_loop := PackedStringArray()
+	for k: StringName in Sfx.LOOPS.keys():
+		var st := Sfx._streams.get(k) as AudioStreamOggVorbis
+		if st == null or not st.loop:
+			not_loop.append(String(k))
+	ok += _expect(fails, not_loop.is_empty(), "не зациклены: %s" % ", ".join(not_loop))
+	for b: StringName in Sfx.BUSES:
+		ok += _expect(fails, AudioServer.get_bus_index(b) >= 0, "нет канала громкости %s" % b)
+	var total := 0
+	for path: String in Sfx.SOUNDS.values() + Sfx.LOOPS.values():
+		var f := FileAccess.open(path.replace(".ogg", ".ogg"), FileAccess.READ)
+		if f == null:
+			# в экспортированной сборке исходник лежит внутри .import — размер берём из него
+			continue
+		total += f.get_length()
+	ok += _expect(fails, total < 1024 * 1024, "звуки весят %d КБ — больше 1 МБ" % (total / 1024))
+
+	# 2. Громкость: ползунок → канал → файл настроек
+	Save.set_volume(&"Music", 0.5)
+	ok += _expect(fails, absf(Sfx.volume(&"Music") - 0.5) < 0.02, "громкость музыки не дошла до канала (%.2f)" % Sfx.volume(&"Music"))
+	Save.set_volume(&"Ambience", 0.0)
+	ok += _expect(fails, Sfx.is_bus_muted(&"Ambience"), "громкость 0 не заглушила канал атмосферы")
+	Save.load_all()
+	ok += _expect(fails, absf(float(Save.volumes[&"Music"]) - 0.5) < 0.01 and float(Save.volumes[&"Ambience"]) == 0.0,
+		"громкость не сохранилась после перезапуска")
+	ok += _expect(fails, Sfx.is_bus_muted(&"Ambience") and not Sfx.is_bus_muted(&"Music"), "после перезапуска каналы выставлены не так")
+	Save.set_volume(&"Ambience", 0.8)
+	Save.set_volume(&"Music", 0.7)
+
+	# 3. Свернули — тишина, вернулись — звук, заглушённый канал так и остаётся заглушённым
+	Save.set_volume(&"Sfx", 0.0)
+	tree.root.propagate_notification(Node.NOTIFICATION_APPLICATION_PAUSED)
+	await _frames(tree, 2)
+	var all_muted := true
+	for b: StringName in Sfx.BUSES:
+		all_muted = all_muted and Sfx.is_bus_muted(b)
+	ok += _expect(fails, all_muted, "свёрнутая игра не замолчала")
+	tree.root.propagate_notification(Node.NOTIFICATION_APPLICATION_RESUMED)
+	await _frames(tree, 2)
+	ok += _expect(fails, not Sfx.is_bus_muted(&"Music") and not Sfx.is_bus_muted(&"Ambience") and Sfx.is_bus_muted(&"Sfx"),
+		"после возврата каналы не вернулись к своей громкости")
+	Save.set_volume(&"Sfx", 0.9)
+
+	# 4. Меню и кнопки
+	Nav.show_menu()
+	await _settle(tree)
+	ok += _expect(fails, Sfx.music_name == &"menu" and Sfx.ambience_name == &"", "в меню не музыка меню (%s / %s)" % [Sfx.music_name, Sfx.ambience_name])
+	Sfx.played.clear()
+	_find_button(Nav.host.current, "Обычная").pressed.emit()
+	await _frames(tree, 2)
+	ok += _expect(fails, Sfx.played.has(&"tap"), "кнопка нажалась без щелчка")
+	Save.set_difficulty("easy")
+
+	# 5. Партия: у каждой фазы свой звук
+	var door_done := false
+	for attempt in range(25):
+		Sfx.played.clear()
+		Nav.start_match()
+		await _settle(tree)
+		await _frames(tree, 4)
+		if attempt == 0:
+			ok += _expect(fails, Sfx.played.has(&"reveal") and Sfx.ambience_name == &"amb_night", "пролог без звука раскрытия роли")
+		Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+		await _settle(tree)
+		if attempt == 0:
+			ok += _expect(fails, Sfx.ambience_name == &"amb_day" and Sfx.music_name == &"day", "днём не дневной фон и музыка (%s / %s)" % [Sfx.ambience_name, Sfx.music_name])
+			Sfx.played.clear()
+			Game.say("Проверка голоса.")
+			await _frames(tree, 30)
+			ok += _expect(fails, Sfx.played.has(&"blip"), "реплика прозвучала без голоса")
+		Game.end_day()
+		await _settle(tree)
+		if Game.m.phase == Match.Phase.VOTE:
+			Game.vote(-1)
+			await _settle(tree)
+			Game.proceed()
+			await _settle(tree)
+		if attempt == 0:
+			ok += _expect(fails, Sfx.played.has(&"bell") and Sfx.ambience_name == &"amb_night" and Sfx.music_name == &"",
+				"ночь без колокола или ночного фона (%s / %s)" % [Sfx.ambience_name, Sfx.music_name])
+		if not Game.m.player().alive:
+			continue
+		Sfx.played.clear()
+		Game.choose_house(0)
+		await _settle(tree)
+		if Game.m.phase != Match.Phase.DOOR:
+			continue
+		ok += _expect(fails, Sfx.heart_on, "у двери не бьётся сердце")
+		if Game.door_role() == Match.DoorRole.GUEST:
+			Nav.handle_intent(Intent.PLEA, {"plea": "beg"}, Nav.host.current)
+			await _frames(tree, 6)
+			ok += _expect(fails, Sfx.played.has(&"knock"), "гость стучит без звука")
+			await tree.create_timer(0.1).timeout
+			Game.proceed()
+		elif Game.door_role() == Match.DoorRole.HOST:
+			# хозяин решает через экран двери — так же, как игрок пальцем
+			var ids: Array[int] = []
+			var ds := Nav.host.current as DoorScreen
+			if ds != null and not ds.seat.queue.is_empty():
+				ids.append(ds.seat.queue[0].id)
+			ds._finish_host(ids)
+			await _frames(tree, 4)
+			ok += _expect(fails, Sfx.played.has(&"door_open" if not ids.is_empty() else &"door_shut"), "решение у двери без звука двери")
+		else:
+			# один у двери: решать некому, звука двери нет — просто идём дальше
+			var none: Array[int] = []
+			Nav.handle_intent(Intent.ADMIT, {"ids": none}, Nav.host.current)
+			await _frames(tree, 2)
+			continue
+		await _settle(tree)
+		ok += _expect(fails, not Sfx.heart_on or Game.m.phase == Match.Phase.DOOR, "сердце не утихло после двери")
+		door_done = true
+		break
+	ok += _expect(fails, door_done, "за 25 партий не дошли до двери")
+
+	# 6. Итог партии: победа или поражение звучат
+	Sfx.played.clear()
+	await _finish_match(tree, true)
+	ok += _expect(fails, Sfx.played.has(&"win"), "победа без звука победы")
+	Sfx.played.clear()
+	await _finish_match(tree, false)
+	ok += _expect(fails, Sfx.played.has(&"lose"), "поражение без звука поражения")
+
+	# 7. Настройки: три ползунка
+	Nav.show_settings()
+	await _settle(tree)
+	var sliders := 0
+	for c: Control in _controls(Nav.host.current):
+		if c is HSlider and c.name.begins_with("Volume_"):
+			sliders += 1
+			if c.name == "Volume_Music":
+				(c as HSlider).value = 0.3
+	ok += _expect(fails, sliders == 3, "в настройках ползунков громкости %d из 3" % sliders)
+	ok += _expect(fails, absf(float(Save.volumes[&"Music"]) - 0.3) < 0.01, "ползунок музыки не меняет громкость")
+	Save.set_volume(&"Music", 0.7)
+
+	print("=== звук: %d проверок ===" % (ok + fails.size()))
+	if fails.is_empty():
+		print("ИТОГ: OK — все звуки на месте, каждое событие звучит, громкость и сворачивание работают")
 		tree.quit(0)
 	else:
 		for f2: String in fails:

@@ -13,6 +13,12 @@ static func label(text: String, variation: StringName = &"Body") -> Label:
 
 
 static func button(text: String, variation: StringName = &"Primary", min_h: int = ThemeFactory.TOUCH) -> Button:
+	var b := _button(text, variation, min_h)
+	b.pressed.connect(func() -> void: Sfx.play(&"tap", randf_range(0.95, 1.08), -4.0))
+	return b
+
+
+static func _button(text: String, variation: StringName = &"Primary", min_h: int = ThemeFactory.TOUCH) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.theme_type_variation = variation

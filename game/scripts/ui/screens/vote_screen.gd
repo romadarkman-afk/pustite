@@ -65,6 +65,7 @@ func show_result(tally: Dictionary[int, int], exiled: Villager) -> void:
 	head.add_theme_font_size_override("font_size", 44)
 	body.add_child(head)
 	Juice.haptic(Juice.Haptic.DEATH)
+	Sfx.play(&"exile")
 
 	var total := 0
 	for k: int in tally:
@@ -95,3 +96,11 @@ func show_result(tally: Dictionary[int, int], exiled: Villager) -> void:
 	footer.add_child(next)
 	_locked = false
 	result_shown = true
+
+
+func ambience() -> StringName:
+	return &"amb_day"
+
+
+func music() -> StringName:
+	return &""

@@ -1,8 +1,8 @@
 extends Control
 ## Точка входа. Логотип ровно 1 секунду → меню. Тап — пропустить.
-## Для сборки здесь же запускаются самотесты: --sim, --flow, --layout, --lifecycle, --field, --crowd, --bubbles, --marks, --input, --hints, --difficulty, --howto, --night.
+## Для сборки здесь же запускаются самотесты: --sim, --flow, --layout, --lifecycle, --field, --crowd, --bubbles, --marks, --input, --hints, --difficulty, --howto, --night, --sound.
 
-const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night"]
+const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--sound"]
 const TEST_TIMEOUT_SEC := 240.0
 const LOGO_SEC := 1.0
 
@@ -84,6 +84,10 @@ func _run_test(flag: String) -> void:
 			Juice.instant = true
 			Nav.start()
 			SelfTest.night()
+		"--sound":
+			Juice.instant = true
+			Nav.start()
+			SelfTest.sound()
 
 
 # ---------------------------------------------------------------
@@ -103,7 +107,9 @@ func _play_logo() -> void:
 
 	var t := create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	t.tween_property(self, "open", 1.0, LOGO_SEC * 0.55)
-	t.parallel().tween_callback(func() -> void: Juice.haptic(Juice.Haptic.KNOCK)).set_delay(LOGO_SEC * 0.15)
+	t.parallel().tween_callback(func() -> void:
+		Juice.haptic(Juice.Haptic.KNOCK)
+		Sfx.play(&"knock")).set_delay(LOGO_SEC * 0.15)
 	t.parallel().tween_property(_title, "modulate:a", 1.0, LOGO_SEC * 0.4).set_delay(LOGO_SEC * 0.3)
 	t.tween_interval(LOGO_SEC * 0.25)
 	t.tween_callback(_finish)

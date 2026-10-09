@@ -11,6 +11,8 @@ const SCHEMA := 1
 var config: GameConfig
 var haptics: bool = true
 var difficulty: String = "easy"
+const DEFAULT_VOLUMES := {&"Music": 0.7, &"Sfx": 0.9, &"Ambience": 0.8}
+var volumes: Dictionary = DEFAULT_VOLUMES.duplicate()
 var win_streak: int = 0
 var howto_seen: bool = false
 var offer: String = ""                 ## что предложить после партии: ступень сложности или ""
@@ -48,6 +50,23 @@ func load_all() -> void:
 		for h: String in String(cf.get_value("hints", "seen", "")).split(",", false):
 			hints_seen[h] = true
 	Juice.haptics_enabled = haptics
+	for b: StringName in volumes.keys():
+		var def_v: float = DEFAULT_VOLUMES[b]
+		volumes[b] = clampf(float(cf.get_value("sound", String(b), def_v)) if has else def_v, 0.0, 1.0)
+	apply_volumes()
+
+
+func apply_volumes() -> void:
+	for b: StringName in volumes.keys():
+		Sfx.set_volume(b, volumes[b])
+
+
+## Громкость канала: Music, Sfx или Ambience, 0..1. Слышно сразу, сохраняется в файл.
+func set_volume(bus: StringName, v: float, write: bool = true) -> void:
+	volumes[bus] = clampf(v, 0.0, 1.0)
+	Sfx.set_volume(bus, volumes[bus])
+	if write:
+		flush()
 
 
 ## Выбрать ступень лестницы: easy, normal или hard.
@@ -101,6 +120,8 @@ func flush() -> void:
 	cf.set_value("game", "win_streak", win_streak)
 	cf.set_value("game", "howto_seen", howto_seen)
 	cf.set_value("ui", "haptics", haptics)
+	for b: StringName in volumes.keys():
+		cf.set_value("sound", String(b), volumes[b])
 	for k: String in stats.keys():
 		cf.set_value("stats", k, stats[k])
 	cf.set_value("hints", "seen", ",".join(PackedStringArray(hints_seen.keys())))

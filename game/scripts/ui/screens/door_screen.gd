@@ -119,10 +119,12 @@ func _finish_host(ids: Array[int]) -> void:
 	if ids.is_empty():
 		open_fx.emit(0.0)
 		Juice.haptic(Juice.Haptic.REFUSE)
+		Sfx.play(&"door_shut")
 		Juice.shake(self, 10.0)
 	else:
 		open_fx.emit(0.38)
 		Juice.haptic(Juice.Haptic.SUCCESS)
+		Sfx.play(&"door_open")
 	commit(Intent.ADMIT, {"ids": ids.duplicate()})
 
 
@@ -168,16 +170,20 @@ func show_guest_result(admitted: bool) -> void:
 	for i in range(3):
 		knock_fx.emit()
 		Juice.haptic(Juice.Haptic.KNOCK)
+		Sfx.play(&"knock", randf_range(0.92, 1.06))
+		Sfx.play(&"knock", 1.0 + 0.04 * i)
 		Juice.shake(self, 6.0, 0.2)
 		await Juice.wait(0.55)
 	await Juice.wait(0.6)
 	if admitted:
 		open_fx.emit(0.4)
 		Juice.haptic(Juice.Haptic.SUCCESS)
+		Sfx.play(&"door_open")
 		t.text = "Щёлкает засов. %s впускает тебя." % seat.host.name
 	else:
 		open_fx.emit(0.0)
 		Juice.haptic(Juice.Haptic.REFUSE)
+		Sfx.play(&"door_shut")
 		Juice.shake(self, 14.0, 0.4)
 		t.text = "Шаги удаляются от двери. Ты остаёшься снаружи."
 	Juice.pop_in(t)
@@ -209,3 +215,15 @@ func _knock_sequence(n: int) -> void:
 		Juice.haptic(Juice.Haptic.KNOCK)
 		Juice.shake(self, 7.0, 0.22)
 		await Juice.wait(0.45)
+
+
+func ambience() -> StringName:
+	return &"amb_night"
+
+
+func music() -> StringName:
+	return &""
+
+
+func heart() -> bool:
+	return true

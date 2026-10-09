@@ -34,6 +34,7 @@ func mood() -> Vector2:
 
 func build() -> void:
 	Juice.haptic(Juice.Haptic.NIGHT)
+	Sfx.play(&"bell")
 	enable_field_taps()
 	body.add_child(W.label("Темнеет. Нажми на дом, куда идёшь.", &"Tale"))
 	if not m.player().alive:
@@ -120,3 +121,11 @@ func _select(i: int, b: Button) -> void:
 	for r: Button in _rows:
 		r.theme_type_variation = &"RowOn" if r == b else &"Row"
 	(get_meta("go") as Button).disabled = false
+
+
+func ambience() -> StringName:
+	return &"amb_night"
+
+
+func music() -> StringName:
+	return &""

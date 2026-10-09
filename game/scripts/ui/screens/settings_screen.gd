@@ -14,7 +14,7 @@ func screen_id() -> String:
 
 
 func title() -> String:
-	return "Баланс"
+	return "Настройки"
 
 
 func mood() -> Vector2:
@@ -24,6 +24,18 @@ func mood() -> Vector2:
 func build() -> void:
 	W.clear(body)
 	W.clear(footer)
+
+	# звук и вибрация — наверху: их меняют чаще, чем баланс
+	body.add_child(W.label("Звук", &"Hint"))
+	for row: Array in [[&"Music", "Музыка"], [&"Sfx", "Звуки"], [&"Ambience", "Атмосфера"]]:
+		body.add_child(_volume_row(row[0], row[1]))
+	var hb := W.button("Вибрация: %s" % ("включена" if haptics else "выключена"), &"Row")
+	hb.pressed.connect(func() -> void:
+		haptics = not haptics
+		Juice.haptics_enabled = haptics
+		hb.text = "Вибрация: %s" % ("включена" if haptics else "выключена"))
+	body.add_child(hb)
+	body.add_child(W.label("Сложность", &"Hint"))
 
 	var presets := W.hbox(8)
 	_chips.clear()
@@ -69,12 +81,6 @@ func build() -> void:
 		row.add_child(sl)
 		body.add_child(row)
 
-	var hb := W.button("Вибрация: %s" % ("включена" if haptics else "выключена"), &"Row")
-	hb.pressed.connect(func() -> void:
-		haptics = not haptics
-		Juice.haptics_enabled = haptics
-		hb.text = "Вибрация: %s" % ("включена" if haptics else "выключена"))
-	body.add_child(hb)
 	var hr := W.button("Подсказки покажутся заново" if reset_hints else "Показать подсказки заново", &"Row")
 	hr.pressed.connect(func() -> void:
 		reset_hints = true
@@ -100,3 +106,32 @@ func _to_custom() -> void:
 	difficulty = "custom"
 	for k: String in _chips:
 		(_chips[k] as Button).theme_type_variation = &"Row"
+
+
+
+## Громкость канала: слышно сразу при движении, в файл — когда отпустили ползунок.
+func _volume_row(bus: StringName, title_text: String) -> Control:
+	var row := W.hbox(14)
+	var lab := W.label(title_text, &"Body")
+	lab.custom_minimum_size = Vector2(150, 0)
+	row.add_child(lab)
+	var sl := HSlider.new()
+	sl.name = "Volume_" + String(bus)
+	sl.min_value = 0.0
+	sl.max_value = 1.0
+	sl.step = 0.05
+	sl.value = float(Save.volumes.get(bus, 0.8))
+	sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sl.custom_minimum_size = Vector2(0, ThemeFactory.TOUCH)
+	sl.focus_mode = Control.FOCUS_NONE
+	var pct := W.label("%d%%" % int(round(sl.value * 100)), &"Small")
+	pct.custom_minimum_size = Vector2(64, 0)
+	sl.value_changed.connect(func(v: float) -> void:
+		Save.set_volume(bus, v, false)
+		pct.text = "%d%%" % int(round(v * 100))
+		if bus == &"Sfx":
+			Sfx.play(&"tap"))
+	sl.drag_ended.connect(func(_changed: bool) -> void: Save.flush())
+	row.add_child(sl)
+	row.add_child(pct)
+	return row

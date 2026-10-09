@@ -18,6 +18,7 @@ scripts/autoload/game.gd
 scripts/autoload/juice.gd
 scripts/autoload/nav.gd
 scripts/autoload/save.gd
+scripts/autoload/sfx.gd
 scripts/boot.gd
 scripts/core/chat_line.gd
 scripts/core/difficulty.gd

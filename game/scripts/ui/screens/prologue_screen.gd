@@ -56,6 +56,7 @@ func build() -> void:
 func _reveal(nodes: Array) -> void:
 	await Juice.wait(0.9)
 	Juice.haptic(Juice.Haptic.NIGHT)
+	Sfx.play(&"reveal")
 	for n: Control in nodes:
 		if not is_instance_valid(n):
 			return
@@ -65,3 +66,11 @@ func _reveal(nodes: Array) -> void:
 			Juice.tween().tween_property(n, "modulate:a", 1.0, 0.45)
 		await Juice.wait(0.35)
 	revealed = true
+
+
+func ambience() -> StringName:
+	return &"amb_night"
+
+
+func music() -> StringName:
+	return &""

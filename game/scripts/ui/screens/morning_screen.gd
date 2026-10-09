@@ -57,6 +57,7 @@ func _reveal(r: NightReport) -> void:
 		Juice.pop_in(lab)
 		if l[2]:
 			Juice.haptic(Juice.Haptic.DEATH)
+			Sfx.play(&"death")
 			death_fx.emit()
 			Juice.shake(self, 8.0, 0.25)
 			await Juice.wait(0.7)
@@ -96,3 +97,11 @@ func _text(e: NightReport.Entry) -> String:
 			return "%s %s про «%s», а %s в «%s»." % [Ru.nom(v), Ru.g(v, "говорил", "говорила", "говорили"),
 				m.house_name(e.said_house), Ru.g(v, "ночевал", "ночевала", "ночевали"), here]
 	return ""
+
+
+func ambience() -> StringName:
+	return &"amb_day"
+
+
+func music() -> StringName:
+	return &""

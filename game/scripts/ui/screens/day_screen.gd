@@ -174,3 +174,11 @@ func _pick_person(question: String) -> Villager:
 		names.append(v.name)
 	var i: int = await ActionSheet.ask(self, question, names)
 	return list[i] if i >= 0 else null
+
+
+func ambience() -> StringName:
+	return &"amb_day"
+
+
+func music() -> StringName:
+	return &"day"

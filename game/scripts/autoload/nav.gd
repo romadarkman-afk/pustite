@@ -148,6 +148,9 @@ func show_howto(then_play: bool) -> void:
 
 func show(s: Screen) -> void:
 	Diag.step("экран: %s" % s.screen_id())
+	Sfx.set_ambience(s.ambience())
+	Sfx.set_music(s.music())
+	Sfx.heartbeat(s.heart())
 	bubbles.clear()
 	bubbles.field = Rect2()
 	village.set_selected_house(-1)
@@ -293,6 +296,7 @@ func _on_chat(line: ChatLine) -> void:
 			var f: VillagerFigure = village.crowd.figures[line.speaker.id]
 			var b := bubbles.say(Ru.nom(line.speaker), line.text, f.head_global(), line.speaker.is_player)
 			f.talk(b.life if b != null else 2.5)
+			Sfx.voice(line.speaker.id, line.speaker.female, line.text.length())
 			_react_to_accusation(line)
 
 
@@ -368,6 +372,7 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 				var hi := village.house_at(data.pos)
 				if hi >= 0:
 					Juice.haptic(Juice.Haptic.TAP)
+					Sfx.play(&"tap")
 					(sender as NightScreen).select_house(hi)
 				return
 			var vid := village.crowd.figure_at(data.pos)
@@ -377,6 +382,7 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			_hint_done(sender, action)
 			village.crowd.figures[vid].poke()
 			Juice.haptic(Juice.Haptic.TAP)
+			Sfx.play(&"tap")
 			if v.alive and not v.is_player and sender is DayScreen:
 				(sender as DayScreen).person_actions(v)
 

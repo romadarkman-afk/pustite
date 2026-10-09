@@ -29,6 +29,7 @@ func build() -> void:
 	body.add_child(W.label("Люди выстояли" if people_won else "Посёлок опустел", &"Title"))
 	body.add_child(W.label("Твоя сторона победила." if won else "Твоя сторона проиграла.", &"Tale"))
 	Juice.haptic(Juice.Haptic.SUCCESS if won else Juice.Haptic.DEATH)
+	Sfx.play(&"win" if won else &"lose")
 	if offer != "":
 		body.add_child(_offer_card())
 
