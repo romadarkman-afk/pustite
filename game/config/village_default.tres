@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="VillageDef" load_steps=18 format=3]
+[gd_resource type="Resource" script_class="VillageDef" load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://scripts/village/village_def.gd" id="1_village"]
 [ext_resource type="Script" path="res://scripts/village/house_def.gd" id="2_house"]
@@ -100,17 +100,6 @@ pos = Vector2(234, 366)
 portions = 2
 work_sec = 3.0
 
-[sub_resource type="Resource" id="job_talisman"]
-script = ExtResource("3_job")
-id = &"talisman"
-title = "Подправить оберег"
-place = "у оберега"
-done_line = "Оберег как новый."
-kind = 3
-pos = Vector2(160, 334)
-portions = 1
-work_sec = 4.0
-
 [sub_resource type="Resource" id="job_fish"]
 script = ExtResource("3_job")
 id = &"fish"
@@ -131,4 +120,4 @@ well = Vector2(360, 384)
 square_center = Vector2(360, 392)
 square_radii = Vector2(270, 100)
 river = true
-jobs = Array[ExtResource("3_job")]([SubResource("job_water"), SubResource("job_wood"), SubResource("job_lamp"), SubResource("job_talisman"), SubResource("job_fish")])
+jobs = Array[ExtResource("3_job")]([SubResource("job_water"), SubResource("job_wood"), SubResource("job_lamp"), SubResource("job_fish")])

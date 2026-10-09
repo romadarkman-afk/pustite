@@ -15,3 +15,4 @@ enum Kind { WATER, WOOD, LAMP, TALISMAN, FISH }
 @export var pos: Vector2 = Vector2.ZERO    ## где стоит работник; значок дела висит над ним
 @export_range(1, 5) var portions: int = 2  ## сколько раз за день можно сделать это дело
 @export_range(1.0, 8.0, 0.5) var work_sec: float = 3.0   ## сколько секунд работает игрок
+@export var house: int = -1                 ## починка оберега: какого убежища. -1 — обычное дело

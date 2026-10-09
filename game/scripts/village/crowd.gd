@@ -1,7 +1,7 @@
 class_name Crowd
 extends Node2D
 ## Жители на поле. Днём стоят кольцом вокруг колодца (вы — ближе всех к зрителю),
-## ночью бегут к убежищам, о которых говорили. Погибшие остаются надгробиями там,
+## по колоколу бегут к убежищам и встают у двери в порядке прибытия. Погибшие остаются надгробиями там,
 ## где их застала ночь. Изгнанные уходят в туман.
 
 const ARC := 2.3          ## полудуга кольца, рад: задний сектор за колодцем пустой
@@ -257,6 +257,14 @@ func _door_rows(house: int, n: int, per_row: int, avoid: Array[Rect2]) -> Array[
 	return out
 
 
+## Места очереди по порядку: первое — ближе всех к двери (там стоит хозяин), дальше — дальше.
+func queue_spots(house: int, n: int, avoid: Array[Rect2] = []) -> Array[Vector2]:
+	var spots := door_spots(house, n, avoid)
+	var door: Vector2 = view.def.shelters[house].pos
+	spots.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.distance_squared_to(door) < b.distance_squared_to(door))
+	return spots
+
+
 func door_spot(house: int, k: int) -> Vector2:
 	var spots := door_spots(house, k + 1, _avoid())
 	return spots[k] if k < spots.size() else view.def.shelters[house].pos
@@ -287,6 +295,7 @@ func figure_at(global_pos: Vector2) -> int:
 # Ходьба и дела
 # =============================================================
 var at_job: Dictionary[int, int] = {}      ## кто сейчас у какого дела
+var day_jobs: Array[JobDef] = []           ## дела сегодняшнего дня — Nav ставит в начале дня
 
 
 ## Куда можно ходить: площадь с небольшим запасом по краям. Точку за её пределами
@@ -304,7 +313,7 @@ func walk_clamp(p: Vector2) -> Vector2:
 
 ## Место у дела: первый работник встаёт на само место, следующие — по бокам.
 func job_spot(ji: int, vid: int) -> Vector2:
-	var base := view.def.jobs[ji].pos
+	var base := (day_jobs[ji] if ji < day_jobs.size() else view.def.jobs[ji]).pos
 	var k := 0
 	for other: int in at_job:
 		if other != vid and at_job[other] == ji:
@@ -377,6 +386,38 @@ func arrange_night(m: Match, player_house: int) -> void:
 			if not groups.has(v.announced_house):
 				groups[v.announced_house] = []
 			groups[v.announced_house].append(v.id)
+	_place_groups(m, groups, me_goes, func(_vid: int) -> Vector2: return Vector2(0.9, 0.0))
+
+
+## Бег по колоколу: у каждой двери встают в порядке прибытия, первый — у самой двери.
+## react и arrive — секунды от колокола: когда житель сорвался с места и когда он у двери.
+## now — сколько уже прошло. Кто ещё не услышал колокол, стоит до своей секунды.
+## Вызывается заново, когда игрок выбирает или меняет дом: очередь пересобирается на бегу.
+func arrange_run(m: Match, choices: Dictionary[int, int], react: Dictionary[int, float], arrive: Dictionary[int, float], player_house: int, now: float) -> void:
+	var groups: Dictionary[int, Array] = {}
+	var me := m.player()
+	var me_goes := me.alive and player_house >= 0 and player_house < view.open_count
+	var who: Dictionary[int, int] = choices.duplicate()
+	if me_goes:
+		who[me.id] = player_house
+	for vid: int in who:
+		var h: int = who[vid]
+		var v := m.get_villager(vid)
+		if v == null or not v.alive or not figures.has(vid) or h < 0 or h >= view.open_count:
+			continue
+		if not groups.has(h):
+			groups[h] = []
+		groups[h].append(vid)
+	for h: int in groups:
+		(groups[h] as Array).sort_custom(func(a: int, b: int) -> bool: return arrive.get(a, 1.0e5) < arrive.get(b, 1.0e5))
+	_place_groups(m, groups, me_goes, func(vid: int) -> Vector2:
+		var start := maxf(now, react.get(vid, now))
+		return Vector2(maxf(0.25, arrive.get(vid, now + 1.0) - start), start - now))
+
+
+## Расставить группы у дверей. timing(vid) → (секунды бега, секунды ожидания перед стартом).
+func _place_groups(m: Match, groups: Dictionary[int, Array], me_goes: bool, timing: Callable) -> void:
+	var me := m.player()
 	var avoid: Array[Rect2] = []
 	if not me_goes:
 		avoid = _avoid()
@@ -385,10 +426,10 @@ func arrange_night(m: Match, player_house: int) -> void:
 	var leftovers: Array = []
 	for h: int in groups:
 		var ids: Array = groups[h]
-		var spots := door_spots(h, ids.size(), avoid)
+		var spots := queue_spots(h, ids.size(), avoid)
 		for k in range(ids.size()):
 			if k < spots.size():
-				figures[int(ids[k])].run_to(spots[k], 0.9)
+				_run_to_spot(int(ids[k]), spots[k], timing)
 				avoid.append(slot_rect(spots[k], QUEUE_COL - 2.0))   # очередь у соседней двери обойдёт этих
 			else:
 				leftovers.append(int(ids[k]))
@@ -399,9 +440,17 @@ func arrange_night(m: Match, player_house: int) -> void:
 		for h2: int in order:
 			var one := door_spots(h2, 1, avoid)
 			if not one.is_empty():
-				figures[vid].run_to(one[0], 0.9)
+				_run_to_spot(vid, one[0], timing)
 				avoid.append(slot_rect(one[0], QUEUE_COL - 2.0))
 				break
+
+
+func _run_to_spot(vid: int, spot: Vector2, timing: Callable) -> void:
+	var f: VillagerFigure = figures[vid]
+	if f.position.distance_to(spot) <= 2.0 and f.state == VillagerFigure.State.IDLE:
+		return
+	var tm: Vector2 = timing.call(vid)
+	f.run_to(spot, tm.x, tm.y)
 
 
 func sync(m: Match, phase: Match.Phase) -> void:
@@ -425,8 +474,9 @@ func sync(m: Match, phase: Match.Phase) -> void:
 			_:
 				if f.position.distance_to(ring[v.id]) > 4.0:
 					f.run_to(ring[v.id])
-	if phase == Match.Phase.NIGHT:
-		arrange_night(m, m.player().announced_house)
+	# живой игрок: бег начнётся по колоколу (Nav вызовет arrange_run). Без игрока — все к своим домам.
+	if phase == Match.Phase.NIGHT and not m.player().alive:
+		arrange_night(m, -1)
 	if phase == Match.Phase.MORNING:
 		for v: Villager in m.villagers:
 			if v.alive and figures.has(v.id):

@@ -96,6 +96,11 @@ func _text(e: NightReport.Entry) -> String:
 		NightReport.Kind.LIAR:
 			return "%s %s про «%s», а %s в «%s»." % [Ru.nom(v), Ru.g(v, "говорил", "говорила", "говорили"),
 				m.house_name(e.said_house), Ru.g(v, "ночевал", "ночевала", "ночевали"), here]
+		NightReport.Kind.KILLED_CREATURE:
+			return "Оберег у «%s» был расколот. Тварь из леса забрала %s." % [Ru.house_of(house), Ru.acc(v)]
+		NightReport.Kind.TALISMAN_WORN:
+			var lvl: int = m.talisman[e.house] if e.house >= 0 and e.house < m.talisman.size() else 1
+			return "Оберег у «%s» %s. Днём его можно подправить." % [Ru.house_of(house), "треснул" if lvl > 0 else "раскололся"]
 	return ""
 
 

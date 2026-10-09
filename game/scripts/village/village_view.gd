@@ -44,6 +44,7 @@ var cam_x: float = 360.0                   ## какая точка посёлк
 var _vp_w: float = 720.0
 var _framing := false                      ## идёт переход кадра — камера не дёргается
 var lamps_fueled: int = 99                 ## сколько фонарей заправлено на эту ночь
+var talismans: PackedInt32Array = PackedInt32Array()   ## состояние оберегов открытых убежищ: 2 целый … 0 расколот
 var jobs_layer: JobLayer
 var _tw_frame: Tween
 var _tw_night: Tween
@@ -165,6 +166,12 @@ func _follow_step(delta: float) -> void:
 		return
 	cam_x = want if Juice.instant else lerpf(cam_x, want, 1.0 - exp(-5.0 * delta))
 	position.x = _vp_w * 0.5 - cam_x * scale.x
+
+
+func set_talismans(t: PackedInt32Array) -> void:
+	if t != talismans:
+		talismans = t.duplicate()
+		queue_redraw()
 
 
 ## Ночью горит столько фонарей, сколько заправили днём.
@@ -321,15 +328,15 @@ func _draw() -> void:
 	# дома: дальние раньше ближних
 	var items: Array = []
 	for di in range(def.decor.size()):
-		items.append([def.decor[di], 0, DECOR_PALS[di % DECOR_PALS.size()]])
+		items.append([def.decor[di], 0, DECOR_PALS[di % DECOR_PALS.size()], 2])
 	for i in range(def.shelters.size()):
-		items.append([def.shelters[i], 1 if i < open_count else 2, SHELTER_PALS[i % SHELTER_PALS.size()]])
+		items.append([def.shelters[i], 1 if i < open_count else 2, SHELTER_PALS[i % SHELTER_PALS.size()], talismans[i] if i < talismans.size() else 2])
 	items.sort_custom(func(a: Array, b: Array) -> bool: return (a[0] as HouseDef).pos.y < (b[0] as HouseDef).pos.y)
 	for it: Array in items:
 		var h: HouseDef = it[0]
 		if h.pos.y > def.well.y:
 			continue
-		Art.house(self, h.kind, h.pos, h.size.x, h.size.y, it[2], n, _lit(h, n), it[1])
+		Art.house(self, h.kind, h.pos, h.size.x, h.size.y, it[2], n, _lit(h, n), it[1], it[3])
 	_draw_props(n, k)
 	_draw_well(n, k)
 	for li2 in range(def.lamps.size()):
@@ -338,7 +345,7 @@ func _draw() -> void:
 		var h: HouseDef = it[0]
 		if h.pos.y <= def.well.y:
 			continue
-		Art.house(self, h.kind, h.pos, h.size.x, h.size.y, it[2], n, _lit(h, n), it[1])
+		Art.house(self, h.kind, h.pos, h.size.x, h.size.y, it[2], n, _lit(h, n), it[1], it[3])
 	_draw_fences(n, k)
 
 	# выбранный ночью дом — тёплая рамка

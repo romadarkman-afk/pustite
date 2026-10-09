@@ -19,6 +19,8 @@ const UPYR_REAL := 0.6    ## упырь доделывает дело по-на�
 const NOTICE_P := 0.25      ## шанс, что каждый отдельный сосед заметит пустую работу
 const DONE_LINE_P := 0.25  ## шанс, что житель похвастается сделанным
 const LIE_P := 0.2         ## шанс, что упырь оболжёт честного работника: «работал впустую»
+const RUN_SPEED := 190.0                  ## как шаг фигурки на поле, единиц посёлка в секунду
+const RUN_REACT := Vector2(0.4, 1.6)      ## через сколько секунд бот замечает колокол
 
 
 class JobTask:
@@ -438,6 +440,19 @@ func night_choices() -> Dictionary[int, int]:
 			h = rng.randi_range(0, m.houses.size() - 1)   # передумал — оставит след во лжи
 		out[bot.id] = h
 	return out
+
+
+## Бег до дома по колоколу. Каждый бот замечает звон не сразу (реакция) и бежит
+## со своей скоростью. dist(vid, house) — путь до двери в единицах посёлка.
+## Ответ: {"react": {vid: секунды}, "arrive": {vid: секунды}} от первого удара колокола.
+func plan_run(choices: Dictionary[int, int], dist: Callable) -> Dictionary:
+	var react: Dictionary[int, float] = {}
+	var arrive: Dictionary[int, float] = {}
+	for vid: int in choices:
+		var r := rng.randf_range(RUN_REACT.x, RUN_REACT.y)
+		react[vid] = r
+		arrive[vid] = r + float(dist.call(vid, choices[vid])) / (RUN_SPEED * rng.randf_range(0.9, 1.1))
+	return {"react": react, "arrive": arrive}
 
 
 func plea_for(bot: Villager) -> String:

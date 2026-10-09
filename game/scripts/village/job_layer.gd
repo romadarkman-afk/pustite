@@ -24,7 +24,7 @@ func _ready() -> void:
 
 
 func icon_pos(ji: int) -> Vector2:
-	return view.def.jobs[ji].pos + Vector2(0, ICON_Y)
+	return m.jobs[ji].pos + Vector2(0, ICON_Y)
 
 
 ## Значок дела в координатах экрана — для касаний и самотестов.
@@ -36,13 +36,13 @@ func icon_rect_global(ji: int) -> Rect2:
 
 ## Дело под пальцем: значок или место, где стоит работник. -1 — мимо.
 func job_at(global_pos: Vector2) -> int:
-	if not visible or m == null:
+	if not visible or m == null or m.jobs.size() != m.job_left.size():
 		return -1
 	var best := -1
 	var best_d := INF
-	for i in range(view.def.jobs.size()):
+	for i in range(m.jobs.size()):
 		# две зоны: значок и место работника. Не общая рамка — она захватила бы пол-площади
-		var spot := view.to_global(view.def.jobs[i].pos + Vector2(0, -36))
+		var spot := view.to_global(m.jobs[i].pos + Vector2(0, -36))
 		var spot_rect := Rect2(spot - Vector2(30, 40) * view.scale.x, Vector2(60, 80) * view.scale.x)
 		if icon_rect_global(i).has_point(global_pos) or spot_rect.has_point(global_pos):
 			var d := minf(icon_rect_global(i).get_center().distance_to(global_pos), spot.distance_to(global_pos))
@@ -80,8 +80,8 @@ func _draw() -> void:
 	if view == null or m == null:
 		return
 	var k := Art.INK
-	for i in range(view.def.jobs.size()):
-		var j: JobDef = view.def.jobs[i]
+	for i in range(m.jobs.size()):
+		var j: JobDef = m.jobs[i]
 		var left := m.job_left[i] if i < m.job_left.size() else 0
 		var done := left <= 0
 		var c := icon_pos(i) + Vector2(0, 0.0 if done else sin(_t * 2.2 + i) * 2.5)

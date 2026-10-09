@@ -10,6 +10,8 @@ enum Kind {
 	SURVIVED_ALONE,    ## остался один, но цел
 	CLEAN_ROOM,        ## в убежище все целы
 	LIAR,              ## говорил одно, ночевал в другом месте
+	KILLED_CREATURE,   ## оберег был расколот — в дом вошла тварь из леса
+	TALISMAN_WORN,     ## за ночь оберег ослаб: треснул или раскололся (who = null)
 }
 
 class Entry:
@@ -20,7 +22,7 @@ class Entry:
 	var others: Array[Villager] = []
 
 	func is_death() -> bool:
-		return kind == Kind.KILLED_STREET or kind == Kind.KILLED_INSIDE or kind == Kind.KILLED_ALONE
+		return kind == Kind.KILLED_STREET or kind == Kind.KILLED_INSIDE or kind == Kind.KILLED_ALONE or kind == Kind.KILLED_CREATURE
 
 var entries: Array[Entry] = []
 

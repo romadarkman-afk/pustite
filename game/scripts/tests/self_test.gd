@@ -983,22 +983,27 @@ static func field() -> void:
 		await _settle(tree)
 		Game.proceed()
 		await _settle(tree)
+	# по колоколу боты бегут туда, куда решили на самом деле, и встают в порядке прибытия
 	var runners := 0
 	var wrong := PackedStringArray()
 	var groups: Dictionary[int, Array] = {}
 	for vv: Villager in Game.m.alive_bots():
-		if vv.announced_house >= 0 and vv.announced_house < v.open_count:
-			if not groups.has(vv.announced_house):
-				groups[vv.announced_house] = []
-			groups[vv.announced_house].append(vv)
+		var hb: int = Game.run_choices.get(vv.id, -1)
+		if hb >= 0 and hb < v.open_count:
+			if not groups.has(hb):
+				groups[hb] = []
+			groups[hb].append(vv)
+	var avoid := cr._avoid()
 	for hh: int in groups:
 		var members: Array = groups[hh]
-		var spots := cr.door_spots(hh, members.size(), cr._avoid())
-		for k in range(members.size()):
+		members.sort_custom(func(a: Villager, b: Villager) -> bool: return Game.run_arrive[a.id] < Game.run_arrive[b.id])
+		var spots := cr.queue_spots(hh, members.size(), avoid)
+		for k in range(mini(members.size(), spots.size())):
 			var vv: Villager = members[k]
 			runners += 1
 			if cr.figures[vv.id].position.distance_to(spots[k]) > 2.0:
 				wrong.append(vv.name)
+			avoid.append(Crowd.slot_rect(spots[k], Crowd.QUEUE_COL - 2.0))
 	ok += _expect(fails, runners > 0 and wrong.is_empty(), "ночью не добежали до своих домов: %s" % ", ".join(wrong))
 
 	Game.choose_house(0)
@@ -1351,10 +1356,16 @@ static func marks() -> void:
 			await _settle(tree)
 			Game.proceed()
 			await _settle(tree)
-		var spots := cr.door_spots(0, 2, [])
-		var me_pos: Vector2 = cr.figures[0].position
-		var p_pos: Vector2 = cr.figures[partner.id].position
-		var at_door := me_pos.distance_to(cr.view.def.shelters[0].pos) < 120.0 and p_pos.distance_to(cr.view.def.shelters[0].pos) < 160.0
+		# колокол: ты бежишь к дому из уговора, напарник бежит туда же сам
+		(Nav.host.current as NightScreen).select_house(0)
+		await _settle(tree)
+		var nearest := func(pos: Vector2) -> int:
+			var best := -1
+			for k in range(cr.view.open_count):
+				if best < 0 or pos.distance_to(cr.view.def.shelters[k].pos) < pos.distance_to(cr.view.def.shelters[best].pos):
+					best = k
+			return best
+		var at_door: bool = Game.run_choices.get(partner.id, -1) == 0 and nearest.call(cr.figures[0].position) == 0 and nearest.call(cr.figures[partner.id].position) == 0
 		ok += _expect(fails, at_door, "ночью вы и %s не пошли к одному дому" % partner.name)
 		Game.choose_house(0)
 		await _settle(tree)
@@ -1960,22 +1971,32 @@ static func night() -> void:
 	ok += _expect(fails, redraws <= 70, "сумерки перерисовали посёлок %d раз — кадры будут проседать" % redraws)
 	ok += _expect(fails, avg_us < 8000.0, "одна перерисовка посёлка %.1f мс — слишком долго" % (avg_us / 1000.0))
 
-	# тап по дому
+	# колокол: бег начался, отсчёт идёт, кнопки «Идти» нет
 	var ns := Nav.host.current as NightScreen
+	Game.hold(&"test")          # время бега стоит, пока проверяем выбор дома
 	await _settle(tree)
+	ok += _expect(fails, Game.run_on and Game.run_house == -1 and _find_button(ns, "Идти") == null, "колокол не начал бег или осталась кнопка «Идти»")
+	ok += _expect(fails, Game.clock.running() and Game.clock.time_left() <= float(Game.m.config.run_seconds), "у колокола нет обратного отсчёта")
+
+	# тап по дому
 	var hr := v.house_hit_rect_global(0)
 	ok += _expect(fails, hr.size.x >= 84.0 and hr.size.y >= 84.0, "зона касания дома меньше 84 px")
 	Nav.handle_intent(Intent.FIELD_TAP, {"pos": hr.get_center()}, ns)
 	await _settle(tree)
 	var me: VillagerFigure = v.crowd.figures[0]
-	var go := _find_button(ns, "Идти")
-	ok += _expect(fails, ns.picked == 0 and v.selected_house == 0 and go != null and not go.disabled,
-		"тап по дому не выбрал его (выбран %d, на поле %d)" % [ns.picked, v.selected_house])
-	ok += _expect(fails, me.position.distance_to(v.def.shelters[0].pos) < 130.0, "твоя фигурка не пошла к выбранному дому")
+	ok += _expect(fails, ns.picked == 0 and v.selected_house == 0 and Game.run_house == 0,
+		"тап по дому не выбрал его (выбран %d, на поле %d, бег %d)" % [ns.picked, v.selected_house, Game.run_house])
+	# стоишь в очереди у выбранного дома: к нему ближе, чем к любому другому открытому
+	var near_house := func(h: int) -> bool:
+		for k in range(v.open_count):
+			if k != h and me.position.distance_to(v.def.shelters[k].pos) <= me.position.distance_to(v.def.shelters[h].pos):
+				return false
+		return true
+	ok += _expect(fails, near_house.call(0), "твоя фигурка не побежала к выбранному дому")
 	Nav.handle_intent(Intent.FIELD_TAP, {"pos": v.house_hit_rect_global(1).get_center()}, ns)
 	await _settle(tree)
-	ok += _expect(fails, ns.picked == 1 and v.selected_house == 1 and me.position.distance_to(v.def.shelters[1].pos) < 130.0,
-		"выбор не перешёл на второй дом")
+	ok += _expect(fails, ns.picked == 1 and v.selected_house == 1 and Game.run_house == 1 and near_house.call(1),
+		"выбор не перешёл на второй дом (выбран %d, на поле %d, бег %d, до двери %d)" % [ns.picked, v.selected_house, Game.run_house, int(me.position.distance_to(v.def.shelters[1].pos))])
 	if v.open_count < v.def.shelters.size():
 		var bh: HouseDef = v.def.shelters[v.open_count]
 		Nav.handle_intent(Intent.FIELD_TAP, {"pos": v.to_global(bh.pos - Vector2(0, bh.size.y * 0.5))}, ns)
@@ -1988,16 +2009,20 @@ static func night() -> void:
 	# кто куда идёт — на табличках
 	ok += _expect(fails, v.show_going and v.house_going == ns.going_counts(), "числа на табличках не совпадают с тем, кто куда собирался")
 
-	# «Идти» — именно в выбранный дом
-	if go != null:
-		go.pressed.emit()
-		await _settle(tree)
-	ok += _expect(fails, Game.m.player().night_house == 1, "«Идти» отправило не в выбранный дом (%d)" % Game.m.player().night_house)
+	# отпустили время: все добегают, ночь начинается раньше конца звона
+	Game.release(&"test")
+	var ran := 0.0
+	while Game.m.phase == Match.Phase.NIGHT and ran < float(Game.m.config.run_seconds) + 2.0:
+		await tree.process_frame
+		ran += maxf(tree.root.get_process_delta_time(), 0.001)
+	ok += _expect(fails, Game.m.phase != Match.Phase.NIGHT and Game.m.player().night_house == 1, "бег не привёл во второй дом (дом %d, фаза %s)" % [Game.m.player().night_house, Match.Phase.keys()[Game.m.phase]])
+	ok += _expect(fails, Game.run_t < float(Game.m.config.run_seconds) - 0.5, "все добежали, а ночь ждала конца звона (%.1f с)" % Game.run_t)
+	await _settle(tree)
 	ok += _expect(fails, not v.show_going and v.selected_house == -1, "после ночи на поле осталась рамка или числа")
 
 	print("=== ночь на картинке: %d проверок ===" % (ok + fails.size()))
 	if fails.is_empty():
-		print("ИТОГ: OK — сумерки по шагам, выбор дома тапом, кто куда идёт видно на поле")
+		print("ИТОГ: OK — сумерки по шагам, колокол и бег до дома тапом, кто куда идёт видно на поле")
 		tree.quit(0)
 	else:
 		for f2: String in fails:
@@ -2175,6 +2200,14 @@ static func sound() -> void:
 # Живой день (Task 23–24): камера ближе и идёт за игроком, ходьба тапом,
 # дела по посёлку, запасы, пустая работа и клевета, фонари ночью.
 # =============================================================
+## Сколько порций у сегодняшних дел — столько запасов можно набрать за день.
+static func _portions(m: Match) -> int:
+	var n := 0
+	for j: JobDef in m.jobs:
+		n += j.portions
+	return n
+
+
 static func village() -> void:
 	var tree := Nav.get_tree()
 	var fails: PackedStringArray = []
@@ -2201,11 +2234,11 @@ static func village() -> void:
 	ok += _expect(fails, v.scale.x > scale_wide * 1.2, "днём камера не приблизилась (%.2f против %.2f)" % [v.scale.x, scale_wide])
 	ok += _expect(fails, v.follow == me, "камера не следит за игроком")
 	# 2. Запасы и значки дел
-	ok += _expect(fails, m.supply_total == v.def.total_portions() and m.supply_total >= 8, "запасов на день %d — ждём сумму порций дел" % m.supply_total)
+	ok += _expect(fails, m.supply_total == _portions(m) and m.supply_total >= 8, "запасов на день %d — ждём сумму порций дел" % m.supply_total)
 	ok += _expect(fails, day.supplies != null and day.supplies.text() == "Запасы 0 из %d" % m.supply_total, "капсула запасов не показана или врёт")
-	ok += _expect(fails, v.jobs_layer.visible and v.def.jobs.size() >= 5, "значков дел нет на поле")
+	ok += _expect(fails, v.jobs_layer.visible and m.jobs.size() >= 5, "значков дел нет на поле")
 	var small := false
-	for ji in range(v.def.jobs.size()):
+	for ji in range(m.jobs.size()):
 		var r := v.jobs_layer.icon_rect_global(ji)
 		if r.size.x < 84.0 or r.size.y < 84.0:
 			small = true
@@ -2227,13 +2260,13 @@ static func village() -> void:
 	ok += _expect(fails, v.to_global(Vector2(VillageView.LOGICAL.x, 0)).x >= vp.x - 20.0 * v.scale.x - 1.0, "камера ушла за правый край посёлка")
 
 	# 4. Дело игрока: дошёл, поработал, запасы выросли
-	var ji := v.def.job_index(&"water")
+	var ji := m.job_index(&"water")
 	var left0 := m.job_left[ji]
 	Sfx.played.clear()
 	Nav.handle_intent(Intent.FIELD_TAP, {"pos": v.jobs_layer.icon_rect_global(ji).get_center()}, day)
 	await _frames(tree, 3)
 	ok += _expect(fails, Game.player_job == ji and me.working, "тап по делу не поставил игрока работать")
-	ok += _expect(fails, me.position.distance_to(v.def.jobs[ji].pos) < 60.0, "игрок работает не у дела")
+	ok += _expect(fails, me.position.distance_to(m.jobs[ji].pos) < 60.0, "игрок работает не у дела")
 	var t_start := Game.day_t
 	var guard := 0.0
 	while Game.player_job >= 0 and guard < 10.0:
@@ -2242,12 +2275,12 @@ static func village() -> void:
 	var waited := Game.day_t - t_start
 	await _frames(tree, 2)
 	ok += _expect(fails, m.supply_done == 1 and m.job_left[ji] == left0 - 1, "дело не засчиталось (запасы %d, осталось %d)" % [m.supply_done, m.job_left[ji]])
-	ok += _expect(fails, waited >= v.def.jobs[ji].work_sec - 0.6, "дело сделалось слишком быстро (%.1f с)" % waited)
+	ok += _expect(fails, waited >= m.jobs[ji].work_sec - 0.6, "дело сделалось слишком быстро (%.1f с)" % waited)
 	ok += _expect(fails, Sfx.played.has(&"job_done") and not me.working, "без звука «готово» или игрок всё ещё работает")
 	ok += _expect(fails, day.supplies.text() == "Запасы 1 из %d" % m.supply_total, "капсула запасов не обновилась: «%s»" % day.supplies.text())
 
 	# 5. Ушёл от дела — работа брошена, запасы не растут
-	var wood := v.def.job_index(&"wood")
+	var wood := m.job_index(&"wood")
 	Nav.handle_intent(Intent.FIELD_TAP, {"pos": v.jobs_layer.icon_rect_global(wood).get_center()}, day)
 	await _frames(tree, 3)
 	ok += _expect(fails, Game.player_job == wood, "к дровам не встал")
@@ -2272,7 +2305,7 @@ static func village() -> void:
 	Nav.handle_intent(Intent.FIELD_TAP, {"pos": v.jobs_layer.icon_rect_global(wood).get_center()}, day)
 	await _frames(tree, 3)
 	ok += _expect(fails, Game.player_job == -1, "встал к делу, которое на сегодня сделано")
-	m.job_left[wood] = v.def.jobs[wood].portions
+	m.job_left[wood] = m.jobs[wood].portions
 
 	# 8. Бот: пошёл к делу, работал, вернулся; пустая работа запасов не даёт
 	var bot: Villager = m.alive_bots()[0]
@@ -2287,7 +2320,7 @@ static func village() -> void:
 		var only: Array[Director.JobTask] = [t]
 		Game.tasks = only
 		await _frames(tree, 3)
-		ok += _expect(fails, bf.working and bf.position.distance_to(v.def.jobs[ji].pos) < 110.0, "бот не пошёл к делу или не работает")
+		ok += _expect(fails, bf.working and bf.position.distance_to(m.jobs[ji].pos) < 110.0, "бот не пошёл к делу или не работает")
 		ok += _expect(fails, Game.busy_job(bot.id) == ji, "сессия не знает, что бот занят делом")
 		var before := m.supply_done
 		Sfx.played.clear()
@@ -2313,7 +2346,7 @@ static func village() -> void:
 		if not ls.is_empty():
 			seen_line = ls[0]
 			break
-	ok += _expect(fails, seen_line != null and seen_line.text.contains(v.def.jobs[ji].place.split(" ")[1].left(5)), "пустую работу никто не заметил или реплика без места")
+	ok += _expect(fails, seen_line != null and seen_line.text.contains(m.jobs[ji].place.split(" ")[1].left(5)), "пустую работу никто не заметил или реплика без места")
 	ok += _expect(fails, Game.director.badges(bot.id).has("fake"), "у замеченного нет улики «работал впустую»")
 	ok += _expect(fails, Game.director.evidence_text(bot).contains("впустую"), "в шторке нет улики словами")
 	# клевета: упырь говорит «впустую» про честного работника
@@ -2401,7 +2434,8 @@ static func village() -> void:
 		Game.proceed()
 		await _settle(tree)
 	if m.phase == Match.Phase.DAY:
-		ok += _expect(fails, m.supply_done == 0 and m.job_left[ji] == v.def.jobs[ji].portions, "новый день начался не с пустыми запасами")
+		ji = m.job_index(&"water")
+		ok += _expect(fails, m.supply_done == 0 and m.job_left[ji] == m.jobs[ji].portions and m.supply_total == _portions(m), "новый день начался не с пустыми запасами")
 		Game.end_day()
 		await _settle(tree)
 		if m.phase == Match.Phase.VOTE:
@@ -2415,6 +2449,406 @@ static func village() -> void:
 	print("=== живой день: %d проверок ===" % (ok + fails.size()))
 	if fails.is_empty():
 		print("ИТОГ: OK — камера идёт за игроком, ходьба и дела работают, запасы зажигают фонари")
+		tree.quit(0)
+	else:
+		for f2: String in fails:
+			print("  ✗ " + f2)
+		print("ИТОГ: НАРУШЕНИЙ: %d" % fails.size())
+		tree.quit(1)
+
+
+
+# =============================================================
+# Обереги (Task 25): целый, треснул, расколот. Слабеют за ночь, днём их чинят как дело.
+# Расколотый пускает тварь из леса в дом, где ночуют вдвоём; целый бережёт одиночку.
+# =============================================================
+## Ночь по правилам: together людей в доме 0 (первый добежавший — хозяин, впускает всех),
+## остальные в доме 1. Оберег дома 0 перед ночью — tal0.
+static func _rules_night(seed_v: int, tal0: int, together: int) -> Dictionary:
+	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
+	var m := Match.new()
+	m.start(c, seed_v)
+	m.begin_day()
+	m.end_day()
+	var humans: Array[Villager] = []
+	for v: Villager in m.villagers:
+		if not v.is_upyr:
+			humans.append(v)
+	var ch: Dictionary[int, int] = {}
+	var arr: Dictionary[int, float] = {}
+	for v: Villager in m.alive():
+		ch[v.id] = 1
+	for k in range(together):
+		ch[humans[k].id] = 0
+		arr[humans[k].id] = float(k)
+	m.seat_night(ch, arr)
+	for s: Match.Seat in m.seats:
+		var ids: Array[int] = []
+		if s.house == 0:
+			for v: Villager in s.queue:
+				ids.append(v.id)
+		m.admit(s, ids)
+	m.talisman[0] = tal0
+	var before := m.talisman.duplicate()
+	var r := m.resolve_night()
+	return {"m": m, "r": r, "humans": humans, "before": before}
+
+
+static func _count(r: NightReport, kind: NightReport.Kind, house: int) -> int:
+	var n := 0
+	for e: NightReport.Entry in r.entries:
+		if e.kind == kind and e.house == house:
+			n += 1
+	return n
+
+
+static func talisman() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+
+	# 1. Правила: старт — все целы, кроме одного; дело починки только у треснувшего
+	var m0 := Match.new()
+	m0.start((load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig, 77)
+	var cracked := 0
+	for t: int in m0.talisman:
+		if t == Match.TALISMAN_MAX - 1:
+			cracked += 1
+	ok += _expect(fails, m0.talisman.size() == m0.houses.size() and cracked == 1, "на старте треснувших оберегов %d, ждём ровно один" % cracked)
+	m0.begin_day()
+	var tjobs := 0
+	var portions := 0
+	for j: JobDef in m0.jobs:
+		portions += j.portions
+		if j.kind == JobDef.Kind.TALISMAN:
+			tjobs += 1
+			ok += _expect(fails, j.house >= 0 and m0.talisman[j.house] < Match.TALISMAN_MAX and j.portions == Match.TALISMAN_MAX - m0.talisman[j.house],
+				"дело починки не у того дома или не столько порций")
+	ok += _expect(fails, tjobs == 1 and m0.supply_total == portions, "дел починки %d, запасов %d из %d порций" % [tjobs, m0.supply_total, portions])
+	var tj := m0.job_index(StringName("talisman_%d" % m0.talisman.find(Match.TALISMAN_MAX - 1)))
+	var th := m0.jobs[tj].house
+	ok += _expect(fails, not m0.do_job(m0.player(), tj, false) and m0.talisman[th] == Match.TALISMAN_MAX - 1, "работа впустую починила оберег")
+	ok += _expect(fails, m0.do_job(m0.player(), tj, true) and m0.talisman[th] == Match.TALISMAN_MAX and not m0.job_available(tj), "честная работа не починила оберег")
+
+	# 2. Расколотый оберег: тварь забирает одного из двоих примерно в 70% ночей. Целый — никогда.
+	var runs := 400
+	var kill0 := 0
+	var kill2 := 0
+	var host_first := true
+	for i in range(runs):
+		var a := _rules_night(1000 + i, 0, 2)
+		kill0 += _count(a.r, NightReport.Kind.KILLED_CREATURE, 0)
+		var seat0: Match.Seat = null
+		for s: Match.Seat in (a.m as Match).seats:
+			if s.house == 0:
+				seat0 = s
+		if seat0 == null or seat0.host != (a.humans as Array)[0]:
+			host_first = false
+		var b := _rules_night(1000 + i, Match.TALISMAN_MAX, 2)
+		kill2 += _count(b.r, NightReport.Kind.KILLED_CREATURE, 0)
+	print("тварь у расколотого: %d из %d ночей, у целого: %d" % [kill0, runs, kill2])
+	ok += _expect(fails, kill0 > runs * 0.6 and kill0 < runs * 0.8, "тварь у расколотого оберега в %d из %d ночей, ждём около 70%%" % [kill0, runs])
+	ok += _expect(fails, kill2 == 0, "тварь пришла в дом с целым оберегом (%d раз)" % kill2)
+	ok += _expect(fails, host_first, "хозяином двери стал не тот, кто добежал первым")
+
+	# 3. Одиночка: целый оберег бережёт (×0.8), расколотый — тварь (не меньше 70%)
+	var alone2 := 0
+	var alone0 := 0
+	for i in range(runs):
+		alone2 += _count(_rules_night(5000 + i, Match.TALISMAN_MAX, 1).r, NightReport.Kind.KILLED_ALONE, 0)
+		alone0 += _count(_rules_night(5000 + i, 0, 1).r, NightReport.Kind.KILLED_ALONE, 0)
+	var p_out := (load("res://config/balance_7.tres") as GameConfig).outside_death_chance(1)
+	print("одиночка: гибель при целом %d, при расколотом %d из %d (без оберега было бы %.0f%%)" % [alone2, alone0, runs, p_out * 100.0])
+	ok += _expect(fails, absf(float(alone2) / runs - p_out * Match.ALONE_SAFE) < 0.07, "целый оберег не бережёт одиночку (%d из %d)" % [alone2, runs])
+	ok += _expect(fails, absf(float(alone0) / runs - maxf(p_out, Match.CREATURE_KILL)) < 0.07, "расколотый оберег не опасен одиночке (%d из %d)" % [alone0, runs])
+
+	# 4. Обереги слабеют: около половины за ночь, каждое ослабление — в утренней сводке
+	var could := 0
+	var worn := 0
+	var reported := true
+	for i in range(runs):
+		var a := _rules_night(9000 + i, Match.TALISMAN_MAX, 2)
+		var mm: Match = a.m
+		var bf: PackedInt32Array = a.before
+		for h in range(bf.size()):
+			if bf[h] > 0:
+				could += 1
+				var dropped := bf[h] - mm.talisman[h]
+				worn += dropped
+				if dropped != _count(a.r, NightReport.Kind.TALISMAN_WORN, h):
+					reported = false
+	ok += _expect(fails, absf(float(worn) / maxf(1.0, could) - Match.TALISMAN_DECAY) < 0.06, "обереги слабеют в %d из %d случаев, ждём около половины" % [worn, could])
+	ok += _expect(fails, reported, "ослабший оберег не попал в утреннюю сводку")
+
+	# 5. Утренние строки
+	var ms := MorningScreen.new()
+	ms.m = m0
+	var e1 := NightReport.Entry.new()
+	e1.kind = NightReport.Kind.KILLED_CREATURE
+	e1.who = m0.villagers[1]
+	e1.house = 0
+	var e2 := NightReport.Entry.new()
+	e2.kind = NightReport.Kind.TALISMAN_WORN
+	e2.house = 0
+	var t1 := ms._text(e1)
+	var t2 := ms._text(e2)
+	ms.free()
+	ok += _expect(fails, t1.contains("Тварь") and t1.contains("Оберег"), "утром не сказано про тварь: «%s»" % t1)
+	ok += _expect(fails, t2.contains("Оберег") and t2.contains("подправить"), "утром не сказано, что оберег ослаб: «%s»" % t2)
+
+	# 6. На поле: оберег виден, его дело — значок у дома; починил — оберег цел
+	Save.set_difficulty("normal")
+	var v := Nav.village
+	Nav.start_match()
+	await _settle(tree)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	var m := Game.m
+	var day := Nav.host.current as DayScreen
+	ok += _expect(fails, v.talismans == m.talisman, "на поле обереги не те, что в правилах")
+	var h := m.talisman.find(Match.TALISMAN_MAX - 1)
+	var ji := m.job_index(StringName("talisman_%d" % h))
+	ok += _expect(fails, h >= 0 and ji >= 0 and m.jobs[ji].kind == JobDef.Kind.TALISMAN, "у треснувшего оберега нет дела починки")
+	if ji >= 0:
+		var icon := v.jobs_layer.icon_rect_global(ji)
+		var house_g := v.to_global(v.def.shelters[h].pos)
+		ok += _expect(fails, icon.get_center().distance_to(house_g) < 260.0 * v.scale.x, "значок починки далеко от своего дома")
+		Nav.handle_intent(Intent.FIELD_TAP, {"pos": icon.get_center()}, day)
+		await _frames(tree, 3)
+		ok += _expect(fails, Game.player_job == ji, "тап по значку починки не поставил игрока работать")
+		var guard := 0.0
+		while Game.player_job >= 0 and guard < 8.0:
+			await tree.create_timer(0.1).timeout
+			guard += 0.1
+		await _frames(tree, 2)
+		ok += _expect(fails, m.talisman[h] == Match.TALISMAN_MAX and v.talismans[h] == Match.TALISMAN_MAX, "починил, а оберег не цел (правила %d, поле %d)" % [m.talisman[h], v.talismans[h]])
+	# ночью в списке видно, какой оберег ослаб
+	m.talisman[0] = 0
+	if m.houses.size() > 1:
+		m.talisman[1] = 1
+	Game.end_day()
+	await _settle(tree)
+	if m.phase == Match.Phase.VOTE:
+		Game.vote(-1)
+		await _settle(tree)
+		Game.proceed()
+		await _settle(tree)
+	var ns := Nav.host.current as NightScreen
+	ok += _expect(fails, ns != null and ns._rows[0].text.contains("оберег расколот") and (m.houses.size() < 2 or ns._rows[1].text.contains("оберег треснул")),
+		"в списке домов не видно, что оберег ослаб")
+	ok += _expect(fails, v.talismans[0] == 0, "ночью на поле оберег не расколот")
+
+	print("=== обереги: %d проверок ===" % (ok + fails.size()))
+	if fails.is_empty():
+		print("ИТОГ: OK — обереги слабеют, чинятся делом, расколотый пускает тварь, целый бережёт")
+		tree.quit(0)
+	else:
+		for f2: String in fails:
+			print("  ✗ " + f2)
+		print("ИТОГ: НАРУШЕНИЙ: %d" % fails.size())
+		tree.quit(1)
+
+
+
+# =============================================================
+# Колокол (Task 26): по звону все бегут к домам в реальном времени. Кто первым
+# у двери — хозяин, очередь в порядке прибытия. Не выбрал дом за звон — бежишь последним.
+# =============================================================
+## Довести партию до ночи: день → (голосование) → колокол.
+static func _to_night(tree: SceneTree) -> void:
+	Game.end_day()
+	await _settle(tree)
+	if Game.m.phase == Match.Phase.VOTE:
+		Game.vote(-1)
+		await _settle(tree)
+		Game.proceed()
+		await _settle(tree)
+
+
+static func _new_day(tree: SceneTree) -> void:
+	Nav.start_match()
+	await _settle(tree)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+
+
+## Очередь у каждой двери идёт по времени прибытия, хозяин — первый.
+static func _seats_in_order(m: Match, arrive: Dictionary[int, float]) -> bool:
+	for s: Match.Seat in m.seats:
+		var line: Array[Villager] = [s.host]
+		line.append_array(s.queue)
+		for k in range(1, line.size()):
+			if arrive.get(line[k - 1].id, 1.0e6) > arrive.get(line[k].id, 1.0e6):
+				return false
+	return true
+
+
+static func bell() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+
+	# 1. Правила: порядок у двери — по прибытию; кого нет во временах, тот после всех
+	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
+	var m0 := Match.new()
+	m0.start(c, 31)
+	m0.begin_day()
+	m0.end_day()
+	var ch: Dictionary[int, int] = {}
+	var arr: Dictionary[int, float] = {}
+	var ids: Array[int] = []
+	for v: Villager in m0.alive():
+		ch[v.id] = 0
+		ids.append(v.id)
+	for k in range(ids.size() - 1):
+		arr[ids[k]] = 10.0 - k        # последний в списке без времени — опоздал
+	m0.seat_night(ch, arr)
+	var s0: Match.Seat = m0.seats[0]
+	ok += _expect(fails, s0.host.id == ids[ids.size() - 2] and s0.queue.back().id == ids.back() and _seats_in_order(m0, arr),
+		"у двери стоят не в порядке прибытия")
+
+	# 2. Пресеты: звон короче на сложной, длиннее на лёгкой; ползунок в настройках
+	ok += _expect(fails, Difficulty.preset("easy").run_seconds > Difficulty.preset("normal").run_seconds and Difficulty.preset("hard").run_seconds < Difficulty.preset("normal").run_seconds,
+		"время колокола не зависит от сложности")
+	ok += _expect(fails, GameConfig.LABELS.has("run_seconds"), "нет ползунка «Бег до дома»")
+
+	# 3. Колокол: бег начался, у ботов реакция и время прибытия, идёт отсчёт
+	Save.set_difficulty("normal")
+	var v := Nav.village
+	await _new_day(tree)
+	await _to_night(tree)
+	Game.hold(&"test")
+	await _settle(tree)
+	var m := Game.m
+	var ns := Nav.host.current as NightScreen
+	var all_bots := true
+	var times_ok := true
+	for b: Villager in m.alive_bots():
+		if not Game.run_choices.has(b.id):
+			all_bots = false
+			continue
+		var rt: float = Game.run_react[b.id]
+		if rt < Director.RUN_REACT.x - 0.001 or rt > Director.RUN_REACT.y + 0.001 or Game.run_arrive[b.id] <= rt:
+			times_ok = false
+	ok += _expect(fails, m.phase == Match.Phase.NIGHT and Game.run_on and Game.run_house == -1 and all_bots, "колокол не отправил всех ботов бежать")
+	ok += _expect(fails, times_ok, "у ботов нет реакции на колокол или время прибытия раньше старта")
+	ok += _expect(fails, Game.clock.running() and Game.clock.time_left() > m.config.run_seconds - 1.0 and Game.clock.time_left() <= m.config.run_seconds,
+		"нет обратного отсчёта колокола (%.1f с)" % Game.clock.time_left())
+	ok += _expect(fails, ns != null and _find_button(ns, "Идти") == null and ns._status.text.contains("колокол"), "на экране ночи кнопка «Идти» или нет призыва бежать")
+
+	# 4. Пауза: время бега и отсчёт стоят
+	var rt0 := Game.run_t
+	var cl0 := Game.clock.time_left()
+	await tree.create_timer(0.3).timeout
+	ok += _expect(fails, Game.run_t == rt0 and Game.clock.time_left() == cl0, "на паузе бег продолжается")
+
+	# 5. Выбрал дом — время до двери считается от того места, где стоишь; передумал — пересчёт
+	var d0: float = Game.run_distance.call(0, 0)
+	ns.select_house(0)
+	await _frames(tree, 2)
+	ok += _expect(fails, Game.run_house == 0 and absf(Game.run_arrive[0] - (Game.run_t + d0 / Director.RUN_SPEED)) < 0.01, "время прибытия игрока посчитано неверно")
+	ok += _expect(fails, ns._status.text.contains(m.houses[0]), "на экране не сказано, куда бежишь")
+	var d1: float = Game.run_distance.call(0, 1)
+	ns.select_house(1)
+	await _frames(tree, 2)
+	ok += _expect(fails, Game.run_house == 1 and absf(Game.run_arrive[0] - (Game.run_t + d1 / Director.RUN_SPEED)) < 0.01, "смена дома на бегу не пересчитала время")
+	# на поле: у каждой двери первым стоит тот, кто добежит первым
+	var cr := v.crowd
+	var first_ok := true
+	for hh in range(v.open_count):
+		var group: Array[int] = []
+		for vid: int in Game.run_choices:
+			if Game.run_choices[vid] == hh and m.get_villager(vid).alive:
+				group.append(vid)
+		if hh == 1:
+			group.append(0)
+		if group.size() < 2:
+			continue
+		group.sort_custom(func(a: int, b: int) -> bool: return Game.run_arrive[a] < Game.run_arrive[b])
+		var d_first := cr.figures[group[0]].position.distance_to(v.def.shelters[hh].pos)
+		for k in range(1, group.size()):
+			if cr.figures[group[k]].position.distance_to(v.def.shelters[hh].pos) < d_first - 1.0:
+				first_ok = false
+	ok += _expect(fails, first_ok, "на поле ближе к двери стоит не тот, кто добежит первым")
+
+	# 6. Все добежали — ночь начинается до конца звона, очередь по времени прибытия
+	Game.release(&"test")
+	var ran := 0.0
+	while m.phase == Match.Phase.NIGHT and ran < float(m.config.run_seconds) + 2.0:
+		await tree.process_frame
+		ran += maxf(tree.root.get_process_delta_time(), 0.001)
+	ok += _expect(fails, m.phase != Match.Phase.NIGHT and m.player().night_house == 1, "бег не закончился во втором доме")
+	ok += _expect(fails, _seats_in_order(m, Game.run_arrive), "очередь у двери не по времени прибытия")
+	ok += _expect(fails, Game.run_t < float(m.config.run_seconds), "ночь ждала конца звона, хотя все добежали")
+
+	# 7. Колокол отзвонил, дом не выбран: бежишь туда, куда собирался днём, — последним
+	await _new_day(tree)
+	m = Game.m
+	m.player().announced_house = 1
+	await _to_night(tree)
+	ok += _expect(fails, Game.run_on and Game.run_house == -1, "второй колокол не начался")
+	Game.clock.start(0.05)
+	var w := 0.0
+	while m.phase == Match.Phase.NIGHT and w < 2.0:
+		await tree.process_frame
+		w += maxf(tree.root.get_process_delta_time(), 0.001)
+	var my_seat: Match.Seat = null
+	for s: Match.Seat in m.seats:
+		if s.host == m.player() or s.queue.has(m.player()):
+			my_seat = s
+	ok += _expect(fails, m.phase != Match.Phase.NIGHT and m.player().night_house == 1, "по концу звона игрок не побежал туда, куда собирался")
+	ok += _expect(fails, my_seat != null and (my_seat.queue.is_empty() and my_seat.host == m.player() or my_seat.queue.back() == m.player()),
+		"опоздавший игрок встал не последним")
+
+	# 8. Не собирался никуда — бежит к ближайшему дому
+	await _new_day(tree)
+	m = Game.m
+	m.player().announced_house = -1
+	await _to_night(tree)
+	var near := 0
+	for hh in range(m.houses.size()):
+		if float(Game.run_distance.call(0, hh)) < float(Game.run_distance.call(0, near)):
+			near = hh
+	Game.clock.start(0.05)
+	w = 0.0
+	while m.phase == Match.Phase.NIGHT and w < 2.0:
+		await tree.process_frame
+		w += maxf(tree.root.get_process_delta_time(), 0.001)
+	ok += _expect(fails, m.player().night_house == near, "без выбора игрок побежал не к ближайшему дому (%d, ближе %d)" % [m.player().night_house, near])
+
+	# 9. Мёртвому колокол не нужен: без бега и отсчёта, кнопка «Дальше»
+	await _new_day(tree)
+	m = Game.m
+	m.player().alive = false
+	await _to_night(tree)
+	ns = Nav.host.current as NightScreen
+	var next := _find_button(ns, "Дальше") if ns != null else null
+	ok += _expect(fails, not Game.run_on and not Game.clock.running() and next != null, "мёртвому игроку запущен бег или нет «Дальше»")
+	if next != null:
+		next.pressed.emit()
+		await _settle(tree)
+	ok += _expect(fails, m.phase != Match.Phase.NIGHT, "без игрока ночь не пошла дальше")
+
+	# 10. Запоздалый бег бота: стоит, пока не услышал колокол, потом бежит
+	Juice.instant = false
+	var probe: VillagerFigure = cr.figures[m.alive_bots()[0].id]
+	var p0 := probe.position
+	probe.run_to(p0 + Vector2(60, 0), 0.4, 0.6)
+	await tree.create_timer(0.3).timeout
+	var still := probe.position.distance_to(p0) < 0.5
+	await tree.create_timer(1.2).timeout
+	Juice.instant = true
+	ok += _expect(fails, still and probe.position.distance_to(p0 + Vector2(60, 0)) < 1.0, "задержка перед бегом не работает")
+
+	print("=== колокол: %d проверок ===" % (ok + fails.size()))
+	if fails.is_empty():
+		print("ИТОГ: OK — колокол, бег в реальном времени, очередь по прибытию, опоздавший последний")
 		tree.quit(0)
 	else:
 		for f2: String in fails:

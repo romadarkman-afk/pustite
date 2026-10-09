@@ -85,6 +85,8 @@ func _ready() -> void:
 	Game.job_finished.connect(_on_job_finished)
 	Game.player_job_changed.connect(_on_player_job)
 	Game.supplies_changed.connect(_on_supplies)
+	Game.run_changed.connect(_on_run)
+	Game.run_distance = _run_distance
 	Game.chat_line.connect(_on_chat)
 	Game.clock_ticked.connect(func(s: int) -> void:
 		if host.current != null:
@@ -244,6 +246,8 @@ func _on_phase(phase: Match.Phase) -> void:
 	if phase == Match.Phase.PROLOGUE:
 		village.crowd.populate(Game.m)
 		village.crowd.update_marks(Game.director, Game.m)
+	village.crowd.day_jobs = Game.m.jobs
+	village.set_talismans(Game.m.talisman)
 	village.crowd.sync(Game.m, phase)
 	# ночью горит столько фонарей, сколько заправили днём
 	var night_phase := phase == Match.Phase.NIGHT or phase == Match.Phase.DOOR
@@ -380,8 +384,7 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			Game.plea(data.plea)
 		Intent.SELECT_HOUSE:
 			village.set_selected_house(int(data.house))
-			if Game.m != null:
-				village.crowd.arrange_night(Game.m, int(data.house))
+			Game.run_to_house(int(data.house))
 		Intent.FIELD_TAP:
 			if sender is NightScreen:
 				var hi := village.house_at(data.pos)
@@ -472,7 +475,29 @@ func _on_player_job() -> void:
 	village.jobs_layer.set_progress(Game.player_job, Game.player_job_progress())
 
 
+# =============================================================
+# Колокол: бег до дома
+# =============================================================
+## Путь жителя до двери дома по полю — от того места, где он стоит сейчас.
+func _run_distance(vid: int, house: int) -> float:
+	var f: VillagerFigure = village.crowd.figures.get(vid)
+	if f == null or house < 0 or house >= village.def.shelters.size():
+		return 200.0
+	return f.position.distance_to(village.def.shelters[house].pos)
+
+
+func _on_run() -> void:
+	if Game.m == null or not Game.run_on:
+		return
+	village.set_selected_house(Game.run_house)
+	village.crowd.arrange_run(Game.m, Game.run_choices, Game.run_react, Game.run_arrive, Game.run_house, Game.run_t)
+	if host.current is NightScreen:
+		(host.current as NightScreen).show_run(Game.run_house)
+
+
 func _on_supplies() -> void:
+	if Game.m != null:
+		village.set_talismans(Game.m.talisman)
 	if host.current is DayScreen:
 		(host.current as DayScreen).update_supplies()
 

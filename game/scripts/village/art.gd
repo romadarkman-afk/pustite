@@ -72,7 +72,7 @@ static func tree(ci: CanvasItem, p: Vector2, s: float, col: Color, ink_c: Color)
 # Дома
 # =============================================================
 ## state: 0 — фон, 1 — открытое убежище, 2 — заколоченное. lit — насколько горят окна (0..1).
-static func house(ci: CanvasItem, kind: int, base: Vector2, w: float, h: float, pal: Dictionary, n: float, lit: float, state: int) -> void:
+static func house(ci: CanvasItem, kind: int, base: Vector2, w: float, h: float, pal: Dictionary, n: float, lit: float, state: int, tal: int = 2) -> void:
 	var k := ink(n)
 	var wall: Color = dn(pal.wall, n)
 	var wall_d: Color = dn(pal.wall_d, n)
@@ -86,7 +86,7 @@ static func house(ci: CanvasItem, kind: int, base: Vector2, w: float, h: float, 
 	ci.draw_colored_polygon(ellipse(base + Vector2(5, 3), Vector2(w * 0.62, 9)), Color(0, 0, 0, 0.22))
 	match kind:
 		HouseDef.Kind.CELLAR:
-			_cellar(ci, base, w, h, pal, n, lit, state, k)
+			_cellar(ci, base, w, h, pal, n, lit, state, k, tal)
 			return
 		HouseDef.Kind.GARAGE:
 			var body := Rect2(x0, top + h * 0.12, w, h * 0.88)
@@ -170,7 +170,7 @@ static func house(ci: CanvasItem, kind: int, base: Vector2, w: float, h: float, 
 	if state == 2:
 		_planks(ci, dr2.grow(3), n, k)
 	if state == 1:
-		_talisman(ci, Vector2(dr2.position.x - 14, base.y - 10), n, k)
+		_talisman(ci, Vector2(dr2.position.x - 14, base.y - 10), n, k, tal)
 
 
 static func _outline(ci: CanvasItem, pts: PackedVector2Array, k: Color, width: float) -> void:
@@ -206,15 +206,30 @@ static func _planks(ci: CanvasItem, r: Rect2, n: float, k: Color) -> void:
 
 
 ## Обережный камень у двери — свой знак: круг, а под ним два луча и черта сверху.
-static func _talisman(ci: CanvasItem, c: Vector2, n: float, k: Color) -> void:
-	shape(ci, ellipse(c, Vector2(9, 10.5), 16), dn(Color("aaa29a"), n * 0.7), k, 2.4)
+## tal: 2 — целый (ночью светится), 1 — треснул (трещина, свет слабее), 0 — расколот.
+static func _talisman(ci: CanvasItem, c: Vector2, n: float, k: Color, tal: int = 2) -> void:
 	var line := Color(k, 0.8)
+	if tal <= 0:
+		# две половинки врозь, без света, с красноватым отливом
+		var stone := dn(Color("a08a84"), n * 0.7)
+		var lh := PackedVector2Array([c + Vector2(-2, -10), c + Vector2(-9, -6), c + Vector2(-10, 4), c + Vector2(-5, 10), c + Vector2(-1, 9), c + Vector2(-4, 2), c + Vector2(0, -3)])
+		var rh := PackedVector2Array([c + Vector2(3, -10), c + Vector2(4, -3), c + Vector2(1, 2), c + Vector2(5, 9), c + Vector2(10, 9), c + Vector2(12, 1), c + Vector2(10, -7)])
+		shape(ci, lh, stone, k, 2.2)
+		shape(ci, rh, stone, k, 2.2)
+		for sh: Vector2 in [Vector2(-12, 11), Vector2(13, 11), Vector2(2, 12)]:
+			ci.draw_circle(c + sh, 1.6, Color(k, 0.7))
+		if n > 0.3:
+			glow(ci, c, 14, Color(0.9, 0.2, 0.15, 0.35 * n))
+		return
+	shape(ci, ellipse(c, Vector2(9, 10.5), 16), dn(Color("aaa29a"), n * 0.7), k, 2.4)
 	ci.draw_arc(c, 4.2, 0, TAU, 12, line, 1.6, true)
 	ci.draw_line(c + Vector2(0, -8.5), c + Vector2(0, -5), line, 1.6)
 	ci.draw_line(c + Vector2(-6.5, 4.5), c + Vector2(-3.5, 2), line, 1.6)
 	ci.draw_line(c + Vector2(6.5, 4.5), c + Vector2(3.5, 2), line, 1.6)
+	if tal == 1:
+		ci.draw_polyline(PackedVector2Array([c + Vector2(-3, -10), c + Vector2(1, -4), c + Vector2(-2, 1), c + Vector2(3, 6), c + Vector2(1, 10)]), k, 2.0, true)
 	if n > 0.3:
-		glow(ci, c, 18, Color(0.6, 0.9, 1.0, 0.45 * n))
+		glow(ci, c, 18, Color(0.6, 0.9, 1.0, (0.45 if tal >= 2 else 0.18) * n))
 
 
 static func _chapel_top(ci: CanvasItem, base: Vector2, bw: float, h: float, top: float, roof: Color, wall: Color, k: Color, n: float) -> void:
@@ -238,7 +253,7 @@ static func _chapel_top(ci: CanvasItem, base: Vector2, bw: float, h: float, top:
 	ci.draw_circle(Vector2(base.x, tip - r * 0.85), 3.2, dn(Color("ffd166"), n * 0.5))
 
 
-static func _cellar(ci: CanvasItem, base: Vector2, w: float, h: float, pal: Dictionary, n: float, lit: float, state: int, k: Color) -> void:
+static func _cellar(ci: CanvasItem, base: Vector2, w: float, h: float, pal: Dictionary, n: float, lit: float, state: int, k: Color, tal: int = 2) -> void:
 	var pts := PackedVector2Array()
 	for i in range(25):
 		var a := PI * i / 24.0
@@ -259,7 +274,7 @@ static func _cellar(ci: CanvasItem, base: Vector2, w: float, h: float, pal: Dict
 	if state == 2:
 		_planks(ci, dr.grow(3), n, k)
 	if state == 1:
-		_talisman(ci, Vector2(dr.position.x - 16, base.y - 9), n, k)
+		_talisman(ci, Vector2(dr.position.x - 16, base.y - 9), n, k, tal)
 
 
 # =============================================================

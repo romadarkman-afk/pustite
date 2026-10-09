@@ -11,6 +11,7 @@ capacity = 2
 nights = 3
 day_seconds = 90
 door_seconds = 20
+run_seconds = 10
 outside_death = 80
 first_night_outside_death = 40
 vote_from_day = 2

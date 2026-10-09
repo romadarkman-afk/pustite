@@ -193,7 +193,8 @@ func body_rect_global() -> Rect2:
 # =============================================================
 # Состояния
 # =============================================================
-func run_to(target: Vector2, dur: float = 0.75) -> void:
+## delay — сколько секунд постоять, прежде чем сорваться (житель не сразу услышал колокол).
+func run_to(target: Vector2, dur: float = 0.75, delay: float = 0.0) -> void:
 	if state == State.DEAD or state == State.GONE:
 		return
 	if _tw != null:
@@ -203,9 +204,15 @@ func run_to(target: Vector2, dur: float = 0.75) -> void:
 		_settle_idle()
 		arrived.emit()
 		return
-	state = State.RUN
+	if delay > 0.0:
+		_settle_idle()
+	else:
+		state = State.RUN
 	_face = -1.0 if target.x < position.x else 1.0
 	_tw = create_tween()
+	if delay > 0.0:
+		_tw.tween_interval(delay)
+		_tw.tween_callback(func() -> void: state = State.RUN)
 	_tw.tween_property(body, "scale", Vector2(_face * 1.2, 0.8), 0.08)
 	_tw.tween_property(body, "scale", Vector2(_face * 0.88, 1.14), 0.1)
 	_tw.parallel().tween_property(self, "position", target, dur).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)

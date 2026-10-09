@@ -13,6 +13,7 @@ signal job_started(vid: int, ji: int)                              ## жител
 signal job_finished(vid: int, ji: int, counted: bool, real: bool)  ## дело закончено; counted — запасы выросли
 signal supplies_changed                                            ## запасы дня изменились
 signal player_job_changed                                          ## игрок начал или бросил дело
+signal run_changed                                                 ## колокол: начался бег или игрок сменил дом
 
 var m: Match
 var director: Director
@@ -27,6 +28,16 @@ var day_t: float = 0.0
 var player_job: int = -1
 var player_job_left: float = 0.0
 
+## Бег до дома по колоколу. Время бега идёт вместе с часами: пауза — стоят и бегущие.
+var run_on: bool = false
+var run_t: float = 0.0
+var run_house: int = -1                         ## куда бежит игрок; -1 — ещё не выбрал
+var run_choices: Dictionary[int, int] = {}      ## куда бегут боты
+var run_react: Dictionary[int, float] = {}      ## когда бот сорвался с места
+var run_arrive: Dictionary[int, float] = {}     ## когда житель у двери (игрок — id 0)
+## Путь жителя до двери дома в единицах посёлка. Nav подставляет настоящий путь по полю.
+var run_distance: Callable = func(_vid: int, _house: int) -> float: return 200.0
+
 
 func _ready() -> void:
 	clock = PhaseClock.new()
@@ -34,6 +45,9 @@ func _ready() -> void:
 	clock.ticked.connect(func(s: int) -> void: clock_ticked.emit(s))
 	clock.finished.connect(func() -> void:
 		if m != null:
+			if m.phase == Match.Phase.NIGHT and run_on:
+				_run_deadline()
+				return
 			clock_expired.emit(m.phase))
 
 
@@ -59,6 +73,7 @@ func abandon() -> void:
 	_feed_gen += 1
 	tasks.clear()
 	player_job = -1
+	run_on = false
 	clock.stop()
 	if m != null and m.phase_changed.is_connected(_on_phase):
 		m.phase_changed.disconnect(_on_phase)
@@ -91,7 +106,12 @@ func _keep_screen(on: bool) -> void:
 # Дела по посёлку
 # =============================================================
 func _process(delta: float) -> void:
-	if m == null or m.phase != Match.Phase.DAY or held():
+	if m == null or held():
+		return
+	if m.phase == Match.Phase.NIGHT and run_on:
+		_run_step(minf(delta, PhaseClock.MAX_STEP))
+		return
+	if m.phase != Match.Phase.DAY:
 		return
 	var d := minf(delta, PhaseClock.MAX_STEP)
 	day_t += d
@@ -193,7 +213,16 @@ func _on_phase(p: Match.Phase) -> void:
 			var lines := director.opening_lines()
 			Diag.step("день: реплик в очереди %d" % lines.size())
 			_feed(lines)
+		Match.Phase.NIGHT:
+			run_on = false
+			if m.player().alive:
+				_start_run()
+			phase_entered.emit(p)
+			if run_on:
+				clock.start(m.config.run_seconds)
+				run_changed.emit()
 		Match.Phase.DOOR:
+			run_on = false
 			_prepare_door()
 		Match.Phase.OVER:
 			_keep_screen(false)
@@ -300,11 +329,86 @@ func vote(target_id: int) -> void:
 	vote_resolved.emit(tally, out)
 
 
+# =============================================================
+# Колокол: бег до дома
+# =============================================================
+func _start_run() -> void:
+	run_on = true
+	run_t = 0.0
+	run_house = -1
+	run_choices = director.night_choices()
+	var plan := director.plan_run(run_choices, run_distance)
+	run_react.assign(plan.react)
+	run_arrive.assign(plan.arrive)
+	Diag.step("колокол: боты бегут, последний у двери через %.1f с" % _bots_done_at())
+
+
+func _bots_done_at() -> float:
+	var t := 0.0
+	for vid: int in run_arrive:
+		if vid != 0:
+			t = maxf(t, run_arrive[vid])
+	return t
+
+
+func _run_step(d: float) -> void:
+	run_t += d
+	# все у дверей — ночь начинается, не дожидаясь конца звона
+	if run_house >= 0 and run_t >= run_arrive.get(0, INF) and run_t >= _bots_done_at():
+		_finish_run()
+
+
+## Игрок побежал к дому (или передумал на бегу). Время до двери — от того места, где он сейчас.
+func run_to_house(house: int) -> void:
+	if not run_on or m == null or m.phase != Match.Phase.NIGHT or house < 0 or house >= m.houses.size():
+		return
+	run_house = house
+	run_arrive[0] = run_t + float(run_distance.call(0, house)) / Director.RUN_SPEED
+	run_changed.emit()
+
+
+## Колокол отзвонил. Кто не выбрал дом — бежит туда, куда собирался днём,
+## а если не собирался — к ближайшему, и добегает последним.
+func _run_deadline() -> void:
+	if run_house < 0:
+		var h := m.player().announced_house
+		if h < 0 or h >= m.houses.size():
+			var best := INF
+			for i in range(m.houses.size()):
+				var dd := float(run_distance.call(0, i))
+				if dd < best:
+					best = dd
+					h = i
+		run_house = h
+		run_arrive[0] = 1.0e5
+		run_changed.emit()
+	_finish_run()
+
+
+func _finish_run() -> void:
+	if run_on:
+		choose_house(run_house)
+
+
+## Сесть по домам сейчас же. Во время бега — по тем же выборам и временам, что видны на поле.
+## Без бега (мёртвый игрок, самотесты правил) — как раньше: выбор ботов и случайный порядок.
 func choose_house(house: int) -> void:
-	var choices := director.night_choices()
+	var choices: Dictionary[int, int] = {}
+	var arrival: Dictionary[int, float] = {}
+	if run_on:
+		choices = run_choices.duplicate()
+		arrival = run_arrive.duplicate()
+		if house >= 0 and house != run_house:
+			arrival[0] = run_t + float(run_distance.call(0, house)) / Director.RUN_SPEED
+	else:
+		choices = director.night_choices()
+	run_on = false
+	clock.stop()
 	if m.player().alive:
 		choices[0] = house
-	m.seat_night(choices)
+	else:
+		arrival.erase(0)
+	m.seat_night(choices, arrival)
 
 
 func admit(ids: Array[int]) -> void:
