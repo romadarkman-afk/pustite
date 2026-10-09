@@ -46,6 +46,10 @@ func held() -> bool:
 	return not _holds.is_empty()
 
 
+func held_by(reason: StringName) -> bool:
+	return _holds.has(reason)
+
+
 func _process(delta: float) -> void:
 	if not _running or held():
 		return

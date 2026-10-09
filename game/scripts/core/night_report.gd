@@ -15,6 +15,8 @@ enum Kind {
 	KILLED_MIMIC,      ## впустили Подражателя — он забрал who; voice — чьим голосом он говорил
 	MIMIC_SPARED,      ## впустили Подражателя, но до утра все целы (who = null)
 	MIMIC_KNOCK,       ## Подражатель стучал, не открыли (who = null)
+	SAVED,             ## на who напали, но Знахарка (others[0]) выходила; cause — кто нападал
+	TUNNEL,            ## who не пустили в said_house, и он пролез туннелем в house
 }
 
 class Entry:
@@ -24,6 +26,7 @@ class Entry:
 	var said_house: int = -1
 	var others: Array[Villager] = []
 	var voice: Villager = null      ## Подражатель: чьим голосом стучал
+	var cause: String = ""          ## SAVED: "upyr", "creature" или "mimic"
 
 	func is_death() -> bool:
 		return kind == Kind.KILLED_STREET or kind == Kind.KILLED_INSIDE or kind == Kind.KILLED_ALONE \

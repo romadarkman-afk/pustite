@@ -7,6 +7,7 @@ extends Screen
 var picked: int = -1
 var _rows: Array[Button] = []
 var _status: Label
+var heal_button: Button       ## у знахаря: взять травы на эту ночь
 
 
 func screen_id() -> String:
@@ -65,6 +66,8 @@ func build() -> void:
 			text += "\nсобирались: " + ", ".join(who)
 		if pact != "":
 			text += "\nуговор с %s" % pact
+		if m.tunnel_to(i) >= 0:
+			text += "\nтуннель в «%s»" % m.house_name(m.tunnel_to(i))
 		if i < m.talisman.size() and m.talisman[i] < Match.TALISMAN_MAX:
 			text += "\nоберег расколот" if m.talisman[i] <= 0 else "\nоберег треснул"
 		var b := W.button(text, &"Row", 108)
@@ -75,6 +78,10 @@ func build() -> void:
 		list.add_child(b)
 	body.add_child(list)
 	body.add_child(W.label("Кто первым добежит до двери, тот внутри и решает, кого впустить. Не выбрал дом за звон — побежишь туда, куда собирался, последним.", &"Small"))
+	if me.role == Match.Role.HEALER and not me.role_used:
+		heal_button = W.button("Взять травы: спасу соседа этой ночью", &"Row")
+		heal_button.pressed.connect(func() -> void: emit_intent(Intent.HEAL))
+		body.add_child(heal_button)
 
 
 ## Событие ночи — строкой под призывом бежать.
@@ -114,6 +121,13 @@ func select_house(i: int) -> void:
 	emit_intent(Intent.SELECT_HOUSE, {"house": i})
 
 
+## Nav: травы взяты.
+func show_healed() -> void:
+	if is_instance_valid(heal_button):
+		heal_button.text = "Травы при тебе: если рядом на кого-то нападут, выходишь"
+		heal_button.disabled = true
+
+
 ## Сколько жителей собирается в каждый дом — для табличек на поле.
 func going_counts() -> PackedInt32Array:
 	var out := PackedInt32Array()
@@ -130,13 +144,15 @@ func _select(i: int, b: Button) -> void:
 		r.theme_type_variation = &"RowOn" if r == b else &"Row"
 
 
-## Nav сообщает, куда бежит игрок (в том числе когда колокол отзвонил и дом выбран за него).
-func show_run(house: int) -> void:
+## Nav сообщает, куда бежит игрок и кто добежит раньше (колокол отзвонил — дом выбран за него).
+func show_run(house: int, ahead: PackedStringArray = PackedStringArray()) -> void:
 	if house < 0 or house >= _rows.size() or _status == null:
 		return
 	if picked != house:
 		_select(house, _rows[house])
-	_status.text = "Бежишь в «%s». Передумал? Нажми другой дом." % m.houses[house]
+	var who := "Добежишь первым: решать, кого впустить, будешь ты." if ahead.is_empty() \
+		else "Раньше тебя у двери: %s. Решать будет %s." % [", ".join(ahead), ahead[0]]
+	_status.text = "Бежишь в «%s». %s" % [m.houses[house], who]
 
 
 func ambience() -> StringName:

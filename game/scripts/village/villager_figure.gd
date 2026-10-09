@@ -409,6 +409,10 @@ func _draw_marks() -> void:
 			"fake":   # пустое ведро
 				draw_polyline(PackedVector2Array([Vector2(MARK_X - 5, y - 4), Vector2(MARK_X - 3.6, y + 5.5), Vector2(MARK_X + 3.6, y + 5.5), Vector2(MARK_X + 5, y - 4)]), ThemeFactory.BONE, 1.6)
 				draw_arc(Vector2(MARK_X, y - 4), 5.0, PI, TAU, 8, ThemeFactory.BONE, 1.2)
+			"tunnel":   # люк
+				draw_rect(Rect2(MARK_X - 6, y - 3, 12, 8), Color("8a5a3a"))
+				draw_rect(Rect2(MARK_X - 6, y - 3, 12, 8), ThemeFactory.BONE, false, 1.2)
+				draw_circle(Vector2(MARK_X + 3, y + 1), 1.4, ThemeFactory.BONE)
 			"sabotage":   # трещина
 				draw_polyline(PackedVector2Array([Vector2(MARK_X - 1, y - 7), Vector2(MARK_X + 3, y - 2), Vector2(MARK_X - 2.5, y + 1.5), Vector2(MARK_X + 2, y + 7)]), accent, 2.0)
 		y += 19.0

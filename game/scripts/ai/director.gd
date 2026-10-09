@@ -20,7 +20,9 @@ const NOTICE_P := 0.25      ## шанс, что каждый отдельный 
 const DONE_LINE_P := 0.25  ## шанс, что житель похвастается сделанным
 const LIE_P := 0.2         ## шанс, что упырь оболжёт честного работника: «работал впустую»
 const RUN_SPEED := 190.0                  ## как шаг фигурки на поле, единиц посёлка в секунду
-const RUN_REACT := Vector2(0.4, 1.6)      ## через сколько секунд бот замечает колокол
+const RUN_REACT := Vector2(2.0, 5.0)      ## через сколько секунд бот срывается с места: дослушать, оглядеться, решиться
+const RUN_REACT_FAST := Vector2(0.5, 1.5) ## а этот был наготове и рванул сразу
+const RUN_FAST_P := 0.25                  ## доля таких шустрых: замешкался на пару секунд — у двери уже кто-то есть
 const SABOTAGE_P := 0.5    ## упырь, который не работает по-настоящему, портит сделанное в половине случаев
 const W_SABOTAGE := 1.0    ## видели у испорченного дела
 const SABOTAGE_NOTICE := 0.35   ## шанс, что кто-то из людей заметит, кто испортил
@@ -29,6 +31,16 @@ const W_NOTE := 0.8        ## назван в записке из ящика
 const MIMIC_TRUST_DEAD := 0.05
 const MIMIC_TRUST_ELSEWHERE := 0.2   ## говорил днём, что ночует в другом доме
 const MIMIC_TRUST := 0.35
+const W_ELDER := 3.0       ## старожил назвал упырём — посёлок почти уверен
+const W_ELDER_CLEAR := 1.0 ## старожил назвал человеком
+const ELDER_DAY1_P := 0.4  ## старожил смотрит рисунки уже в первый день
+const ELDER_SPEAK_CLEAR := 0.6   ## проверил человека — скажет об этом вслух
+const FAKE_ELDER_P := 0.5  ## упырь назовётся старожилом (раз за партию, со второго дня)
+const ELDER_HUNT_P := 0.6  ## голодный упырь идёт ночевать к тому, кто назвался старожилом
+const W_TUNNEL := 0.8      ## пролез туннелем в чужой дом
+const HEAL_P := 0.6        ## знахарка берёт травы, когда ночует не одна
+const MEETING_SUSP := 2.0  ## бот бьёт в колокол днём, если кого-то подозревают хотя бы так
+const MEETING_P := 0.6
 
 
 class JobTask:
@@ -47,6 +59,8 @@ var brains: Dictionary[int, BotBrain] = {}
 var street_last_night: Dictionary[int, bool] = {}
 var liar_last_night: Dictionary[int, int] = {}   ## id -> дом, о котором врал
 var evidence: Dictionary = {}                    ## id -> {"street": n, "liar": n, "death": n} за всю партию
+var pending_lines: Array[ChatLine] = []          ## что скажут первым делом утром (старожил)
+var fake_elder_done := false
 
 
 func attach(match_ref: Match) -> void:
@@ -94,7 +108,7 @@ func eye_level(vid: int) -> int:
 func badges(vid: int) -> PackedStringArray:
 	var out := PackedStringArray()
 	var ev: Dictionary = evidence.get(vid, {})
-	for k: String in ["death", "sabotage", "street", "liar", "fake"]:
+	for k: String in ["death", "sabotage", "street", "liar", "tunnel", "fake"]:
 		if int(ev.get(k, 0)) > 0:
 			out.append(k)
 	return out
@@ -115,6 +129,8 @@ func evidence_text(v: Villager) -> String:
 		parts.append(Ru.g(v, "работал", "работала", "работали") + " впустую")
 	if int(ev.get("sabotage", 0)) > 0:
 		parts.append(Ru.g(v, "был", "была", "были") + " у испорченного дела")
+	if int(ev.get("tunnel", 0)) > 0:
+		parts.append(Ru.g(v, "пролез", "пролезла", "пролезли") + " туннелем в чужой дом")
 	return "; ".join(parts)
 
 
@@ -365,6 +381,78 @@ func plan_day() -> void:
 		else:
 			bot.announced_house = _house_with_partner(bot, counts)
 		counts[bot.announced_house] += 1
+	_elder_day()
+
+
+## Старожил смотрит рисунки и рассказывает. Упырь иногда называется старожилом и топит человека.
+func _elder_day() -> void:
+	pending_lines.clear()
+	var elder := m.role_holder(Match.Role.ELDER)
+	if elder != null and not elder.is_player and elder.alive and not elder.role_used and (m.day >= 2 or rng.randf() < ELDER_DAY1_P):
+		var pool := _others(elder)
+		pool.sort_custom(func(x: Villager, y: Villager) -> bool: return view(elder, x) > view(elder, y))
+		if not pool.is_empty():
+			var t: Villager = pool[0]
+			if m.elder_check(elder, t) == 1:
+				_bump(t.id, W_ELDER)
+				m.claims[elder.id] = "назвал%s себя старожилом: %s — упырь" % ["а" if elder.female else "", t.name if not t.is_player else "вы"]
+				pending_lines.append(_say(elder, Phrases.ELDER_UPYR, t))
+			elif rng.randf() < ELDER_SPEAK_CLEAR:
+				_bump(t.id, -W_ELDER_CLEAR)
+				m.claims[elder.id] = "назвал%s себя старожилом: %s — человек" % ["а" if elder.female else "", t.name if not t.is_player else "вы"]
+				pending_lines.append(_say(elder, Phrases.ELDER_HUMAN, t))
+	if not fake_elder_done and m.day >= 2 and rng.randf() < FAKE_ELDER_P:
+		var liars: Array[Villager] = []
+		for b: Villager in m.alive_bots():
+			if b.is_upyr:
+				liars.append(b)
+		if not liars.is_empty():
+			var liar: Villager = liars[rng.randi_range(0, liars.size() - 1)]
+			var victims: Array[Villager] = []
+			for o: Villager in m.alive():
+				if o != liar and not o.is_upyr:
+					victims.append(o)
+			if not victims.is_empty():
+				fake_elder_done = true
+				var t2: Villager = victims[rng.randi_range(0, victims.size() - 1)]
+				_bump(t2.id, W_ELDER)
+				m.claims[liar.id] = "назвал%s себя старожилом: %s — упырь" % ["а" if liar.female else "", t2.name if not t2.is_player else "вы"]
+				pending_lines.append(_say(liar, Phrases.ELDER_UPYR, t2))
+
+
+## Кто назвался старожилом (кроме самого бота) и ещё жив. Упырям он опасен.
+func _claimed_elder(bot: Villager) -> Villager:
+	for vid: int in m.claims:
+		var v := m.get_villager(vid)
+		if v != null and v != bot and v.alive and m.claims[vid].contains("старожил"):
+			return v
+	return null
+
+
+## Кто из ботов ударит в колокол днём. null — никто. Только когда голосования сегодня иначе не будет.
+func meeting_caller() -> Villager:
+	if m.vote_open() or m.phase != Match.Phase.DAY:
+		return null
+	var top: Villager = null
+	for v: Villager in m.alive():
+		if top == null or susp(v.id) > susp(top.id):
+			top = v
+	if top == null or susp(top.id) < MEETING_SUSP or rng.randf() >= MEETING_P:
+		return null
+	var callers: Array[Villager] = []
+	for b: Villager in m.alive_bots():
+		if b != top and m.can_meeting(b):
+			callers.append(b)
+	return callers[rng.randi_range(0, callers.size() - 1)] if not callers.is_empty() else null
+
+
+## Что скажет бот, ударив в колокол: про самого подозрительного.
+func meeting_line(caller: Villager) -> ChatLine:
+	var top: Villager = null
+	for v: Villager in _others(caller):
+		if top == null or susp(v.id) > susp(top.id):
+			top = v
+	return _say(caller, Phrases.MEETING_CALL, top, {"who_gen": Ru.gen(top) if top != null else "ним"})
 
 
 func _emptiest(counts: Array[int]) -> int:
@@ -396,6 +484,8 @@ func opening_lines() -> Array[ChatLine]:
 	var bots := m.alive_bots()
 	if bots.is_empty():
 		return out
+	out.append_array(pending_lines)
+	pending_lines.clear()
 
 	if m.day > 1:
 		for suspect: Villager in _by_susp(m.alive(), false).slice(0, 2):
@@ -529,8 +619,11 @@ func night_choices() -> Dictionary[int, int]:
 	for bot: Villager in m.alive_bots():
 		var b: BotBrain = brains[bot.id]
 		var h := bot.announced_house if bot.announced_house >= 0 else rng.randi_range(0, m.houses.size() - 1)
+		var hunt := _claimed_elder(bot) if bot.is_upyr and not bot.fed else null
 		if b.pact_house >= 0:
 			h = b.pact_house
+		elif hunt != null and hunt.announced_house >= 0 and rng.randf() < ELDER_HUNT_P:
+			h = hunt.announced_house   # старожил раскрылся — упырь идёт за ним
 		elif bot.is_upyr and not bot.fed and rng.randf() < 0.3:
 			h = rng.randi_range(0, m.houses.size() - 1)   # передумал — оставит след во лжи
 		out[bot.id] = h
@@ -544,7 +637,8 @@ func plan_run(choices: Dictionary[int, int], dist: Callable) -> Dictionary:
 	var react: Dictionary[int, float] = {}
 	var arrive: Dictionary[int, float] = {}
 	for vid: int in choices:
-		var r := rng.randf_range(RUN_REACT.x, RUN_REACT.y)
+		var rr := RUN_REACT_FAST if rng.randf() < RUN_FAST_P else RUN_REACT
+		var r := rng.randf_range(rr.x, rr.y)
 		react[vid] = r
 		arrive[vid] = r + float(dist.call(vid, choices[vid])) / (RUN_SPEED * rng.randf_range(0.9, 1.1))
 	return {"react": react, "arrive": arrive}
@@ -623,6 +717,12 @@ func after_door(seats: Array[Match.Seat]) -> void:
 		for v: Villager in s.turned_away():
 			if brains.has(v.id):
 				brains[v.id].remember_refusal(s.host)
+	# знахарка берёт травы, если ночует не одна
+	var healer := m.role_holder(Match.Role.HEALER)
+	if healer != null and not healer.is_player and healer.alive and not healer.role_used:
+		for s: Match.Seat in seats:
+			if s.inside().has(healer) and s.inside().size() >= 2 and rng.randf() < HEAL_P:
+				m.heal_tonight(healer)
 
 
 func read_report(r: NightReport) -> void:
@@ -647,6 +747,21 @@ func read_report(r: NightReport) -> void:
 						for o2: Villager in e.others:
 							if o2 != o:
 								brains[o.id].remember_clean_night(o2)
+			NightReport.Kind.SAVED:
+				# напал упырь — значит, он среди тех, кто был в доме (кроме жертвы и знахарки)
+				if e.cause == "upyr":
+					for st: Match.Seat in m.seats:
+						if st.house != e.house:
+							continue
+						for o: Villager in st.inside():
+							if o != e.who and not e.others.has(o):
+								_bump(o.id, W_DEATH_ROOM)
+								_note_evidence(o.id, "death")
+				for hlr: Villager in e.others:
+					_bump(hlr.id, -W_CLEAN * 2.0)
+			NightReport.Kind.TUNNEL:
+				_bump(e.who.id, W_TUNNEL)
+				_note_evidence(e.who.id, "tunnel")
 			NightReport.Kind.LIAR:
 				_bump(e.who.id, W_LIAR)
 				liar_last_night[e.who.id] = e.said_house

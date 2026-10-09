@@ -23,7 +23,17 @@ func mood() -> Vector2:
 
 
 func build() -> void:
+	if m.meeting_by >= 0:
+		var caller := m.get_villager(m.meeting_by)
+		body.add_child(W.label("Экстренный сбор: в колокол %s." % ("ударил ты" if caller.is_player else "%s %s" % [Ru.g(caller, "ударил", "ударила", "ударили"), caller.name]), &"Hint"))
 	body.add_child(W.label("Кого выгнать из посёлка? Изгнанный уходит навсегда. Кем он был — узнаете в конце.", &"Tale"))
+	var diary := W.button("Дневник", &"Quick")
+	diary.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	diary.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	diary.pressed.connect(func() -> void: DiarySheet.open(self, m, director))
+	body.add_child(diary)
+	if m.player().alive and m.player().role == Match.Role.HEADMAN:
+		body.add_child(W.label("Ты староста: твой голос считается за двоих.", &"Small"))
 	if not m.player().alive:
 		body.add_child(W.label("Ты мёртв и только смотришь.", &"Small"))
 		var watch := W.button("Смотреть итог")

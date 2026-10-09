@@ -27,7 +27,7 @@ const LABELS := {
 @export_range(40, 240, 5) var day_seconds: int = 90
 @export_range(10, 40) var door_seconds: int = 20
 ## Сколько звонит колокол: за это время надо выбрать дом и добежать. Опоздал — бежишь последним.
-@export_range(6, 20) var run_seconds: int = 10
+@export_range(6, 20) var run_seconds: int = 12
 @export_range(40, 100, 5) var outside_death: int = 80
 @export_range(0, 100, 5) var first_night_outside_death: int = 40
 @export_range(1, 4) var vote_from_day: int = 2

@@ -40,6 +40,11 @@ func build() -> void:
 		&"Tale")
 	story.modulate.a = 0.0
 	body.add_child(story)
+	var role_l := W.label(_role_text(you), &"Hint")
+	role_l.modulate.a = 0.0
+	if role_l.text.is_empty():
+		role_l.visible = false
+	body.add_child(role_l)
 	var facts := W.label("Жителей %d, упырей %d. Убежищ %d по %d места. Дожить нужно до %d-го рассвета." % [
 		m.config.players, m.config.monsters, m.config.shelters, m.config.capacity, m.config.nights], &"Small")
 	facts.modulate.a = 0.0
@@ -50,7 +55,18 @@ func build() -> void:
 	go.modulate.a = 0.0
 	go.pressed.connect(func() -> void: commit(Intent.CONTINUE))
 	footer.add_child(go)
-	_reveal([role, story, facts, go])
+	_reveal([role, story, role_l, facts, go])
+
+
+func _role_text(you: Villager) -> String:
+	match you.role:
+		Match.Role.ELDER:
+			return "Ты старожил. Один раз за партию днём нажми на жителя и посмотри рисунки: узнаешь, упырь ли он. Узнаешь только ты."
+		Match.Role.HEALER:
+			return "Ты знахарь. Один раз за партию перед ночью возьми травы: если рядом с тобой в доме на кого-то нападут, ты его выходишь."
+		Match.Role.HEADMAN:
+			return "Ты староста. На изгнании твой голос считается за двоих."
+	return ""
 
 
 func _reveal(nodes: Array) -> void:

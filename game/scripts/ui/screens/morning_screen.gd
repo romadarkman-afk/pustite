@@ -103,6 +103,15 @@ func _text(e: NightReport.Entry) -> String:
 		NightReport.Kind.TALISMAN_WORN:
 			var lvl: int = m.talisman[e.house] if e.house >= 0 and e.house < m.talisman.size() else 1
 			return "Оберег у «%s» %s. Днём его можно подправить." % [Ru.house_of(house), "треснул" if lvl > 0 else "раскололся"]
+		NightReport.Kind.SAVED:
+			var hl: Villager = e.others[0]
+			var by := {"upyr": "напал кто-то из своих", "creature": "напала тварь из леса", "mimic": "напал Подражатель"}
+			return "В «%s» на %s %s, но %s %s %s." % [here, Ru.acc(v), String(by.get(e.cause, "напали")),
+				"вы" if hl.is_player else "%s %s" % [Match.role_name(hl).to_lower(), hl.name],
+				"вас" if v.is_player else ("её" if v.female else "его"), Ru.g(hl, "выходил", "выходила", "выходили")]
+		NightReport.Kind.TUNNEL:
+			return "%s не пустили в «%s», и %s туннелем в «%s»." % [Ru.acc(v), m.house_name(e.said_house),
+				Ru.g(v, "он пролез", "она пролезла", "вы пролезли"), here]
 		NightReport.Kind.KILLED_MIMIC:
 			return "В «%s» впустили голос %s. Это был не %s: Подражатель забрал %s." % [here, Ru.gen(e.voice), e.voice.name, Ru.acc(v)]
 		NightReport.Kind.MIMIC_SPARED:

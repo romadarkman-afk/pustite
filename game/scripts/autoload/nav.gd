@@ -185,8 +185,12 @@ func show(s: Screen) -> void:
 		village.set_house_going(ns.going_counts(), true)
 		village.set_selected_house(ns.picked)
 	_frame_field(s)
+	Game.release(&"hint")
 	if Game.m != null and s.hint_id() != "" and not Save.hint_seen(s.hint_id()):
 		s.show_hint()
+		# первая ночь: колокол ждёт, пока новичок прочитает подсказку и выберет дом
+		if s is NightScreen and Game.run_on:
+			Game.hold(&"hint")
 
 
 ## Подсказка выполнила своё: игрок сделал то, о чём она говорила.
@@ -202,6 +206,7 @@ func _hint_done(sender: Screen, action: StringName) -> void:
 	if id != "" and HINT_DONE.has(id) and (HINT_DONE[id] as Array).has(action):
 		Save.mark_hint(id)
 		sender.hide_hint()
+		Game.release(&"hint")
 
 
 ## Кадрирование поля под экран. Ждём раскладку, затем плавно ведём камеру.
@@ -252,6 +257,7 @@ func _on_phase(phase: Match.Phase) -> void:
 		village.crowd.update_marks(Game.director, Game.m)
 	village.crowd.day_jobs = Game.m.jobs
 	village.set_talismans(Game.m.talisman)
+	village.set_tunnel(Game.m.tunnel)
 	village.crowd.sync(Game.m, phase)
 	# ночью горит столько фонарей, сколько заправили днём
 	var night_phase := phase == Match.Phase.NIGHT or phase == Match.Phase.DOOR
@@ -387,6 +393,21 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			Game.admit(ids)
 		Intent.PLEA:
 			Game.plea(data.plea)
+		Intent.ELDER:
+			var t := Game.m.get_villager(int(data.id))
+			var res := Game.elder_check(t.id)
+			if res >= 0:
+				Sfx.play(&"reveal")
+				toast("Рисунки: %s — %s" % [t.name, "упырь" if res == 1 else "человек"])
+		Intent.HEAL:
+			if Game.heal() and sender is NightScreen:
+				Sfx.play(&"tap")
+				(sender as NightScreen).show_healed()
+		Intent.MEETING:
+			Sfx.play(&"bell")
+			Game.call_meeting(0)
+		Intent.TUNNEL:
+			Game.go_tunnel()
 		Intent.WORK:
 			go_work(int(data.ji), bool(data.get("sab", false)))
 		Intent.SELECT_HOUSE:
@@ -530,9 +551,28 @@ func _on_run() -> void:
 	if Game.m == null or not Game.run_on:
 		return
 	village.set_selected_house(Game.run_house)
-	village.crowd.arrange_run(Game.m, Game.run_choices, Game.run_react, Game.run_arrive, Game.run_house, Game.run_t)
+	# пока первая ночь ждёт новичка над подсказкой, боты на поле стоят
+	if not Game.held_by(&"hint"):
+		village.crowd.arrange_run(Game.m, Game.run_choices, Game.run_react, Game.run_arrive, Game.run_house, Game.run_t)
 	if host.current is NightScreen:
-		(host.current as NightScreen).show_run(Game.run_house)
+		(host.current as NightScreen).show_run(Game.run_house, run_ahead())
+
+
+## Кто добежит до твоей двери раньше тебя — по тем же временам, по которым рассадят.
+func run_ahead() -> PackedStringArray:
+	var out := PackedStringArray()
+	if Game.run_house < 0:
+		return out
+	var mine: float = Game.run_arrive.get(0, INF)
+	var ahead: Array[Villager] = []
+	for vid: int in Game.run_choices:
+		var v := Game.m.get_villager(vid)
+		if v != null and v.alive and Game.run_choices[vid] == Game.run_house and Game.run_arrive.get(vid, INF) < mine:
+			ahead.append(v)
+	ahead.sort_custom(func(a: Villager, b: Villager) -> bool: return Game.run_arrive[a.id] < Game.run_arrive[b.id])
+	for v: Villager in ahead:
+		out.append(v.name)
+	return out
 
 
 func _on_supplies() -> void:

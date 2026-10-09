@@ -70,12 +70,15 @@ static func grammar(cfg: GameConfig, games: int = 250) -> Dictionary:
 						for bank: PackedStringArray in [Phrases.BOX_NOTE, Phrases.BOX_OIL, Phrases.BOX_CHALK]:
 							for line: String in bank:
 								texts.append(Phrases.fill(line, {"me_f": t.female, "a": t.name, "b": "Вы", "house": m.houses[0]}))
+					var mc := d.meeting_caller()
+					if mc != null:
+						texts.append(d.meeting_line(mc).text)
 					m.end_day()
 				Match.Phase.VOTE:
 					var tally: Dictionary[int, int] = {}
 					var bv := d.votes()
 					for voter: int in bv:
-						tally[bv[voter]] = tally.get(bv[voter], 0) + 1
+						tally[bv[voter]] = tally.get(bv[voter], 0) + m.vote_weight(voter)
 					m.apply_vote(tally)
 					m.after_vote()
 				Match.Phase.NIGHT:
@@ -91,6 +94,7 @@ static func grammar(cfg: GameConfig, games: int = 250) -> Dictionary:
 						else:
 							ids = d.host_decide(s, "beg")
 						m.admit(s, ids)
+					m.tunnel_pass(false)
 					d.after_door(m.seats)
 					var rep := m.resolve_night()
 					d.read_report(rep)
@@ -162,12 +166,16 @@ static func balance(cfg: GameConfig, runs: int = 3000) -> Dictionary:
 				Match.Phase.DAY:
 					d.plan_day()
 					d.run_jobs_instant(d.plan_jobs(m.config.day_seconds))
-					m.end_day()
+					var caller := d.meeting_caller()
+					if caller != null:
+						m.call_meeting(caller)
+					else:
+						m.end_day()
 				Match.Phase.VOTE:
 					var tally: Dictionary[int, int] = {}
 					var bv := d.votes()
 					for voter: int in bv:
-						tally[bv[voter]] = tally.get(bv[voter], 0) + 1
+						tally[bv[voter]] = tally.get(bv[voter], 0) + m.vote_weight(voter)
 					m.apply_vote(tally)
 					m.after_vote()
 				Match.Phase.NIGHT:
@@ -187,6 +195,7 @@ static func balance(cfg: GameConfig, runs: int = 3000) -> Dictionary:
 							if s.queue.has(m.player()):
 								guest_turns += 1
 							m.admit(s, d.host_decide(s, "beg"))
+					m.tunnel_pass(false)
 					d.after_door(m.seats)
 					d.read_report(m.resolve_night())
 				Match.Phase.MORNING:
@@ -250,6 +259,7 @@ static func flow() -> void:
 							await tree.process_frame
 					Nav.handle_intent(Intent.CONTINUE, {}, s)
 				Match.Phase.NIGHT:
+					Game.run_t = 2.5     # живой игрок жмёт не мгновенно: иногда кто-то успевает раньше
 					Nav.handle_intent(Intent.CHOOSE_HOUSE, {"house": Game.m.rng.randi_range(0, Game.m.houses.size() - 1)}, s)
 				Match.Phase.DOOR:
 					var ds := s as DoorScreen
@@ -257,7 +267,7 @@ static func flow() -> void:
 						continue
 					match ds.role:
 						Match.DoorRole.HOST:
-							var ids: Array[int] = [ds.seat.queue[0].id]
+							var ids: Array[int] = [ds.seat.knockers()[0].id]
 							Nav.handle_intent(Intent.ADMIT, {"ids": ids}, s)
 						Match.DoorRole.GUEST:
 							Nav.handle_intent(Intent.PLEA, {"plea": "shared"}, s)
@@ -989,6 +999,7 @@ static func field() -> void:
 
 	Game.proceed()
 	await _settle(tree)
+	Save.mark_hint("night")     # подсказка первой ночи держит колокол — здесь проверяем сам бег
 	Game.end_day()
 	await _settle(tree)
 	if Game.m.phase == Match.Phase.VOTE:
@@ -2748,13 +2759,19 @@ static func bell() -> void:
 			all_bots = false
 			continue
 		var rt: float = Game.run_react[b.id]
-		if rt < Director.RUN_REACT.x - 0.001 or rt > Director.RUN_REACT.y + 0.001 or Game.run_arrive[b.id] <= rt:
+		if rt < Director.RUN_REACT_FAST.x - 0.001 or rt > Director.RUN_REACT.y + 0.001 or Game.run_arrive[b.id] <= rt:
 			times_ok = false
 	ok += _expect(fails, m.phase == Match.Phase.NIGHT and Game.run_on and Game.run_house == -1 and all_bots, "колокол не отправил всех ботов бежать")
 	ok += _expect(fails, times_ok, "у ботов нет реакции на колокол или время прибытия раньше старта")
 	ok += _expect(fails, Game.clock.running() and Game.clock.time_left() > m.config.run_seconds - 1.0 and Game.clock.time_left() <= m.config.run_seconds,
 		"нет обратного отсчёта колокола (%.1f с)" % Game.clock.time_left())
 	ok += _expect(fails, ns != null and _find_button(ns, "Идти") == null and ns._status.text.contains("колокол"), "на экране ночи кнопка «Идти» или нет призыва бежать")
+	# первая ночь с подсказкой: колокол ждёт новичка, боты стоят на местах
+	var standing := true
+	for b: Villager in m.alive_bots():
+		if v.crowd.figures[b.id].position.distance_to(v.crowd.ring[b.id]) > 2.0:
+			standing = false
+	ok += _expect(fails, Game.held_by(&"hint") and standing, "первая ночь не ждёт, пока новичок прочтёт подсказку")
 
 	# 4. Пауза: время бега и отсчёт стоят
 	var rt0 := Game.run_t
@@ -2766,12 +2783,16 @@ static func bell() -> void:
 	var d0: float = Game.run_distance.call(0, 0)
 	ns.select_house(0)
 	await _frames(tree, 2)
-	ok += _expect(fails, Game.run_house == 0 and absf(Game.run_arrive[0] - (Game.run_t + d0 / Director.RUN_SPEED)) < 0.01, "время прибытия игрока посчитано неверно")
+	ok += _expect(fails, Game.run_house == 0 and absf(Game.run_arrive[0] - (Game.run_t + d0 / (Director.RUN_SPEED * Game.PLAYER_RUN))) < 0.01, "время прибытия игрока посчитано неверно")
 	ok += _expect(fails, ns._status.text.contains(m.houses[0]), "на экране не сказано, куда бежишь")
+	ok += _expect(fails, not Game.held_by(&"hint"), "выбрал дом, а колокол всё ещё ждёт")
+	var ahead := Nav.run_ahead()
+	ok += _expect(fails, ns._status.text.contains("Добежишь первым") if ahead.is_empty() else ns._status.text.contains("Раньше тебя у двери: " + ", ".join(ahead)),
+		"на экране не сказано, кто добежит раньше тебя: «%s»" % ns._status.text)
 	var d1: float = Game.run_distance.call(0, 1)
 	ns.select_house(1)
 	await _frames(tree, 2)
-	ok += _expect(fails, Game.run_house == 1 and absf(Game.run_arrive[0] - (Game.run_t + d1 / Director.RUN_SPEED)) < 0.01, "смена дома на бегу не пересчитала время")
+	ok += _expect(fails, Game.run_house == 1 and absf(Game.run_arrive[0] - (Game.run_t + d1 / (Director.RUN_SPEED * Game.PLAYER_RUN))) < 0.01, "смена дома на бегу не пересчитала время")
 	# на поле: у каждой двери первым стоит тот, кто добежит первым
 	var cr := v.crowd
 	var first_ok := true
@@ -2897,6 +2918,20 @@ static func _rules_seat(m: Match, d: Director) -> void:
 	m.seat_night(ch)
 
 
+## Весь текст экрана двери лежит на тёмной плотной подложке.
+static func _on_plate(ds: DoorScreen) -> bool:
+	var plate := ds._box.get_parent() as PanelContainer if ds._box != null else null
+	if plate == null:
+		return false
+	var sb := plate.get_theme_stylebox("panel") as StyleBoxFlat
+	if sb == null or sb.bg_color.a < 0.8 or sb.bg_color.v > 0.2:
+		return false
+	for c: Control in _controls(ds.body):
+		if c is Label and c.is_visible_in_tree() and not plate.is_ancestor_of(c):
+			return false
+	return ds.footer.get_parent() is PanelContainer   # кнопки тоже на подложке
+
+
 static func _all_text(root: Node) -> String:
 	var out := PackedStringArray()
 	for c: Control in _controls(root):
@@ -2956,9 +2991,12 @@ static func events() -> void:
 	# 2. Что меняет каждое событие
 	var fog := _rules_to_night(5, 2, Match.Event.FOG)
 	var calm := _rules_to_night(5, 2, Match.Event.NONE)
+	fog.supply_done = fog.supply_total      # подальше от потолка 95%: туман должен прибавить ровно свои 10%
+	calm.supply_done = calm.supply_total
 	ok += _expect(fails, fog.run_seconds() == fog.config.run_seconds - Match.FOG_RUN and calm.run_seconds() == calm.config.run_seconds, "туман не укорачивает звон")
 	ok += _expect(fails, absf(fog.outside_death_chance() - calm.outside_death_chance() - Match.FOG_DEATH) < 0.001, "в тумане улица не опаснее")
 	var quiet := _rules_to_night(5, 2, Match.Event.QUIET)
+	quiet.supply_done = quiet.supply_total
 	ok += _expect(fails, absf(calm.outside_death_chance() - quiet.outside_death_chance() - Match.QUIET_SAFE) < 0.001, "тихая ночь не бережёт на улице")
 	var rain := _rules_to_night(5, 2, Match.Event.RAIN)
 	calm.supply_done = calm.supply_total
@@ -3199,6 +3237,7 @@ static func mimic() -> void:
 		if txt.contains(Phrases.fill(line, {"who": bots[1].name, "me_f": bots[1].female})):
 			plea_ok = true
 	ok += _expect(fails, plea_ok, "у голоса за дверью не его странная мольба")
+	ok += _expect(fails, _on_plate(ds), "текст двери не на тёмной подложке: свет из двери его засветит")
 	# гость: слышит голос за спиной
 	var gseat := Match.Seat.new()
 	gseat.house = 1
@@ -3211,6 +3250,7 @@ static func mimic() -> void:
 	Nav.show(gs)
 	await _settle(tree)
 	ok += _expect(fails, _all_text(gs).contains("голосом %s" % Ru.genitive(bots[3].name)), "гость не слышит голоса Подражателя за спиной")
+	ok += _expect(fails, _on_plate(gs), "текст у чужой двери не на тёмной подложке")
 	Nav.show_menu()
 	await _settle(tree)
 
@@ -3499,3 +3539,584 @@ static func box() -> void:
 	await _settle(tree)
 
 	_finish(fails, ok, "ящик", "появляется со второго дня, первый открывший получает находку, записка честная")
+
+
+
+# =============================================================
+# Роли (Task 31): старожил, знахарь, староста.
+# =============================================================
+static func roles() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
+
+	# 1. Раздача: каждая роль ровно у одного человека, у упырей ролей нет, игроку тоже достаются
+	var deal_ok := true
+	var player_roles := 0
+	for i in range(200):
+		var m := Match.new()
+		m.start(c, 50 + i)
+		var count := {}
+		for v: Villager in m.villagers:
+			if v.role != Match.Role.NONE:
+				count[v.role] = count.get(v.role, 0) + 1
+				if v.is_upyr:
+					deal_ok = false
+		if count.size() != 3 or count.values().any(func(x: int) -> bool: return x != 1):
+			deal_ok = false
+		if m.player().role != Match.Role.NONE:
+			player_roles += 1
+	ok += _expect(fails, deal_ok, "роли розданы неверно: не по одной или достались упырю")
+	ok += _expect(fails, player_roles > 40, "игроку почти не достаются роли (%d из 200)" % player_roles)
+
+	# 2. Старожил: правда, один раз, только днём, только сам старожил
+	var me := Match.new()
+	me.start(c, 7)
+	me.begin_day()
+	var elder := me.role_holder(Match.Role.ELDER)
+	var upyr: Villager = null
+	var other: Villager = null
+	for v: Villager in me.villagers:
+		if v.is_upyr and upyr == null:
+			upyr = v
+		if not v.is_upyr and v != elder and other == null:
+			other = v
+	ok += _expect(fails, me.elder_check(other, upyr) == -1, "смотреть рисунки может не старожил")
+	ok += _expect(fails, me.elder_check(elder, upyr) == 1 and elder.role_used, "старожил не узнал упыря")
+	ok += _expect(fails, me.elder_check(elder, other) == -1, "старожил смотрит рисунки второй раз")
+
+	# 3. Знахарь: взял травы — того, на кого напали рядом, выходил. Себя — нет.
+	var c3 := c.duplicate() as GameConfig
+	c3.capacity = 3
+	var saved := 0
+	var died_healed := 0
+	var died_plain := 0
+	for i in range(200):
+		for heal: bool in [true, false]:
+			var m := Match.new()
+			m.start(c3, 3000 + i)
+			m.begin_day()
+			m.end_day()
+			var h := m.role_holder(Match.Role.HEALER)
+			var x: Villager = null
+			var u: Villager = null
+			for v: Villager in m.villagers:
+				if v.is_upyr and u == null:
+					u = v
+				if not v.is_upyr and v != h and x == null:
+					x = v
+			var ch: Dictionary[int, int] = {}
+			var arr: Dictionary[int, float] = {}
+			for v: Villager in m.alive():
+				ch[v.id] = 1
+			for v: Villager in [h, x, u]:
+				ch[v.id] = 0
+			arr[h.id] = 0.0
+			arr[x.id] = 1.0
+			arr[u.id] = 2.0
+			m.seat_night(ch, arr)
+			for s: Match.Seat in m.seats:
+				var ids: Array[int] = []
+				for v: Villager in s.queue:
+					ids.append(v.id)
+				m.admit(s, ids)
+			if heal:
+				m.heal_tonight(h)
+			var r := m.resolve_night()
+			for e: NightReport.Entry in r.entries:
+				if e.house != 0:
+					continue
+				if e.kind == NightReport.Kind.SAVED and e.who == x and e.cause == "upyr" and e.others[0] == h:
+					saved += 1
+				if e.kind == NightReport.Kind.KILLED_INSIDE and e.who == x:
+					if heal:
+						died_healed += 1
+					else:
+						died_plain += 1
+	print("знахарь: выходил %d, погибли рядом с травами %d, без трав %d" % [saved, died_healed, died_plain])
+	ok += _expect(fails, saved > 40 and died_healed == 0, "знахарь с травами не спасает соседа (спас %d, погибли %d)" % [saved, died_healed])
+	ok += _expect(fails, died_plain > 40, "без трав сосед не погибает — проверка слепая")
+
+	# 4. Староста: голос за двоих
+	var hm := me.role_holder(Match.Role.HEADMAN)
+	ok += _expect(fails, me.vote_weight(hm.id) == 2 and me.vote_weight(other.id if other != hm else upyr.id) == 1, "голос старосты не за двоих")
+
+	# 5. Боты: настоящий старожил говорит правду, упырь называется старожилом и топит человека
+	var real_ok := true
+	var reals := 0
+	var fakes := 0
+	for i in range(300):
+		var m := Match.new()
+		var d := Director.new()
+		m.start(c, 9000 + i)
+		d.attach(m)
+		m.begin_day()
+		m.day = 2
+		d.plan_day()
+		for vid: int in m.claims:
+			var who := m.get_villager(vid)
+			var text: String = m.claims[vid]
+			if not text.contains("старожил"):
+				continue
+			if who.is_upyr:
+				fakes += 1
+			elif who.role == Match.Role.ELDER:
+				reals += 1
+				for t: Villager in m.villagers:
+					if text.contains(": %s — " % t.name) and (text.ends_with("упырь") != t.is_upyr):
+						real_ok = false
+	print("старожилы: настоящих заявлений %d, ложных %d из 300 партий" % [reals, fakes])
+	ok += _expect(fails, reals > 150 and real_ok, "старожил-бот молчит или врёт (%d)" % reals)
+	ok += _expect(fails, fakes > 60, "упыри не называются старожилами (%d)" % fakes)
+
+	# 6. Экран: роль в прологе, рисунки в шторке, травы ночью, староста на голосовании
+	Save.set_difficulty("normal")
+	Nav.start_match()
+	await _settle(tree)
+	var m := Game.m
+	var you := m.player()
+	you.is_upyr = false
+	for v: Villager in m.villagers:
+		if v.role == Match.Role.ELDER:
+			v.role = Match.Role.NONE
+	you.role = Match.Role.ELDER
+	you.role_used = false
+	Nav.show(PrologueScreen.new())
+	await _settle(tree)
+	ok += _expect(fails, _all_text(Nav.host.current).contains("Ты старожил"), "в прологе не сказано про роль")
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	var day := Nav.host.current as DayScreen
+	var target: Villager = m.alive_bots()[0]
+	day.person_actions(target)
+	await _frames(tree, 3)
+	var sh := _sheet(day)
+	ok += _expect(fails, sh != null and _all_text(sh).contains("рисунки"), "в шторке жителя нет рисунков старожила")
+	if sh != null:
+		sh.close(3)
+		await _frames(tree, 3)
+	var seen := ""
+	for l: ChatLine in m.chat:
+		if l.text.begins_with("Рисунки старожила"):
+			seen = l.text
+	ok += _expect(fails, seen.contains(target.name) and seen.contains("упырь" if target.is_upyr else "человек") and you.role_used, "старожил не увидел правду: «%s»" % seen)
+	day.person_actions(target)
+	await _frames(tree, 3)
+	sh = _sheet(day)
+	ok += _expect(fails, sh != null and not _all_text(sh).contains("рисунки"), "рисунки можно смотреть второй раз")
+	if sh != null:
+		sh.close(-1)
+		await _frames(tree, 2)
+	# знахарь ночью
+	you.role = Match.Role.HEALER
+	you.role_used = false
+	Save.mark_hint("night")
+	Game.end_day()
+	await _settle(tree)
+	if m.phase == Match.Phase.VOTE:
+		Game.vote(-1)
+		await _settle(tree)
+		Game.proceed()
+		await _settle(tree)
+	var ns := Nav.host.current as NightScreen
+	ok += _expect(fails, ns != null and ns.heal_button != null, "у знахаря ночью нет кнопки трав")
+	if ns != null and ns.heal_button != null:
+		ns.heal_button.pressed.emit()
+		await _frames(tree, 2)
+		ok += _expect(fails, m.healer_on.get(0, false) and ns.heal_button.disabled, "травы не взяты")
+	# староста на голосовании
+	Nav.show_menu()
+	await _settle(tree)
+	Nav.start_match()
+	await _settle(tree)
+	m = Game.m
+	for v: Villager in m.villagers:
+		if v.role == Match.Role.HEADMAN:
+			v.role = Match.Role.NONE
+	m.player().is_upyr = false
+	m.player().role = Match.Role.HEADMAN
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	m.day = 2
+	Game.end_day()
+	await _settle(tree)
+	ok += _expect(fails, m.phase == Match.Phase.VOTE and _all_text(Nav.host.current).contains("голос считается за двоих"), "на голосовании не сказано, что голос старосты за двоих")
+	if m.phase == Match.Phase.VOTE:
+		var tgt: Villager = m.alive_bots()[0]
+		var got := {}
+		Game.vote_resolved.connect(func(t: Dictionary, _e: Villager) -> void: got.merge(t), CONNECT_ONE_SHOT)
+		var voters := m.alive_bots().size()
+		Game.vote(tgt.id)
+		await _frames(tree, 2)
+		var total := 0
+		for k: Variant in got:
+			total += int(got[k])
+		# у ботов голос за одного, у игрока-старосты за двоих
+		ok += _expect(fails, total == voters + 2, "голос старосты не за двоих: всего голосов %d при %d ботах" % [total, voters])
+	Nav.show_menu()
+	await _settle(tree)
+	_finish(fails, ok, "роли", "старожил видит правду, знахарь спасает, староста голосует за двоих, боты пользуются ролями")
+
+
+# =============================================================
+# Экстренный сбор (Task 32): раз за партию ударить в колокол днём — сразу голосование.
+# =============================================================
+static func meeting() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
+
+	# 1. Правила
+	var m0 := Match.new()
+	m0.start(c, 11)
+	m0.begin_day()
+	var b0: Villager = m0.alive_bots()[0]
+	ok += _expect(fails, not m0.vote_open() and m0.call_meeting(b0) and m0.phase == Match.Phase.VOTE and m0.meeting_by == b0.id, "сбор в первый день не открыл голосование")
+	var none: Dictionary[int, int] = {}
+	m0.apply_vote(none)
+	m0.after_vote()
+	if m0.phase == Match.Phase.NIGHT:
+		var d0 := Director.new()
+		d0.attach(m0)
+		_rules_seat(m0, d0)
+		for s: Match.Seat in m0.seats:
+			var ids: Array[int] = []
+			m0.admit(s, ids)
+		m0.resolve_night()
+		m0.end_morning()
+	ok += _expect(fails, m0.phase != Match.Phase.DAY or (m0.meeting_by == -1 and not m0.can_meeting(b0)), "второй сбор от того же жителя или сбор не сбросился за ночь")
+
+	# 2. Боты бьют в колокол, когда кого-то сильно подозревают и голосования иначе не будет
+	var called := 0
+	var silent := 0
+	for i in range(200):
+		var m := Match.new()
+		var d := Director.new()
+		m.start(c, 400 + i)
+		d.attach(m)
+		m.begin_day()
+		if d.meeting_caller() != null:
+			silent += 1
+		d.public_susp[m.alive_bots()[1].id] = Director.MEETING_SUSP + 0.5
+		var who := d.meeting_caller()
+		if who != null:
+			called += 1
+			if who == m.alive_bots()[1]:
+				silent += 1000
+	print("сбор ботов: при подозрении %d из 200, без подозрения %d" % [called, silent])
+	ok += _expect(fails, silent == 0, "боты бьют в колокол без причины или зовёт сам подозреваемый")
+	ok += _expect(fails, absf(called / 200.0 - Director.MEETING_P) < 0.1, "боты бьют в колокол в %d из 200 случаев" % called)
+
+	# 3. Игрок: кнопка «Сбор!», подтверждение, голосование в первый день
+	Save.set_difficulty("normal")
+	Nav.start_match()
+	await _settle(tree)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	var m := Game.m
+	var day := Nav.host.current as DayScreen
+	var btn := _find_button(day, "Сбор")
+	ok += _expect(fails, btn != null, "на экране дня нет кнопки «Сбор!»")
+	if btn != null:
+		btn.pressed.emit()
+		await _frames(tree, 3)
+		var sh := _sheet(day)
+		ok += _expect(fails, sh != null, "сбор без подтверждения")
+		if sh != null:
+			sh.close(0)
+			await _settle(tree)
+	ok += _expect(fails, m.phase == Match.Phase.VOTE and m.day == 1 and _all_text(Nav.host.current).contains("Экстренный сбор"), "сбор игрока не открыл голосование в первый день")
+	if m.phase == Match.Phase.VOTE:
+		Game.vote(-1)
+		await _settle(tree)
+		Game.proceed()
+		await _settle(tree)
+
+	# 4. Бот бьёт в колокол прямо в игре
+	Nav.start_match()
+	await _settle(tree)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	m = Game.m
+	Game.director.public_susp[m.alive_bots()[0].id] = 5.0
+	var caller: Villager = null
+	for k in range(20):
+		Game.meeting_check_at = Game.day_t
+		await _frames(tree, 2)
+		if m.phase == Match.Phase.VOTE:
+			caller = m.get_villager(m.meeting_by)
+			break
+	ok += _expect(fails, caller != null and not caller.is_player, "бот не ударил в колокол, хотя подозрение сильное")
+	var line_ok := false
+	for l: ChatLine in m.chat:
+		if l.text.contains("бьёт в колокол"):
+			line_ok = true
+	ok += _expect(fails, line_ok, "в журнале не сказано, кто ударил в колокол")
+	Nav.show_menu()
+	await _settle(tree)
+	_finish(fails, ok, "экстренный сбор", "колокол днём: раз за партию, сразу голосование, боты бьют, когда есть кого подозревать")
+
+
+# =============================================================
+# Туннель (Task 33): ход между двумя убежищами. Не пустили — можно пролезть на другой конец.
+# =============================================================
+static func tunnel() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+	var c := (load("res://config/balance_10.tres") as GameConfig).duplicate() as GameConfig
+
+	# 1. Где туннель
+	var pair_ok := true
+	for i in range(100):
+		var m := Match.new()
+		m.start(c, 70 + i)
+		var t := m.tunnel
+		if t.x < 0 or t.x == t.y or t.y >= m.houses.size() or m.tunnel_to(t.x) != t.y or m.tunnel_to(t.y) != t.x:
+			pair_ok = false
+		for h in range(m.houses.size()):
+			if h != t.x and h != t.y and m.tunnel_to(h) != -1:
+				pair_ok = false
+	ok += _expect(fails, pair_ok, "туннель не между двумя разными убежищами")
+
+	# 2. Кого не пустили у дома с туннелем — лезут; упыри охотнее; место на том конце соблюдается
+	var hum_try := 0
+	var hum_go := 0
+	var up_try := 0
+	var up_go := 0
+	var cap_ok := true
+	var report_ok := true
+	for i in range(500):
+		var m := Match.new()
+		m.start(c, 5000 + i)
+		m.begin_day()
+		m.end_day()
+		m.tunnel = Vector2i(0, 1)
+		var ch: Dictionary[int, int] = {}
+		for v: Villager in m.alive():
+			ch[v.id] = 2
+		var al := m.alive()
+		ch[al[1].id] = 0
+		ch[al[2].id] = 0      # к дому 0 двое: хозяин и тот, кого не пустят
+		ch[al[3].id] = 1      # в доме 1 один — места есть
+		m.seat_night(ch)
+		for s: Match.Seat in m.seats:
+			var ids: Array[int] = []
+			if s.house == 2:
+				for v: Villager in s.queue:
+					ids.append(v.id)
+			m.admit(s, ids)
+		var out_v: Villager = null
+		for s: Match.Seat in m.seats:
+			if s.house == 0 and not s.queue.is_empty():
+				out_v = s.queue[0]
+		m.tunnel_pass(false)
+		var went := m.tunnel_log.size() == 1
+		if out_v.is_upyr:
+			up_try += 1
+			up_go += 1 if went else 0
+		else:
+			hum_try += 1
+			hum_go += 1 if went else 0
+		for s: Match.Seat in m.seats:
+			if s.inside().size() > m.config.capacity:
+				cap_ok = false
+			if went and s.house == 0 and s.queue.has(out_v):
+				cap_ok = false
+		var r := m.resolve_night()
+		var n := 0
+		for e: NightReport.Entry in r.entries:
+			if e.kind == NightReport.Kind.TUNNEL and e.who == out_v and e.house == 1 and e.said_house == 0:
+				n += 1
+		if n != (1 if went else 0):
+			report_ok = false
+	print("туннель: люди %d из %d, упыри %d из %d" % [hum_go, hum_try, up_go, up_try])
+	ok += _expect(fails, absf(float(hum_go) / maxf(1, hum_try) - Match.TUNNEL_HUMAN) < 0.1 and absf(float(up_go) / maxf(1, up_try) - Match.TUNNEL_UPYR) < 0.12, "в туннель лезут не так: люди %d/%d, упыри %d/%d" % [hum_go, hum_try, up_go, up_try])
+	ok += _expect(fails, cap_ok, "туннель переполнил дом или пролезший остался в очереди")
+	# на том конце мест нет — никто не лезет
+	var crowded := 0
+	for i in range(100):
+		var m := Match.new()
+		m.start(c, 8000 + i)
+		m.begin_day()
+		m.end_day()
+		m.tunnel = Vector2i(0, 1)
+		var ch: Dictionary[int, int] = {}
+		for v: Villager in m.alive():
+			ch[v.id] = 2
+		var al := m.alive()
+		ch[al[1].id] = 0
+		ch[al[2].id] = 0
+		ch[al[3].id] = 1
+		ch[al[4].id] = 1      # в доме 1 хозяин и гость — дом полон
+		m.seat_night(ch)
+		for s: Match.Seat in m.seats:
+			var ids: Array[int] = []
+			if s.house != 0:
+				for v: Villager in s.queue:
+					ids.append(v.id)
+			m.admit(s, ids)
+		m.tunnel_pass(true)
+		crowded += m.tunnel_log.size()
+	ok += _expect(fails, crowded == 0, "пролезли туннелем в полный дом (%d раз)" % crowded)
+	ok += _expect(fails, report_ok, "утром не сказано, кто пролез туннелем")
+
+	# 3. На поле и в списке ночью видно туннель
+	Save.set_difficulty("normal")
+	var v := Nav.village
+	Nav.start_match()
+	await _settle(tree)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	var m := Game.m
+	m.tunnel = Vector2i(0, 1)
+	Save.mark_hint("night")
+	m.config.vote_from_day = 9
+	Game.end_day()
+	await _settle(tree)
+	var vp := Nav.frame.get_viewport_rect().size
+	var hp := v.to_global(v.hatch_pos(0))
+	ok += _expect(fails, v.tunnel == m.tunnel and hp.x > 0 and hp.x < vp.x and hp.y > 0 and hp.y < vp.y, "люка туннеля не видно на поле")
+	ok += _expect(fails, _all_text(Nav.host.current).contains("туннель в «%s»" % m.houses[1]), "в списке домов не сказано про туннель")
+
+	# 4. Игрока не пустили — он лезет туннелем
+	Game.choose_house(0)
+	await _settle(tree)
+	if m.phase == Match.Phase.DOOR:
+		var bots := m.alive_bots()
+		var a := Match.Seat.new()
+		a.house = 0
+		a.host = bots[0]
+		a.queue = [m.player()] as Array[Villager]
+		var b := Match.Seat.new()
+		b.house = 1
+		b.host = bots[1]
+		m.seats = [a, b] as Array[Match.Seat]
+		var none: Array[int] = []
+		m.admit(a, none)
+		m.admit(b, none)
+		m.player().night_house = 0
+		var gs := DoorScreen.new()
+		gs.role = Match.DoorRole.GUEST
+		gs.seat = a
+		Nav.show(gs)
+		await _settle(tree)
+		gs.show_guest_result(false)
+		for k in range(40):
+			if gs.result_shown:
+				break
+			await tree.process_frame
+		var hole := _find_button(gs, "Лезть туннелем")
+		ok += _expect(fails, hole != null, "после отказа нет кнопки «Лезть в туннель»")
+		if hole != null:
+			hole.pressed.emit()
+			await _settle(tree)
+			ok += _expect(fails, m.player().night_house == 1 and b.admitted.has(m.player()), "игрок не пролез туннелем")
+			ok += _expect(fails, m.phase == Match.Phase.MORNING or m.phase == Match.Phase.OVER, "после туннеля ночь не прошла")
+			if m.phase == Match.Phase.MORNING:
+				await tree.create_timer(0.3).timeout
+				await _settle(tree)
+				ok += _expect(fails, _all_text(Nav.host.current).contains("туннелем"), "утром не сказано про туннель")
+	else:
+		fails.append("не дошли до двери (%s)" % Match.Phase.keys()[m.phase])
+	Nav.show_menu()
+	await _settle(tree)
+	_finish(fails, ok, "туннель", "ход между домами: не пустили — лезешь, упыри охотнее, утром все знают")
+
+
+# =============================================================
+# Дневник (Task 34): всё о каждом жителе в одном месте.
+# =============================================================
+static func diary() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
+
+	# 1. Строки дневника по правилам: где ночевал, что говорил, кто погиб, улики, заявления
+	var m0 := Match.new()
+	var d0 := Director.new()
+	m0.start(c, 21)
+	d0.attach(m0)
+	m0.begin_day()
+	var bots := m0.alive_bots()
+	var liar: Villager = bots[0]
+	liar.announced_house = 1
+	m0.end_day()
+	var ch: Dictionary[int, int] = {}
+	for v: Villager in m0.alive():
+		ch[v.id] = 0
+	m0.seat_night(ch)
+	for s: Match.Seat in m0.seats:
+		var none: Array[int] = []
+		m0.admit(s, none)
+	var r := m0.resolve_night()
+	d0.read_report(r)
+	var f := "\n".join(DiarySheet.facts(m0, d0, liar))
+	var where := "улица" if liar.night_house < 0 else m0.house_name(liar.night_house)
+	ok += _expect(fails, f.contains("Ночи: 1 — %s" % where), "в дневнике нет, где житель ночевал: «%s»" % f)
+	ok += _expect(fails, f.contains("говорил") and f.contains(m0.house_name(1)), "в дневнике не видно, что житель говорил одно, а ночевал в другом: «%s»" % f)
+	var dead_ok := true
+	for e: NightReport.Entry in r.deaths():
+		if not e.who.is_player and not "\n".join(DiarySheet.facts(m0, d0, e.who)).contains("в ночь 1"):
+			dead_ok = false
+	ok += _expect(fails, dead_ok, "в дневнике не сказано, кто погиб и когда")
+	var ev_ok := true
+	for v: Villager in bots:
+		var et := d0.evidence_text(v)
+		if not et.is_empty() and not "\n".join(DiarySheet.facts(m0, d0, v)).contains(et):
+			ev_ok = false
+	ok += _expect(fails, ev_ok, "улики не попали в дневник")
+	m0.claims[bots[1].id] = "назвал себя старожилом: Рита — упырь"
+	m0.player_seen[bots[2].id] = 1
+	ok += _expect(fails, "\n".join(DiarySheet.facts(m0, d0, bots[1])).contains("Назвал себя старожилом"), "заявление не попало в дневник")
+	var rita := m0.get_villager(bots[3].id)
+	m0.claims[bots[1].id] = "назвал себя старожилом: %s — упырь" % rita.name
+	ok += _expect(fails, "\n".join(DiarySheet.facts(m0, d0, rita)).contains("%s назвал себя старожилом" % bots[1].name), "в карточке обвинённого не видно, кто его назвал")
+	ok += _expect(fails, "\n".join(DiarySheet.facts(m0, d0, bots[2])).contains("Твои рисунки: упырь"), "твои рисунки не попали в дневник")
+
+	# 2. Экран: кнопка «Дневник», карточка на каждого, всё в кадре, закрывается
+	Save.set_difficulty("normal")
+	Nav.start_match()
+	await _settle(tree)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	var m := Game.m
+	var day := Nav.host.current as DayScreen
+	var btn := _find_button(day, "Дневник")
+	ok += _expect(fails, btn != null, "на экране дня нет кнопки «Дневник»")
+	if btn != null:
+		btn.pressed.emit()
+		await _frames(tree, 4)
+		var ds: DiarySheet = null
+		for ch2: Node in day.get_children():
+			if ch2 is DiarySheet:
+				ds = ch2
+		ok += _expect(fails, ds != null and ds.cards.size() == m.villagers.size() - 1, "в дневнике не все жители")
+		if ds != null:
+			var vp := Nav.frame.get_viewport_rect().size
+			var inside := true
+			for card: Control in ds.cards.values():
+				var cr := card.get_global_rect()
+				if cr.position.x < -1.0 or cr.end.x > vp.x + 1.0:
+					inside = false
+			ok += _expect(fails, inside, "карточки дневника вылезают за экран")
+			ds.close()
+			await _frames(tree, 2)
+	Nav.show_menu()
+	await _settle(tree)
+	_finish(fails, ok, "дневник", "где ночевал, что говорил, улики, заявления и твои рисунки — в одном месте")

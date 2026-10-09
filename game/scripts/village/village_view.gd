@@ -168,6 +168,21 @@ func _follow_step(delta: float) -> void:
 	position.x = _vp_w * 0.5 - cam_x * scale.x
 
 
+var tunnel: Vector2i = Vector2i(-1, -1)   ## туннель между двумя убежищами: у обоих домов люк
+
+
+func set_tunnel(t: Vector2i) -> void:
+	if t != tunnel:
+		tunnel = t
+		queue_redraw()
+
+
+## Где люк туннеля у дома i — справа от двери.
+func hatch_pos(i: int) -> Vector2:
+	var h: HouseDef = def.shelters[i]
+	return h.pos + Vector2(h.size.x * 0.5 + 6.0, 16.0)
+
+
 func set_talismans(t: PackedInt32Array) -> void:
 	if t != talismans:
 		talismans = t.duplicate()
@@ -421,7 +436,22 @@ func _draw_square(n: float, k: Color) -> void:
 
 ## Реквизит дел: поленница и мостки с ведром у реки. Остальные дела — у колодца,
 ## фонаря и оберега, которые и так стоят на карте.
+func _draw_hatches(n: float, k: Color) -> void:
+	for i: int in [tunnel.x, tunnel.y]:
+		if i < 0 or i >= open_count or i >= def.shelters.size():
+			continue
+		var c := hatch_pos(i)
+		var wood := Art.dn(Color("8a5a3a"), n)
+		draw_colored_polygon(Art.ellipse(c + Vector2(0, 3), Vector2(17, 6)), Color(0, 0, 0, 0.25))
+		var pts := PackedVector2Array([c + Vector2(-15, -6), c + Vector2(15, -6), c + Vector2(17, 5), c + Vector2(-17, 5)])
+		Art.shape(self, pts, wood, k, 2.2)
+		for x: float in [-6.0, 4.0]:
+			draw_line(c + Vector2(x, -6), c + Vector2(x * 1.15, 5), Color(k, 0.5), 1.4)
+		draw_arc(c + Vector2(9, -1), 3.2, 0, TAU, 10, Art.dn(Color("c8c8d0"), n), 1.6, true)
+
+
 func _draw_props(n: float, k: Color) -> void:
+	_draw_hatches(n, k)
 	for j: JobDef in def.jobs:
 		match j.kind:
 			JobDef.Kind.WOOD:

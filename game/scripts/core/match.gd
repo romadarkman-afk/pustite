@@ -7,6 +7,10 @@ extends RefCounted
 enum Phase { IDLE, PROLOGUE, DAY, VOTE, NIGHT, DOOR, MORNING, OVER }
 enum Team { NONE, PEOPLE, UPYRI }
 enum DoorRole { DEAD, HOST, GUEST, ALONE }
+## Роли людей (задача 31). Каждый человек получает одну, пока хватает ролей. Упыри ролей не имеют,
+## но могут назваться Старожилом. Старожил и Знахарка срабатывают один раз за партию,
+## голос Старосты на изгнании всегда считается за два.
+enum Role { NONE, ELDER, HEALER, HEADMAN }
 
 signal phase_changed(phase: Phase)
 signal chat_posted(line: ChatLine)
@@ -105,6 +109,27 @@ const FOG_DEATH := 0.1          ## туман: настолько опаснее
 const QUIET_SAFE := 0.25        ## тихая ночь: настолько безопаснее улица
 var night_event: Event = Event.NONE
 var force_event: int = -1       ## самотесты: следующее событие ночи будет этим (со второй ночи)
+
+## Знахарка: кто из знахарок взял травы этой ночью.
+var healer_on: Dictionary[int, bool] = {}
+## Что посёлок знает о ролях: кто кем назвался вслух. id -> строка для дневника.
+var claims: Dictionary[int, String] = {}
+
+## Экстренный сбор (задача 32): раз за партию любой может днём ударить в колокол — сразу голосование.
+var meeting_used: Dictionary[int, bool] = {}
+var meeting_by: int = -1           ## кто созвал сбор сегодня; -1 — сегодня сбора не было
+
+## Туннель (задача 33): ход под посёлком между двумя убежищами. Кого не пустили в одно,
+## может пролезть в другое, если там есть место. Упыри лезут охотнее.
+const TUNNEL_UPYR := 0.8
+const TUNNEL_HUMAN := 0.4
+var tunnel: Vector2i = Vector2i(-1, -1)
+var tunnel_log: Array[Array] = []   ## этой ночью: [житель, откуда, куда]
+
+## Дневник (задача 34): что было каждой ночью. {"day", "where": {id: дом, -1 — улица}, "said": {id: дом}, "dead": [id]}
+var history: Array[Dictionary] = []
+var _night_ids: Array[int] = []     ## кто был жив, когда началась ночь
+var player_seen: Dictionary[int, int] = {}   ## что игрок-старожил увидел на рисунках: id -> 1 упырь, 0 человек
 
 ## Ящик (со второго дня): днём на краю площади появляется ящик. Кто первым откроет,
 ## тому достаётся находка: записка (один из двоих — упырь), масло (+2 к запасам) или мел (чинит оберег).
@@ -224,6 +249,12 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 		villagers[int(order[k])].is_upyr = true
 
 	houses = HOUSES.slice(0, config.shelters)
+	_deal_roles()
+	tunnel = Vector2i(-1, -1)
+	if houses.size() >= 2:
+		var a := rng.randi_range(0, houses.size() - 1)
+		var b := (a + rng.randi_range(1, houses.size() - 1)) % houses.size()
+		tunnel = Vector2i(mini(a, b), maxi(a, b))
 	if village == null:
 		village = load(DEFAULT_VILLAGE) as VillageDef
 	base_jobs.clear()
@@ -239,6 +270,10 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 		talisman[rng.randi_range(0, houses.size() - 1)] = TALISMAN_MAX - 1
 	day = 1
 	winner = Team.NONE
+	claims.clear()
+	meeting_used.clear()
+	history.clear()
+	player_seen.clear()
 	chat.clear()
 	chronicle.clear()
 	seats.clear()
@@ -252,6 +287,7 @@ func begin_day() -> void:
 	for v: Villager in villagers:
 		v.announced_house = -1
 	night_event = Event.NONE
+	meeting_by = -1
 	jobs = base_jobs.duplicate()
 	for h in range(houses.size()):
 		if talisman[h] < TALISMAN_MAX:
@@ -458,6 +494,7 @@ func apply_vote(tally: Dictionary[int, int]) -> Villager:
 		last_exiled = get_villager(leaders[rng.randi_range(0, leaders.size() - 1)])
 		last_exiled.alive = false
 		last_exiled.exiled = true
+		last_exiled.exiled_day = day
 		_log("День %d: посёлок изгнал %s." % [day, "вас" if last_exiled.is_player else Ru.accusative(last_exiled.name)])
 	return last_exiled
 
@@ -476,6 +513,11 @@ func after_vote() -> void:
 func seat_night(choices: Dictionary[int, int], arrival: Dictionary[int, float] = {}) -> void:
 	assert(phase == Phase.NIGHT)
 	seats.clear()
+	healer_on.clear()
+	tunnel_log.clear()
+	_night_ids.clear()
+	for v: Villager in alive():
+		_night_ids.append(v.id)
 	var buckets: Array = []
 	for i in range(houses.size()):
 		buckets.append([])
@@ -547,6 +589,13 @@ func resolve_night() -> NightReport:
 			was_fed[v.id] = true
 		v.fed = false
 
+	# 0. Кто пролез туннелем — утром это знают все
+	for t: Array in tunnel_log:
+		var et := r.add(NightReport.Kind.TUNNEL, t[0], t[2])
+		et.said_house = t[1]
+		_log("Ночь %d: %s не пустили в «%s», и %s туннелем в «%s»." % [day, Ru.acc(t[0]), house_name(t[1]),
+			Ru.g(t[0], "он пролез", "она пролезла", "вы пролезли"), Ru.house_in(house_name(t[2]))])
+
 	# 1. Кого не пустили — улица
 	for s: Seat in seats:
 		for v: Villager in s.turned_away():
@@ -581,6 +630,8 @@ func resolve_night() -> NightReport:
 			_log("Ночь %d: в «%s» впустили голос %s. Это был не %s, но до утра все целы." % [day, Ru.house_in(house_name(s.house)), Ru.gen(s.mimic), s.mimic.name])
 			continue
 		var gone: Villager = inside3[rng.randi_range(0, inside3.size() - 1)]
+		if _healed(s, gone, r, "mimic"):
+			continue
 		gone.alive = false
 		var left: Array[Villager] = []
 		for v: Villager in inside3:
@@ -621,8 +672,10 @@ func resolve_night() -> NightReport:
 		if not hungry.is_empty() and not humans.is_empty():
 			var killer: Villager = hungry[rng.randi_range(0, hungry.size() - 1)]
 			var victim: Villager = humans[rng.randi_range(0, humans.size() - 1)]
-			victim.alive = false
 			killer.fed = true
+			if _healed(s, victim, r, "upyr"):
+				continue
+			victim.alive = false
 			var others: Array[Villager] = []
 			for v: Villager in inside:
 				if v != victim:
@@ -647,6 +700,8 @@ func resolve_night() -> NightReport:
 		if prey.is_empty() or rng.randf() >= CREATURE_KILL:
 			continue
 		var taken: Villager = prey[rng.randi_range(0, prey.size() - 1)]
+		if _healed(s, taken, r, "creature"):
+			continue
 		taken.alive = false
 		var rest: Array[Villager] = []
 		for v: Villager in inside2:
@@ -670,6 +725,16 @@ func resolve_night() -> NightReport:
 			r.add(NightReport.Kind.TALISMAN_WORN, null, h)
 			_log("Утром: оберег у «%s» %s." % [Ru.house_of(house_name(h)), "треснул" if talisman[h] == 1 else "раскололся"])
 
+	# дневник: кто где был этой ночью и кого не стало
+	var rec := {"day": day, "where": {}, "said": {}, "dead": []}
+	for vid: int in _night_ids:
+		var v := get_villager(vid)
+		rec.where[vid] = v.night_house
+		rec.said[vid] = v.announced_house
+	for e: NightReport.Entry in r.deaths():
+		rec.dead.append(e.who.id)
+	history.append(rec)
+
 	report = r
 	_settle_winner()
 	_set_phase(Phase.MORNING)
@@ -685,6 +750,162 @@ func end_morning() -> void:
 		return
 	day += 1
 	begin_day()
+
+
+# =============================================================
+# Роли
+# =============================================================
+func _deal_roles() -> void:
+	var hums: Array = []
+	for v: Villager in villagers:
+		v.role = Role.NONE
+		v.role_used = false
+		if not v.is_upyr:
+			hums.append(v)
+	_shuffle(hums)
+	var roles := [Role.ELDER, Role.HEALER, Role.HEADMAN]
+	for k in range(mini(roles.size(), hums.size() - 1)):
+		(hums[k] as Villager).role = roles[k]
+
+
+static func role_name(v: Villager) -> String:
+	match v.role:
+		Role.ELDER: return "Старожил"
+		Role.HEALER: return "Знахарь" if not v.female or v.is_player else "Знахарка"
+		Role.HEADMAN: return "Староста"
+	return ""
+
+
+func role_holder(r: int) -> Villager:
+	for v: Villager in villagers:
+		if v.role == r:
+			return v
+	return null
+
+
+## Старожил смотрит рисунки: упырь ли target. Один раз за партию, только днём.
+## Ответ: 1 — упырь, 0 — человек, -1 — нельзя (не Старожил, уже смотрел, не день).
+func elder_check(by: Villager, target: Villager) -> int:
+	if phase != Phase.DAY or by == null or target == null or by.role != Role.ELDER or by.role_used or not by.alive or target == by:
+		return -1
+	by.role_used = true
+	if by.is_player:
+		player_seen[target.id] = 1 if target.is_upyr else 0
+	return 1 if target.is_upyr else 0
+
+
+## Знахарка берёт травы на эту ночь: если рядом с ней в доме кого-то убьют, она его выходит.
+func heal_tonight(v: Villager) -> bool:
+	if v == null or not v.alive or v.role != Role.HEALER or v.role_used or not (phase == Phase.NIGHT or phase == Phase.DOOR):
+		return false
+	healer_on[v.id] = true
+	return true
+
+
+## Выходит ли Знахарка того, на кого напали в доме seat. Тратит способность.
+func _healed(s: Seat, victim: Villager, r: NightReport, cause: String) -> bool:
+	for h: Villager in s.inside():
+		if h != victim and h.alive and healer_on.get(h.id, false) and not h.role_used:
+			h.role_used = true
+			healer_on.erase(h.id)
+			claims[h.id] = "%s: %s %s в ночь %d" % [role_name(h), Ru.g(h, "выходил", "выходила", "выходили"), Ru.acc(victim), day]
+			var e := r.add(NightReport.Kind.SAVED, victim, s.house, [h] as Array[Villager])
+			e.cause = cause
+			var healer_txt := "вы" if h.is_player else "%s %s" % [role_name(h).to_lower(), h.name]
+			var obj := "вас" if victim.is_player else ("её" if victim.female else "его")
+			_log("Ночь %d: в «%s» на %s напали, но %s %s %s." % [day, Ru.house_in(house_name(s.house)), Ru.acc(victim),
+				healer_txt, obj, Ru.g(h, "выходил", "выходила", "выходили")])
+			return true
+	return false
+
+
+## Сколько весит голос на изгнании: у Старосты — два.
+func vote_weight(vid: int) -> int:
+	var v := get_villager(vid)
+	return 2 if v != null and v.alive and v.role == Role.HEADMAN else 1
+
+
+# =============================================================
+# Экстренный сбор
+# =============================================================
+func can_meeting(v: Villager) -> bool:
+	return phase == Phase.DAY and v != null and v.alive and not meeting_used.has(v.id)
+
+
+func call_meeting(v: Villager) -> bool:
+	if not can_meeting(v):
+		return false
+	meeting_used[v.id] = true
+	meeting_by = v.id
+	_log("День %d: %s %s в колокол: экстренный сбор." % [day, Ru.nom(v), Ru.g(v, "ударил", "ударила", "ударили")])
+	_set_phase(Phase.VOTE)
+	return true
+
+
+# =============================================================
+# Туннель
+# =============================================================
+## Куда ведёт туннель из дома h. -1 — из этого дома хода нет.
+func tunnel_to(h: int) -> int:
+	if tunnel.x < 0:
+		return -1
+	if h == tunnel.x:
+		return tunnel.y
+	if h == tunnel.y:
+		return tunnel.x
+	return -1
+
+
+func _seat_of_house(h: int) -> Seat:
+	for s: Seat in seats:
+		if s.house == h:
+			return s
+	return null
+
+
+## Есть ли место на том конце туннеля из дома h.
+func tunnel_room(h: int) -> bool:
+	var to := tunnel_to(h)
+	if to < 0:
+		return false
+	var s := _seat_of_house(to)
+	return s == null or s.inside().size() < config.capacity
+
+
+## После дверей, до ночи: кого не пустили у дома с туннелем, тот может пролезть на другой конец.
+## Игрок лезет, если выбрал это сам (player_goes). Хозяин того дома пролезшего не выбирает.
+func tunnel_pass(player_goes: bool) -> void:
+	assert(phase == Phase.DOOR)
+	tunnel_log.clear()
+	if tunnel.x < 0:
+		return
+	var order: Array[Villager] = []
+	for s: Seat in seats:
+		if tunnel_to(s.house) >= 0:
+			for v: Villager in s.turned_away():
+				if v.is_player:
+					order.push_front(v)    # игрок решил первым
+				else:
+					order.append(v)
+	for v: Villager in order:
+		var from := v.night_house
+		var wants := player_goes if v.is_player else rng.randf() < (TUNNEL_UPYR if v.is_upyr else TUNNEL_HUMAN)
+		if not wants or not tunnel_room(from):
+			continue
+		var to := tunnel_to(from)
+		var src := _seat_of_house(from)
+		src.queue.erase(v)
+		var dst := _seat_of_house(to)
+		if dst == null:
+			dst = Seat.new()
+			dst.house = to
+			dst.host = v
+			dst.decided = true
+			seats.append(dst)
+		else:
+			dst.admitted.append(v)
+		v.night_house = to
+		tunnel_log.append([v, from, to])
 
 
 # =============================================================

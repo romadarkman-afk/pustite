@@ -32,6 +32,8 @@ var player_job: int = -1
 var player_job_left: float = 0.0
 var player_sab: bool = false       ## игрок-упырь не работает, а портит
 var box_at: float = -1.0           ## на какой секунде дня появится ящик; -1 — сегодня его нет
+var meeting_check_at: float = -1.0 ## на этой секунде дня боты решают, бить ли в колокол
+var player_tunnel: bool = false    ## игрок решил лезть в туннель после отказа у двери
 
 ## Бег до дома по колоколу. Время бега идёт вместе с часами: пауза — стоят и бегущие.
 var run_on: bool = false
@@ -40,6 +42,8 @@ var run_house: int = -1                         ## куда бежит игро�
 var run_choices: Dictionary[int, int] = {}      ## куда бегут боты
 var run_react: Dictionary[int, float] = {}      ## когда бот сорвался с места
 var run_arrive: Dictionary[int, float] = {}     ## когда житель у двери (игрок — id 0)
+## Игрок бежит чуть быстрее ботов: он с фонарём и знает, куда бежит.
+const PLAYER_RUN := 1.15
 ## Путь жителя до двери дома в единицах посёлка. Nav подставляет настоящий путь по полю.
 var run_distance: Callable = func(_vid: int, _house: int) -> float: return 200.0
 
@@ -94,11 +98,19 @@ func hold(reason: StringName) -> void:
 
 
 func release(reason: StringName) -> void:
+	var was := held()
 	clock.release(reason)
+	# бег по колоколу стоял — пусть поле догонит: боты срываются с этой секунды
+	if was and not held() and run_on:
+		run_changed.emit()
 
 
 func held() -> bool:
 	return clock.held()
+
+
+func held_by(reason: StringName) -> bool:
+	return clock.held_by(reason)
 
 
 ## Во время партии экран не гаснет, в меню и на итоге — гаснет как обычно.
@@ -135,6 +147,13 @@ func _process(delta: float) -> void:
 	if box_at >= 0.0 and day_t >= box_at:
 		box_at = -1.0
 		_show_box()
+	if meeting_check_at >= 0.0 and day_t >= meeting_check_at:
+		meeting_check_at = -1.0
+		var caller := director.meeting_caller()
+		if caller != null:
+			m.post(director.meeting_line(caller))
+			call_meeting(caller.id)
+			return
 	if player_job >= 0:
 		if not (m.can_sabotage(player_job) if player_sab else m.job_available(player_job)):
 			var lost := player_job
@@ -302,6 +321,7 @@ func _on_phase(p: Match.Phase) -> void:
 			player_job = -1
 			player_sab = false
 			box_at = m.config.day_seconds * director.rng.randf_range(0.2, 0.4) if m.box_today else -1.0
+			meeting_check_at = m.config.day_seconds * 0.5
 			Diag.step("день: боты спланировали")
 			phase_entered.emit(p)
 			Diag.step("день: экран показан")
@@ -364,6 +384,8 @@ func _prepare_door() -> void:
 
 func _finish_night() -> void:
 	clock.stop()
+	m.tunnel_pass(player_tunnel and m.player().alive)
+	player_tunnel = false
 	director.after_door(m.seats)
 	var r := m.resolve_night()
 	director.read_report(r)
@@ -418,9 +440,9 @@ func vote(target_id: int) -> void:
 	var tally: Dictionary[int, int] = {}
 	var bv := director.votes()
 	for voter: int in bv:
-		tally[bv[voter]] = tally.get(bv[voter], 0) + 1
+		tally[bv[voter]] = tally.get(bv[voter], 0) + m.vote_weight(voter)
 	if target_id >= 0 and m.player().alive:
-		tally[target_id] = tally.get(target_id, 0) + 1
+		tally[target_id] = tally.get(target_id, 0) + m.vote_weight(0)
 	var out := m.apply_vote(tally)
 	vote_resolved.emit(tally, out)
 
@@ -459,7 +481,7 @@ func run_to_house(house: int) -> void:
 	if not run_on or m == null or m.phase != Match.Phase.NIGHT or house < 0 or house >= m.houses.size():
 		return
 	run_house = house
-	run_arrive[0] = run_t + float(run_distance.call(0, house)) / Director.RUN_SPEED
+	run_arrive[0] = run_t + float(run_distance.call(0, house)) / (Director.RUN_SPEED * PLAYER_RUN)
 	run_changed.emit()
 
 
@@ -488,6 +510,45 @@ func _finish_run() -> void:
 
 ## Сесть по домам сейчас же. Во время бега — по тем же выборам и временам, что видны на поле.
 ## Без бега (мёртвый игрок, самотесты правил) — как раньше: выбор ботов и случайный порядок.
+# =============================================================
+# Роли, сбор, туннель — действия игрока
+# =============================================================
+## Игрок-старожил смотрит рисунки. Ответ видит только он. -1 — нельзя.
+func elder_check(vid: int) -> int:
+	var t := m.get_villager(vid)
+	var res := m.elder_check(m.player(), t)
+	if res >= 0:
+		m.post(ChatLine.system("Рисунки старожила: %s — %s. Это знаешь только ты." % [t.name, "упырь" if res == 1 else "человек"]))
+		marks_changed.emit()
+	return res
+
+
+## Игрок-знахарь берёт травы на эту ночь.
+func heal() -> bool:
+	return m.heal_tonight(m.player())
+
+
+## Ударить в колокол днём: экстренный сбор, сразу голосование.
+func call_meeting(vid: int) -> bool:
+	var v := m.get_villager(vid)
+	if not m.can_meeting(v):
+		return false
+	clock.stop()
+	if v.is_player:
+		m.post(ChatLine.system("Ты бьёшь в колокол. Экстренный сбор!"))
+	else:
+		m.post(ChatLine.system("%s бьёт в колокол. Экстренный сбор!" % v.name))
+	return m.call_meeting(v)
+
+
+## Игрока не пустили — он лезет туннелем на другой конец (если там есть место).
+func go_tunnel() -> void:
+	if m.phase != Match.Phase.DOOR:
+		return
+	player_tunnel = true
+	_finish_night()
+
+
 func choose_house(house: int) -> void:
 	var choices: Dictionary[int, int] = {}
 	var arrival: Dictionary[int, float] = {}
@@ -495,7 +556,7 @@ func choose_house(house: int) -> void:
 		choices = run_choices.duplicate()
 		arrival = run_arrive.duplicate()
 		if house >= 0 and house != run_house:
-			arrival[0] = run_t + float(run_distance.call(0, house)) / Director.RUN_SPEED
+			arrival[0] = run_t + float(run_distance.call(0, house)) / (Director.RUN_SPEED * PLAYER_RUN)
 	else:
 		choices = director.night_choices()
 	run_on = false

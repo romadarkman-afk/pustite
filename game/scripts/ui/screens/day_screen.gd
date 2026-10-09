@@ -52,6 +52,11 @@ func build() -> void:
 	journal_button.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	journal_button.pressed.connect(open_journal)
 	jr.add_child(journal_button)
+	var diary := W.button("Дневник", &"Quick")
+	diary.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	diary.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	diary.pressed.connect(open_diary)
+	jr.add_child(diary)
 	journal_preview = W.label("", &"Small")
 	journal_preview.autowrap_mode = TextServer.AUTOWRAP_OFF
 	journal_preview.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -85,6 +90,13 @@ func build() -> void:
 	write.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	write.pressed.connect(_write_flow)
 	row.add_child(write)
+	if m.can_meeting(m.player()):
+		var bell := W.button("Сбор!", &"Ghost")
+		bell.name = "Meeting"
+		bell.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		bell.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+		bell.pressed.connect(_meeting_flow)
+		row.add_child(bell)
 	var ready_btn := W.button("Я готов к ночи", &"Ghost")
 	ready_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ready_btn.pressed.connect(func() -> void: commit(Intent.END_DAY))
@@ -128,6 +140,18 @@ func open_journal() -> void:
 	JournalSheet.open(self, m.chat)
 
 
+func open_diary() -> DiarySheet:
+	return DiarySheet.open(self, m, director)
+
+
+## Экстренный сбор: удар в колокол днём. Спросить, точно ли — он один на партию.
+func _meeting_flow() -> void:
+	var i: int = await ActionSheet.ask(self, "Ударить в колокол? Все сразу соберутся голосовать. Это можно один раз за партию.",
+		PackedStringArray(["Ударить в колокол"]))
+	if i == 0:
+		emit_intent(Intent.MEETING)
+
+
 func _update_journal() -> void:
 	if not is_instance_valid(journal_button):
 		return
@@ -154,15 +178,20 @@ func _defend() -> void:
 func person_actions(v: Villager) -> void:
 	var ev := director.evidence_text(v) if director != null else ""
 	var head := v.name if ev.is_empty() else "%s · %s" % [v.name, ev]
-	var i: int = await ActionSheet.ask(self, head, PackedStringArray([
+	var opts := PackedStringArray([
 		"Обвинить: «Это %s»" % v.name,
 		"Позвать с собой на ночь",
 		"Спросить, где ночует",
-	]))
+	])
+	var me := m.player()
+	if me.role == Match.Role.ELDER and not me.role_used:
+		opts.append("Посмотреть рисунки старожила: кто %s?" % ("он" if not v.female else "она"))
+	var i: int = await ActionSheet.ask(self, head, opts)
 	match i:
 		0: emit_intent(Intent.ACCUSE, {"id": v.id})
 		1: _pick_house_for(v)
 		2: emit_intent(Intent.ASK, {"id": v.id})
+		3: emit_intent(Intent.ELDER, {"id": v.id})
 
 
 ## Игрок-упырь у дела, где сегодня уже работали: поработать по-настоящему или испортить сделанное.

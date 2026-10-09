@@ -16,6 +16,7 @@ var result_shown := false
 var _selected: Array[int] = []
 var _rows: Dictionary[int, Button] = {}
 var _go: Button
+var _box: VBoxContainer       ## содержимое двери на тёмной подложке
 
 
 func screen_id() -> String:
@@ -43,7 +44,21 @@ func hint_text() -> String:
 
 
 func hint_target() -> Rect2:
-	return Rect2(Vector2(size.x * 0.5, footer.position.y - 10.0), Vector2.ZERO)
+	return Rect2(Vector2(size.x * 0.5, footer.get_global_rect().position.y - get_global_rect().position.y - 10.0), Vector2.ZERO)
+
+
+func _plate(side: int, top: int) -> PanelContainer:
+	var p := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.04, 0.05, 0.07, 0.88)
+	sb.set_corner_radius_all(24)
+	sb.content_margin_left = side
+	sb.content_margin_right = side
+	sb.content_margin_top = top
+	sb.content_margin_bottom = top + 4
+	p.add_theme_stylebox_override("panel", sb)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return p
 
 
 func hint_below() -> bool:
@@ -55,6 +70,18 @@ func door_open() -> float:
 
 
 func build() -> void:
+	# весь текст двери и кнопки — на тёмных подложках: свет из щели и распахнутой двери их не засвечивает
+	var plate := _plate(22, 16)
+	_box = W.vbox(14)
+	plate.add_child(_box)
+	body.add_child(plate)
+	var col := footer.get_parent()
+	var at := footer.get_index()
+	var fplate := _plate(10, 10)
+	col.remove_child(footer)
+	fplate.add_child(footer)
+	col.add_child(fplate)
+	col.move_child(fplate, at)
 	match role:
 		Match.DoorRole.HOST: _build_host()
 		Match.DoorRole.GUEST: _build_guest()
@@ -63,10 +90,9 @@ func build() -> void:
 
 # ---------------------------------------------------------------
 func _build_host() -> void:
-	body.add_child(W.gap(10))
-	body.add_child(W.label("Ты первым добежал до «%s». В дверь стучат." % Ru.house_of(m.house_name(seat.house)), &"Tale"))
+	_box.add_child(W.label("Ты первым добежал до «%s». В дверь стучат." % Ru.house_of(m.house_name(seat.house)), &"Tale"))
 	var cap := m.config.capacity - 1
-	body.add_child(W.label("Впустить можно: %d" % cap, &"Hint"))
+	_box.add_child(W.label("Впустить можно: %d" % cap, &"Hint"))
 
 	for g: Villager in seat.knockers():
 		var card := W.panel(&"Card")
@@ -84,7 +110,7 @@ func _build_host() -> void:
 		_rows[gid] = b
 		row.add_child(b)
 		card.add_child(row)
-		body.add_child(card)
+		_box.add_child(card)
 
 	# кто сейчас у других дверей: если голос за дверью — один из них, это не он
 	var elsewhere := PackedStringArray()
@@ -95,9 +121,9 @@ func _build_host() -> void:
 			if not v.is_player:
 				elsewhere.append(v.name)
 	if not elsewhere.is_empty():
-		body.add_child(W.label("У других дверей: %s." % ", ".join(elsewhere), &"Small"))
+		_box.add_child(W.label("У других дверей: %s." % ", ".join(elsewhere), &"Small"))
 
-	body.add_child(W.label(
+	_box.add_child(W.label(
 		"Тот, кого впустишь, до утра не доживёт." if m.player().is_upyr
 		else "Не откроешь никому — останешься один, и оберег погаснет.", &"Hint"))
 
@@ -149,24 +175,23 @@ func on_clock_expired() -> void:
 
 # ---------------------------------------------------------------
 func _build_guest() -> void:
-	body.add_child(W.gap(10))
-	body.add_child(W.label("«%s» уже заперт изнутри. Там — %s." % [m.house_name(seat.house), seat.host.name], &"Tale"))
+	_box.add_child(W.label("«%s» уже заперт изнутри. Там — %s." % [m.house_name(seat.house), seat.host.name], &"Tale"))
 	var rivals := PackedStringArray()
 	for g: Villager in seat.queue:
 		if not g.is_player:
 			rivals.append(g.name)
 	if not rivals.is_empty():
-		body.add_child(W.label("Рядом с тобой у двери: %s. Мест на всех не хватит." % ", ".join(rivals), &"Hint"))
+		_box.add_child(W.label("Рядом с тобой у двери: %s. Мест на всех не хватит." % ", ".join(rivals), &"Hint"))
 	if seat.mimic != null:
-		body.add_child(W.label("В темноте за спиной кто-то говорит голосом %s. Но %s здесь нет." % [Ru.gen(seat.mimic), seat.mimic.name], &"Hint"))
-	body.add_child(W.label("Что скажешь через дверь?", &"Small"))
+		_box.add_child(W.label("В темноте за спиной кто-то говорит голосом %s. Но %s здесь нет." % [Ru.gen(seat.mimic), seat.mimic.name], &"Hint"))
+	_box.add_child(W.label("Что скажешь через дверь?", &"Small"))
 
 	for p: Dictionary in Phrases.PLAYER_PLEAS:
 		var b := W.button(p.label, &"Row")
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		var pid: String = p.id
 		b.pressed.connect(func() -> void: _send_plea(pid))
-		body.add_child(b)
+		_box.add_child(b)
 	_knock_sequence(1)
 
 
@@ -176,10 +201,9 @@ func _send_plea(plea_id: String) -> void:
 
 ## Nav вызывает, когда хозяин решил. Пауза, стук, засов — или шаги прочь.
 func show_guest_result(admitted: bool) -> void:
-	W.clear(body)
-	body.add_child(W.gap(60))
+	W.clear(_box)
 	var t := W.label("Ты стучишь в дверь «%s»…" % Ru.house_of(m.house_name(seat.house)), &"Tale")
-	body.add_child(t)
+	_box.add_child(t)
 	for i in range(3):
 		knock_fx.emit()
 		Juice.haptic(Juice.Haptic.KNOCK)
@@ -200,7 +224,14 @@ func show_guest_result(admitted: bool) -> void:
 		Juice.shake(self, 14.0, 0.4)
 		t.text = "Шаги удаляются от двери. Ты остаёшься снаружи."
 	Juice.pop_in(t)
-	var next := W.button("Ждать рассвета")
+	if not admitted and m.tunnel_to(seat.house) >= 0 and m.tunnel_room(seat.house):
+		var to := m.house_name(m.tunnel_to(seat.house))
+		_box.add_child(W.label("За домом люк. Туннель ведёт в «%s», там есть место. Кто пролезет, тот внутри, но утром все узнают, откуда он взялся." % to, &"Hint"))
+		var hole := W.button("Лезть туннелем в «%s»" % to)
+		hole.name = "Tunnel"
+		hole.pressed.connect(func() -> void: commit(Intent.TUNNEL))
+		footer.add_child(hole)
+	var next := W.button("Ждать рассвета", &"Ghost" if not admitted and m.tunnel_room(seat.house) else &"Primary")
 	next.pressed.connect(func() -> void: commit(Intent.CONTINUE))
 	footer.add_child(next)
 	_locked = false
@@ -209,9 +240,8 @@ func show_guest_result(admitted: bool) -> void:
 
 # ---------------------------------------------------------------
 func _build_alone() -> void:
-	body.add_child(W.gap(60))
-	body.add_child(W.label("Ты первым добежал до «%s». Больше никто не пришёл." % Ru.house_of(m.house_name(seat.house)), &"Tale"))
-	body.add_child(W.label(
+	_box.add_child(W.label("Ты первым добежал до «%s». Больше никто не пришёл." % Ru.house_of(m.house_name(seat.house)), &"Tale"))
+	_box.add_child(W.label(
 		"Одному упырю улица не страшна." if m.player().is_upyr
 		else "Оберег мерцает. Одному его до утра не удержать.", &"Hint"))
 	var next := W.button("Ждать рассвета")

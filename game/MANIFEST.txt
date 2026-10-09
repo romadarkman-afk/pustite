@@ -31,6 +31,7 @@ scripts/tests/self_test.gd
 scripts/ui/action_sheet.gd
 scripts/ui/atmosphere.gd
 scripts/ui/bubbles.gd
+scripts/ui/diary_sheet.gd
 scripts/ui/hint.gd
 scripts/ui/howto_art.gd
 scripts/ui/intent.gd

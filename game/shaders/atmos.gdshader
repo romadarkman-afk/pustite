@@ -34,7 +34,9 @@ void fragment() {
 	float halo = smoothstep(door_open * 5.0 + 0.02, 0.0, x);
 	float dflick = 0.88 + 0.12 * sin(TIME * 9.1) * sin(TIME * 2.7);
 	vec3 dcol = vec3(0.035, 0.055, 0.066) + fog * 0.03;
-	dcol += (crack * 1.5 + halo * 0.22) * dflick * (1.0 + knock * 0.9) * vec3(0.94, 0.70, 0.34);
+	// щель яркая, а распахнутая дверь — тёплый полумрак: на нём должен читаться текст
+	float wide = smoothstep(0.06, 0.3, door_open);
+	dcol += (crack * mix(1.5, 0.42, wide) + halo * 0.22) * dflick * (1.0 + knock * 0.9) * vec3(0.94, 0.70, 0.34);
 	col = mix(col, dcol, door_mix);
 
 	col = mix(col, vec3(0.50, 0.10, 0.08), flash * 0.38);
