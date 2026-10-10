@@ -1,8 +1,9 @@
 extends Control
 ## Точка входа. Логотип ровно 1 секунду → меню. Тап — пропустить.
-## Для сборки здесь же запускаются самотесты: --sim, --flow, --layout, --lifecycle, --field, --crowd, --bubbles, --marks, --input, --hints, --difficulty, --howto, --night, --sound, --village, --talisman, --bell, --events, --mimic, --sabotage, --box, --roles, --meeting, --tunnel, --diary, --recap, --folk.
+## Для сборки здесь же запускаются самотесты: --sim, --flow, --layout, --lifecycle, --field, --crowd, --bubbles, --marks, --input, --hints, --difficulty, --howto, --night, --sound, --village, --talisman, --bell, --events, --mimic, --sabotage, --box, --roles, --meeting, --tunnel, --diary, --recap, --folk, --loc.
+## --lang=en рядом с любым самотестом гоняет его на другом языке.
 
-const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk"]
+const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk", "--loc"]
 const TEST_TIMEOUT_SEC := 240.0
 const LOGO_SEC := 1.0
 
@@ -15,6 +16,11 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var args := OS.get_cmdline_user_args()
 	for a: String in args:
+		if a.begins_with("--lang="):
+			Save.lang = a.substr(7)
+			L.use(Save.lang)
+			Nav.relocalize()
+			continue
 		if a.begins_with("--") and not TEST_FLAGS.has(a):
 			print("ИТОГ: неизвестный режим %s. Есть: %s" % [a, ", ".join(TEST_FLAGS)])
 			get_tree().quit(1)
@@ -36,6 +42,10 @@ func _run_test(flag: String) -> void:
 	match flag:
 		"--sim":
 			SelfTest.cli_balance()
+		"--loc":
+			Juice.instant = true
+			Nav.start()
+			SelfTest.loc()
 		"--flow":
 			Juice.instant = true
 			Nav.start()
@@ -145,7 +155,7 @@ func _run_test(flag: String) -> void:
 # ---------------------------------------------------------------
 func _play_logo() -> void:
 	_title = Label.new()
-	_title.text = "Пустите"
+	_title.text = L.t("game.title")
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var f := ThemeFactory.font(900)
 	_title.add_theme_font_override("font", f)

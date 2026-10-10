@@ -119,19 +119,13 @@ func evidence_text(v: Villager) -> String:
 	var ev: Dictionary = evidence.get(v.id, {})
 	var parts := PackedStringArray()
 	var n := int(ev.get("street", 0))
+	var a := {"who": v, "n": n}
 	if n > 0:
-		parts.append(Ru.g(v, "вернулся с улицы живым", "вернулась с улицы живой", "вернулись с улицы живыми") + (" (%d раза)" % n if n > 1 else ""))
-	if int(ev.get("liar", 0)) > 0:
-		parts.append(Ru.g(v, "соврал", "соврала", "соврали") + ", где ночует")
-	if int(ev.get("death", 0)) > 0:
-		parts.append(Ru.g(v, "был", "была", "были") + " рядом, когда кто-то погиб")
-	if int(ev.get("fake", 0)) > 0:
-		parts.append(Ru.g(v, "работал", "работала", "работали") + " впустую")
-	if int(ev.get("sabotage", 0)) > 0:
-		parts.append(Ru.g(v, "был", "была", "были") + " у испорченного дела")
-	if int(ev.get("tunnel", 0)) > 0:
-		parts.append(Ru.g(v, "пролез", "пролезла", "пролезли") + " туннелем в чужой дом")
-	return "; ".join(parts)
+		parts.append(L.t("ev.street", a) + (L.t("ev.times", a) if n > 1 else ""))
+	for k: String in ["liar", "death", "fake", "sabotage", "tunnel"]:
+		if int(ev.get(k, 0)) > 0:
+			parts.append(L.t("ev." + k, a))
+	return L.t("ev.sep").join(parts)
 
 
 # =============================================================
@@ -223,8 +217,8 @@ func _blame_fake(speaker: Villager, worker: Villager, job: JobDef) -> ChatLine:
 	_bump(worker.id, W_FAKE)
 	_note_evidence(worker.id, "fake")
 	if worker.is_player:
-		return ChatLine.say(speaker, Phrases.pick(Phrases.JOB_FAKE_AT_PLAYER, rng, {"place": job.place, "me_f": speaker.female}))
-	return _say(speaker, Phrases.JOB_FAKE, worker, {"place": job.place})
+		return _say(speaker, "JOB_FAKE_AT_PLAYER", worker, {"place": job.place})
+	return _say(speaker, "JOB_FAKE", worker, {"place": job.place})
 
 
 ## Для прогона без экрана: все дела дня разом. Игрок делает одно дело с шансом 50%.
@@ -261,7 +255,7 @@ func after_sabotage(vid: int, ji: int, spoiled: bool) -> Array[ChatLine]:
 	var job: JobDef = m.jobs[ji]
 	if not spoiled:
 		return after_job(vid, ji, false, false)   # портить было нечего — со стороны пустая работа
-	out.append(ChatLine.system("Кто-то напакостил %s: %s. Запасов стало меньше." % [job.place, Phrases.SPOIL.get(job.kind, "всё испорчено")]))
+	out.append(ChatLine.system(L.t("sys.sabotage", {"place": job.place, "what": Phrases.spoil(job.kind)})))
 	if rng.randf() >= SABOTAGE_NOTICE:
 		return out
 	var eyes: Array[Villager] = []
@@ -274,9 +268,9 @@ func after_sabotage(vid: int, ji: int, spoiled: bool) -> Array[ChatLine]:
 	_bump(worker.id, W_SABOTAGE)
 	_note_evidence(worker.id, "sabotage")
 	if worker.is_player:
-		out.append(ChatLine.say(o, Phrases.pick(Phrases.SABOTAGE_SEEN_AT_PLAYER, rng, {"place": job.place, "me_f": o.female})))
+		out.append(_say(o, "SABOTAGE_SEEN_AT_PLAYER", worker, {"place": job.place}))
 	else:
-		out.append(_say(o, Phrases.SABOTAGE_SEEN, worker, {"place": job.place}))
+		out.append(_say(o, "SABOTAGE_SEEN", worker, {"place": job.place}))
 	return out
 
 
@@ -290,7 +284,7 @@ func after_box(vid: int, res: Dictionary) -> Array[ChatLine]:
 	var who := m.get_villager(vid)
 	if res.is_empty() or who == null or who.is_player:
 		return out
-	var g := {"me_f": who.female}
+	var g := {"me": who}
 	match int(res.loot):
 		Match.Loot.NOTE:
 			var a: Villager = res.a
@@ -304,16 +298,16 @@ func after_box(vid: int, res: Dictionary) -> Array[ChatLine]:
 				if hums.size() >= 2:
 					a = hums[0]
 					b = hums[1]
-			g["a"] = Ru.nom(a)
-			g["b"] = Ru.nom(b)
+			g["a"] = a
+			g["b"] = b
 			_bump(a.id, W_NOTE)
 			_bump(b.id, W_NOTE)
-			out.append(ChatLine.say(who, Phrases.pick(Phrases.BOX_NOTE, rng, g)))
+			out.append(ChatLine.say(who, Phrases.pick("BOX_NOTE", rng, g)))
 		Match.Loot.OIL:
-			out.append(ChatLine.say(who, Phrases.pick(Phrases.BOX_OIL, rng, g)))
+			out.append(ChatLine.say(who, Phrases.pick("BOX_OIL", rng, g)))
 		Match.Loot.CHALK:
 			g["house"] = m.house_name(int(res.get("house", 0)))
-			out.append(ChatLine.say(who, Phrases.pick(Phrases.BOX_CHALK, rng, g)))
+			out.append(ChatLine.say(who, Phrases.pick("BOX_CHALK", rng, g)))
 	return out
 
 
@@ -344,19 +338,22 @@ func _others(of: Villager) -> Array[Villager]:
 
 ## Реплика с согласованием: род говорящего, род и падеж того, о ком речь.
 ## Если речь об игроке — нейтральный банк AT_PLAYER (пол игрока неизвестен).
-func _say(who: Villager, bank: PackedStringArray, target: Villager = null, extra: Dictionary = {}) -> ChatLine:
+func _say(who: Villager, bank: String, target: Villager = null, extra: Dictionary = {}) -> ChatLine:
 	var vars := extra.duplicate()
-	vars["me_f"] = who.female
+	vars["me"] = who
 	if Phrases.mentions_target(bank):
 		if target == null:
-			vars["who"] = "кто-то другой"
-			vars["who_acc"] = "других"
+			vars["who"] = L.raw("someone")
 		elif target.is_player:
-			bank = Phrases.AT_PLAYER
+			bank = "AT_PLAYER"
 		else:
-			vars["who"] = target.name
-			vars["who_f"] = target.female
-	return ChatLine.say(who, Phrases.pick(bank, rng, vars))
+			vars["who"] = target
+	var lines := Phrases.b(bank)
+	var tpl := lines[rng.randi_range(0, lines.size() - 1)]
+	var line := ChatLine.say(who, L.fill(tpl, vars))
+	if target != null and Phrases.ACCUSING.has(bank) and (tpl.contains("{who") or bank.ends_with("AT_PLAYER")):
+		line.about = target
+	return line
 
 
 # =============================================================
@@ -395,12 +392,12 @@ func _elder_day() -> void:
 			var t: Villager = pool[0]
 			if m.elder_check(elder, t) == 1:
 				_bump(t.id, W_ELDER)
-				m.claims[elder.id] = "назвал%s себя старожилом: %s — упырь" % ["а" if elder.female else "", t.name if not t.is_player else "вы"]
-				pending_lines.append(_say(elder, Phrases.ELDER_UPYR, t))
+				m.claim(elder, t, L.t("claim.elder_upyr", {"me": elder, "who": t}), true)
+				pending_lines.append(_say(elder, "ELDER_UPYR", t))
 			elif rng.randf() < ELDER_SPEAK_CLEAR:
 				_bump(t.id, -W_ELDER_CLEAR)
-				m.claims[elder.id] = "назвал%s себя старожилом: %s — человек" % ["а" if elder.female else "", t.name if not t.is_player else "вы"]
-				pending_lines.append(_say(elder, Phrases.ELDER_HUMAN, t))
+				m.claim(elder, t, L.t("claim.elder_human", {"me": elder, "who": t}), true)
+				pending_lines.append(_say(elder, "ELDER_HUMAN", t))
 	if not fake_elder_done and m.day >= 2 and rng.randf() < FAKE_ELDER_P:
 		var liars: Array[Villager] = []
 		for b: Villager in m.alive_bots():
@@ -416,15 +413,15 @@ func _elder_day() -> void:
 				fake_elder_done = true
 				var t2: Villager = victims[rng.randi_range(0, victims.size() - 1)]
 				_bump(t2.id, W_ELDER)
-				m.claims[liar.id] = "назвал%s себя старожилом: %s — упырь" % ["а" if liar.female else "", t2.name if not t2.is_player else "вы"]
-				pending_lines.append(_say(liar, Phrases.ELDER_UPYR, t2))
+				m.claim(liar, t2, L.t("claim.elder_upyr", {"me": liar, "who": t2}), true)
+				pending_lines.append(_say(liar, "ELDER_UPYR", t2))
 
 
 ## Кто назвался старожилом (кроме самого бота) и ещё жив. Упырям он опасен.
 func _claimed_elder(bot: Villager) -> Villager:
 	for vid: int in m.claims:
 		var v := m.get_villager(vid)
-		if v != null and v != bot and v.alive and m.claims[vid].contains("старожил"):
+		if v != null and v != bot and v.alive and m.claim_elder.has(vid):
 			return v
 	return null
 
@@ -452,7 +449,7 @@ func meeting_line(caller: Villager) -> ChatLine:
 	for v: Villager in _others(caller):
 		if top == null or susp(v.id) > susp(top.id):
 			top = v
-	return _say(caller, Phrases.MEETING_CALL, top, {"who_gen": Ru.gen(top) if top != null else "ним"})
+	return _say(caller, "MEETING_CALL", top)
 
 
 func _emptiest(counts: Array[int]) -> int:
@@ -494,24 +491,24 @@ func opening_lines() -> Array[ChatLine]:
 			var accuser := _pick_accuser(suspect)
 			if accuser == null:
 				continue
-			var bank := Phrases.ACCUSE_STRONG
+			var bank := "ACCUSE_STRONG"
 			var extra := {}
 			if street_last_night.has(suspect.id):
-				bank = Phrases.ACCUSE_STREET
+				bank = "ACCUSE_STREET"
 			elif liar_last_night.has(suspect.id):
-				bank = Phrases.ACCUSE_LIAR
+				bank = "ACCUSE_LIAR"
 				extra["house"] = m.house_name(liar_last_night[suspect.id])
 			out.append(_say(accuser, bank, suspect, extra))
 			if not suspect.is_player:
-				out.append(_say(suspect, Phrases.UPYR_DEFLECT if suspect.is_upyr else Phrases.DEFEND, _pick_any(suspect)))
+				out.append(_say(suspect, "UPYR_DEFLECT" if suspect.is_upyr else "DEFEND", _pick_any(suspect)))
 
 	var shuffled := bots.duplicate()
 	_shuffle(shuffled)
 	for bot: Villager in shuffled.slice(0, mini(3, shuffled.size())):
-		out.append(_say(bot, Phrases.ANNOUNCE, null, {"house": m.house_name(bot.announced_house)}))
+		out.append(_say(bot, "ANNOUNCE", null, {"house": m.house_name(bot.announced_house)}))
 
 	if rng.randf() < 0.6:
-		out.append(_say(shuffled[shuffled.size() - 1], Phrases.FILLER))
+		out.append(_say(shuffled[shuffled.size() - 1], "FILLER"))
 	return out
 
 
@@ -549,10 +546,10 @@ func react(intent: IntentParser.Result) -> Array[ChatLine]:
 			var cred := clampf(1.0 - susp(p.id) / 4.0, 0.2, 1.0)
 			_bump(t.id, 0.6 * cred)
 			var deflect := _pick_any_bot(t)
-			out.append(_say(t, Phrases.REPLY_TO_ACCUSED_UPYR if t.is_upyr else Phrases.REPLY_TO_ACCUSED_HUMAN, deflect))
+			out.append(_say(t, "REPLY_TO_ACCUSED_UPYR" if t.is_upyr else "REPLY_TO_ACCUSED_HUMAN", deflect))
 			var judge := _pick_bystander([t])
 			if judge != null:
-				out.append(_say(judge, Phrases.AGREE_ACCUSE if view(judge, t) >= 1.0 else Phrases.DISAGREE_ACCUSE, t))
+				out.append(_say(judge, "AGREE_ACCUSE" if view(judge, t) >= 1.0 else "DISAGREE_ACCUSE", t))
 
 		IntentParser.Kind.INVITE:
 			var t := intent.target
@@ -563,28 +560,28 @@ func react(intent: IntentParser.Result) -> Array[ChatLine]:
 				b.pact_house = h
 				t.announced_house = h
 				p.announced_house = h
-				out.append(_say(t, Phrases.INVITE_YES, null, {"house": m.house_name(h)}))
+				out.append(_say(t, "INVITE_YES", null, {"house": m.house_name(h)}))
 			else:
-				out.append(_say(t, Phrases.INVITE_NO))
+				out.append(_say(t, "INVITE_NO"))
 
 		IntentParser.Kind.ASK:
 			var t := intent.target
 			if t.announced_house >= 0:
-				out.append(_say(t, Phrases.ASK_ANSWER_HUMAN, null, {"house": m.house_name(t.announced_house)}))
+				out.append(_say(t, "ASK_ANSWER_HUMAN", null, {"house": m.house_name(t.announced_house)}))
 			else:
-				out.append(_say(t, Phrases.ASK_ANSWER_UNSURE))
+				out.append(_say(t, "ASK_ANSWER_UNSURE"))
 
 		IntentParser.Kind.DEFEND:
 			if susp(p.id) > 0.0:
 				_bump(p.id, -0.3)
 			var who := _pick_bystander([])
 			if who != null:
-				out.append(_say(who, Phrases.PLAYER_DEFEND_REACTION))
+				out.append(_say(who, "PLAYER_DEFEND_REACTION"))
 
 		_:
 			var who := _pick_bystander([])
 			if who != null:
-				out.append(_say(who, Phrases.GENERIC_REACTION))
+				out.append(_say(who, "GENERIC_REACTION"))
 	return out
 
 
@@ -646,19 +643,19 @@ func plan_run(choices: Dictionary[int, int], dist: Callable) -> Dictionary:
 
 ## Подражатель говорит голосом жителя — с повторами, будто заучил слова.
 func mimic_plea(voice: Villager) -> String:
-	return Phrases.pick(Phrases.MIMIC_PLEAS, rng, {"who": voice.name, "me_f": voice.female})
+	return Phrases.pick("MIMIC_PLEAS", rng, {"who": voice, "me": voice})
 
 
 func plea_for(bot: Villager) -> String:
 	var b: BotBrain = brains[bot.id]
-	var g := {"me_f": bot.female}
+	var g := {"me": bot}
 	if b.pact_id == m.player().id:
-		return Phrases.pick(Phrases.PLEA_PACT, rng, g)
+		return Phrases.pick("PLEA_PACT", rng, g)
 	if street_last_night.has(bot.id):
-		return Phrases.pick(Phrases.PLEA_AFTER_STREET, rng, g)
+		return Phrases.pick("PLEA_AFTER_STREET", rng, g)
 	if susp(bot.id) > 2.0:
-		return Phrases.pick(Phrases.PLEA_SUSPECT, rng, g)
-	return Phrases.pick(Phrases.PLEA_NORMAL, rng, g)
+		return Phrases.pick("PLEA_SUSPECT", rng, g)
+	return Phrases.pick("PLEA_NORMAL", rng, g)
 
 
 ## Бот-хозяин двери решает, кого впустить. player_plea — id мольбы игрока, если он в очереди.

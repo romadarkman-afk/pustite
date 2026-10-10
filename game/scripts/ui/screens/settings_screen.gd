@@ -14,7 +14,7 @@ func screen_id() -> String:
 
 
 func title() -> String:
-	return "Настройки"
+	return L.t("settings.title")
 
 
 func mood() -> Vector2:
@@ -26,21 +26,23 @@ func build() -> void:
 	W.clear(footer)
 
 	# звук и вибрация — наверху: их меняют чаще, чем баланс
-	body.add_child(W.label("Звук", &"Hint"))
-	for row: Array in [[&"Music", "Музыка"], [&"Sfx", "Звуки"], [&"Ambience", "Атмосфера"]]:
+	body.add_child(W.label(L.t("settings.lang"), &"Hint"))
+	body.add_child(MenuScreen.lang_button(self))
+	body.add_child(W.label(L.t("settings.sound"), &"Hint"))
+	for row: Array in [[&"Music", L.t("settings.music")], [&"Sfx", L.t("settings.sfx")], [&"Ambience", L.t("settings.ambience")]]:
 		body.add_child(_volume_row(row[0], row[1]))
-	var hb := W.button("Вибрация: %s" % ("включена" if haptics else "выключена"), &"Row")
+	var hb := W.button(L.t("settings.haptics_on" if haptics else "settings.haptics_off"), &"Row")
 	hb.pressed.connect(func() -> void:
 		haptics = not haptics
 		Juice.haptics_enabled = haptics
-		hb.text = "Вибрация: %s" % ("включена" if haptics else "выключена"))
+		hb.text = L.t("settings.haptics_on" if haptics else "settings.haptics_off"))
 	body.add_child(hb)
-	body.add_child(W.label("Сложность", &"Hint"))
+	body.add_child(W.label(L.t("settings.difficulty"), &"Hint"))
 
 	var presets := W.hbox(8)
 	_chips.clear()
 	for d: String in Difficulty.LADDER:
-		var b := W.button(String(Difficulty.NAMES[d]), &"RowOn" if d == difficulty else &"Row")
+		var b := W.button(Difficulty.title(d), &"RowOn" if d == difficulty else &"Row")
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var key := d
 		b.pressed.connect(func() -> void:
@@ -50,7 +52,7 @@ func build() -> void:
 		presets.add_child(b)
 		_chips[d] = b
 	body.add_child(presets)
-	body.add_child(W.label(("Своя сложность: " if difficulty == "custom" else String(Difficulty.NAMES[difficulty]) + ": ") + Difficulty.describe(difficulty, cfg), &"Small"))
+	body.add_child(W.label(L.t("diff.note_custom" if difficulty == "custom" else "diff.note", {"d": Difficulty.title(difficulty), "text": Difficulty.describe(difficulty, cfg)}), &"Small"))
 
 	for prop: Dictionary in cfg.get_property_list():
 		if not (int(prop.usage) & PROPERTY_USAGE_SCRIPT_VARIABLE) or int(prop.hint) != PROPERTY_HINT_RANGE:
@@ -59,7 +61,7 @@ func build() -> void:
 		var range_parts := String(prop.hint_string).split(",")
 		var row := W.vbox(2)
 		var top := W.hbox(10)
-		var lbl := W.label(str(GameConfig.LABELS.get(key, key)), &"Body")
+		var lbl := W.label(L.t(String(GameConfig.LABELS.get(key, key))), &"Body")
 		var val := W.label(str(cfg.get(key)), &"Body")
 		val.add_theme_color_override("font_color", ThemeFactory.LAMP)
 		val.size_flags_horizontal = Control.SIZE_SHRINK_END
@@ -81,19 +83,19 @@ func build() -> void:
 		row.add_child(sl)
 		body.add_child(row)
 
-	var hr := W.button("Подсказки покажутся заново" if reset_hints else "Показать подсказки заново", &"Row")
+	var hr := W.button(L.t("settings.hints_reset" if reset_hints else "settings.hints"), &"Row")
 	hr.pressed.connect(func() -> void:
 		reset_hints = true
-		hr.text = "Подсказки покажутся заново")
+		hr.text = L.t("settings.hints_reset"))
 	body.add_child(hr)
 	body.add_child(W.label(
-		"Ступени проверены прогоном по 1500 партий. Сильнее всего баланс двигают число убежищ и ночей.",
+		L.t("settings.note"),
 		&"Small"))
 
-	var go := W.button("Начать с этими настройками")
+	var go := W.button(L.t("settings.start"))
 	go.pressed.connect(func() -> void: emit_intent(Intent.START, {"cfg": cfg, "haptics": haptics, "reset_hints": reset_hints, "difficulty": difficulty}))
 	footer.add_child(go)
-	var back := W.button("Назад", &"Ghost")
+	var back := W.button(L.t("ui.back"), &"Ghost")
 	back.pressed.connect(func() -> void: emit_intent(Intent.BACK, {"cfg": cfg, "haptics": haptics, "reset_hints": reset_hints, "difficulty": difficulty}))
 	footer.add_child(back)
 

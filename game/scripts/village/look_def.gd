@@ -2,13 +2,19 @@ class_name LookDef
 extends Resource
 ## Внешность жителя. Всё рисуется кодом из этих цветов и формы головы.
 
-enum Head { BARE, CAP, SCARF, HAT, HOOD }
+enum Head { BARE, CAP, SCARF, HAT, HOOD,
+	USHANKA, DEERSTALKER, BERET, PHRYGIAN, MUSKETEER, SOMBRERO, FEZ, TURBAN, CONICAL,
+	GOLD_BAND, JESTER, CANGACEIRO, LUCHADOR, CATRINA, FLOWER_CROWN, TOP_HAT, STRAW, KOKOSHNIK }
 enum Hair { SHORT, BANGS, PONYTAIL, CURLY, BALD, BOB, BUN, SPIKY, LONG, BRAIDS, PIGTAILS }
 enum Beard { NONE, STUBBLE, MUSTACHE, FULL }
 enum Brows { THIN, THICK, STERN }
 enum Nose { BUTTON, LONG, ROUND }
-enum Outfit { COAT, DRESS, SWEATER, JACKET }
+enum Outfit { COAT, DRESS, SWEATER, JACKET, ROBE, SAREE, QIPAO }
 enum Bow { NONE, BOW, CLIP, FLOWER }
+## Звериная голова вместо человеческой: персонажи-символы стран (медведь, панда, слон…).
+## Тело и одежда остаются человеческими, лицо так же показывает эмоции.
+enum Animal { NONE, BEAR, PANDA, MONKEY, PIG, CAT, TIGER, JAGUAR, WOLF, FOX, BULLDOG, RABBIT,
+	ELEPHANT, BUFFALO, ROOSTER, MACAW, PEACOCK }
 
 @export var who: String = ""
 @export var coat: Color = Color("3a4650")
@@ -32,3 +38,4 @@ enum Bow { NONE, BOW, CLIP, FLOWER }
 @export var outfit: Outfit = Outfit.COAT
 @export var bow: Bow = Bow.NONE
 @export var earrings: bool = false
+@export var animal: Animal = Animal.NONE

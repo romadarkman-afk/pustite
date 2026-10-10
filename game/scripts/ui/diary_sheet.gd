@@ -21,11 +21,11 @@ static func facts(m: Match, d: Director, v: Villager) -> PackedStringArray:
 	var out := PackedStringArray()
 	if not v.alive:
 		if v.exiled:
-			out.append(Ru.g(v, "Изгнан", "Изгнана", "Изгнаны") + " в день %d." % v.exiled_day)
+			out.append(L.t("diary.exiled", {"who": v, "n": v.exiled_day}))
 		else:
 			for rec: Dictionary in m.history:
 				if (rec.dead as Array).has(v.id):
-					out.append(Ru.g(v, "Погиб", "Погибла", "Погибли") + " в ночь %d." % int(rec.day))
+					out.append(L.t("diary.died", {"who": v, "n": int(rec.day)}))
 	var nights := PackedStringArray()
 	for rec: Dictionary in m.history:
 		var where: Dictionary = rec.where
@@ -33,28 +33,28 @@ static func facts(m: Match, d: Director, v: Villager) -> PackedStringArray:
 			continue
 		var h: int = where[v.id]
 		var said: int = (rec.said as Dictionary).get(v.id, -1)
-		var t := "%d — %s" % [int(rec.day), "улица" if h < 0 else m.house_name(h)]
+		var t := L.t("diary.night", {"n": int(rec.day), "where": L.t("diary.street") if h < 0 else m.house_name(h)})
 		if said >= 0 and said != h:
-			t += " (" + Ru.g(v, "говорил", "говорила", "говорили") + ": %s)" % m.house_name(said)
+			t += L.t("diary.said", {"who": v, "house": m.house_name(said)})
 		nights.append(t)
 	if not nights.is_empty():
-		out.append("Ночи: " + "; ".join(nights) + ".")
+		out.append(L.t("diary.nights", {"list": L.t("ev.sep").join(nights)}))
 	if v.alive and v.announced_house >= 0:
-		out.append("Сегодня собирается: %s." % m.house_name(v.announced_house))
+		out.append(L.t("diary.today", {"house": m.house_name(v.announced_house)}))
 	var ev := d.evidence_text(v) if d != null else ""
 	if not ev.is_empty():
-		out.append("Улики: %s." % ev)
+		out.append(L.t("diary.evidence", {"ev": ev}))
 	if m.claims.has(v.id):
-		out.append(m.claims[v.id].left(1).to_upper() + m.claims[v.id].substr(1) + ".")
+		out.append(L.t("diary.own_claim", {"text": L.gram().cap(m.claims[v.id])}))
 	# что сказали про него другие: «Захар назвал себя старожилом: Тимур — упырь»
 	for vid: int in m.claims:
 		var who := m.get_villager(vid)
-		if who != v and String(m.claims[vid]).contains(": %s — " % v.name):
-			out.append("%s %s." % [Ru.nom(who), m.claims[vid]])
+		if who != v and m.claim_elder.has(vid) and m.claim_about.get(vid, -1) == v.id:
+			out.append(L.t("diary.claim", {"who": who, "text": m.claims[vid]}))
 	if m.player_seen.has(v.id):
-		out.append("Твои рисунки: %s." % ("упырь" if m.player_seen[v.id] == 1 else "человек"))
+		out.append(L.t("diary.seen_upyr" if m.player_seen[v.id] == 1 else "diary.seen_human"))
 	if out.is_empty():
-		out.append("Пока ничего не известно.")
+		out.append(L.t("diary.nothing"))
 	return out
 
 
@@ -79,7 +79,7 @@ func _build(m: Match, d: Director) -> void:
 	sheet.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	var box := W.vbox(10)
 	sheet.add_child(box)
-	box.add_child(W.label("Дневник: что известно о каждом", &"Hint"))
+	box.add_child(W.label(L.t("diary.head"), &"Hint"))
 	var sc := ScrollContainer.new()
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	sc.custom_minimum_size = Vector2(0, maxf(200.0, (get_parent() as Control).size.y * 0.66))
@@ -99,7 +99,7 @@ func _build(m: Match, d: Director) -> void:
 	for v: Villager in people:
 		var card := W.panel(&"Card")
 		var col := W.vbox(4)
-		var head := W.label(v.name if v.alive else "%s · нет в живых" % v.name, &"Body")
+		var head := W.label(v.name if v.alive else L.t("diary.gone", {"who": v}), &"Body")
 		if not v.alive:
 			head.modulate.a = 0.6
 		col.add_child(head)
@@ -108,7 +108,7 @@ func _build(m: Match, d: Director) -> void:
 		card.add_child(col)
 		list.add_child(card)
 		cards[v.id] = card
-	var close_b := W.button("Закрыть", &"Ghost")
+	var close_b := W.button(L.t("ui.close"), &"Ghost")
 	close_b.pressed.connect(close)
 	box.add_child(close_b)
 

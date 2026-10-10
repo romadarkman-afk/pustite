@@ -27,7 +27,7 @@ func set_value(d: int, t: int) -> void:
 
 
 func text() -> String:
-	return "Запасы %d из %d" % [done, total]
+	return L.t("supplies", {"a": done, "b": total})
 
 
 func _process(delta: float) -> void:

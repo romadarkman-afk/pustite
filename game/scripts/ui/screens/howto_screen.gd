@@ -3,10 +3,11 @@ extends Screen
 ## «Как играть»: три карточки с картинками. Перед первой партией — один раз,
 ## потом по кнопке в меню. Листается кнопкой «Дальше» и свайпом.
 
+## Страницы: ключи заголовка и текста в файле языка.
 const PAGES := [
-	["День", "В посёлке живут люди, а среди них упыри. Упыри выглядят как все. Ты — житель с фонарём.\n\nДнём все на площади. Нажми на жителя: обвини, позови ночевать вместе или спроси, где ночует. Красный глаз над головой — посёлок его подозревает.\n\nНажми на значок дела: вода, дрова, фонари. Чем больше запасов, тем светлее ночью. Упыри делают вид, что работают, а то и портят сделанное. Иногда на площади появляется ящик: кто первым откроет, тому находка."],
-	["Ночь", "Вечером звонит колокол, и все бегут по домам. Пока звенит, нажми на дом. Убежищ меньше, чем людей: кто остался на улице, почти не доживёт до утра.\n\nОдин в доме тоже рискует. Днём договорись, с кем ночуешь, и подправь треснувший оберег: в дом с расколотым приходит тварь из леса."],
-	["Дверь", "Кто первым добежал до дома, тот решает, кого впустить.\n\nВпустишь упыря — до утра не доживёшь. Не впустишь никого — останешься один. Утром смотри, кто где ночевал и кто соврал.\n\nБывает, стучат голосом того, кто сейчас в другом доме или уже погиб. Это Подражатель: не открывай.\n\nУ людей бывают роли: старожил, знахарь, староста. Днём можно один раз ударить в колокол и сразу голосовать. Всё, что известно о каждом, — в «Дневнике»."],
+	["howto.day.title", "howto.day.text"],
+	["howto.night.title", "howto.night.text"],
+	["howto.door.title", "howto.door.text"],
 ]
 
 var page: int = 0
@@ -20,7 +21,7 @@ func screen_id() -> String:
 
 
 func title() -> String:
-	return "Как играть · %d из %d" % [page + 1, PAGES.size()]
+	return L.t("howto.title", {"a": page + 1, "b": PAGES.size()})
 
 
 func mood() -> Vector2:
@@ -37,14 +38,14 @@ func build() -> void:
 		resized.connect(_size_art)
 	art.gui_input.connect(_on_art_input)
 	body.add_child(art)
-	body.add_child(W.label(String(PAGES[page][0]), &"Title"))
-	body.add_child(W.label(String(PAGES[page][1]), &"Tale"))
+	body.add_child(W.label(L.t(String(PAGES[page][0])), &"Title"))
+	body.add_child(W.label(L.t(String(PAGES[page][1])), &"Tale"))
 	var last := page == PAGES.size() - 1
-	var next := W.button(("Играть" if then_play else "Понятно") if last else "Дальше")
+	var next := W.button(L.t(("menu.play" if then_play else "howto.got_it") if last else "ui.next"))
 	next.pressed.connect(next_page)
 	footer.add_child(next)
 	if not last:
-		var skip := W.button("Пропустить", &"Ghost")
+		var skip := W.button(L.t("ui.skip"), &"Ghost")
 		skip.pressed.connect(func() -> void: commit(Intent.HOWTO_DONE, {"play": then_play}))
 		footer.add_child(skip)
 	if _clock != null:

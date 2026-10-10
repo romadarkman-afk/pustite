@@ -66,7 +66,7 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	add_child(eyes)
 	crowd = Crowd.new()
 	crowd.view = self
-	crowd.book = load("res://config/looks.tres") as LookBook
+	crowd.book = L.looks()
 	add_child(crowd)
 	jobs_layer = JobLayer.new()
 	jobs_layer.view = self

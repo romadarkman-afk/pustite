@@ -8,7 +8,7 @@ config_version=5
 
 config/name="Пустите"
 config/description="Социальная дедукция с убежищами"
-config/version="0.19.0"
+config/version="0.20.0"
 run/main_scene="res://scenes/boot.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 config/icon="res://icon.svg"
@@ -38,6 +38,10 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
 window/energy_saving/keep_screen_on=false
+
+[internationalization]
+
+locale/include_text_server_data=true
 
 [physics]
 

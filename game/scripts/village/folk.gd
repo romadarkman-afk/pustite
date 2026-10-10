@@ -39,7 +39,7 @@ static func palette(look: LookDef, n: float = 0.0) -> Dictionary:
 		"pants": Art.dn(Color("3b3346"), n), "shoe": Art.dn(Color("2e2420"), n),
 		"tights": Art.dn(Color("4a3a4e") if look.female else Color("3b3346"), n),
 		"lips": Art.dn(Color("c8505a"), n),
-		"hat": Art.dn(_hat_color(look, coat), n), "ink": Art.ink(n),
+		"hat": Art.dn(_hat_color(look, coat), n), "ink": Art.ink(n), "n": n,
 	}
 
 
@@ -129,8 +129,14 @@ static func figure(ci: CanvasItem, o: Vector2, s: float, look: LookDef, face: St
 	var bottom := p.y + HIP_Y * s * h + 4.0 * s
 	var lx := lean * 30.0 * s
 	var sh_w := 13.0 * s if fem else 16.5 * s
-	var body: PackedVector2Array
-	if fem and look.outfit == LookDef.Outfit.DRESS:
+	var body: PackedVector2Array = PackedVector2Array()
+	var dressy := (fem and look.outfit == LookDef.Outfit.DRESS) or look.outfit == LookDef.Outfit.SAREE or look.outfit == LookDef.Outfit.QIPAO
+	if look.outfit == LookDef.Outfit.ROBE:
+		var hem2 := o.y - 7.0 * s
+		body = PackedVector2Array([
+			Vector2(p.x - sh_w + lx, top), Vector2(p.x + sh_w + lx, top),
+			Vector2(p.x + 21 * s, hem2 - 3 * s), Vector2(p.x + 19 * s, hem2), Vector2(p.x - 19 * s, hem2), Vector2(p.x - 21 * s, hem2 - 3 * s)])
+	elif dressy:
 		var hem := p.y + HIP_Y * s * h + 14.0 * s
 		body = PackedVector2Array([
 			Vector2(p.x - sh_w + lx, top), Vector2(p.x + sh_w + lx, top),
@@ -159,6 +165,19 @@ static func figure(ci: CanvasItem, o: Vector2, s: float, look: LookDef, face: St
 				for i in range(7):
 					zz.append(Vector2(p.x - 14 * s + i * 4.6 * s, y + (2.0 if i % 2 == 0 else -2.0) * s))
 				ci.draw_polyline(zz, pal.coat_l, 2.0 * s, true)
+		LookDef.Outfit.SAREE:
+			# край сари через плечо и кайма по подолу
+			ci.draw_line(Vector2(p.x - sh_w + lx + 2 * s, top + 1 * s), Vector2(p.x + 16 * s, p.y + HIP_Y * s * h + 6 * s), pal.accent, 6.5 * s, true)
+			var hem3 := p.y + HIP_Y * s * h + 11.0 * s
+			ci.draw_line(Vector2(p.x - 23 * s, hem3), Vector2(p.x + 23 * s, hem3), pal.accent, 3.0 * s, true)
+		LookDef.Outfit.QIPAO:
+			# воротник-стойка и застёжка наискосок
+			ci.draw_polyline(PackedVector2Array([Vector2(p.x + lx, top + 4 * s), Vector2(p.x + 8 * s + lx, top + 9 * s), Vector2(p.x + 9 * s, top + 22 * s)]), pal.accent, 2.6 * s, true)
+			for i in range(3):
+				ci.draw_circle(Vector2(p.x + 8.5 * s, top + 11 * s + i * 5 * s), 1.8 * s, pal.accent)
+		LookDef.Outfit.ROBE:
+			ci.draw_line(Vector2(p.x - 16 * s, p.y + HIP_Y * s * h + 2 * s), Vector2(p.x + 16 * s, p.y + HIP_Y * s * h + 2 * s), pal.accent, 4.5 * s, true)
+			ci.draw_line(Vector2(p.x + lx, top + 4 * s), Vector2(p.x, o.y - 10 * s), Color(k, 0.45), 1.6 * s, true)
 		LookDef.Outfit.JACKET:
 			ci.draw_line(Vector2(p.x + lx, top + 4 * s), Vector2(p.x, bottom - 2 * s), Color(k, 0.6), 1.8 * s, true)
 			for side2: float in [-1.0, 1.0]:
@@ -182,9 +201,15 @@ static func figure(ci: CanvasItem, o: Vector2, s: float, look: LookDef, face: St
 	_limb(ci, lsh, lhand, sleeve, pal.coat, k, lw * 0.85)
 	_limb(ci, rsh, rhand, sleeve, pal.coat, k, lw * 0.85)
 	var fists: bool = pose.get("fists", false)
+	# у зверей — лапы цвета шерсти (у панды тёмные)
+	var hand_col: Color = pal.skin
+	if look.animal == LookDef.Animal.PANDA:
+		hand_col = Art.dn(Color("26242c"), float(pal.get("n", 0.0)))
+	elif look.animal != LookDef.Animal.NONE:
+		hand_col = pal.hair
 	for hand: Vector2 in [lhand, rhand]:
 		ci.draw_circle(hand, (5.8 if fists else 5.2) * s, k)
-		ci.draw_circle(hand, (4.6 if fists else 4.0) * s, pal.skin)
+		ci.draw_circle(hand, (4.6 if fists else 4.0) * s, hand_col)
 	if tool != "":
 		_draw_tool(ci, tool, lhand, rhand, work, s, k)
 	if pose.get("lantern", false) and tool == "":
@@ -196,7 +221,7 @@ static func figure(ci: CanvasItem, o: Vector2, s: float, look: LookDef, face: St
 		ci.draw_circle(lr.get_center() + Vector2(0, 2 * s), 3.2 * s, Color(1, 0.95, 0.7))
 
 	# шарф или воротник
-	if look.outfit == LookDef.Outfit.DRESS:
+	if dressy or look.outfit == LookDef.Outfit.ROBE or look.outfit == LookDef.Outfit.DRESS:
 		Art.shape(ci, Art.ellipse(Vector2(p.x + lx, top + 1 * s), Vector2(11 * s, 5 * s), 14), pal.coat_l, k, lw * 0.7)
 	else:
 		Art.shape(ci, Art.rrect(Rect2(p.x - 17 * s + lx, top - 6 * s, 34 * s, 11 * s), 5 * s), pal.accent, k, lw * 0.85)
@@ -219,7 +244,17 @@ static func head(ci: CanvasItem, c: Vector2, s: float, look: LookDef, face: Stri
 	ci.draw_set_transform(c, tilt, Vector2.ONE)
 	var o := Vector2.ZERO
 	var r := HEAD_R * s
-	_hair_back(ci, o, s, look, pal, k, lw)
+	if look.animal != LookDef.Animal.NONE:
+		FolkBeast.head(ci, o, s, look, face, pose, pal, k, lw)
+		_hat(ci, o, s, look, pal, k, lw)
+		_bow(ci, o, s, look, pal, k, lw)
+		if pose.get("emote", true):
+			_emote(ci, o + Vector2(r * 0.95, -r * 1.25), s, face, k)
+		ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
+	var masked := look.head == LookDef.Head.LUCHADOR
+	if not masked:
+		_hair_back(ci, o, s, look, pal, k, lw)
 	# у мужчин лицо чуть квадратнее, у девушек — круглее и уже к подбородку
 	var head_pts := _head_shape(o, r, look)
 	ci.draw_colored_polygon(head_pts, pal.skin_d)
@@ -242,6 +277,10 @@ static func head(ci: CanvasItem, c: Vector2, s: float, look: LookDef, face: Stri
 			ci.draw_colored_polygon(inner, Color(0.6, 0.75, 1.0, 0.26))
 		"sly":
 			ci.draw_colored_polygon(inner, Color(0.55, 0.7, 0.3, 0.16))
+	if masked:
+		FolkWear.mask(ci, o, s, pal, k, inner)
+	elif look.head == LookDef.Head.CATRINA:
+		FolkWear.catrina_paint(ci, o, s, pal, k, inner)
 	var outl := head_pts.duplicate()
 	outl.append(head_pts[0])
 	ci.draw_polyline(outl, k, lw, true)
@@ -253,7 +292,10 @@ static func head(ci: CanvasItem, c: Vector2, s: float, look: LookDef, face: Stri
 			ci.draw_circle(ear + Vector2(0, 8 * s), 1.8 * s, Color("f2c94c"))
 	var fo := o + Vector2(turn * 7.0 * s, 0)
 	_face(ci, fo, s, look, face, pose, pal, k)
-	_hair_front(ci, o, s, look, pal, k, lw)
+	if look.head == LookDef.Head.CATRINA:
+		FolkWear.catrina_stitches(ci, fo, s, k)
+	if not masked:
+		_hair_front(ci, o, s, look, pal, k, lw)
 	_hat(ci, o, s, look, pal, k, lw)
 	_bow(ci, o, s, look, pal, k, lw)
 	if pose.get("emote", true):
@@ -304,76 +346,8 @@ static func _face(ci: CanvasItem, o: Vector2, s: float, look: LookDef, face: Str
 			ci.draw_line(o + Vector2(sx * 22 * s, ey + 2 * s), o + Vector2(sx * 25 * s, ey + 3 * s), Color(k, 0.45), 1.3 * s, true)
 		ci.draw_line(o + Vector2(-8 * s, -18 * s), o + Vector2(8 * s, -18 * s), Color(k, 0.3), 1.3 * s, true)
 
-	# глаза: эмоция меняет форму, размер зрачка и веки
-	match face:
-		"blink", "relieved":
-			for sx: float in [-1.0, 1.0]:
-				ci.draw_arc(o + Vector2(sx * ex, ey + 1 * s), 6 * s, 0.2, PI - 0.2, 10, k, 3.0 * s, true)
-				if fem:
-					_lashes_closed(ci, o + Vector2(sx * ex, ey + 1 * s), s, sx, k)
-		"happy":
-			for sx: float in [-1.0, 1.0]:
-				ci.draw_arc(o + Vector2(sx * ex, ey + 4 * s), 6.5 * s, PI * 1.08, PI * 1.92, 12, k, 3.4 * s, true)
-				if fem:
-					ci.draw_line(o + Vector2(sx * (ex + 6 * s), ey + 1 * s), o + Vector2(sx * (ex + 9.5 * s), ey - 1.5 * s), k, 2.0 * s, true)
-		"sly":
-			for sx: float in [-1.0, 1.0]:
-				_eye(ci, o + Vector2(sx * ex, ey), s, pal, k, look_dir + Vector2(sx * 0.35, 0), 0.5, Color(0.98, 0.82, 0.25), 1.0, true)
-		"shocked":
-			for sx: float in [-1.0, 1.0]:
-				_eye(ci, o + Vector2(sx * ex, ey - 1 * s), s * 1.25, pal, k, look_dir, 0.0, pal.eye, 0.42)
-		"scared":
-			for sx: float in [-1.0, 1.0]:
-				_eye(ci, o + Vector2(sx * ex, ey - 1 * s), s * 1.18, pal, k, look_dir, 0.0, pal.eye, 0.5)
-		"angry":
-			for sx: float in [-1.0, 1.0]:
-				_eye(ci, o + Vector2(sx * ex, ey + 1 * s), s, pal, k, look_dir, 0.42, pal.eye, 0.85, false, sx)
-		"suspicious":
-			_eye(ci, o + Vector2(-ex, ey), s, pal, k, look_dir + Vector2(0.9, 0), 0.25)
-			_eye(ci, o + Vector2(ex, ey + 1 * s), s, pal, k, look_dir + Vector2(0.9, 0), 0.62)
-		"sad":
-			for sx: float in [-1.0, 1.0]:
-				_eye(ci, o + Vector2(sx * ex, ey + 1 * s), s, pal, k, look_dir + Vector2(0, 0.7), 0.35, pal.eye, 1.05, false, -sx)
-		"cold":
-			for sx: float in [-1.0, 1.0]:
-				_eye(ci, o + Vector2(sx * ex, ey), s, pal, k, look_dir, 0.38)
-		"confused":
-			_eye(ci, o + Vector2(-ex, ey), s, pal, k, look_dir + Vector2(-0.4, -0.6), 0.0, pal.eye, 0.9)
-			_eye(ci, o + Vector2(ex, ey + 1 * s), s * 0.85, pal, k, look_dir + Vector2(-0.4, -0.6), 0.2, pal.eye, 0.9)
-		_:
-			for sx: float in [-1.0, 1.0]:
-				_eye(ci, o + Vector2(sx * ex, ey), s, pal, k, look_dir, 0.0)
-	if fem and face != "blink" and face != "relieved" and face != "happy":
-		for sx: float in [-1.0, 1.0]:
-			_lashes(ci, o + Vector2(sx * ex, ey), s, sx, k)
-
-	# брови
-	var bw := 2.4 * s if look.brows == LookDef.Brows.THIN else 4.4 * s
-	if fem:
-		bw = minf(bw, 2.8 * s)
-	var base_tilt := 0.25 if look.brows == LookDef.Brows.STERN else 0.0
-	var by := -11.0 * s
-	for sx: float in [-1.0, 1.0]:
-		var inner := o + Vector2(sx * 5.5 * s, by)
-		var outer := o + Vector2(sx * 19.5 * s, by - 2 * s)
-		var lift := base_tilt
-		var up := 0.0
-		match face:
-			"angry": lift = 1.0
-			"suspicious": lift = 0.6 if sx > 0 else -0.2
-			"sad", "cold": lift = -0.85
-			"scared": lift = -0.9
-			"shocked": up = 5.0
-			"confused": lift = 0.7 if sx > 0 else -0.6
-			"sly": lift = 0.75
-			"happy", "relieved": up = 1.5
-		if face == "scared":
-			up = 4.0
-		inner.y += lift * 8 * s - up * s
-		outer.y -= lift * 2.5 * s + up * s
-		var brow_col: Color = pal.hair_d if look.age < 2 else pal.hair
-		var mid := (inner + outer) * 0.5 + Vector2(0, -2.5 * s)
-		ci.draw_polyline(PackedVector2Array([inner, mid, outer]), brow_col, bw, true)
+	_eyes(ci, o, s, fem, face, look_dir, pal, k, ex, ey)
+	_brows(ci, o, s, look, face, pal, -11.0 * s, 1.0)
 
 	# нос: у девушек всегда маленький
 	var nc := o + Vector2(0, 9 * s)
@@ -437,6 +411,79 @@ static func _face(ci: CanvasItem, o: Vector2, s: float, look: LookDef, face: Str
 			ci.draw_arc(o + Vector2(sx * ex, ey), 9.4 * s, 0, TAU, 20, k, 2.0 * s, true)
 		ci.draw_line(o + Vector2(-ex + 9 * s, ey - 1 * s), o + Vector2(ex - 9 * s, ey - 1 * s), k, 2.0 * s, true)
 
+
+## Глаза по эмоции: форма, зрачок, веки, ресницы у девушек. Общие для людей и зверей.
+static func _eyes(ci: CanvasItem, o: Vector2, s: float, fem: bool, face: String, look_dir: Vector2, pal: Dictionary, k: Color, ex: float, ey: float) -> void:
+	match face:
+		"blink", "relieved":
+			for sx: float in [-1.0, 1.0]:
+				ci.draw_arc(o + Vector2(sx * ex, ey + 1 * s), 6 * s, 0.2, PI - 0.2, 10, k, 3.0 * s, true)
+				if fem:
+					_lashes_closed(ci, o + Vector2(sx * ex, ey + 1 * s), s, sx, k)
+		"happy":
+			for sx: float in [-1.0, 1.0]:
+				ci.draw_arc(o + Vector2(sx * ex, ey + 4 * s), 6.5 * s, PI * 1.08, PI * 1.92, 12, k, 3.4 * s, true)
+				if fem:
+					ci.draw_line(o + Vector2(sx * (ex + 6 * s), ey + 1 * s), o + Vector2(sx * (ex + 9.5 * s), ey - 1.5 * s), k, 2.0 * s, true)
+		"sly":
+			for sx: float in [-1.0, 1.0]:
+				_eye(ci, o + Vector2(sx * ex, ey), s, pal, k, look_dir + Vector2(sx * 0.35, 0), 0.5, Color(0.98, 0.82, 0.25), 1.0, true)
+		"shocked":
+			for sx: float in [-1.0, 1.0]:
+				_eye(ci, o + Vector2(sx * ex, ey - 1 * s), s * 1.25, pal, k, look_dir, 0.0, pal.eye, 0.42)
+		"scared":
+			for sx: float in [-1.0, 1.0]:
+				_eye(ci, o + Vector2(sx * ex, ey - 1 * s), s * 1.18, pal, k, look_dir, 0.0, pal.eye, 0.5)
+		"angry":
+			for sx: float in [-1.0, 1.0]:
+				_eye(ci, o + Vector2(sx * ex, ey + 1 * s), s, pal, k, look_dir, 0.42, pal.eye, 0.85, false, sx)
+		"suspicious":
+			_eye(ci, o + Vector2(-ex, ey), s, pal, k, look_dir + Vector2(0.9, 0), 0.25)
+			_eye(ci, o + Vector2(ex, ey + 1 * s), s, pal, k, look_dir + Vector2(0.9, 0), 0.62)
+		"sad":
+			for sx: float in [-1.0, 1.0]:
+				_eye(ci, o + Vector2(sx * ex, ey + 1 * s), s, pal, k, look_dir + Vector2(0, 0.7), 0.35, pal.eye, 1.05, false, -sx)
+		"cold":
+			for sx: float in [-1.0, 1.0]:
+				_eye(ci, o + Vector2(sx * ex, ey), s, pal, k, look_dir, 0.38)
+		"confused":
+			_eye(ci, o + Vector2(-ex, ey), s, pal, k, look_dir + Vector2(-0.4, -0.6), 0.0, pal.eye, 0.9)
+			_eye(ci, o + Vector2(ex, ey + 1 * s), s * 0.85, pal, k, look_dir + Vector2(-0.4, -0.6), 0.2, pal.eye, 0.9)
+		_:
+			for sx: float in [-1.0, 1.0]:
+				_eye(ci, o + Vector2(sx * ex, ey), s, pal, k, look_dir, 0.0)
+	if fem and face != "blink" and face != "relieved" and face != "happy":
+		for sx: float in [-1.0, 1.0]:
+			_lashes(ci, o + Vector2(sx * ex, ey), s, sx, k)
+
+## Брови: by — высота над центром лица, span — ширина (у зверей уже).
+static func _brows(ci: CanvasItem, o: Vector2, s: float, look: LookDef, face: String, pal: Dictionary, by: float, span: float) -> void:
+	var fem := look.female
+	var bw := 2.4 * s if look.brows == LookDef.Brows.THIN else 4.4 * s
+	if fem:
+		bw = minf(bw, 2.8 * s)
+	var base_tilt := 0.25 if look.brows == LookDef.Brows.STERN else 0.0
+	for sx: float in [-1.0, 1.0]:
+		var inner := o + Vector2(sx * 5.5 * s * span, by)
+		var outer := o + Vector2(sx * 19.5 * s * span, by - 2 * s)
+		var lift := base_tilt
+		var up := 0.0
+		match face:
+			"angry": lift = 1.0
+			"suspicious": lift = 0.6 if sx > 0 else -0.2
+			"sad", "cold": lift = -0.85
+			"scared": lift = -0.9
+			"shocked": up = 5.0
+			"confused": lift = 0.7 if sx > 0 else -0.6
+			"sly": lift = 0.75
+			"happy", "relieved": up = 1.5
+		if face == "scared":
+			up = 4.0
+		inner.y += lift * 8 * s - up * s
+		outer.y -= lift * 2.5 * s + up * s
+		var brow_col: Color = pal.hair_d if look.age < 2 else pal.hair
+		var mid := (inner + outer) * 0.5 + Vector2(0, -2.5 * s)
+		ci.draw_polyline(PackedVector2Array([inner, mid, outer]), brow_col, bw, true)
 
 ## Рот: во всю ширину лица, чтобы эмоция читалась издалека.
 static func _mouth(ci: CanvasItem, mc: Vector2, s: float, face: String, fem: bool, pal: Dictionary, k: Color) -> void:
@@ -638,7 +685,7 @@ static func _hair_back(ci: CanvasItem, o: Vector2, s: float, look: LookDef, pal:
 
 static func _hair_front(ci: CanvasItem, o: Vector2, s: float, look: LookDef, pal: Dictionary, k: Color, lw: float) -> void:
 	var r := HEAD_R * s
-	if look.head == LookDef.Head.HAT or look.head == LookDef.Head.HOOD or look.head == LookDef.Head.SCARF:
+	if FolkBeast.COVERING.has(look.head) or look.head == LookDef.Head.KOKOSHNIK:
 		if look.hair_style != LookDef.Hair.BALD:
 			var fr := PackedVector2Array()
 			for i in range(9):
@@ -730,6 +777,8 @@ static func _hat(ci: CanvasItem, o: Vector2, s: float, look: LookDef, pal: Dicti
 				ci.draw_circle(o + Vector2(dx * s, -r * 0.62), 2.4 * s, Color(1, 1, 1, 0.7))
 			# узелок платка под подбородком
 			Art.shape(ci, Art.ellipse(o + Vector2(r * 0.55, r * 0.95), Vector2(5 * s, 4 * s), 10), hat, k, lw * 0.7)
+		LookDef.Head.BARE, LookDef.Head.LUCHADOR:
+			pass
 		LookDef.Head.CAP:
 			var p3 := PackedVector2Array()
 			for i in range(15):
@@ -737,6 +786,8 @@ static func _hat(ci: CanvasItem, o: Vector2, s: float, look: LookDef, pal: Dicti
 				p3.append(o + Vector2(cos(a) * r * 1.02, sin(a) * r * 0.85 - 9 * s))
 			Art.shape(ci, p3, hat, k, lw)
 			Art.shape(ci, Art.rrect(Rect2(o.x - 4 * s, o.y - 14 * s, r * 1.45, 7 * s), 3 * s), hat.darkened(0.25), k, lw * 0.9)
+		_:
+			FolkWear.hat(ci, o, s, look, pal, k, lw)
 
 
 ## Бант, заколка или цветок в волосах.

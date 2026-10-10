@@ -15,12 +15,7 @@ enum Role { NONE, ELDER, HEALER, HEADMAN }
 signal phase_changed(phase: Phase)
 signal chat_posted(line: ChatLine)
 
-const NAMES: PackedStringArray = [
-	"Марина", "Тимур", "Лида", "Костя", "Женя", "Артур",
-	"Захар", "Рита", "Гриша", "Нина", "Вадим", "Полина",
-]
-const FEMALE: PackedStringArray = ["Марина", "Лида", "Женя", "Рита", "Нина", "Полина"]
-const HOUSES: PackedStringArray = ["Дом у реки", "Сарай", "Церковь", "Погреб", "Гараж"]
+## Имена жителей и названия убежищ — в файле языка (L.names(), L.houses()): у каждой страны свой посёлок.
 
 
 ## Кто к какому убежищу пришёл ночью. Первый добежавший — хозяин двери.
@@ -62,7 +57,8 @@ var day: int = 0
 var phase: Phase = Phase.IDLE
 var winner: Team = Team.NONE
 var chat: Array[ChatLine] = []
-var chronicle: PackedStringArray = []
+var chronicle: PackedStringArray = []     ## хроника строками: «Ночь 2: …»
+var chron: Array[Dictionary] = []         ## та же хроника по частям: {"title": «Ночь 2» или "", "text"}
 var seats: Array[Seat] = []
 var report: NightReport
 var last_exiled: Villager
@@ -97,13 +93,7 @@ const MIMIC_KILL := 0.85
 ## События ночи (со второй ночи): меняют правила на одну ночь. Объявляются с колоколом.
 enum Event { NONE, FOG, MOON, QUIET, RAIN }
 const EVENT_P := 0.5
-const EVENT_TITLE := {Event.FOG: "Туман", Event.MOON: "Полная луна", Event.QUIET: "Тихая ночь", Event.RAIN: "Ливень"}
-const EVENT_TEXT := {
-	Event.FOG: "Туман глушит колокол: на бег меньше времени, на улице опаснее.",
-	Event.MOON: "Полная луна: к утру ослабнут все обереги.",
-	Event.QUIET: "Тихая ночь: на улице спокойнее, Подражатель не придёт.",
-	Event.RAIN: "Ливень заливает фонари: масло из запасов этой ночью не поможет.",
-}
+const EVENT_KEY := {Event.FOG: "fog", Event.MOON: "moon", Event.QUIET: "quiet", Event.RAIN: "rain"}
 const FOG_RUN := 3              ## туман: на столько секунд короче звон
 const FOG_DEATH := 0.1          ## туман: настолько опаснее улица
 const QUIET_SAFE := 0.25        ## тихая ночь: настолько безопаснее улица
@@ -114,6 +104,8 @@ var force_event: int = -1       ## самотесты: следующее соб
 var healer_on: Dictionary[int, bool] = {}
 ## Что посёлок знает о ролях: кто кем назвался вслух. id -> строка для дневника.
 var claims: Dictionary[int, String] = {}
+var claim_about: Dictionary[int, int] = {}    ## о ком было заявление: id назвавшегося -> id
+var claim_elder: Dictionary[int, bool] = {}   ## кто назвался старожилом
 
 ## Экстренный сбор (задача 32): раз за партию любой может днём ударить в колокол — сразу голосование.
 var meeting_used: Dictionary[int, bool] = {}
@@ -183,6 +175,24 @@ func house_name(i: int) -> String:
 	return houses[clampi(i, 0, houses.size() - 1)]
 
 
+## Событие ночи: название и что оно меняет.
+static func event_title(e: Event, mid: bool = false) -> String:
+	return L.t("event.%s.%s" % [EVENT_KEY.get(e, "fog"), "mid" if mid else "title"])
+
+
+static func event_text(e: Event) -> String:
+	return L.t("event.%s.text" % EVENT_KEY.get(e, "fog"))
+
+
+## Записать, кто кем назвался вслух: для дневника и решений ботов.
+func claim(by: Villager, about: Villager, text: String, elder: bool = false) -> void:
+	claims[by.id] = text
+	if about != null:
+		claim_about[by.id] = about.id
+	if elder:
+		claim_elder[by.id] = true
+
+
 func humans_alive() -> int:
 	var n := 0
 	for v: Villager in villagers:
@@ -239,13 +249,13 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	else:
 		rng.randomize()
 
-	var pool := Array(NAMES)
+	var pool := L.names().duplicate()
 	_shuffle(pool)
 	villagers.clear()
-	villagers.append(Villager.new(0, "Вы", true))
+	villagers.append(Villager.new(0, L.t("you_name"), true))
 	for i in range(config.players - 1):
-		var v := Villager.new(i + 1, String(pool[i]), false)
-		v.female = FEMALE.has(v.name)
+		var v := Villager.new(i + 1, String(pool[i][0]), false)
+		v.female = bool(pool[i][1])
 		villagers.append(v)
 
 	var order: Array = range(villagers.size())
@@ -255,7 +265,7 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	for k in range(mini(config.monsters, order.size())):
 		villagers[int(order[k])].is_upyr = true
 
-	houses = HOUSES.slice(0, config.shelters)
+	houses = L.houses().slice(0, config.shelters)
 	_deal_roles()
 	tunnel = Vector2i(-1, -1)
 	if houses.size() >= 2:
@@ -268,7 +278,7 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	if village != null:
 		for j: JobDef in village.jobs:
 			if j.kind != JobDef.Kind.TALISMAN:
-				base_jobs.append(j)
+				base_jobs.append(job_texts(j.duplicate() as JobDef))
 	# обереги: все целы, кроме одного — он треснул ещё до вас
 	talisman = PackedInt32Array()
 	for i in range(houses.size()):
@@ -278,6 +288,8 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	day = 1
 	winner = Team.NONE
 	claims.clear()
+	claim_about.clear()
+	claim_elder.clear()
 	meeting_used.clear()
 	history.clear()
 	player_seen.clear()
@@ -288,6 +300,7 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	player_kills = 0
 	chat.clear()
 	chronicle.clear()
+	chron.clear()
 	seats.clear()
 	report = null
 	last_exiled = null
@@ -312,8 +325,7 @@ func begin_day() -> void:
 		supply_total += j.portions
 	supply_done = 0
 	_set_phase(Phase.DAY)
-	post(ChatLine.system("Светает. Все выходят на площадь." if day == 1
-		else "День %d. Живых осталось %d." % [day, alive().size()]))
+	post(ChatLine.system(L.t("sys.dawn1") if day == 1 else L.t("sys.dawn", {"d": day, "n": alive().size()})))
 
 
 ## Сделал дело. Засчитывается, если работа настоящая и у дела ещё есть порции.
@@ -334,15 +346,24 @@ func do_job(_v: Villager, ji: int, real: bool) -> bool:
 func _talisman_job(h: int) -> JobDef:
 	var j := JobDef.new()
 	j.id = StringName("talisman_%d" % h)
-	j.title = "Подправить оберег"
-	j.place = "у оберега"
-	j.done_line = "Оберег как новый."
 	j.kind = JobDef.Kind.TALISMAN
 	j.house = h
 	j.portions = TALISMAN_MAX - talisman[h]
 	j.work_sec = 4.0
+	job_texts(j)
 	var hd: HouseDef = village.shelters[h] if village != null and h < village.shelters.size() else null
 	j.pos = (hd.pos + Vector2(-hd.size.x * 0.5 + 14.0, 26.0)) if hd != null else Vector2(360, 392)
+	return j
+
+
+## Подписи дела на языке игры: job.<вид>.title / place / done.
+static func job_texts(j: JobDef) -> JobDef:
+	var k: String = {JobDef.Kind.WATER: "water", JobDef.Kind.WOOD: "wood", JobDef.Kind.LAMP: "lamp",
+		JobDef.Kind.TALISMAN: "talisman", JobDef.Kind.FISH: "fish", JobDef.Kind.BOX: "box"}.get(j.kind, "")
+	if k != "":
+		j.title = L.t("job.%s.title" % k)
+		j.place = L.t("job.%s.place" % k)
+		j.done_line = L.t("job.%s.done" % k) if j.kind != JobDef.Kind.BOX else ""
 	return j
 
 
@@ -426,13 +447,11 @@ func place_box() -> int:
 		return job_index(&"box")
 	var j := JobDef.new()
 	j.id = &"box"
-	j.title = "Открыть ящик"
-	j.place = "у ящика"
-	j.done_line = ""
 	j.kind = JobDef.Kind.BOX
 	j.portions = 1
 	j.work_sec = 3.0
 	j.pos = box_pos
+	job_texts(j)
 	jobs.append(j)
 	job_left.append(1)
 	return jobs.size() - 1
@@ -512,7 +531,7 @@ func apply_vote(tally: Dictionary[int, int], votes: Dictionary = {}) -> Villager
 		last_exiled.alive = false
 		last_exiled.exiled = true
 		last_exiled.exiled_day = day
-		_log("День %d: посёлок изгнал %s." % [day, "вас" if last_exiled.is_player else Ru.accusative(last_exiled.name)])
+		_log("day", "log.exiled", {"who": last_exiled})
 	vote_log.append({"day": day, "votes": votes.duplicate(), "exiled": last_exiled})
 	return last_exiled
 
@@ -604,7 +623,7 @@ func resolve_night() -> NightReport:
 	for s0: Seat in seats:
 		r.p_alone[s0.house] = alone_death_chance(s0.house, p_out)
 	if supply_total > 0:
-		_log("Ночь %d: запасов набрали на %d%%." % [day, roundi(100.0 * supplies())])
+		_log("night", "log.supplies", {"p": roundi(100.0 * supplies())})
 
 	var was_fed: Dictionary[int, bool] = {}
 	for v: Villager in villagers:
@@ -616,8 +635,7 @@ func resolve_night() -> NightReport:
 	for t: Array in tunnel_log:
 		var et := r.add(NightReport.Kind.TUNNEL, t[0], t[2])
 		et.said_house = t[1]
-		_log("Ночь %d: %s не пустили в «%s», и %s туннелем в «%s»." % [day, Ru.acc(t[0]), house_name(t[1]),
-			Ru.g(t[0], "он пролез", "она пролезла", "вы пролезли"), Ru.house_in(house_name(t[2]))])
+		_log("night", "log.tunnel", {"who": t[0], "from": house_name(t[1]), "house": house_name(t[2])})
 
 	# 1. Кого не пустили — улица
 	for s: Seat in seats:
@@ -625,14 +643,14 @@ func resolve_night() -> NightReport:
 			v.night_house = -1
 			if v.is_upyr:
 				r.add(NightReport.Kind.SURVIVED_STREET, v, s.house)
-				_log("Ночь %d: %s не пустили в «%s», но %s до утра." % [day, Ru.acc(v), house_name(s.house), Ru.g(v, "он дожил", "она дожила", "вы дожили")])
+				_log("night", "log.street_upyr", {"who": v, "house": house_name(s.house)})
 			elif rng.randf() < p_out:
 				v.alive = false
 				r.add(NightReport.Kind.KILLED_STREET, v, s.house)
-				_log("Ночь %d: %s не пустили в «%s». %s" % [day, Ru.acc(v), house_name(s.house), Ru.g(v, "Утром его нашли на улице.", "Утром её нашли на улице.", "Вы погибли на улице.")])
+				_log("night", "log.street_dead", {"who": v, "house": house_name(s.house)})
 			else:
 				r.add(NightReport.Kind.SURVIVED_STREET, v, s.house)
-				_log("Ночь %d: %s %s на улице и %s." % [day, Ru.nom(v), Ru.g(v, "ночевал", "ночевала", "ночевали"), Ru.g(v, "выжил", "выжила", "выжили")])
+				_log("night", "log.street_ok", {"who": v})
 
 	# 1б. Подражатель: впустили — забирает одного из тех, кто внутри. Не впустили — стук слышали все.
 	for s: Seat in seats:
@@ -641,7 +659,7 @@ func resolve_night() -> NightReport:
 		if not s.mimic_in:
 			var ek := r.add(NightReport.Kind.MIMIC_KNOCK, null, s.house)
 			ek.voice = s.mimic
-			_log("Ночь %d: в дверь «%s» стучали голосом %s. Не открыли." % [day, Ru.house_of(house_name(s.house)), Ru.gen(s.mimic)])
+			_log("night", "log.mimic_knock", {"house": house_name(s.house), "voice": s.mimic})
 			continue
 		var inside3: Array[Villager] = []
 		for v: Villager in s.inside():
@@ -650,7 +668,7 @@ func resolve_night() -> NightReport:
 		if inside3.is_empty() or rng.randf() >= MIMIC_KILL:
 			var es := r.add(NightReport.Kind.MIMIC_SPARED, null, s.house)
 			es.voice = s.mimic
-			_log("Ночь %d: в «%s» впустили голос %s. Это был не %s, но до утра все целы." % [day, Ru.house_in(house_name(s.house)), Ru.gen(s.mimic), s.mimic.name])
+			_log("night", "log.mimic_spared", {"house": house_name(s.house), "voice": s.mimic})
 			continue
 		var gone: Villager = inside3[rng.randi_range(0, inside3.size() - 1)]
 		if _healed(s, gone, r, "mimic"):
@@ -662,7 +680,7 @@ func resolve_night() -> NightReport:
 				left.append(v)
 		var em := r.add(NightReport.Kind.KILLED_MIMIC, gone, s.house, left)
 		em.voice = s.mimic
-		_log("Ночь %d: в «%s» впустили голос %s. Это был Подражатель: он забрал %s." % [day, Ru.house_in(house_name(s.house)), Ru.gen(s.mimic), Ru.acc(gone)])
+		_log("night", "log.mimic_kill", {"house": house_name(s.house), "voice": s.mimic, "who": gone})
 
 	# 2. Что было за дверьми. Кто остался один после визита Подражателя, до утра в безопасности:
 	# тварь насытилась или ушла, второй раз за ночь в этот дом никто не придёт.
@@ -679,7 +697,7 @@ func resolve_night() -> NightReport:
 			elif rng.randf() < alone_death_chance(s.house, p_out):
 				lone.alive = false
 				r.add(NightReport.Kind.KILLED_ALONE, lone, s.house)
-				_log("Ночь %d: %s в «%s». Оберег погас." % [day, Ru.g(lone, lone.name + " остался один", lone.name + " осталась одна", "Вы остались одни"), Ru.house_in(house_name(s.house))])
+				_log("night", "log.alone_dead", {"who": lone, "house": house_name(s.house)})
 			else:
 				r.add(NightReport.Kind.SURVIVED_ALONE, lone, s.house)
 			continue
@@ -707,12 +725,11 @@ func resolve_night() -> NightReport:
 			ek.killer = killer
 			if killer.is_player:
 				player_kills += 1
-			_log("Ночь %d: %s %s в «%s». Рядом %s: %s." % [
-				day, Ru.nom(victim), Ru.g(victim, "погиб", "погибла", "погибли"), Ru.house_in(house_name(s.house)), Ru.were(others, "был", "была", "были"), Ru.join(others)])
+			_log("night", "log.killed", {"who": victim, "house": house_name(s.house), "others": others})
 		else:
 			# все люди — или упырь сытый. Снаружи не отличить, и в этом весь смысл.
 			r.add(NightReport.Kind.CLEAN_ROOM, s.host, s.house, inside.duplicate())
-			_log("Ночь %d: в «%s» ночевали %s — все целы." % [day, Ru.house_in(house_name(s.house)), Ru.join(inside)])
+			_log("night", "log.clean", {"house": house_name(s.house), "list": inside})
 
 	# 2б. Расколотый оберег: в дом, где ночевали несколько, входит тварь из леса
 	for s: Seat in seats:
@@ -734,22 +751,21 @@ func resolve_night() -> NightReport:
 			if v != taken:
 				rest.append(v)
 		r.add(NightReport.Kind.KILLED_CREATURE, taken, s.house, rest)
-		_log("Ночь %d: оберег у «%s» был расколот. Тварь из леса забрала %s." % [day, Ru.house_of(house_name(s.house)), Ru.acc(taken)])
+		_log("night", "log.creature", {"house": house_name(s.house), "who": taken})
 
 	# 3. Сказал одно — ночевал в другом месте
 	for v: Villager in villagers:
 		if v.announced_house >= 0 and v.night_house >= 0 and v.night_house != v.announced_house:
 			var e := r.add(NightReport.Kind.LIAR, v, v.night_house)
 			e.said_house = v.announced_house
-			_log("Ночь %d: %s %s про «%s», а %s в «%s»." % [
-				day, Ru.nom(v), Ru.g(v, "говорил", "говорила", "говорили"), house_name(v.announced_house), Ru.g(v, "ночевал", "ночевала", "ночевали"), Ru.house_in(house_name(v.night_house))])
+			_log("night", "log.liar", {"who": v, "said": house_name(v.announced_house), "house": house_name(v.night_house)})
 
 	# 4. За ночь обереги слабеют
 	for h in range(talisman.size()):
 		if talisman[h] > 0 and (night_event == Event.MOON or rng.randf() < TALISMAN_DECAY):
 			talisman[h] -= 1
 			r.add(NightReport.Kind.TALISMAN_WORN, null, h)
-			_log("Утром: оберег у «%s» %s." % [Ru.house_of(house_name(h)), "треснул" if talisman[h] == 1 else "раскололся"])
+			_log("morning", "log.talisman_cracked" if talisman[h] == 1 else "log.talisman_broken", {"house": house_name(h)})
 
 	# кто был хозяином двери у каждого события — для разбора «почему ты погиб»
 	for e: NightReport.Entry in r.entries:
@@ -802,12 +818,12 @@ func _deal_roles() -> void:
 		(hums[k] as Villager).role = roles[k]
 
 
-static func role_name(v: Villager) -> String:
-	match v.role:
-		Role.ELDER: return "Старожил"
-		Role.HEALER: return "Знахарь" if not v.female or v.is_player else "Знахарка"
-		Role.HEADMAN: return "Староста"
-	return ""
+## Название роли. mid — как пишется внутри фразы («знахарка Рита»; в немецком остаётся с заглавной).
+static func role_name(v: Villager, mid: bool = false) -> String:
+	var k: String = {Role.ELDER: "elder", Role.HEALER: "healer", Role.HEADMAN: "headman"}.get(v.role, "")
+	if k == "":
+		return ""
+	return L.t("role.%s%s" % [k, ".mid" if mid else ""], {"who": v})
 
 
 func role_holder(r: int) -> Villager:
@@ -842,15 +858,19 @@ func _healed(s: Seat, victim: Villager, r: NightReport, cause: String) -> bool:
 		if h != victim and h.alive and healer_on.get(h.id, false) and not h.role_used:
 			h.role_used = true
 			healer_on.erase(h.id)
-			claims[h.id] = "%s: %s %s в ночь %d" % [role_name(h), Ru.g(h, "выходил", "выходила", "выходили"), Ru.acc(victim), day]
+			claim(h, victim, L.t("claim.healer", {"role": role_name(h), "me": h, "who": victim, "n": day}))
 			var e := r.add(NightReport.Kind.SAVED, victim, s.house, [h] as Array[Villager])
 			e.cause = cause
-			var healer_txt := "вы" if h.is_player else "%s %s" % [role_name(h).to_lower(), h.name]
-			var obj := "вас" if victim.is_player else ("её" if victim.female else "его")
-			_log("Ночь %d: в «%s» на %s напали, но %s %s %s." % [day, Ru.house_in(house_name(s.house)), Ru.acc(victim),
-				healer_txt, obj, Ru.g(h, "выходил", "выходила", "выходили")])
+			_log("night", "log.saved", {"house": house_name(s.house), "who": victim, "h": h, "healer": healer_named(h)})
 			return true
 	return false
+
+
+## «знахарка Рита» или «вы» — кто выходил раненого.
+static func healer_named(h: Villager) -> String:
+	if h.is_player:
+		return L.render(h, "")
+	return L.t("role.named", {"role": role_name(h, true), "who": h})
 
 
 ## Сколько весит голос на изгнании: у Старосты — два.
@@ -871,7 +891,7 @@ func call_meeting(v: Villager) -> bool:
 		return false
 	meeting_used[v.id] = true
 	meeting_by = v.id
-	_log("День %d: %s %s в колокол: экстренный сбор." % [day, Ru.nom(v), Ru.g(v, "ударил", "ударила", "ударили")])
+	_log("day", "log.meeting", {"who": v})
 	_set_phase(Phase.VOTE)
 	return true
 
@@ -967,11 +987,17 @@ func _roll_event() -> void:
 	elif rng.randf() < EVENT_P:
 		night_event = (rng.randi_range(1, Event.size() - 1)) as Event
 	if night_event != Event.NONE:
-		_log("Ночь %d: %s." % [day, String(EVENT_TITLE[night_event]).to_lower()])
+		_log("night", "log.event", {"e": event_title(night_event, true)})
 
 
-func _log(t: String) -> void:
-	chronicle.append(t)
+## Строка хроники. when: night, day или morning («Утром: …» идёт в раздел прошлой ночи).
+func _log(when: String, key: String, args: Dictionary = {}) -> void:
+	var text := L.t(key, args)
+	var title := ""
+	if when == "night" or when == "day":
+		title = L.t("when." + when, {"n": day})
+	chronicle.append(L.t("chron.line", {"title": title, "text": text}) if title != "" else L.t("chron.morning", {"text": text}))
+	chron.append({"title": title, "text": text})
 
 
 func _names(list: Array[Villager]) -> PackedStringArray:

@@ -11,6 +11,7 @@ const SCHEMA := 1
 var config: GameConfig
 var haptics: bool = true
 var difficulty: String = "easy"
+var lang: String = ""                  ## язык игры: код из L.LANGS. Пусто в файле — берём язык телефона
 const DEFAULT_VOLUMES := {&"Music": 0.7, &"Sfx": 0.9, &"Ambience": 0.8}
 var volumes: Dictionary = DEFAULT_VOLUMES.duplicate()
 var win_streak: int = 0
@@ -29,6 +30,12 @@ func _ready() -> void:
 func load_all() -> void:
 	var cf := ConfigFile.new()
 	var has := cf.load(SETTINGS_PATH) == OK
+	lang = String(cf.get_value("ui", "lang", "")) if has else ""
+	if DisplayServer.get_name() == "headless":
+		lang = "ru"        # самотесты без экрана проверяют русские тексты; другой язык — флагом --lang=
+	elif not L.LANGS.has(lang):
+		lang = L.detect()  # первый запуск на телефоне — язык системы
+	L.use(lang)
 	difficulty = String(cf.get_value("game", "difficulty", "easy")) if has else "easy"
 	if not Difficulty.NAMES.has(difficulty):
 		difficulty = "easy"
@@ -78,6 +85,15 @@ func set_difficulty(d: String) -> void:
 	flush()
 
 
+## Сменить язык. Действует сразу: экраны строятся заново, посёлок берёт имена и внешности страны.
+func set_lang(c: String) -> void:
+	if not L.LANGS.has(c):
+		return
+	lang = c
+	L.use(c)
+	flush()
+
+
 func set_haptics(on: bool) -> void:
 	haptics = on
 	Juice.haptics_enabled = on
@@ -120,6 +136,7 @@ func flush() -> void:
 	cf.set_value("game", "win_streak", win_streak)
 	cf.set_value("game", "howto_seen", howto_seen)
 	cf.set_value("ui", "haptics", haptics)
+	cf.set_value("ui", "lang", lang)
 	for b: StringName in volumes.keys():
 		cf.set_value("sound", String(b), volumes[b])
 	for k: String in stats.keys():

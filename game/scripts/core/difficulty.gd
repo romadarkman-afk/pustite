@@ -8,7 +8,12 @@ const PRESETS := {
 	"normal": "res://config/balance_7.tres",
 	"hard": "res://config/balance_hard.tres",
 }
-const NAMES := {"easy": "Лёгкая", "normal": "Обычная", "hard": "Сложная", "custom": "Своя"}
+const NAMES := {"easy": "diff.easy", "normal": "diff.normal", "hard": "diff.hard", "custom": "diff.custom"}
+
+
+## Название ступени: «Лёгкая».
+static func title(d: String) -> String:
+	return L.t(String(NAMES.get(d, "diff.easy")))
 
 
 static func preset(d: String) -> GameConfig:
@@ -17,13 +22,12 @@ static func preset(d: String) -> GameConfig:
 
 ## Одна строка о том, что ждёт в партии: «5 жителей, 1 упырь. Ты всегда человек.»
 static func describe(d: String, c: GameConfig) -> String:
-	var s := "%d %s, %d %s." % [c.players, Ru.plural(c.players, "житель", "жителя", "жителей"),
-		c.monsters, Ru.plural(c.monsters, "упырь", "упыря", "упырей")]
+	var s := L.t("diff.cast", {"p": c.players, "u": c.monsters})
 	if c.player_always_human:
-		s += " Ты всегда человек."
+		s += L.t("diff.human")
 	match d:
 		"easy":
-			s += " Дольше день."
+			s += L.t("diff.easy_note")
 		"hard":
-			s += " Короче день, опаснее улица."
+			s += L.t("diff.hard_note")
 	return s

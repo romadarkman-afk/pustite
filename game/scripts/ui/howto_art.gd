@@ -13,7 +13,7 @@ var _t := 0.0
 func setup(p: int) -> void:
 	page = p
 	_font = ThemeFactory.font_bold()
-	_book = load("res://config/looks.tres") as LookBook
+	_book = L.looks()
 	clip_contents = true
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	resized.connect(_layout)
@@ -25,11 +25,16 @@ func _ready() -> void:
 
 
 func _build() -> void:
-	var names: Array = []
+	# кто стоит на картинке: номера жителей из L.names(), -1 — игрок с фонарём
+	var idx: Array = []
 	match page:
-		0: names = [["Нина", false], ["Тимур", false], ["Вы", true], ["Марина", false], ["Гриша", false]]
-		1: names = [["Вы", true], ["Лида", false], ["Артур", false], ["Полина", false], ["Вадим", false]]
-		2: names = [["Костя", false], ["Рита", false]]
+		0: idx = [9, 1, -1, 0, 8]
+		1: idx = [-1, 2, 5, 11, 10]
+		2: idx = [3, 7]
+	var all := L.names()
+	var names: Array = []
+	for i: int in idx:
+		names.append([L.t("you_name"), true] if i < 0 else [String(all[i % all.size()][0]), false])
 	for n: Array in names:
 		var f := VillagerFigure.new()
 		f.setup(n[0], _book.for_name(n[0], n[1]), n[1])
@@ -89,13 +94,13 @@ func _draw() -> void:
 			draw_circle(Vector2(w * 0.82, h * 0.18), h * 0.07, Color(0.86, 0.87, 0.80, 0.25))
 			_house(Rect2(w * 0.08, h * 0.30, w * 0.22, h * 0.30), false)
 			_house(Rect2(w * 0.70, h * 0.30, w * 0.22, h * 0.30), false)
-			_speech(Vector2(w * 0.14, h * 0.82 - figures[0].scale.y * 62.0), "Это ты упырь!")
+			_speech(Vector2(w * 0.14, h * 0.82 - figures[0].scale.y * 62.0), L.t("howto.art_accuse"))
 		1:
 			draw_circle(Vector2(w * 0.84, h * 0.16), h * 0.07, Color(0.86, 0.87, 0.80, 0.9))
 			_house(Rect2(w * 0.10, h * 0.28, w * 0.28, h * 0.34), true)
 			_house(Rect2(w * 0.62, h * 0.28, w * 0.28, h * 0.34), true)
 			var out := figures[4]
-			draw_string(_font, out.position + Vector2(22.0 * out.scale.x, -22.0 * out.scale.y), "← на улице", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(ThemeFactory.BLOOD, 0.95))
+			draw_string(_font, out.position + Vector2(22.0 * out.scale.x, -22.0 * out.scale.y), L.t("howto.art_street"), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(ThemeFactory.BLOOD, 0.95))
 		2:
 			var dw := w * 0.30
 			var door := Rect2(w * 0.5 - dw * 0.5, h * 0.12, dw, h * 0.66)
@@ -106,7 +111,7 @@ func _draw() -> void:
 			draw_rect(door, ThemeFactory.PANEL)
 			draw_rect(Rect2(w * 0.5 - 5, door.position.y, 10, door.size.y), Color(ThemeFactory.LAMP, 0.85))
 			draw_rect(door, ThemeFactory.EDGE, false, 3.0)
-			draw_string(_font, Vector2(0, h * 0.10), "Впустить?", HORIZONTAL_ALIGNMENT_CENTER, w, 26, ThemeFactory.LAMP)
+			draw_string(_font, Vector2(0, h * 0.10), L.t("howto.art_door"), HORIZONTAL_ALIGNMENT_CENTER, w, 26, ThemeFactory.LAMP)
 	draw_style_box(corner, Rect2(Vector2.ZERO, size))
 
 

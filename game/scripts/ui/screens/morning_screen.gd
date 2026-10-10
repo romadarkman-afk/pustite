@@ -20,7 +20,7 @@ func field_ratio() -> float:
 
 
 func title() -> String:
-	return "Утро"
+	return L.t("mo.title")
 
 
 func mood() -> Vector2:
@@ -31,8 +31,8 @@ func build() -> void:
 	var r := m.report
 	var deaths := r.deaths()
 	var head := W.label(
-		"Все дожили" if deaths.is_empty()
-		else ("Одного не досчитались" if deaths.size() == 1 else "Не досчитались: %d" % deaths.size()),
+		L.t("mo.all_alive") if deaths.is_empty()
+		else (L.t("mo.one_dead") if deaths.size() == 1 else L.t("mo.dead_n", {"n": deaths.size()})),
 		&"Title")
 	head.add_theme_font_size_override("font_size", 44)
 	body.add_child(head)
@@ -42,7 +42,7 @@ func build() -> void:
 		card.name = "WhyDead"
 		var box := W.vbox(6)
 		card.add_child(box)
-		box.add_child(W.label("Почему ты погиб", &"Speaker"))
+		box.add_child(W.label(L.t("mo.why"), &"Speaker"))
 		for l: String in Recap.death_lines(m, m.player_death, r):
 			box.add_child(W.label(l, &"Small"))
 		body.add_child(card)
@@ -58,7 +58,7 @@ func _reveal(r: NightReport) -> void:
 		if not e.is_death():
 			lines.append([_text(e), &"Hint" if e.kind != NightReport.Kind.CLEAN_ROOM else &"Small", false])
 	if m.night_event != Match.Event.NONE:
-		lines.append(["Этой ночью: %s." % String(Match.EVENT_TITLE[m.night_event]).to_lower(), &"Small", false])
+		lines.append([L.t("mo.event", {"e": Match.event_title(m.night_event, true)}), &"Small", false])
 
 	await Juice.wait(0.6)
 	for l: Array in lines:
@@ -77,7 +77,7 @@ func _reveal(r: NightReport) -> void:
 			await Juice.wait(0.32)
 
 	body.add_child(people_strip())
-	var next := W.button("Дальше")
+	var next := W.button(L.t("ui.next"))
 	next.pressed.connect(func() -> void: commit(Intent.CONTINUE))
 	footer.add_child(next)
 	Juice.pop_in(next)
@@ -87,49 +87,50 @@ func _reveal(r: NightReport) -> void:
 func _text(e: NightReport.Entry) -> String:
 	var v := e.who
 	var house := m.house_name(e.house) if e.house >= 0 else ""
-	var here := Ru.house_in(house)
+	var a := {"who": v, "house": house}
 	match e.kind:
 		NightReport.Kind.KILLED_STREET:
-			return "%s не пустили в «%s». %s" % [Ru.acc(v), house,
-				Ru.g(v, "Найден на улице.", "Найдена на улице.", "Вы погибли на улице.")]
+			return L.t("mo.street_dead", a)
 		NightReport.Kind.KILLED_ALONE:
-			return "%s в «%s». Оберег погас." % [Ru.g(v, "%s остался один" % v.name, "%s осталась одна" % v.name, "Вы остались одни"), here]
+			return L.t("mo.alone_dead", a)
 		NightReport.Kind.KILLED_INSIDE:
-			return "%s %s в «%s». Рядом %s: %s." % [Ru.nom(v), Ru.g(v, "погиб", "погибла", "погибли"), here,
-				Ru.were(e.others, "был", "была", "были"), Ru.join(e.others)]
+			a["others"] = e.others
+			return L.t("mo.killed", a)
 		NightReport.Kind.SURVIVED_STREET:
-			return "%s %s ночь на улице. И %s." % [Ru.nom(v), Ru.g(v, "провёл", "провела", "провели"),
-				Ru.g(v, "вернулся", "вернулась", "вернулись")]
+			return L.t("mo.street_ok", a)
 		NightReport.Kind.SURVIVED_ALONE:
-			return "%s в «%s» — и %s." % [Ru.g(v, "%s был один" % v.name, "%s была одна" % v.name, "Вы были одни"), here,
-				Ru.g(v, "цел", "цела", "целы")]
+			return L.t("mo.alone_ok", a)
 		NightReport.Kind.CLEAN_ROOM:
-			return "В «%s» ночевали %s — все целы." % [here, Ru.join(e.others)]
+			a["list"] = e.others
+			return L.t("mo.clean", a)
 		NightReport.Kind.LIAR:
-			return "%s %s про «%s», а %s в «%s»." % [Ru.nom(v), Ru.g(v, "говорил", "говорила", "говорили"),
-				m.house_name(e.said_house), Ru.g(v, "ночевал", "ночевала", "ночевали"), here]
+			a["said"] = m.house_name(e.said_house)
+			return L.t("mo.liar", a)
 		NightReport.Kind.KILLED_CREATURE:
-			return "Оберег у «%s» был расколот. Тварь из леса забрала %s." % [Ru.house_of(house), Ru.acc(v)]
+			return L.t("mo.creature", a)
 		NightReport.Kind.TALISMAN_WORN:
 			var lvl: int = m.talisman[e.house] if e.house >= 0 and e.house < m.talisman.size() else 1
-			return "Оберег у «%s» %s. Днём его можно подправить." % [Ru.house_of(house), "треснул" if lvl > 0 else "раскололся"]
+			return L.t("mo.talisman_cracked" if lvl > 0 else "mo.talisman_broken", a)
 		NightReport.Kind.SAVED:
 			var hl: Villager = e.others[0]
-			var by := {"upyr": "напал кто-то из своих", "creature": "напала тварь из леса", "mimic": "напал Подражатель"}
-			return "В «%s» на %s %s, но %s %s %s." % [here, Ru.acc(v), String(by.get(e.cause, "напали")),
-				"вы" if hl.is_player else "%s %s" % [Match.role_name(hl).to_lower(), hl.name],
-				"вас" if v.is_player else ("её" if v.female else "его"), Ru.g(hl, "выходил", "выходила", "выходили")]
+			a["h"] = hl
+			a["healer"] = Match.healer_named(hl)
+			return L.t("mo.saved_" + (e.cause if e.cause in ["upyr", "creature", "mimic"] else "upyr"), a)
 		NightReport.Kind.TUNNEL:
-			return "%s не пустили в «%s», и %s туннелем в «%s»." % [Ru.acc(v), m.house_name(e.said_house),
-				Ru.g(v, "он пролез", "она пролезла", "вы пролезли"), here]
+			a["from"] = m.house_name(e.said_house)
+			return L.t("mo.tunnel", a)
 		NightReport.Kind.KILLED_MIMIC:
-			return "В «%s» впустили голос %s. Это был не %s: Подражатель забрал %s." % [here, Ru.gen(e.voice), e.voice.name, Ru.acc(v)]
+			a["voice"] = e.voice
+			return L.t("mo.mimic_kill", a)
 		NightReport.Kind.MIMIC_SPARED:
-			return "В «%s» впустили голос %s. Это был не %s, но до утра все целы." % [here, Ru.gen(e.voice), e.voice.name]
+			a["voice"] = e.voice
+			return L.t("mo.mimic_spared", a)
 		NightReport.Kind.MIMIC_KNOCK:
-			return "Ночью в дверь «%s» стучали голосом %s. Не открыли. %s" % [Ru.house_of(house), Ru.gen(e.voice),
-				"А %s в это время %s в «%s»." % [e.voice.name, Ru.g(e.voice, "был", "была", "были"), Ru.house_in(m.house_name(e.voice.night_house))]
-				if e.voice.alive and e.voice.night_house >= 0 else "Это был Подражатель."]
+			a["voice"] = e.voice
+			if e.voice.alive and e.voice.night_house >= 0:
+				a["away"] = m.house_name(e.voice.night_house)
+				return L.t("mo.mimic_knock_away", a)
+			return L.t("mo.mimic_knock", a)
 	return ""
 
 

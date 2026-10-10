@@ -31,7 +31,7 @@ func field_height(h: float) -> float:
 
 
 func title() -> String:
-	return "День %d" % m.day
+	return L.t("when.day", {"n": m.day})
 
 
 func mood() -> Vector2:
@@ -47,12 +47,12 @@ func build() -> void:
 		supplies.position = Vector2(20, 64)
 		update_supplies()
 	var jr := W.hbox(10)
-	journal_button = W.button("Журнал", &"Quick")
+	journal_button = W.button(L.t("day.journal"), &"Quick")
 	journal_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	journal_button.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	journal_button.pressed.connect(open_journal)
 	jr.add_child(journal_button)
-	var diary := W.button("Дневник", &"Quick")
+	var diary := W.button(L.t("day.diary"), &"Quick")
 	diary.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	diary.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	diary.pressed.connect(open_diary)
@@ -69,15 +69,15 @@ func build() -> void:
 	_update_journal()
 
 	if not m.player().alive:
-		body.add_child(W.label("Тебя больше нет. Ты только смотришь.", &"Small"))
-		var skip := W.button("Пропустить день", &"Ghost")
+		body.add_child(W.label(L.t("day.dead"), &"Small"))
+		var skip := W.button(L.t("day.skip"), &"Ghost")
 		skip.pressed.connect(func() -> void: commit(Intent.END_DAY))
 		footer.add_child(skip)
 		return
 
 	Diag.step("день-экран: чат готов, кнопки")
 	var quick := W.hbox(8)
-	for spec: Array in [["Оправдаться", _defend], ["Позвать…", _invite_flow], ["Обвинить…", _accuse_flow]]:
+	for spec: Array in [[L.t("day.defend"), _defend], [L.t("day.invite"), _invite_flow], [L.t("day.accuse"), _accuse_flow]]:
 		var q := W.button(spec[0], &"Quick")
 		q.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var cb: Callable = spec[1]
@@ -86,18 +86,18 @@ func build() -> void:
 	footer.add_child(quick)
 
 	var row := W.hbox(8)
-	var write := W.button("Сказать…", &"Row")
+	var write := W.button(L.t("day.say"), &"Row")
 	write.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	write.pressed.connect(_write_flow)
 	row.add_child(write)
 	if m.can_meeting(m.player()):
-		var bell := W.button("Сбор!", &"Ghost")
+		var bell := W.button(L.t("day.bell"), &"Ghost")
 		bell.name = "Meeting"
 		bell.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		bell.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 		bell.pressed.connect(_meeting_flow)
 		row.add_child(bell)
-	var ready_btn := W.button("Я готов к ночи", &"Ghost")
+	var ready_btn := W.button(L.t("day.ready"), &"Ghost")
 	ready_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ready_btn.pressed.connect(func() -> void: commit(Intent.END_DAY))
 	row.add_child(ready_btn)
@@ -119,7 +119,7 @@ func hint_id() -> String:
 
 
 func hint_text() -> String:
-	return "Нажми на жителя: обвини, позови с собой или спроси, где ночует. Нажми на значок дела — запасы зажгут фонари ночью."
+	return L.t("day.hint")
 
 
 func hint_target() -> Rect2:
@@ -146,8 +146,8 @@ func open_diary() -> DiarySheet:
 
 ## Экстренный сбор: удар в колокол днём. Спросить, точно ли — он один на партию.
 func _meeting_flow() -> void:
-	var i: int = await ActionSheet.ask(self, "Ударить в колокол? Все сразу соберутся голосовать. Это можно один раз за партию.",
-		PackedStringArray(["Ударить в колокол"]))
+	var i: int = await ActionSheet.ask(self, L.t("day.bell_ask"),
+		PackedStringArray([L.t("day.bell_do")]))
 	if i == 0:
 		emit_intent(Intent.MEETING)
 
@@ -155,18 +155,18 @@ func _meeting_flow() -> void:
 func _update_journal() -> void:
 	if not is_instance_valid(journal_button):
 		return
-	journal_button.text = "Журнал (%d)" % m.chat.size()
+	journal_button.text = L.t("day.journal_n", {"n": m.chat.size()})
 	var last: ChatLine = m.chat[m.chat.size() - 1] if not m.chat.is_empty() else null
 	if last == null:
 		journal_preview.text = ""
 	elif last.kind == ChatLine.Kind.SYSTEM:
 		journal_preview.text = last.text
 	else:
-		journal_preview.text = "%s: %s" % ["Вы" if last.kind == ChatLine.Kind.MINE else last.speaker.name, last.text]
+		journal_preview.text = L.t("day.preview", {"who": L.t("you_name") if last.kind == ChatLine.Kind.MINE else last.speaker.name, "text": last.text})
 
 
 func _write_flow() -> void:
-	var t: String = await TextSheet.ask(self, "Сказать вслух", Phrases.quick_for(m))
+	var t: String = await TextSheet.ask(self, L.t("day.say_aloud"), Phrases.quick_for(m))
 	if not t.is_empty():
 		emit_intent(Intent.SAY, {"text": t})
 
@@ -177,15 +177,15 @@ func _defend() -> void:
 
 func person_actions(v: Villager) -> void:
 	var ev := director.evidence_text(v) if director != null else ""
-	var head := v.name if ev.is_empty() else "%s · %s" % [v.name, ev]
+	var head := v.name if ev.is_empty() else L.t("day.person_ev", {"who": v.name, "ev": ev})
 	var opts := PackedStringArray([
-		"Обвинить: «Это %s»" % v.name,
-		"Позвать с собой на ночь",
-		"Спросить, где ночует",
+		L.t("day.p_accuse", {"who": v}),
+		L.t("day.p_invite"),
+		L.t("day.p_ask"),
 	])
 	var me := m.player()
 	if me.role == Match.Role.ELDER and not me.role_used:
-		opts.append("Посмотреть рисунки старожила: кто %s?" % ("он" if not v.female else "она"))
+		opts.append(L.t("day.p_elder", {"who": v}))
 	var i: int = await ActionSheet.ask(self, head, opts)
 	match i:
 		0: emit_intent(Intent.ACCUSE, {"id": v.id})
@@ -197,27 +197,27 @@ func person_actions(v: Villager) -> void:
 ## Игрок-упырь у дела, где сегодня уже работали: поработать по-настоящему или испортить сделанное.
 func job_actions(ji: int) -> void:
 	var j: JobDef = m.jobs[ji]
-	var opts := PackedStringArray(["Работать: %s" % j.title.to_lower()])
-	opts.append("Испортить сделанное %s" % j.place)
+	var opts := PackedStringArray([L.t("day.work", {"job": j.title})])
+	opts.append(L.t("day.spoil", {"place": j.place}))
 	var i: int = await ActionSheet.ask(self, j.title, opts)
 	if i >= 0:
 		emit_intent(Intent.WORK, {"ji": ji, "sab": i == 1})
 
 
 func _accuse_flow() -> void:
-	var v := await _pick_person("Кого обвинить?")
+	var v := await _pick_person(L.t("day.who_accuse"))
 	if v != null:
 		emit_intent(Intent.ACCUSE, {"id": v.id})
 
 
 func _invite_flow() -> void:
-	var v := await _pick_person("Кого позвать с собой?")
+	var v := await _pick_person(L.t("day.who_invite"))
 	if v != null:
 		_pick_house_for(v)
 
 
 func _pick_house_for(v: Villager) -> void:
-	var h: int = await ActionSheet.ask(self, "Куда идёте с %s?" % v.name, m.houses)
+	var h: int = await ActionSheet.ask(self, L.t("day.where_with", {"who": v}), m.houses)
 	if h >= 0:
 		emit_intent(Intent.INVITE, {"id": v.id, "house": h})
 

@@ -15,7 +15,7 @@ func field_ratio() -> float:
 
 
 func title() -> String:
-	return "Изгнание"
+	return L.t("vote.title")
 
 
 func mood() -> Vector2:
@@ -25,18 +25,18 @@ func mood() -> Vector2:
 func build() -> void:
 	if m.meeting_by >= 0:
 		var caller := m.get_villager(m.meeting_by)
-		body.add_child(W.label("Экстренный сбор: в колокол %s." % ("ударил ты" if caller.is_player else "%s %s" % [Ru.g(caller, "ударил", "ударила", "ударили"), caller.name]), &"Hint"))
-	body.add_child(W.label("Кого выгнать из посёлка? Изгнанный уходит навсегда. Кем он был — узнаете в конце.", &"Tale"))
-	var diary := W.button("Дневник", &"Quick")
+		body.add_child(W.label(L.t("vote.bell_you") if caller.is_player else L.t("vote.bell", {"who": caller}), &"Hint"))
+	body.add_child(W.label(L.t("vote.ask"), &"Tale"))
+	var diary := W.button(L.t("day.diary"), &"Quick")
 	diary.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	diary.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	diary.pressed.connect(func() -> void: DiarySheet.open(self, m, director))
 	body.add_child(diary)
 	if m.player().alive and m.player().role == Match.Role.HEADMAN:
-		body.add_child(W.label("Ты староста: твой голос считается за двоих.", &"Small"))
+		body.add_child(W.label(L.t("vote.headman"), &"Small"))
 	if not m.player().alive:
-		body.add_child(W.label("Ты мёртв и только смотришь.", &"Small"))
-		var watch := W.button("Смотреть итог")
+		body.add_child(W.label(L.t("vote.dead"), &"Small"))
+		var watch := W.button(L.t("vote.watch"))
 		watch.pressed.connect(func() -> void: commit(Intent.VOTE, {"id": -1}))
 		footer.add_child(watch)
 		return
@@ -50,7 +50,7 @@ func build() -> void:
 		list.add_child(b)
 	body.add_child(list)
 
-	var go := W.button("Изгнать")
+	var go := W.button(L.t("vote.go"))
 	go.disabled = true
 	go.pressed.connect(func() -> void: commit(Intent.VOTE, {"id": picked}))
 	footer.add_child(go)
@@ -68,9 +68,9 @@ func _select(vid: int, b: Button) -> void:
 func show_result(tally: Dictionary[int, int], exiled: Villager) -> void:
 	W.clear(body)
 	W.clear(footer)
-	var head_text := "Никого не выгнали"
+	var head_text := L.t("vote.none")
 	if exiled != null:
-		head_text = Ru.g(exiled, "Ушёл %s" % exiled.name, "Ушла %s" % exiled.name, "Изгнали вас")
+		head_text = L.t("vote.gone_you") if exiled.is_player else L.t("vote.gone", {"who": exiled})
 	var head := W.label(head_text, &"Title")
 	head.add_theme_font_size_override("font_size", 44)
 	body.add_child(head)
@@ -86,7 +86,7 @@ func show_result(tally: Dictionary[int, int], exiled: Villager) -> void:
 	for vid: int in order:
 		var v := m.get_villager(vid)
 		var row := W.vbox(4)
-		row.add_child(W.label("%s — %d" % [v.name, tally[vid]], &"Body"))
+		row.add_child(W.label(L.t("vote.row", {"who": v.name, "n": tally[vid]}), &"Body"))
 		var bar := ColorRect.new()
 		bar.color = ThemeFactory.BLOOD if v == exiled else ThemeFactory.EDGE
 		bar.custom_minimum_size = Vector2(0, 8)
@@ -101,7 +101,7 @@ func show_result(tally: Dictionary[int, int], exiled: Villager) -> void:
 		await Juice.wait(0.12)
 
 	body.add_child(people_strip())
-	var next := W.button("Наступает ночь")
+	var next := W.button(L.t("vote.night"))
 	next.pressed.connect(func() -> void: commit(Intent.CONTINUE))
 	footer.add_child(next)
 	_locked = false

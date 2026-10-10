@@ -42,7 +42,7 @@ func _build(title: String, options: PackedStringArray) -> void:
 		var idx := i
 		b.pressed.connect(func() -> void: close(idx))
 		box.add_child(b)
-	var cancel := W.button("Отмена", &"Ghost")
+	var cancel := W.button(L.t("ui.cancel"), &"Ghost")
 	cancel.pressed.connect(func() -> void: close(-1))
 	box.add_child(cancel)
 

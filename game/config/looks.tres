@@ -25,6 +25,7 @@ female = true
 outfit = 1
 bow = 3
 earrings = true
+animal = 0
 
 [sub_resource type="Resource" id="look_1"]
 script = ExtResource("2_look")
@@ -48,16 +49,17 @@ female = true
 outfit = 1
 bow = 0
 earrings = true
+animal = 0
 
 [sub_resource type="Resource" id="look_2"]
 script = ExtResource("2_look")
 who = "Женя"
-coat = Color(0.2941, 0.2902, 0.4196, 1)
-accent = Color(0.7608, 0.4824, 0.3098, 1)
-skin = Color(0.7961, 0.6510, 0.5451, 1)
+coat = Color(0.6902, 0.1882, 0.1647, 1)
+accent = Color(0.9098, 0.6902, 0.2510, 1)
+skin = Color(0.8863, 0.7608, 0.6588, 1)
 hair = Color(0.7804, 0.6039, 0.3333, 1)
-head = 0
-height = 0.98
+head = 2
+height = 0.93
 hair_style = 2
 beard = 0
 brows = 0
@@ -69,8 +71,9 @@ scar = false
 age = 0
 female = true
 outfit = 1
-bow = 1
+bow = 0
 earrings = false
+animal = 0
 
 [sub_resource type="Resource" id="look_3"]
 script = ExtResource("2_look")
@@ -94,21 +97,22 @@ female = true
 outfit = 1
 bow = 1
 earrings = false
+animal = 0
 
 [sub_resource type="Resource" id="look_4"]
 script = ExtResource("2_look")
 who = "Нина"
-coat = Color(0.3529, 0.2431, 0.3529, 1)
-accent = Color(0.8392, 0.7843, 0.6588, 1)
-skin = Color(0.7882, 0.6471, 0.5412, 1)
-hair = Color(0.1216, 0.1020, 0.0941, 1)
-head = 4
+coat = Color(0.4157, 0.6039, 0.7843, 1)
+accent = Color(0.9098, 0.9412, 1.0000, 1)
+skin = Color(0.8863, 0.7608, 0.6588, 1)
+hair = Color(0.9098, 0.8471, 0.6588, 1)
+head = 22
 height = 0.96
-hair_style = 5
+hair_style = 9
 beard = 0
-brows = 1
+brows = 0
 nose = 0
-eye = Color(0.2275, 0.1647, 0.1333, 1)
+eye = Color(0.2392, 0.4353, 0.6588, 1)
 glasses = false
 freckles = false
 scar = false
@@ -117,6 +121,7 @@ female = true
 outfit = 1
 bow = 0
 earrings = true
+animal = 0
 
 [sub_resource type="Resource" id="look_5"]
 script = ExtResource("2_look")
@@ -140,6 +145,7 @@ female = true
 outfit = 1
 bow = 0
 earrings = true
+animal = 0
 
 [sub_resource type="Resource" id="look_6"]
 script = ExtResource("2_look")
@@ -163,6 +169,7 @@ female = false
 outfit = 3
 bow = 0
 earrings = false
+animal = 0
 
 [sub_resource type="Resource" id="look_7"]
 script = ExtResource("2_look")
@@ -186,17 +193,18 @@ female = false
 outfit = 2
 bow = 0
 earrings = false
+animal = 0
 
 [sub_resource type="Resource" id="look_8"]
 script = ExtResource("2_look")
-who = "Артур"
-coat = Color(0.1843, 0.2471, 0.3333, 1)
-accent = Color(0.6039, 0.2314, 0.2000, 1)
-skin = Color(0.7804, 0.6314, 0.5373, 1)
-hair = Color(0.1647, 0.1255, 0.1059, 1)
+who = "Тихон"
+coat = Color(0.6275, 0.2275, 0.1647, 1)
+accent = Color(0.8471, 0.6902, 0.3765, 1)
+skin = Color(0.8471, 0.6902, 0.5647, 1)
+hair = Color(0.5412, 0.4157, 0.2902, 1)
 head = 0
-height = 1.07
-hair_style = 4
+height = 0.86
+hair_style = 3
 beard = 3
 brows = 1
 nose = 2
@@ -206,9 +214,10 @@ freckles = false
 scar = false
 age = 2
 female = false
-outfit = 0
+outfit = 3
 bow = 0
 earrings = false
+animal = 0
 
 [sub_resource type="Resource" id="look_9"]
 script = ExtResource("2_look")
@@ -232,29 +241,31 @@ female = false
 outfit = 3
 bow = 0
 earrings = false
+animal = 0
 
 [sub_resource type="Resource" id="look_10"]
 script = ExtResource("2_look")
-who = "Гриша"
-coat = Color(0.3333, 0.3137, 0.2275, 1)
-accent = Color(0.6902, 0.4157, 0.2275, 1)
-skin = Color(0.7922, 0.6353, 0.5294, 1)
-hair = Color(0.4784, 0.2902, 0.1333, 1)
-head = 3
-height = 1.0
+who = "Миша"
+coat = Color(0.2275, 0.2902, 0.3529, 1)
+accent = Color(0.4784, 0.3529, 0.2275, 1)
+skin = Color(0.8471, 0.7216, 0.5882, 1)
+hair = Color(0.4784, 0.3216, 0.2118, 1)
+head = 5
+height = 1.07
 hair_style = 0
 beard = 0
 brows = 0
 nose = 0
-eye = Color(0.3529, 0.2510, 0.1882, 1)
-glasses = true
+eye = Color(0.2275, 0.1647, 0.1333, 1)
+glasses = false
 freckles = false
 scar = false
 age = 1
 female = false
-outfit = 0
+outfit = 3
 bow = 0
 earrings = false
+animal = 1
 
 [sub_resource type="Resource" id="look_11"]
 script = ExtResource("2_look")
@@ -278,6 +289,7 @@ female = false
 outfit = 2
 bow = 0
 earrings = false
+animal = 0
 
 [sub_resource type="Resource" id="look_99"]
 script = ExtResource("2_look")
@@ -301,6 +313,7 @@ female = false
 outfit = 0
 bow = 0
 earrings = false
+animal = 0
 
 [resource]
 script = ExtResource("1_book")

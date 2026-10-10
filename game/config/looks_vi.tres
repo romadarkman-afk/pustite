@@ -1,0 +1,321 @@
+[gd_resource type="Resource" script_class="LookBook" load_steps=16 format=3]
+
+[ext_resource type="Script" path="res://scripts/village/look_book.gd" id="1_book"]
+[ext_resource type="Script" path="res://scripts/village/look_def.gd" id="2_look"]
+
+[sub_resource type="Resource" id="look_0"]
+script = ExtResource("2_look")
+who = "Tấm"
+coat = Color(0.9412, 0.9098, 0.8784, 1)
+accent = Color(0.8157, 0.2510, 0.4157, 1)
+skin = Color(0.9098, 0.7529, 0.6118, 1)
+hair = Color(0.1020, 0.0784, 0.0784, 1)
+head = 13
+height = 0.95
+hair_style = 8
+beard = 0
+brows = 0
+nose = 0
+eye = Color(0.2275, 0.1647, 0.1333, 1)
+glasses = false
+freckles = false
+scar = false
+age = 1
+female = true
+outfit = 6
+bow = 0
+earrings = false
+animal = 0
+
+[sub_resource type="Resource" id="look_1"]
+script = ExtResource("2_look")
+who = "Cuội"
+coat = Color(0.4157, 0.2902, 0.1647, 1)
+accent = Color(0.6902, 0.5412, 0.2510, 1)
+skin = Color(0.8471, 0.6588, 0.5176, 1)
+hair = Color(0.1020, 0.0784, 0.0784, 1)
+head = 0
+height = 1.0
+hair_style = 7
+beard = 1
+brows = 0
+nose = 0
+eye = Color(0.2275, 0.1647, 0.1333, 1)
+glasses = false
+freckles = false
+scar = false
+age = 1
+female = false
+outfit = 4
+bow = 0
+earrings = false
+animal = 0
+
+[sub_resource type="Resource" id="look_2"]
+script = ExtResource("2_look")
+who = "Hằng"
+coat = Color(0.9490, 0.9098, 0.6902, 1)
+accent = Color(0.8471, 0.6902, 0.1882, 1)
+skin = Color(0.9333, 0.7961, 0.7098, 1)
+hair = Color(0.1020, 0.0784, 0.0784, 1)
+head = 19
+height = 0.97
+hair_style = 8
+beard = 0
+brows = 0
+nose = 0
+eye = Color(0.2275, 0.1647, 0.1333, 1)
+glasses = false
+freckles = false
+scar = false
+age = 1
+female = true
+outfit = 6
+bow = 0
+earrings = true
+animal = 0
+
+[sub_resource type="Resource" id="look_3"]
+script = ExtResource("2_look")
+who = "Gióng"
+coat = Color(0.6902, 0.1882, 0.1647, 1)
+accent = Color(0.8471, 0.6902, 0.1882, 1)
+skin = Color(0.8627, 0.6745, 0.5333, 1)
+hair = Color(0.1020, 0.0784, 0.0784, 1)
+head = 0
+height = 1.0
+hair_style = 7
+beard = 0
+brows = 2
+nose = 0
+eye = Color(0.2275, 0.1647, 0.1333, 1)
+glasses = false
+freckles = false
+scar = false
+age = 0
+female = false
+outfit = 3
+bow = 0
+earrings = false
+animal = 0
+
+[sub_resource type="Resource" id="look_4"]
+script = ExtResource("2_look")
+who = "Lan"
+coat = Color(0.2275, 0.4157, 0.6902, 1)
+accent = Color(0.9412, 0.9333, 0.9020, 1)
+skin = Color(0.9098, 0.7529, 0.6118, 1)
+hair = Color(0.1020, 0.0784, 0.0784, 1)
+head = 13
+height = 0.94
+hair_style = 2
+beard = 0
+brows = 0
+nose = 0
+eye = Color(0.2275, 0.1647, 0.1333, 1)
+glasses = false
+freckles = false
+scar = false
+age = 1
+female = true
+outfit = 6
+bow = 0
+earrings = false
+animal = 0
+
+[sub_resource type="Resource" id="look_5"]
+script = ExtResource("2_look")
+who = "Sanh"
+coat = Color(0.3529, 0.2902, 0.1647, 1)
+accent = Color(0.5412, 0.4157, 0.2275, 1)
+skin = Color(0.8157, 0.6275, 0.4784, 1)
+hair = Color(0.1020, 0.0784, 0.0784, 1)
+head = 0
+height = 1.06
+hair_style = 0
+beard = 1
+brows = 1
+nose = 0
+eye = Color(0.2275, 0.1647, 0.1333, 1)
+glasses = false
+freckles = false
+scar = false
+age = 1
+female = false
+outfit = 3
+bow = 0
+earrings = false
+animal = 0
+
+[sub_resource type="Resource" id="look_6"]
+script = ExtResource("2_look")
+who = "Minh"
+coat = Color(0.2275, 0.2902, 0.3529, 1)
+accent = Color(0.9412, 0.9333, 0.9020, 1)
+skin = Color(0.9098, 0.7529, 0.6118, 1)
+hair = Color(0.1020, 0.0784, 0.0784, 1)
+head = 0
+height = 1.02
+hair_style = 0
+beard = 0
+brows = 0
+nose = 0
+eye = Color(0.2275, 0.1647, 0.1333, 1)
+glasses = true
+freckles = false
+scar = false
+age = 1
+female = false
+outfit = 2
+bow = 0
+earrings = false
+animal = 0
+
+[sub_resource type="Resource" id="look_7"]
+script = ExtResource("2_look")
+who = "Mai"
+coat = Color(0.8157, 0.1882, 0.1647, 1)
+accent = Color(0.9490, 0.7882, 0.2980, 1)
+skin = Color(0.9098, 0.7529, 0.6118, 1)
+hair = Color(0.1020, 0.0784, 0.0784, 1)
+head = 0
+height = 0.93
+hair_style = 5
+beard = 0
+brows = 0
+nose = 0
+eye = Color(0.2275, 0.1647, 0.1333, 1)
+glasses = false
+freckles = false
+scar = false
+age = 0
+female = true
+outfit = 6
+bow = 3
+earrings = false
+animal = 0
+
+[sub_resource type="Resource" id="look_8"]
+script = ExtResource("2_look")
+who = "Hùng"
+coat = Color(0.1843, 0.4157, 0.2902, 1)
+accent = Color(0.8471, 0.6902, 0.3765, 1)
+skin = Color(0.8471, 0.6588, 0.5176, 1)
+hair = Color(0.1020, 0.0784, 0.0784, 1)
+head = 21
+height = 1.04
+hair_style = 0
+beard = 2
+brows = 0
+nose = 0
+eye = Color(0.2275, 0.1647, 0.1333, 1)
+glasses = false
+freckles = false
+scar = false
+age = 1
+female = false
+outfit = 3
+bow = 0
+earrings = false
+animal = 0
+
+[sub_resource type="Resource" id="look_9"]
+script = ExtResource("2_look")
+who = "Hoa"
+coat = Color(0.4157, 0.2275, 0.4157, 1)
+accent = Color(0.9098, 0.8784, 0.8157, 1)
+skin = Color(0.8627, 0.6902, 0.5490, 1)
+hair = Color(0.6902, 0.6667, 0.6275, 1)
+head = 2
+height = 0.9
+hair_style = 6
+beard = 0
+brows = 0
+nose = 0
+eye = Color(0.2275, 0.1647, 0.1333, 1)
+glasses = false
+freckles = false
+scar = false
+age = 2
+female = true
+outfit = 6
+bow = 0
+earrings = false
+animal = 0
+
+[sub_resource type="Resource" id="look_10"]
+script = ExtResource("2_look")
+who = "Sửu"
+coat = Color(0.2902, 0.3529, 0.2275, 1)
+accent = Color(0.6902, 0.5412, 0.2510, 1)
+skin = Color(0.6039, 0.6039, 0.6510, 1)
+hair = Color(0.2902, 0.2902, 0.3216, 1)
+head = 13
+height = 1.07
+hair_style = 0
+beard = 0
+brows = 0
+nose = 0
+eye = Color(0.2275, 0.1647, 0.1333, 1)
+glasses = false
+freckles = false
+scar = false
+age = 1
+female = false
+outfit = 4
+bow = 0
+earrings = false
+animal = 13
+
+[sub_resource type="Resource" id="look_11"]
+script = ExtResource("2_look")
+who = "Thỏ"
+coat = Color(0.9098, 0.6275, 0.6902, 1)
+accent = Color(0.9412, 0.9333, 0.9020, 1)
+skin = Color(0.9725, 0.8941, 0.9098, 1)
+hair = Color(0.9490, 0.9373, 0.9020, 1)
+head = 0
+height = 0.92
+hair_style = 0
+beard = 0
+brows = 0
+nose = 0
+eye = Color(0.8157, 0.2510, 0.4157, 1)
+glasses = false
+freckles = false
+scar = false
+age = 1
+female = true
+outfit = 6
+bow = 0
+earrings = false
+animal = 11
+
+[sub_resource type="Resource" id="look_99"]
+script = ExtResource("2_look")
+who = "Bạn"
+coat = Color(0.1647, 0.2275, 0.2510, 1)
+accent = Color(0.8510, 0.6353, 0.3059, 1)
+skin = Color(0.8118, 0.6627, 0.5529, 1)
+hair = Color(0.1647, 0.1216, 0.1020, 1)
+head = 4
+height = 1.0
+hair_style = 0
+beard = 0
+brows = 0
+nose = 0
+eye = Color(0.4157, 0.2902, 0.1647, 1)
+glasses = false
+freckles = false
+scar = false
+age = 1
+female = false
+outfit = 0
+bow = 0
+earrings = false
+animal = 0
+
+[resource]
+script = ExtResource("1_book")
+looks = Array[ExtResource("2_look")]([SubResource("look_0"), SubResource("look_1"), SubResource("look_2"), SubResource("look_3"), SubResource("look_4"), SubResource("look_5"), SubResource("look_6"), SubResource("look_7"), SubResource("look_8"), SubResource("look_9"), SubResource("look_10"), SubResource("look_11")])
+player = SubResource("look_99")

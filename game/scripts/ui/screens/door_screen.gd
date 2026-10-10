@@ -27,7 +27,7 @@ func screen_id() -> String:
 
 
 func title() -> String:
-	return "У двери"
+	return L.t("door.title")
 
 
 func hint_id() -> String:
@@ -37,10 +37,10 @@ func hint_id() -> String:
 func hint_text() -> String:
 	match role:
 		Match.DoorRole.HOST:
-			return "Впусти того, кому веришь. Не откроешь никому, останешься один, а одному не выжить."
+			return L.t("door.hint_host")
 		Match.DoorRole.GUEST:
-			return "Выбери, что сказать через дверь. Хозяин помнит, ночевали ли вы уже вместе."
-	return "Одному здесь не выжить. В следующий раз днём позови кого-нибудь с собой."
+			return L.t("door.hint_guest")
+	return L.t("door.hint_alone")
 
 
 func hint_target() -> Rect2:
@@ -90,9 +90,9 @@ func build() -> void:
 
 # ---------------------------------------------------------------
 func _build_host() -> void:
-	_box.add_child(W.label("Ты первым добежал до «%s». В дверь стучат." % Ru.house_of(m.house_name(seat.house)), &"Tale"))
+	_box.add_child(W.label(L.t("door.host", {"house": m.house_name(seat.house)}), &"Tale"))
 	var cap := m.config.capacity - 1
-	_box.add_child(W.label("Впустить можно: %d" % cap, &"Hint"))
+	_box.add_child(W.label(L.t("door.cap", {"n": cap}), &"Hint"))
 
 	for g: Villager in seat.knockers():
 		var card := W.panel(&"Card")
@@ -100,9 +100,9 @@ func _build_host() -> void:
 		var texts := W.vbox(4)
 		texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		texts.add_child(W.label(g.name, &"Body"))
-		texts.add_child(W.label("«%s»" % pleas.get(g.id, "…"), &"Small"))
+		texts.add_child(W.label(L.t("door.quote", {"text": pleas.get(g.id, "…")}), &"Small"))
 		row.add_child(texts)
-		var b := W.button("Впустить", &"Row")
+		var b := W.button(L.t("door.admit"), &"Row")
 		b.custom_minimum_size = Vector2(200, ThemeFactory.TOUCH)
 		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		var gid := g.id
@@ -121,17 +121,16 @@ func _build_host() -> void:
 			if not v.is_player:
 				elsewhere.append(v.name)
 	if not elsewhere.is_empty():
-		_box.add_child(W.label("У других дверей: %s." % ", ".join(elsewhere), &"Small"))
+		_box.add_child(W.label(L.t("door.elsewhere", {"list": L.t("list.sep").join(elsewhere)}), &"Small"))
 
 	_box.add_child(W.label(
-		"Тот, кого впустишь, до утра не доживёт." if m.player().is_upyr
-		else "Не откроешь никому — останешься один, и оберег погаснет.", &"Hint"))
+		L.t("door.upyr_note") if m.player().is_upyr else L.t("door.alone_note"), &"Hint"))
 
-	_go = W.button("Открыть дверь")
+	_go = W.button(L.t("door.open"))
 	_go.disabled = true
 	_go.pressed.connect(func() -> void: _finish_host(_selected))
 	footer.add_child(_go)
-	var refuse := W.button("Не открывать никому", &"Danger")
+	var refuse := W.button(L.t("door.refuse"), &"Danger")
 	refuse.pressed.connect(func() -> void: _finish_host([]))
 	footer.add_child(refuse)
 	_knock_sequence(seat.knockers().size())
@@ -146,7 +145,7 @@ func _toggle(gid: int, cap: int) -> void:
 		_selected.append(gid)
 	for k: int in _rows:
 		_rows[k].theme_type_variation = &"RowOn" if _selected.has(k) else &"Row"
-		_rows[k].text = "Впускаю" if _selected.has(k) else "Впустить"
+		_rows[k].text = L.t("door.admitting") if _selected.has(k) else L.t("door.admit")
 	_go.disabled = _selected.is_empty()
 
 
@@ -175,18 +174,18 @@ func on_clock_expired() -> void:
 
 # ---------------------------------------------------------------
 func _build_guest() -> void:
-	_box.add_child(W.label("«%s» уже заперт изнутри. Там — %s." % [m.house_name(seat.house), seat.host.name], &"Tale"))
+	_box.add_child(W.label(L.t("door.locked", {"house": m.house_name(seat.house), "who": seat.host}), &"Tale"))
 	var rivals := PackedStringArray()
 	for g: Villager in seat.queue:
 		if not g.is_player:
 			rivals.append(g.name)
 	if not rivals.is_empty():
-		_box.add_child(W.label("Рядом с тобой у двери: %s. Мест на всех не хватит." % ", ".join(rivals), &"Hint"))
+		_box.add_child(W.label(L.t("door.rivals", {"list": L.t("list.sep").join(rivals)}), &"Hint"))
 	if seat.mimic != null:
-		_box.add_child(W.label("В темноте за спиной кто-то говорит голосом %s. Но %s здесь нет." % [Ru.gen(seat.mimic), seat.mimic.name], &"Hint"))
-	_box.add_child(W.label("Что скажешь через дверь?", &"Small"))
+		_box.add_child(W.label(L.t("door.mimic", {"voice": seat.mimic}), &"Hint"))
+	_box.add_child(W.label(L.t("door.say"), &"Small"))
 
-	for p: Dictionary in Phrases.PLAYER_PLEAS:
+	for p: Dictionary in Phrases.player_pleas():
 		var b := W.button(p.label, &"Row")
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		var pid: String = p.id
@@ -202,7 +201,7 @@ func _send_plea(plea_id: String) -> void:
 ## Nav вызывает, когда хозяин решил. Пауза, стук, засов — или шаги прочь.
 func show_guest_result(admitted: bool) -> void:
 	W.clear(_box)
-	var t := W.label("Ты стучишь в дверь «%s»…" % Ru.house_of(m.house_name(seat.house)), &"Tale")
+	var t := W.label(L.t("door.knock", {"house": m.house_name(seat.house)}), &"Tale")
 	_box.add_child(t)
 	for i in range(3):
 		knock_fx.emit()
@@ -216,22 +215,22 @@ func show_guest_result(admitted: bool) -> void:
 		open_fx.emit(0.4)
 		Juice.haptic(Juice.Haptic.SUCCESS)
 		Sfx.play(&"door_open")
-		t.text = "Щёлкает засов. %s впускает тебя." % seat.host.name
+		t.text = L.t("door.let_in", {"who": seat.host})
 	else:
 		open_fx.emit(0.0)
 		Juice.haptic(Juice.Haptic.REFUSE)
 		Sfx.play(&"door_shut")
 		Juice.shake(self, 14.0, 0.4)
-		t.text = "Шаги удаляются от двери. Ты остаёшься снаружи."
+		t.text = L.t("door.shut")
 	Juice.pop_in(t)
 	if not admitted and m.tunnel_to(seat.house) >= 0 and m.tunnel_room(seat.house):
 		var to := m.house_name(m.tunnel_to(seat.house))
-		_box.add_child(W.label("За домом люк. Туннель ведёт в «%s», там есть место. Кто пролезет, тот внутри, но утром все узнают, откуда он взялся." % to, &"Hint"))
-		var hole := W.button("Лезть туннелем в «%s»" % to)
+		_box.add_child(W.label(L.t("door.hatch", {"house": to}), &"Hint"))
+		var hole := W.button(L.t("door.tunnel", {"house": to}))
 		hole.name = "Tunnel"
 		hole.pressed.connect(func() -> void: commit(Intent.TUNNEL))
 		footer.add_child(hole)
-	var next := W.button("Ждать рассвета", &"Ghost" if not admitted and m.tunnel_room(seat.house) else &"Primary")
+	var next := W.button(L.t("door.wait"), &"Ghost" if not admitted and m.tunnel_room(seat.house) else &"Primary")
 	next.pressed.connect(func() -> void: commit(Intent.CONTINUE))
 	footer.add_child(next)
 	_locked = false
@@ -240,11 +239,10 @@ func show_guest_result(admitted: bool) -> void:
 
 # ---------------------------------------------------------------
 func _build_alone() -> void:
-	_box.add_child(W.label("Ты первым добежал до «%s». Больше никто не пришёл." % Ru.house_of(m.house_name(seat.house)), &"Tale"))
+	_box.add_child(W.label(L.t("door.alone", {"house": m.house_name(seat.house)}), &"Tale"))
 	_box.add_child(W.label(
-		"Одному упырю улица не страшна." if m.player().is_upyr
-		else "Оберег мерцает. Одному его до утра не удержать.", &"Hint"))
-	var next := W.button("Ждать рассвета")
+		L.t("door.alone_upyr") if m.player().is_upyr else L.t("door.alone_human"), &"Hint"))
+	var next := W.button(L.t("door.wait"))
 	next.pressed.connect(func() -> void: commit(Intent.ADMIT, {"ids": [] as Array[int]}))
 	footer.add_child(next)
 

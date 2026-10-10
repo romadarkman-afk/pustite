@@ -20,6 +20,7 @@ const PLEA := &"plea"
 const AGAIN := &"again"
 const FIELD_TAP := &"field_tap"
 const SET_DIFFICULTY := &"set_difficulty"
+const SET_LANG := &"set_lang"          ## сменить язык: {"code"}
 const OPEN_HOWTO := &"open_howto"
 const SELECT_HOUSE := &"select_house"
 const HOWTO_DONE := &"howto_done"

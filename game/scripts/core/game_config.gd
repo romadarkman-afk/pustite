@@ -3,20 +3,14 @@ extends Resource
 ## Баланс партии. Data-driven: каждое поле с @export_range автоматически
 ## становится ползунком в настройках. Добавили поле — получили ползунок.
 
-const MAX_SHELTERS := 5   ## столько названий убежищ есть в Match.HOUSES
+const MAX_SHELTERS := 5   ## столько убежищ в файле языка (houses)
 
+## Ползунки настроек: подписи в файле языка под ключами cfg.<поле>.
 const LABELS := {
-	"players": "Игроков",
-	"monsters": "Упырей",
-	"shelters": "Убежищ",
-	"capacity": "Мест в убежище",
-	"nights": "Ночей до рассвета",
-	"day_seconds": "День, секунд",
-	"door_seconds": "Решение у двери, секунд",
-	"run_seconds": "Бег до дома, секунд",
-	"outside_death": "Смерть на улице, %",
-	"first_night_outside_death": "То же в первую ночь, %",
-	"vote_from_day": "Изгнание с дня",
+	"players": "cfg.players", "monsters": "cfg.monsters", "shelters": "cfg.shelters", "capacity": "cfg.capacity",
+	"nights": "cfg.nights", "day_seconds": "cfg.day_seconds", "door_seconds": "cfg.door_seconds",
+	"run_seconds": "cfg.run_seconds", "outside_death": "cfg.outside_death",
+	"first_night_outside_death": "cfg.first_night_outside_death", "vote_from_day": "cfg.vote_from_day",
 }
 
 @export_range(5, 12) var players: int = 7

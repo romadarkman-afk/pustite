@@ -210,7 +210,7 @@ func _show_box() -> void:
 	var ji := m.place_box()
 	if ji < 0:
 		return
-	m.post(ChatLine.system("На краю площади стоит ящик. Вчера его не было."))
+	m.post(ChatLine.system(L.t("sys.box")))
 	box_appeared.emit(ji)
 	# к ящику идёт свободный бот; игрок может успеть раньше
 	var free: Array[Villager] = []
@@ -246,12 +246,12 @@ func _finish_box(vid: int, ji: int) -> void:
 func box_text(res: Dictionary) -> String:
 	match int(res.get("loot", 0)):
 		Match.Loot.NOTE:
-			return "В ящике записка: «%s или %s». Один из них упырь. Записку видишь только ты." % [Ru.nom(res.a), Ru.nom(res.b)]
+			return L.t("box.note", {"a": res.a, "b": res.b})
 		Match.Loot.OIL:
-			return "В ящике масло для фонарей: запасы +%d." % Match.BOX_OIL
+			return L.t("box.oil", {"n": Match.BOX_OIL})
 		Match.Loot.CHALK:
-			return "В ящике мел: оберег у «%s» подновлён." % Ru.house_of(m.house_name(int(res.get("house", 0))))
-	return "Ящик пуст."
+			return L.t("box.chalk", {"house": m.house_name(int(res.get("house", 0)))})
+	return L.t("box.empty")
 
 
 func _post_all(lines: Array[ChatLine]) -> void:
@@ -409,23 +409,23 @@ func say(text: String) -> void:
 
 func accuse(vid: int) -> void:
 	var t := m.get_villager(vid)
-	_player_says("Я думаю, это %s." % t.name, _intent(IntentParser.Kind.ACCUSE, t))
+	_player_says(L.t("say.accuse", {"who": t}), _intent(IntentParser.Kind.ACCUSE, t))
 
 
 func invite(vid: int, house: int) -> void:
 	var t := m.get_villager(vid)
 	var it := _intent(IntentParser.Kind.INVITE, t)
 	it.house = house
-	_player_says("%s, пойдём вместе в «%s»?" % [t.name, m.house_name(house)], it)
+	_player_says(L.t("say.invite", {"who": t, "house": m.house_name(house)}), it)
 
 
 func ask(vid: int) -> void:
 	var t := m.get_villager(vid)
-	_player_says("%s, ты где сегодня ночуешь?" % t.name, _intent(IntentParser.Kind.ASK, t))
+	_player_says(L.t("say.ask", {"who": t}), _intent(IntentParser.Kind.ASK, t))
 
 
 func defend() -> void:
-	var lines: PackedStringArray = ["Я не упырь. Клянусь.", "Я свой. Проверьте меня ночью.", "Не я. Ищите дальше."]
+	var lines := L.arr("say.defend")
 	_player_says(lines[randi() % lines.size()], _intent(IntentParser.Kind.DEFEND, null))
 
 
@@ -521,7 +521,7 @@ func elder_check(vid: int) -> int:
 	var t := m.get_villager(vid)
 	var res := m.elder_check(m.player(), t)
 	if res >= 0:
-		m.post(ChatLine.system("Рисунки старожила: %s — %s. Это знаешь только ты." % [t.name, "упырь" if res == 1 else "человек"]))
+		m.post(ChatLine.system(L.t("sys.elder_upyr" if res == 1 else "sys.elder_human", {"who": t})))
 		marks_changed.emit()
 	return res
 
@@ -538,9 +538,9 @@ func call_meeting(vid: int) -> bool:
 		return false
 	clock.stop()
 	if v.is_player:
-		m.post(ChatLine.system("Ты бьёшь в колокол. Экстренный сбор!"))
+		m.post(ChatLine.system(L.t("sys.bell_you")))
 	else:
-		m.post(ChatLine.system("%s бьёт в колокол. Экстренный сбор!" % v.name))
+		m.post(ChatLine.system(L.t("sys.bell", {"who": v})))
 	return m.call_meeting(v)
 
 
@@ -593,7 +593,10 @@ func _intent(kind: IntentParser.Kind, target: Villager) -> IntentParser.Result:
 
 
 func _player_says(text: String, it: IntentParser.Result) -> void:
-	m.post(ChatLine.say(m.player(), text))
+	var line := ChatLine.say(m.player(), text)
+	if it.kind == IntentParser.Kind.ACCUSE:
+		line.about = it.target
+	m.post(line)
 	var replies := director.react(it)
 	marks_changed.emit()
 	_feed(replies)

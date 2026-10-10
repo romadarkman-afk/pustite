@@ -21,13 +21,35 @@ static var _fonts: Dictionary = {}
 
 
 ## Шрифт Nunito нужной толщины: 600 — текст, 800 — кнопки и имена, 900 — заголовки.
+## Запасные шрифты письменностей, которых нет в Nunito: иероглифы (урезаны до ~3900 частых)
+## и деванагари. Подключены к самому Nunito, поэтому работают во всех надписях и списке языков.
+const FALLBACKS: PackedStringArray = ["res://fonts/NotoSansSC.ttf", "res://fonts/NotoSansDevanagari.ttf"]
+
+
+static func _base() -> FontFile:
+	var base := load("res://fonts/Nunito.ttf") as FontFile
+	if base.fallbacks.is_empty():
+		var fb: Array[Font] = []
+		for p: String in FALLBACKS:
+			var f := load(p) as Font
+			if f != null:
+				fb.append(f)
+		base.fallbacks = fb
+	return base
+
+
 static func font(weight: int = 650) -> FontVariation:
 	if not _fonts.has(weight):
 		var f := FontVariation.new()
-		f.base_font = load("res://fonts/Nunito.ttf")
+		f.base_font = _base()
 		f.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): weight}
 		_fonts[weight] = f
 	return _fonts[weight]
+
+
+## Сменился язык: шрифты строятся заново (запасные шрифты письменностей — в font()).
+static func refresh_fonts() -> void:
+	_fonts.clear()
 
 
 static func font_bold() -> FontVariation:

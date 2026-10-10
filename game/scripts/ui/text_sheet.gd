@@ -49,7 +49,7 @@ func _build(title: String, quick: PackedStringArray = PackedStringArray()) -> vo
 	quick_box.visible = not quick.is_empty()
 	box.add_child(quick_box)
 	field = LineEdit.new()
-	field.placeholder_text = "Или напиши своё"
+	field.placeholder_text = L.t("say.placeholder")
 	field.max_length = 120
 	field.custom_minimum_size = Vector2(0, ThemeFactory.TOUCH)
 	field.text_submitted.connect(func(t: String) -> void: close(t.strip_edges()))
@@ -59,10 +59,10 @@ func _build(title: String, quick: PackedStringArray = PackedStringArray()) -> vo
 	field.focus_exited.connect(func() -> void: quick_box.visible = quick_box.get_child_count() > 0)
 	box.add_child(field)
 	var row := W.hbox(10)
-	var cancel := W.button("Отмена", &"Ghost")
+	var cancel := W.button(L.t("ui.cancel"), &"Ghost")
 	cancel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cancel.pressed.connect(func() -> void: close(""))
-	send_button = W.button("Сказать")
+	send_button = W.button(L.t("say.send"))
 	send_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	send_button.pressed.connect(func() -> void: close(field.text.strip_edges()))
 	row.add_child(cancel)

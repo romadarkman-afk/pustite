@@ -143,8 +143,20 @@ func body_scale() -> Vector2:
 
 
 ## Прямоугольники для раскладки и самотестов, в координатах фигурки.
+## Длинное имя (Ebenezer, Keloğlan) пишется мельче, чтобы подпись влезла в место в очереди у двери.
+const LABEL_MAX_W := 54.0
+const LABEL_MIN := 11
+
+
+func label_size() -> int:
+	var w := _font.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, LABEL_SIZE).x
+	if w <= LABEL_MAX_W:
+		return LABEL_SIZE
+	return maxi(LABEL_MIN, floori(LABEL_SIZE * LABEL_MAX_W / w))
+
+
 func label_width() -> float:
-	return _font.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, LABEL_SIZE).x
+	return _font.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size()).x
 
 
 func label_rect_local() -> Rect2:
@@ -155,7 +167,13 @@ func label_rect_local() -> Rect2:
 func body_rect_local() -> Rect2:
 	var h := look.height if look != null else 1.0
 	var extra := 26.0 if highlight else 0.0
-	return Rect2(-23, -FIG_TOP * h - extra, 23 + MARK_X + 12, FIG_TOP * h + 2 + extra)
+	# колонка отметок справа от головы занята, только когда отметки есть
+	var right := MARK_X + 12.0 if has_marks() else 23.0
+	return Rect2(-23, -FIG_TOP * h - extra, 23 + right, FIG_TOP * h + 2 + extra)
+
+
+func has_marks() -> bool:
+	return eye_level > 0 or not badges.is_empty() or pact
 
 
 func set_highlight(on: bool) -> void:
@@ -412,7 +430,7 @@ func _draw() -> void:
 	var lr := label_rect_local()
 	var col := ThemeFactory.LAMP if is_player else Color(1, 1, 1, 0.95 if state != State.DEAD else 0.45)
 	Art.shape(self, Art.rrect(lr, lr.size.y * 0.5), Color(0.08, 0.06, 0.12, 0.72 if state != State.DEAD else 0.4), Color(col, 0.35), 1.2)
-	draw_string(_font, Vector2(lr.position.x + 8.0, lr.end.y - 5.0), who, HORIZONTAL_ALIGNMENT_LEFT, -1, LABEL_SIZE, col)
+	draw_string(_font, Vector2(lr.position.x + 8.0, lr.end.y - 5.0), who, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size(), col)
 
 
 const EYE_COLORS := [Color(0, 0, 0, 0), Color("8fa3ab"), Color("d9a24e"), Color("d0683a"), Color("c23a33")]

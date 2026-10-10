@@ -25,6 +25,12 @@ static func cli_balance() -> void:
 
 ## Грамматика реплик и хроники: «Рита был», «на Женя», недоставленные метки, «Вы» в третьем лице.
 static func grammar(cfg: GameConfig, games: int = 250) -> Dictionary:
+	var texts := collect_texts(cfg, games)
+	return check_ru(texts)
+
+
+## Все тексты, которые игра собирает в партиях: реплики, хроника, утро, разбор. На текущем языке.
+static func collect_texts(cfg: GameConfig, games: int) -> PackedStringArray:
 	var texts: PackedStringArray = []
 	for g in range(games):
 		var m := Match.new()
@@ -52,24 +58,24 @@ static func grammar(cfg: GameConfig, games: int = 250) -> Dictionary:
 					# все реплики о пустой работе — для каждого жителя и каждого дела
 					for t: Villager in m.alive_bots():
 						for j: JobDef in m.jobs:
-							for line: String in Phrases.JOB_FAKE:
-								texts.append(Phrases.fill(line, {"who": t.name, "who_f": t.female, "me_f": false, "place": j.place}))
-								texts.append(Phrases.fill(line, {"who": t.name, "who_f": t.female, "me_f": true, "place": j.place}))
-							for line: String in Phrases.JOB_FAKE_AT_PLAYER:
+							for line: String in Phrases.b("JOB_FAKE"):
+								texts.append(Phrases.fill(line, {"who": t, "me_f": false, "place": j.place}))
+								texts.append(Phrases.fill(line, {"who": t, "me_f": true, "place": j.place}))
+							for line: String in Phrases.b("JOB_FAKE_AT_PLAYER"):
 								texts.append(Phrases.fill(line, {"me_f": t.female, "place": j.place}))
 					# Подражатель, саботаж, ящик: все реплики для каждого жителя
 					for t: Villager in m.villagers:
 						if t.is_player:
 							continue
-						for line: String in Phrases.MIMIC_PLEAS:
-							texts.append(Phrases.fill(line, {"who": t.name, "me_f": t.female}))
-						for line: String in Phrases.SABOTAGE_SEEN:
-							texts.append(Phrases.fill(line, {"who": t.name, "who_f": t.female, "me_f": not t.female, "place": "у колодца"}))
-						for line: String in Phrases.SABOTAGE_SEEN_AT_PLAYER:
-							texts.append(Phrases.fill(line, {"me_f": t.female, "place": "у колодца"}))
-						for bank: PackedStringArray in [Phrases.BOX_NOTE, Phrases.BOX_OIL, Phrases.BOX_CHALK]:
+						for line: String in Phrases.b("MIMIC_PLEAS"):
+							texts.append(Phrases.fill(line, {"who": t, "me_f": t.female}))
+						for line: String in Phrases.b("SABOTAGE_SEEN"):
+							texts.append(Phrases.fill(line, {"who": t, "me_f": not t.female, "place": L.t("job.water.place")}))
+						for line: String in Phrases.b("SABOTAGE_SEEN_AT_PLAYER"):
+							texts.append(Phrases.fill(line, {"me_f": t.female, "place": L.t("job.water.place")}))
+						for bank: PackedStringArray in [Phrases.b("BOX_NOTE"), Phrases.b("BOX_OIL"), Phrases.b("BOX_CHALK")]:
 							for line: String in bank:
-								texts.append(Phrases.fill(line, {"me_f": t.female, "a": t.name, "b": "Вы", "house": m.houses[0]}))
+								texts.append(Phrases.fill(line, {"me_f": t.female, "a": t, "b": m.player(), "house": m.houses[0]}))
 					var mc := d.meeting_caller()
 					if mc != null:
 						texts.append(d.meeting_line(mc).text)
@@ -112,14 +118,20 @@ static func grammar(cfg: GameConfig, games: int = 250) -> Dictionary:
 			texts.append_array(Recap.death_lines(m, m.player_death))
 		for sec: Dictionary in Recap.timeline(m):
 			texts.append_array(sec.lines)
+	return texts
 
-	var fem := "(?:" + "|".join(Match.FEMALE) + ")"
+
+## Русские правила: род, падежи имён и домов, «Вы» во множественном.
+static func check_ru(texts: PackedStringArray) -> Dictionary:
+	var fem := "(?:" + "|".join(L.female_names()) + ")"
 	var males: PackedStringArray = []
-	for n: String in Match.NAMES:
-		if not Match.FEMALE.has(n):
-			males.append(n)
+	var names_all: PackedStringArray = []
+	for n: Array in L.names():
+		names_all.append(String(n[0]))
+		if not bool(n[1]):
+			males.append(String(n[0]))
 	var mal := "(?:" + "|".join(males) + ")"
-	var all_names := "(?:" + "|".join(Match.NAMES) + ")"
+	var all_names := "(?:" + "|".join(names_all) + ")"
 	var rules: Array[Array] = [
 		[RegEx.create_from_string("[{}\\[\\]|]"), "недоставленная метка"],
 		[RegEx.create_from_string("(*UCP)" + fem + "\\s+(?:был|ночевал|говорил|вернулся|дожил|спал|собирался|остался|погиб|провёл)\\b"), "женское имя с мужским глаголом"],
@@ -143,9 +155,11 @@ static func grammar(cfg: GameConfig, games: int = 250) -> Dictionary:
 				hit = true
 		if not hit:
 			errors.append("проверка грамматики слепая: не поймала «%s»" % pr)
-	for h: String in Match.HOUSES:
-		if Ru.house_in(h).is_empty() or Ru.house_of(h).is_empty() or Ru.house_in(h) == h:
-			errors.append("нет падежей для убежища «%s»: где «%s», чего «%s»" % [h, Ru.house_in(h), Ru.house_of(h)])
+	for i in range(L.houses().size()):
+		var hh := L.house(i)
+		var h := String(hh.get("nom", ""))
+		if String(hh.get("in", "")).is_empty() or String(hh.get("of", "")).is_empty() or hh.get("in") == h:
+			errors.append("нет падежей для убежища «%s»: где «%s», чего «%s»" % [h, hh.get("in", ""), hh.get("of", "")])
 	var seen: Dictionary[String, bool] = {}
 	for t: String in texts:
 		for r: Array in rules:
@@ -906,9 +920,9 @@ static func field() -> void:
 	var vd := load("res://config/village_default.tres") as VillageDef
 	ok += _expect(fails, vd != null and vd.shelters.size() == 5 and vd.decor.size() >= 3 and vd.lamps.size() == 3,
 		"ресурс посёлка: ждём 5 убежищ, 3+ фоновых дома, 3 фонаря")
-	for i in range(mini(vd.shelters.size(), Match.HOUSES.size())):
-		ok += _expect(fails, vd.shelters[i].title == Match.HOUSES[i],
-			"убежище %d в ресурсе «%s», а в правилах «%s»" % [i, vd.shelters[i].title, Match.HOUSES[i]])
+	for i in range(mini(vd.shelters.size(), L.houses().size())):
+		ok += _expect(fails, vd.shelters[i].title == L.houses()[i],
+			"убежище %d в ресурсе «%s», а в правилах «%s»" % [i, vd.shelters[i].title, L.houses()[i]])
 
 	Nav.show_menu()
 	await _settle(tree)
@@ -1177,7 +1191,7 @@ static func _check_crowd(tag: String, out: PackedStringArray) -> int:
 		var plaque := vv.shelter_label_rect_global(hi).grow(-1.0)
 		for f: VillagerFigure in figs:
 			if plaque.intersects(f.body_rect_global().grow(-2.0)) or plaque.intersects(f.label_rect_global().grow(-1.0)):
-				out.append("%s: табличку «%s» закрывает %s" % [tag, vv._title(hi), f.who])
+				out.append("%s: табличку «%s» закрывает %s (табличка %s, тело %s, имя %s)" % [tag, vv._title(hi), f.who, plaque, f.body_rect_global(), f.label_rect_global()])
 	for i in range(figs.size()):
 		for j in range(figs.size()):
 			if i == j:
@@ -1186,7 +1200,7 @@ static func _check_crowd(tag: String, out: PackedStringArray) -> int:
 			var b := figs[j]
 			var la := a.label_rect_global().grow(-1.0)
 			if j > i and la.intersects(b.label_rect_global().grow(-1.0)):
-				out.append("%s: имена «%s» и «%s» налезают друг на друга" % [tag, a.who, b.who])
+				out.append("%s: имена «%s» и «%s» налезают друг на друга (%s %s / %s %s)" % [tag, a.who, b.who, a.position, a.label_rect_global(), b.position, b.label_rect_global()])
 			if b.position.y > a.position.y + 0.5 and la.intersects(b.body_rect_global().grow(-2.0)):
 				out.append("%s: имя «%s» закрыто фигурой %s" % [tag, a.who, b.who])
 	return 1
@@ -1202,7 +1216,7 @@ static func bubbles() -> void:
 	var problems: PackedStringArray = []
 	var checks := 0
 	var texts: PackedStringArray = []
-	for bank: PackedStringArray in [Phrases.ACCUSE_STRONG, Phrases.UPYR_DEFLECT, Phrases.DEFEND, Phrases.FILLER, Phrases.ANNOUNCE]:
+	for bank: PackedStringArray in [Phrases.b("ACCUSE_STRONG"), Phrases.b("UPYR_DEFLECT"), Phrases.b("DEFEND"), Phrases.b("FILLER"), Phrases.b("ANNOUNCE")]:
 		texts.append_array(bank)
 	texts.append("Я вчера сидел тихо и дожил. Значит, всё делал правильно, а вы тут спорите о пустом.")
 	var profiles: Array[Array] = []
@@ -1241,7 +1255,7 @@ static func bubbles() -> void:
 			for b: Bubbles.Bubble in live:
 				if newest == null or b.order > newest.order:
 					newest = b
-			if newest == null or newest.who != Ru.nom(who):
+			if newest == null or newest.who != who.name:
 				problems.append("%s: свежая реплика %s не видна" % [tag, who.name])
 			else:
 				var head: Vector2 = Nav.village.crowd.figures[who.id].head_global()
@@ -1353,7 +1367,7 @@ static func marks() -> void:
 		sh.close(0)
 	await _frames(tree, 4)
 	ok += _expect(fails, cr.figures[target.id].eye_level > before,
-		"обвинили %s — глаз не изменился (%d → %d)" % [Ru.accusative(target.name), before, cr.figures[target.id].eye_level])
+		"обвинили %s — глаз не изменился (%d → %d)" % [_ru_case("acc", target.name), before, cr.figures[target.id].eye_level])
 	var replied := false
 	for i in range(chat_before, Game.m.chat.size()):
 		if Game.m.chat[i].speaker == target:
@@ -3054,7 +3068,7 @@ static func events() -> void:
 	Game.m.config.vote_from_day = 9      # без изгнания: игрок точно жив и бежит по колоколу
 	await _to_night(tree)
 	var ns := Nav.host.current as NightScreen
-	ok += _expect(fails, ns != null and _all_text(ns).contains(Match.EVENT_TEXT[Match.Event.FOG]), "колокол не объявил туман")
+	ok += _expect(fails, ns != null and _all_text(ns).contains(Match.event_text(Match.Event.FOG)), "колокол не объявил туман")
 	ok += _expect(fails, Game.clock.time_left() <= float(Game.m.config.run_seconds - Match.FOG_RUN) + 0.01, "в тумане отсчёт не короче (%.1f с)" % Game.clock.time_left())
 	Game.choose_house(0)
 	await _settle(tree)
@@ -3244,7 +3258,7 @@ static func mimic() -> void:
 	ok += _expect(fails, txt.contains("У других дверей: %s." % bots[1].name), "хозяин не видит, кто сейчас у других дверей")
 	ok += _expect(fails, ds._rows.size() == 2 and ds._rows.has(bots[1].id) and txt.contains(bots[1].name), "голоса за дверью нет в очереди")
 	var plea_ok := false
-	for line: String in Phrases.MIMIC_PLEAS:
+	for line: String in Phrases.b("MIMIC_PLEAS"):
 		if txt.contains(Phrases.fill(line, {"who": bots[1].name, "me_f": bots[1].female})):
 			plea_ok = true
 	ok += _expect(fails, plea_ok, "у голоса за дверью не его странная мольба")
@@ -3260,7 +3274,7 @@ static func mimic() -> void:
 	gs.seat = gseat
 	Nav.show(gs)
 	await _settle(tree)
-	ok += _expect(fails, _all_text(gs).contains("голосом %s" % Ru.genitive(bots[3].name)), "гость не слышит голоса Подражателя за спиной")
+	ok += _expect(fails, _all_text(gs).contains("голосом %s" % _ru_case("gen", bots[3].name)), "гость не слышит голоса Подражателя за спиной")
 	ok += _expect(fails, _on_plate(gs), "текст у чужой двери не на тёмной подложке")
 	Nav.show_menu()
 	await _settle(tree)
@@ -3670,9 +3684,9 @@ static func roles() -> void:
 		d.plan_day()
 		for vid: int in m.claims:
 			var who := m.get_villager(vid)
-			var text: String = m.claims[vid]
-			if not text.contains("старожил"):
+			if not m.claim_elder.has(vid):
 				continue
+			var text: String = m.claims[vid]
 			if who.is_upyr:
 				fakes += 1
 			elif who.role == Match.Role.ELDER:
@@ -4092,11 +4106,11 @@ static func diary() -> void:
 		if not et.is_empty() and not "\n".join(DiarySheet.facts(m0, d0, v)).contains(et):
 			ev_ok = false
 	ok += _expect(fails, ev_ok, "улики не попали в дневник")
-	m0.claims[bots[1].id] = "назвал себя старожилом: Рита — упырь"
+	m0.claim(bots[1], bots[0], "назвал себя старожилом: Рита — упырь", true)
 	m0.player_seen[bots[2].id] = 1
 	ok += _expect(fails, "\n".join(DiarySheet.facts(m0, d0, bots[1])).contains("Назвал себя старожилом"), "заявление не попало в дневник")
 	var rita := m0.get_villager(bots[3].id)
-	m0.claims[bots[1].id] = "назвал себя старожилом: %s — упырь" % rita.name
+	m0.claim(bots[1], rita, "назвал себя старожилом: %s — упырь" % rita.name, true)
 	ok += _expect(fails, "\n".join(DiarySheet.facts(m0, d0, rita)).contains("%s назвал себя старожилом" % bots[1].name), "в карточке обвинённого не видно, кто его назвал")
 	ok += _expect(fails, "\n".join(DiarySheet.facts(m0, d0, bots[2])).contains("Твои рисунки: упырь"), "твои рисунки не попали в дневник")
 
@@ -4198,7 +4212,7 @@ static func recap() -> void:
 			NightReport.Kind.KILLED_CREATURE:
 				good = t.contains("Оберег") and t.contains("подправить")
 			NightReport.Kind.KILLED_MIMIC:
-				good = t.contains("Подражатель") and t.contains(Ru.genitive(e.voice.name))
+				good = t.contains("Подражатель") and t.contains(_ru_case("gen", e.voice.name))
 		if not good:
 			why_ok = false
 			bad = "%s: «%s»" % [NightReport.Kind.keys()[e.kind], t]
@@ -4231,9 +4245,9 @@ static func recap() -> void:
 	hu.alive = false
 	hu.exiled_day = 2
 	m2.player_votes.append({"day": 2, "who": hu})
-	ok += _expect(fails, Recap.verdict(m2, null).contains("человеком") and Recap.verdict(m2, null).contains(Ru.genitive(hu.name)), "не сказано, что изгнали человека")
+	ok += _expect(fails, Recap.verdict(m2, null).contains("человеком") and Recap.verdict(m2, null).contains(_ru_case("gen", hu.name)), "не сказано, что изгнали человека")
 	m2.player_admits.append({"day": 1, "who": up, "mimic": false})
-	ok += _expect(fails, Recap.verdict(m2, null).contains("впустил") and Recap.verdict(m2, null).contains(Ru.accusative(up.name)), "не сказано, что ты впустил упыря: «%s»" % Recap.verdict(m2, null))
+	ok += _expect(fails, Recap.verdict(m2, null).contains("впустил") and Recap.verdict(m2, null).contains(_ru_case("acc", up.name)), "не сказано, что ты впустил упыря: «%s»" % Recap.verdict(m2, null))
 	m2.player().exiled = true
 	m2.player().alive = false
 	m2.player().exiled_day = 3
@@ -4258,7 +4272,8 @@ static func recap() -> void:
 	# 3. Лента: разделы по ночам и дням, строки без приставки
 	var m3 := Match.new()
 	m3.start(c, 5)
-	m3.chronicle = PackedStringArray(["Ночь 1: в «Сарае» ночевали Рита и Нина — все целы.", "Утром: оберег у «Сарая» треснул.", "День 2: посёлок изгнал Тимура.", "Ночь 2: туман."])
+	m3.chron.assign([{"title": "Ночь 1", "text": "в «Сарае» ночевали Рита и Нина — все целы."}, {"title": "", "text": "оберег у «Сарая» треснул."},
+		{"title": "День 2", "text": "посёлок изгнал Тимура."}, {"title": "Ночь 2", "text": "туман."}])
 	var tl := Recap.timeline(m3)
 	ok += _expect(fails, tl.size() == 3 and tl[0].title == "Ночь 1" and (tl[0].lines as PackedStringArray).size() == 2 and tl[1].title == "День 2"
 		and String((tl[0].lines as PackedStringArray)[0]).begins_with("В «Сарае»"), "лента партии разбита неверно: %s" % [tl])
@@ -4280,7 +4295,7 @@ static func recap() -> void:
 	var mt := _all_text(Nav.host.current)
 	ok += _expect(fails, mt.contains("Почему ты погиб") and mt.contains(m.alive_bots()[0].name) and mt.contains("90%"), "утром не видно, почему ты погиб")
 	m.winner = Match.Team.UPYRI
-	m.chronicle.append("Ночь 1: проверка ленты.")
+	m.chron.append({"title": "Ночь 1", "text": "проверка ленты."})
 	Nav.show(EndScreen.new())
 	await _settle(tree)
 	var et := _all_text(Nav.host.current)
@@ -4310,7 +4325,7 @@ static func folk() -> void:
 	var sig: Dictionary = {}
 	var fem_ok := true
 	for l: LookDef in book.looks:
-		var f := Match.FEMALE.has(l.who)
+		var f := L.female_names().has(l.who)
 		if f != l.female:
 			fem_ok = false
 		if f and not (l.outfit == LookDef.Outfit.DRESS and (l.bow != LookDef.Bow.NONE or l.earrings or l.hair_style in [LookDef.Hair.LONG, LookDef.Hair.BRAIDS, LookDef.Hair.PIGTAILS, LookDef.Hair.PONYTAIL, LookDef.Hair.BUN, LookDef.Hair.BOB, LookDef.Hair.CURLY])):
@@ -4439,3 +4454,184 @@ static func folk() -> void:
 	Nav.show_menu()
 	await _settle(tree)
 	_finish(fails, ok, "новые жители", "девушки отличаются, у каждого свои приметы, эмоции всем телом, ноги идут, толпа реагирует")
+
+
+## Имя в падеже по русской грамматике — для проверок русских текстов.
+static func _ru_case(case: String, name: String) -> String:
+	return L.gram().name_case(name, case, false)
+
+
+# =============================================================
+# Языки (задачи 39–43)
+# =============================================================
+## Каждый язык: все ключи русского на месте, метки шаблонов те же, тексты партий собираются
+## без недоставленных меток и русских букв, в посёлке 12 жителей со своими внешностями и 5 домов с падежами.
+static func loc() -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	var fails := PackedStringArray()
+	var ok := 0
+	var ru_d := (L._load("ru")).d()
+	var re_var := RegEx.create_from_string("\\{(\\w+)[.}:#]")
+	var re_left := RegEx.create_from_string("[{}\\[\\]]|\\|")
+	var re_cyr := RegEx.create_from_string("[А-Яа-яЁё]")
+	var c := load("res://config/balance_7.tres") as GameConfig
+	var langs_ok := 0
+	for code: String in L.LANGS:
+		var path := "res://scripts/loc/%s.gd" % code
+		if not ResourceLoader.exists(path):
+			fails.append("%s: нет файла языка" % code)
+			continue
+		var g := L._load(code)
+		var d := g.d()
+		var miss := PackedStringArray()
+		var bad_vars := PackedStringArray()
+		for key: String in ru_d:
+			if not d.has(key):
+				miss.append(key)
+				continue
+			if key in ["houses", "names", "looks", "you", "someone"]:
+				continue
+			if (ru_d[key] is Array) != (d[key] is Array):
+				bad_vars.append("%s: строка вместо банка или наоборот" % key)
+				continue
+			var ru_vars := _vars_of(re_var, ru_d[key])
+			for v: String in _vars_of(re_var, d[key]):
+				if not ru_vars.has(v) and v != "who" and v != "me":
+					bad_vars.append("%s: метка {%s}, которой нет в русском" % [key, v])
+		for key: String in d:
+			if not ru_d.has(key) and not key.begins_with("intent.") and key != "looks":
+				bad_vars.append("%s: лишний ключ" % key)
+		ok += _expect(fails, miss.is_empty(), "%s: нет %d ключей: %s" % [code, miss.size(), ", ".join(miss.slice(0, 8))])
+		ok += _expect(fails, bad_vars.is_empty(), "%s: %s" % [code, "; ".join(bad_vars.slice(0, 6))])
+		var hs: Array = d.get("houses", [])
+		ok += _expect(fails, hs.size() == (ru_d.houses as Array).size(), "%s: убежищ %d, нужно %d" % [code, hs.size(), (ru_d.houses as Array).size()])
+		for h: Variant in hs:
+			for k: String in (ru_d.houses[0] as Dictionary):
+				if String((h as Dictionary).get(k, "")).is_empty():
+					fails.append("%s: у дома «%s» нет формы %s" % [code, (h as Dictionary).get("nom", "?"), k])
+		var nm: Array = d.get("names", [])
+		var fem := 0
+		var seen: Dictionary = {}
+		for n: Variant in nm:
+			fem += 1 if bool(n[1]) else 0
+			seen[String(n[0])] = true
+		ok += _expect(fails, nm.size() == 12 and fem == 6 and seen.size() == 12, "%s: жителей %d (женщин %d, разных имён %d), нужно 12 и 6" % [code, nm.size(), fem, seen.size()])
+		var book := load(String(d.get("looks", ""))) as LookBook if ResourceLoader.exists(String(d.get("looks", ""))) else null
+		ok += _expect(fails, book != null, "%s: нет внешностей посёлка %s" % [code, d.get("looks", "")])
+		if book != null:
+			var lost := PackedStringArray()
+			for n: Variant in nm:
+				var found := false
+				for l: LookDef in book.looks:
+					if l.who == String(n[0]):
+						found = true
+						if l.female != bool(n[1]):
+							lost.append("%s: пол не совпадает" % n[0])
+				if not found:
+					lost.append(String(n[0]))
+			ok += _expect(fails, lost.is_empty() and book.player != null, "%s: нет внешности у %s" % [code, ", ".join(lost)])
+
+		# тексты на этом языке: все ключи с разными подстановками и полные партии
+		L.use(code)
+		L.missing.clear()
+		var texts := PackedStringArray()
+		var m := Match.new()
+		m.start(c, 77)
+		var bm: Villager = null
+		var bf: Villager = null
+		for v: Villager in m.alive_bots():
+			if v.female and bf == null:
+				bf = v
+			elif not v.female and bm == null:
+				bm = v
+		for key: String in d:
+			if key in ["houses", "names", "looks", "you", "someone"] or key.begins_with("intent."):
+				continue
+			var lines: PackedStringArray = L.arr(key)
+			for who: Villager in [bm, bf, m.player()]:
+				for n: int in [1, 2, 5, 21]:
+					var a := {"who": who, "me": bf if who == bm else bm, "voice": bm, "h": who, "a": bm, "b": m.player(),
+						"house": m.houses[0], "from": m.houses[1], "said": m.houses[1], "away": m.houses[1], "to": m.houses[1],
+						"others": [who], "list": [bm, bf, m.player()], "n": n, "p": n, "u": n, "d": n, "s": n, "c": n,
+						"e": "e", "text": "t", "ev": "ev", "job": "Job", "place": "place", "what": "w", "role": "role",
+						"healer": "healer", "title": "T", "rest": "r", "where": "w", "why": "y"}
+					for line: String in lines:
+						texts.append(L.fill(line, a))
+		texts.append_array(collect_texts(c, 25))
+		var marks := PackedStringArray()
+		var cyr := PackedStringArray()
+		for t: String in texts:
+			if re_left.search(t) != null and marks.size() < 5:
+				marks.append(t)
+			if code != "ru" and re_cyr.search(t) != null and cyr.size() < 5:
+				cyr.append(t)
+		ok += _expect(fails, marks.is_empty(), "%s: недоставленные метки: %s" % [code, " / ".join(marks)])
+		ok += _expect(fails, cyr.is_empty(), "%s: русские буквы в тексте: %s" % [code, " / ".join(cyr)])
+		ok += _expect(fails, L.missing.is_empty(), "%s: игра просила ключи, которых нет: %s" % [code, ", ".join(PackedStringArray(L.missing.keys()).slice(0, 8))])
+		var glyphs := _missing_glyphs(texts)
+		ok += _expect(fails, glyphs.is_empty(), "%s: шрифт не рисует %d знаков: %s" % [code, glyphs.length(), glyphs.left(40)])
+		print("%s: %d строк, ключей %d" % [code, texts.size(), d.size()])
+		langs_ok += 1
+	L.use("ru")
+
+	# грамматика: падежи и числа
+	var ru := L._load("ru")
+	var cases := {"Марина": ["Марину", "Марины", "Марине", "Мариной"], "Тимур": ["Тимура", "Тимура", "Тимуру", "Тимуром"],
+		"Гриша": ["Гришу", "Гриши", "Грише", "Гришей"], "Женя": ["Женю", "Жени", "Жене", "Женей"]}
+	for n: String in cases:
+		var got := [ru.name_case(n, "acc", false), ru.name_case(n, "gen", false), ru.name_case(n, "dat", false), ru.name_case(n, "ins", false)]
+		ok += _expect(fails, got == cases[n], "падежи «%s»: %s" % [n, got])
+	ok += _expect(fails, [ru.plural_index(1), ru.plural_index(3), ru.plural_index(5), ru.plural_index(11), ru.plural_index(21), ru.plural_index(24)] == [0, 1, 2, 2, 0, 1], "русские числа: 1 житель, 3 жителя, 5 жителей")
+	ok += _expect(fails, L.detect("pt_BR") == "pt" and L.detect("zh_CN") == "zh" and L.detect("es_MX") == "es" and L.detect("ru_RU") == "ru" and L.detect("uk_UA") == "ru" and L.detect("ja_JP") == "en", "язык телефона определяется неверно")
+
+	# смена языка в настройках: экраны и посёлок перестраиваются
+	Nav.show_settings()
+	await _settle(tree)
+	var before := _all_text(Nav.host.current)
+	if L.LANGS.has("en") and ResourceLoader.exists("res://scripts/loc/en.gd"):
+		Nav.host.current.emit_intent(Intent.SET_LANG, {"code": "en"})
+		await _settle(tree)
+		var after := _all_text(Nav.host.current)
+		ok += _expect(fails, Save.lang == "en" and after != before and after.contains("English") and re_cyr.search(after) == null, "настройки не перевелись на английский: %s" % after.left(120))
+		ok += _expect(fails, Nav.village.titles == L.houses() and Nav.village.titles[0] != "Дом у реки", "посёлок не взял английские дома")
+		Nav.host.current.emit_intent(Intent.SET_LANG, {"code": "ru"})
+		await _settle(tree)
+		ok += _expect(fails, Save.lang == "ru" and _all_text(Nav.host.current).contains("Настройки"), "не вернулся русский")
+	# запуск: язык из настроек включается сразу (без экрана — всегда русский)
+	L.use("en")
+	Save.load_all()
+	ok += _expect(fails, L.code == "ru" and Save.lang == "ru", "при запуске язык из настроек не включился: %s" % L.code)
+	_finish(fails, ok, "ЯЗЫКИ", "все языки полные, шаблоны без дыр, посёлки на месте (%d из %d)" % [langs_ok, L.LANGS.size()])
+
+
+static func _vars_of(re: RegEx, v: Variant) -> Dictionary:
+	var out := {}
+	var lines: Array = v if v is Array else [v]
+	for line: Variant in lines:
+		for mm: RegExMatch in re.search_all(String(line)):
+			out[mm.get_string(1)] = true
+	return out
+
+
+## Знаки, которых нет ни в основном шрифте, ни в запасных (иероглифы, деванагари).
+static func _missing_glyphs(texts: PackedStringArray) -> String:
+	var base := ThemeFactory.font(650).base_font as FontFile
+	var chain: Array[Font] = [base]
+	for f: Font in base.fallbacks:
+		chain.append(f)
+	var seen := {}
+	var out := ""
+	for t: String in texts:
+		for i in range(t.length()):
+			var ch := t.unicode_at(i)
+			if seen.has(ch) or ch < 32 or ch == 0x200d or ch == 0x200c:
+				continue
+			seen[ch] = true
+			var hit := false
+			for f: Font in chain:
+				if f.has_char(ch):
+					hit = true
+					break
+			if not hit:
+				out += char(ch)
+	return out

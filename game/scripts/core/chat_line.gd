@@ -6,6 +6,7 @@ enum Kind { SAY, MINE, SYSTEM }
 var kind: Kind
 var speaker: Villager      ## null для системных строк
 var text: String
+var about: Villager = null   ## кого обвиняет реплика: толпа поворачивается к нему
 
 
 static func say(who: Villager, t: String) -> ChatLine:

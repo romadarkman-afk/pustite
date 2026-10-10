@@ -19,7 +19,7 @@ static func line_row(line: ChatLine) -> Control:
 	if line.kind == ChatLine.Kind.SYSTEM:
 		return W.label(line.text, &"Small")
 	var row := W.hbox(8)
-	var nm := W.label(("Вы" if line.kind == ChatLine.Kind.MINE else line.speaker.name) + ":", &"Speaker")
+	var nm := W.label(L.t("journal.who", {"who": L.t("you_name") if line.kind == ChatLine.Kind.MINE else line.speaker.name}), &"Speaker")
 	nm.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	nm.autowrap_mode = TextServer.AUTOWRAP_OFF
 	if line.kind == ChatLine.Kind.MINE:
@@ -52,7 +52,7 @@ func _build(lines: Array[ChatLine]) -> void:
 	sheet.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	var box := W.vbox(10)
 	sheet.add_child(box)
-	box.add_child(W.label("Журнал дня", &"Hint"))
+	box.add_child(W.label(L.t("journal.head"), &"Hint"))
 	var sc := ScrollContainer.new()
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	sc.custom_minimum_size = Vector2(0, maxf(160.0, (get_parent() as Control).size.y * 0.6))
@@ -62,7 +62,7 @@ func _build(lines: Array[ChatLine]) -> void:
 	box.add_child(sc)
 	for l: ChatLine in lines:
 		list.add_child(line_row(l))
-	var close_b := W.button("Закрыть", &"Ghost")
+	var close_b := W.button(L.t("ui.close"), &"Ghost")
 	close_b.pressed.connect(close)
 	box.add_child(close_b)
 	await get_tree().process_frame

@@ -316,7 +316,7 @@ func people_strip(on_tap: Callable = Callable()) -> HFlowContainer:
 			variation = &"ChipYou"
 		elif not v.alive:
 			variation = &"ChipDead"
-			text += " · изгнан" if v.exiled else ""
+			text += L.t("chip.exiled") if v.exiled else ""
 		var c := W.chip(text, variation)
 		if on_tap.is_valid() and v.alive and not v.is_player:
 			var who := v

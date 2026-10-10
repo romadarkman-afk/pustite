@@ -44,7 +44,7 @@ func _ready() -> void:
 	village_layer.add_child(field_layer)
 	field_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	village = VillageView.new()
-	village.setup(load("res://config/village_default.tres") as VillageDef, Save.config.shelters, Match.HOUSES)
+	village.setup(load("res://config/village_default.tres") as VillageDef, Save.config.shelters, L.houses())
 	village.modulate.a = 0.0
 	field_layer.add_child(village)
 
@@ -291,23 +291,13 @@ func _on_phase(phase: Match.Phase) -> void:
 
 
 ## Обвинение в реплике: говорящий злится и показывает пальцем, названный пугается.
-const ACCUSE_WORDS := ["упыр", "голосую", "объясни", "врать", "Совпадение", "ничего не хочешь", "не нравится", "Люди так не умеют", "смотрел", "Посмотри лучше"]
-
-
+## Кого обвиняют, реплика знает сама (ChatLine.about) — от языка это не зависит.
 func _react_to_accusation(line: ChatLine) -> void:
 	if Game.m == null or line.speaker == null:
 		return
-	var hit := false
-	for wd: String in ACCUSE_WORDS:
-		if line.text.contains(wd):
-			hit = true
-			break
-	if not hit:
-		return
-	for v: Villager in Game.m.alive():
-		if v != line.speaker and not v.is_player and (line.text.contains(v.name) or line.text.contains(Ru.accusative(v.name))):
-			_accuse_fx(line.speaker, v)
-			return
+	var v := line.about
+	if v != null and v != line.speaker and v.alive and not v.is_player:
+		_accuse_fx(line.speaker, v)
 
 
 func _accuse_fx(who: Villager, target: Villager) -> void:
@@ -368,7 +358,7 @@ func _on_chat(line: ChatLine) -> void:
 		if line.speaker != null and village.crowd.figures.has(line.speaker.id):
 			var f: VillagerFigure = village.crowd.figures[line.speaker.id]
 			village.crowd.turn_to(f.position.x, [line.speaker.id] as Array[int], 260.0, 2.2)
-			var b := bubbles.say(Ru.nom(line.speaker), line.text, f.head_global(), line.speaker.is_player, f)
+			var b := bubbles.say(line.speaker.name, line.text, f.head_global(), line.speaker.is_player, f)
 			f.talk(b.life if b != null else 2.5)
 			Sfx.voice(line.speaker.id, line.speaker.female, line.text.length())
 			_react_to_accusation(line)
@@ -411,6 +401,16 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			Save.set_difficulty(data.d)
 			if sender is MenuScreen:
 				(sender as MenuScreen).refresh(Save.difficulty, Save.config)
+		Intent.SET_LANG:
+			Save.set_lang(String(data.code))
+			relocalize()
+			if sender is SettingsScreen:
+				var ss := sender as SettingsScreen
+				ss.build()
+				if ss._title_label != null:
+					ss._title_label.text = ss.title()
+			else:
+				show_menu()
 		Intent.CONTINUE:
 			Game.proceed()
 		Intent.SAY:
@@ -442,7 +442,7 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			var res := Game.elder_check(t.id)
 			if res >= 0:
 				Sfx.play(&"reveal")
-				toast("Рисунки: %s — %s" % [t.name, "упырь" if res == 1 else "человек"])
+				toast(L.t("toast.elder_upyr" if res == 1 else "toast.elder_human", {"who": t}))
 		Intent.HEAL:
 			if Game.heal() and sender is NightScreen:
 				Sfx.play(&"tap")
@@ -528,8 +528,8 @@ func go_work(ji: int, sab: bool = false) -> void:
 
 func _done_text(ji: int) -> String:
 	if Game.m.jobs[ji].kind == JobDef.Kind.BOX:
-		return "Ящик уже открыли"
-	return "«%s»: на сегодня уже сделано" % Game.m.jobs[ji].title
+		return L.t("toast.box_taken")
+	return L.t("toast.job_done", {"job": Game.m.jobs[ji].title})
 
 
 func _on_sabotaged(_vid: int, ji: int) -> void:
@@ -540,7 +540,7 @@ func _on_sabotaged(_vid: int, ji: int) -> void:
 
 func _on_box_appeared(_ji: int) -> void:
 	Sfx.play(&"knock", 0.7, -4.0)
-	toast("На площади появился ящик")
+	toast(L.t("toast.box"))
 
 
 func _on_box_opened(vid: int, res: Dictionary) -> void:
@@ -674,7 +674,7 @@ func _on_back() -> void:
 			get_tree().quit()
 			return
 		_exit_armed = true
-		toast("Нажми ещё раз, чтобы выйти")
+		toast(L.t("toast.back_exit"))
 		await get_tree().create_timer(2.0).timeout
 		_exit_armed = false
 	elif s is SettingsScreen:
@@ -688,10 +688,20 @@ func _on_back() -> void:
 		show_menu()
 	elif Game.active():
 		Game.hold(&"dialog")
-		var i: int = await ActionSheet.ask(s, "Бросить партию?", PackedStringArray(["Остаться", "Выйти в меню"]))
+		var i: int = await ActionSheet.ask(s, L.t("quit.ask"), PackedStringArray([L.t("quit.stay"), L.t("quit.leave")]))
 		Game.release(&"dialog")
 		if i == 1:
 			show_menu()
+
+
+## Язык сменился: посёлок берёт названия домов и жителей своей страны, тема — шрифты под письменность.
+func relocalize() -> void:
+	village.titles = L.houses()
+	village.crowd.book = L.looks()
+	village.crowd.clear()
+	village.queue_redraw()
+	ThemeFactory.refresh_fonts()
+	ui.theme = ThemeFactory.build()
 
 
 func toast(text: String) -> void:

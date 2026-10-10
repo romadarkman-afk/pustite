@@ -8,7 +8,7 @@ func screen_id() -> String:
 
 
 func title() -> String:
-	return "Отчёт"
+	return L.t("crash.title")
 
 
 func mood() -> Vector2:
@@ -16,16 +16,16 @@ func mood() -> Vector2:
 
 
 func build() -> void:
-	body.add_child(W.label("Прошлый запуск закрылся аварийно", &"Title"))
-	body.add_child(W.label("Это ошибка игры, не ваша. Нажмите «Скопировать отчёт» и пришлите его — по нему видно, на каком шаге всё оборвалось.", &"Tale"))
-	body.add_child(W.label("Последние шаги:", &"Hint"))
+	body.add_child(W.label(L.t("crash.head"), &"Title"))
+	body.add_child(W.label(L.t("crash.text"), &"Tale"))
+	body.add_child(W.label(L.t("crash.steps"), &"Hint"))
 	for line: String in Diag.last_crumbs.slice(maxi(0, Diag.last_crumbs.size() - 12)):
 		body.add_child(W.label(line, &"Small"))
-	var copy := W.button("Скопировать отчёт")
+	var copy := W.button(L.t("crash.copy"))
 	copy.pressed.connect(func() -> void:
 		DisplayServer.clipboard_set(Diag.report_text())
-		copy.text = "Скопировано — вставьте в чат")
+		copy.text = L.t("crash.copied"))
 	footer.add_child(copy)
-	var go := W.button("Продолжить", &"Ghost")
+	var go := W.button(L.t("ui.continue"), &"Ghost")
 	go.pressed.connect(func() -> void: commit(Intent.BACK))
 	footer.add_child(go)

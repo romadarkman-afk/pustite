@@ -17,7 +17,7 @@ func field_ratio() -> float:
 
 
 func title() -> String:
-	return "Перед первой ночью"
+	return L.t("prologue.title")
 
 
 func mood() -> Vector2:
@@ -26,17 +26,15 @@ func mood() -> Vector2:
 
 func build() -> void:
 	var you := m.player()
-	var pre := W.label("Твоя роль…", &"Small")
+	var pre := W.label(L.t("prologue.pre"), &"Small")
 	body.add_child(pre)
-	var role := W.label("Ты — упырь" if you.is_upyr else "Ты — человек", &"Title")
+	var role := W.label(L.t("prologue.upyr" if you.is_upyr else "prologue.human"), &"Title")
 	if you.is_upyr:
 		role.add_theme_color_override("font_color", ThemeFactory.BLOOD)
 	role.modulate.a = 0.0
 	body.add_child(role)
 	var story := W.label(
-		"Ты не знаешь, кто ещё из них такой же. Улица тебе не страшна, а тот, кто окажется с тобой за одной дверью, до утра не доживёт. Днём говори как человек."
-		if you.is_upyr else
-		"Ночью на улице ты почти наверняка погибнешь. В убежище нельзя остаться одному — оберег гаснет. Тебе нужен второй, и ты не знаешь, кто из них человек.",
+		L.t("prologue.upyr_text" if you.is_upyr else "prologue.human_text"),
 		&"Tale")
 	story.modulate.a = 0.0
 	body.add_child(story)
@@ -45,13 +43,13 @@ func build() -> void:
 	if role_l.text.is_empty():
 		role_l.visible = false
 	body.add_child(role_l)
-	var facts := W.label("Жителей %d, упырей %d. Убежищ %d по %d места. Дожить нужно до %d-го рассвета." % [
-		m.config.players, m.config.monsters, m.config.shelters, m.config.capacity, m.config.nights], &"Small")
+	var facts := W.label(L.t("prologue.facts", {"p": m.config.players, "u": m.config.monsters,
+		"s": m.config.shelters, "c": m.config.capacity, "n": m.config.nights}), &"Small")
 	facts.modulate.a = 0.0
 	body.add_child(facts)
 	body.add_child(people_strip())
 
-	var go := W.button("Выйти к людям")
+	var go := W.button(L.t("prologue.go"))
 	go.modulate.a = 0.0
 	go.pressed.connect(func() -> void: commit(Intent.CONTINUE))
 	footer.add_child(go)
@@ -61,11 +59,11 @@ func build() -> void:
 func _role_text(you: Villager) -> String:
 	match you.role:
 		Match.Role.ELDER:
-			return "Ты старожил. Один раз за партию днём нажми на жителя и посмотри рисунки: узнаешь, упырь ли он. Узнаешь только ты."
+			return L.t("prologue.elder")
 		Match.Role.HEALER:
-			return "Ты знахарь. Один раз за партию перед ночью возьми травы: если рядом с тобой в доме на кого-то нападут, ты его выходишь."
+			return L.t("prologue.healer")
 		Match.Role.HEADMAN:
-			return "Ты староста. На изгнании твой голос считается за двоих."
+			return L.t("prologue.headman")
 	return ""
 
 
