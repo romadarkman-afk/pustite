@@ -441,9 +441,12 @@ func vote(target_id: int) -> void:
 	var bv := director.votes()
 	for voter: int in bv:
 		tally[bv[voter]] = tally.get(bv[voter], 0) + m.vote_weight(voter)
+	var votes: Dictionary = bv.duplicate()
 	if target_id >= 0 and m.player().alive:
 		tally[target_id] = tally.get(target_id, 0) + m.vote_weight(0)
-	var out := m.apply_vote(tally)
+		votes[0] = target_id
+		m.note_player_vote(m.get_villager(target_id))
+	var out := m.apply_vote(tally, votes)
 	vote_resolved.emit(tally, out)
 
 

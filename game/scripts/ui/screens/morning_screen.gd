@@ -36,6 +36,16 @@ func build() -> void:
 		&"Title")
 	head.add_theme_font_size_override("font_size", 44)
 	body.add_child(head)
+	# тебя не стало этой ночью — сразу видно почему: кто был рядом, кто открыл дверь
+	if m.player_death != null and r.entries.has(m.player_death):
+		var card := W.panel(&"Sheet")
+		card.name = "WhyDead"
+		var box := W.vbox(6)
+		card.add_child(box)
+		box.add_child(W.label("Почему ты погиб", &"Speaker"))
+		for l: String in Recap.death_lines(m, m.player_death, r):
+			box.add_child(W.label(l, &"Small"))
+		body.add_child(card)
 	_reveal(r)
 
 

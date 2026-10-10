@@ -25,6 +25,7 @@ scripts/core/difficulty.gd
 scripts/core/game_config.gd
 scripts/core/match.gd
 scripts/core/night_report.gd
+scripts/core/recap.gd
 scripts/core/ru.gd
 scripts/core/villager.gd
 scripts/tests/self_test.gd
@@ -58,6 +59,7 @@ scripts/ui/theme_factory.gd
 scripts/ui/w.gd
 scripts/village/art.gd
 scripts/village/crowd.gd
+scripts/village/folk.gd
 scripts/village/house_def.gd
 scripts/village/job_def.gd
 scripts/village/job_layer.gd

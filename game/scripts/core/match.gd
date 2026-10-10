@@ -131,6 +131,13 @@ var history: Array[Dictionary] = []
 var _night_ids: Array[int] = []     ## кто был жив, когда началась ночь
 var player_seen: Dictionary[int, int] = {}   ## что игрок-старожил увидел на рисунках: id -> 1 упырь, 0 человек
 
+## Разбор партии (задача 38): решения игрока и голосования — чтобы в конце объяснить, что решило исход.
+var player_admits: Array[Dictionary] = []    ## {"day", "who": Villager, "mimic": bool} — кого игрок-хозяин впустил
+var player_votes: Array[Dictionary] = []     ## {"day", "who": Villager} — за кого голосовал игрок
+var vote_log: Array[Dictionary] = []         ## {"day", "votes": {id: id}, "exiled": Villager}
+var player_death: NightReport.Entry = null   ## как погиб игрок (если ночью)
+var player_kills: int = 0                    ## игрок-упырь: скольких забрал
+
 ## Ящик (со второго дня): днём на краю площади появляется ящик. Кто первым откроет,
 ## тому достаётся находка: записка (один из двоих — упырь), масло (+2 к запасам) или мел (чинит оберег).
 enum Loot { NONE, NOTE, OIL, CHALK }
@@ -274,6 +281,11 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	meeting_used.clear()
 	history.clear()
 	player_seen.clear()
+	player_admits.clear()
+	player_votes.clear()
+	vote_log.clear()
+	player_death = null
+	player_kills = 0
 	chat.clear()
 	chronicle.clear()
 	seats.clear()
@@ -478,7 +490,12 @@ func end_day() -> void:
 
 
 ## tally: id цели -> число голосов. Ничья решается жребием.
-func apply_vote(tally: Dictionary[int, int]) -> Villager:
+## Голос игрока — для разбора партии. Game зовёт перед apply_vote.
+func note_player_vote(target: Villager) -> void:
+	player_votes.append({"day": day, "who": target})
+
+
+func apply_vote(tally: Dictionary[int, int], votes: Dictionary = {}) -> Villager:
 	assert(phase == Phase.VOTE)
 	last_tally = tally
 	var best := -1
@@ -496,6 +513,7 @@ func apply_vote(tally: Dictionary[int, int]) -> Villager:
 		last_exiled.exiled = true
 		last_exiled.exiled_day = day
 		_log("День %d: посёлок изгнал %s." % [day, "вас" if last_exiled.is_player else Ru.accusative(last_exiled.name)])
+	vote_log.append({"day": day, "votes": votes.duplicate(), "exiled": last_exiled})
 	return last_exiled
 
 
@@ -573,6 +591,8 @@ func admit(seat: Seat, ids: Array[int]) -> void:
 				seat.mimic_in = true
 			else:
 				seat.admitted.append(v)
+			if seat.host.is_player:
+				player_admits.append({"day": day, "who": v, "mimic": v == seat.mimic})
 	seat.decided = true
 
 
@@ -580,6 +600,9 @@ func resolve_night() -> NightReport:
 	assert(phase == Phase.DOOR)
 	var r := NightReport.new()
 	var p_out := outside_death_chance()
+	r.p_out = p_out
+	for s0: Seat in seats:
+		r.p_alone[s0.house] = alone_death_chance(s0.house, p_out)
 	if supply_total > 0:
 		_log("Ночь %d: запасов набрали на %d%%." % [day, roundi(100.0 * supplies())])
 
@@ -680,7 +703,10 @@ func resolve_night() -> NightReport:
 			for v: Villager in inside:
 				if v != victim:
 					others.append(v)
-			r.add(NightReport.Kind.KILLED_INSIDE, victim, s.house, others)
+			var ek := r.add(NightReport.Kind.KILLED_INSIDE, victim, s.house, others)
+			ek.killer = killer
+			if killer.is_player:
+				player_kills += 1
 			_log("Ночь %d: %s %s в «%s». Рядом %s: %s." % [
 				day, Ru.nom(victim), Ru.g(victim, "погиб", "погибла", "погибли"), Ru.house_in(house_name(s.house)), Ru.were(others, "был", "была", "были"), Ru.join(others)])
 		else:
@@ -724,6 +750,14 @@ func resolve_night() -> NightReport:
 			talisman[h] -= 1
 			r.add(NightReport.Kind.TALISMAN_WORN, null, h)
 			_log("Утром: оберег у «%s» %s." % [Ru.house_of(house_name(h)), "треснул" if talisman[h] == 1 else "раскололся"])
+
+	# кто был хозяином двери у каждого события — для разбора «почему ты погиб»
+	for e: NightReport.Entry in r.entries:
+		var st := _seat_of_house(e.house)
+		if st != null:
+			e.host = st.host
+		if e.is_death() and e.who != null and e.who.is_player:
+			player_death = e
 
 	# дневник: кто где был этой ночью и кого не стало
 	var rec := {"day": day, "where": {}, "said": {}, "dead": []}

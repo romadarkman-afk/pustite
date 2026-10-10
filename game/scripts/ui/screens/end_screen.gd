@@ -30,13 +30,18 @@ func build() -> void:
 	body.add_child(W.label("Твоя сторона победила." if won else "Твоя сторона проиграла.", &"Tale"))
 	Juice.haptic(Juice.Haptic.SUCCESS if won else Juice.Haptic.DEATH)
 	Sfx.play(&"win" if won else &"lose")
+	body.add_child(_verdict_card())
 	if offer != "":
 		body.add_child(_offer_card())
 
+	body.add_child(W.label("Кто кем был", &"Hint"))
 	var flow := HFlowContainer.new()
 	var i := 0
 	for v: Villager in m.villagers:
-		var c := W.chip("%s — %s" % [v.name, "упырь" if v.is_upyr else "человек"],
+		var who := "упырь" if v.is_upyr else "человек"
+		if v.role != Match.Role.NONE:
+			who += ", " + Match.role_name(v).to_lower()
+		var c := W.chip("%s — %s" % [v.name, who],
 			&"ChipUpyr" if v.is_upyr else (&"ChipDead" if not v.alive else &"Chip"))
 		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		flow.add_child(c)
@@ -45,8 +50,11 @@ func build() -> void:
 	body.add_child(flow)
 
 	body.add_child(W.label("Как это было", &"Hint"))
-	for line: String in m.chronicle.slice(maxi(0, m.chronicle.size() - 14)):
-		body.add_child(W.label(line, &"Small"))
+	for sec: Dictionary in Recap.timeline(m):
+		if String(sec.title) != "":
+			body.add_child(W.label(sec.title, &"Speaker"))
+		for line: String in sec.lines:
+			body.add_child(W.label(line, &"Small"))
 
 	var again := W.button("Ещё партию")
 	again.pressed.connect(func() -> void: commit(Intent.AGAIN))
@@ -54,6 +62,24 @@ func build() -> void:
 	var opts := W.button("Сложность", &"Ghost")
 	opts.pressed.connect(func() -> void: commit(Intent.OPEN_SETTINGS))
 	footer.add_child(opts)
+
+
+## Главное в разборе: что решило твою партию — и, если тебя не стало, почему.
+func _verdict_card() -> Control:
+	var card := W.panel(&"Sheet")
+	card.name = "Verdict"
+	var box := W.vbox(8)
+	card.add_child(box)
+	box.add_child(W.label("Что решило партию", &"Speaker"))
+	box.add_child(W.label(Recap.verdict(m, director), &"Body"))
+	var more := PackedStringArray()
+	if m.player().exiled:
+		more = Recap.exile_lines(m, director).slice(1)
+	elif m.player_death != null:
+		more = Recap.death_lines(m, m.player_death).slice(1)
+	for l: String in more:
+		box.add_child(W.label(l, &"Small"))
+	return card
 
 
 func _offer_card() -> Control:

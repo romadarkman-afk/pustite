@@ -106,6 +106,12 @@ static func grammar(cfg: GameConfig, games: int = 250) -> Dictionary:
 				Match.Phase.MORNING:
 					m.end_morning()
 		texts.append_array(m.chronicle)
+		texts.append(Recap.verdict(m, d))
+		texts.append_array(Recap.exile_lines(m, d))
+		if m.player_death != null:
+			texts.append_array(Recap.death_lines(m, m.player_death))
+		for sec: Dictionary in Recap.timeline(m):
+			texts.append_array(sec.lines)
 
 	var fem := "(?:" + "|".join(Match.FEMALE) + ")"
 	var males: PackedStringArray = []
@@ -4120,3 +4126,163 @@ static func diary() -> void:
 	Nav.show_menu()
 	await _settle(tree)
 	_finish(fails, ok, "дневник", "где ночевал, что говорил, улики, заявления и твои рисунки — в одном месте")
+
+
+
+# =============================================================
+# Разбор партии (Task 38): почему ты погиб, что решило партию, лента по ночам.
+# =============================================================
+static func recap() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
+
+	# 1. Причина гибели игрока — по-настоящему из партий, каждого вида
+	var kinds: Dictionary = {}
+	var why_ok := true
+	var bad := ""
+	for g in range(600):
+		var m := Match.new()
+		var d := Director.new()
+		m.start(c, 20000 + g)
+		d.attach(m)
+		m.begin_day()
+		while m.phase != Match.Phase.OVER and m.player().alive:
+			match m.phase:
+				Match.Phase.DAY:
+					d.plan_day()
+					d.run_jobs_instant(d.plan_jobs(90))
+					m.end_day()
+				Match.Phase.VOTE:
+					var none: Dictionary[int, int] = {}
+					m.apply_vote(none)
+					m.after_vote()
+				Match.Phase.NIGHT:
+					_rules_seat(m, d)
+				Match.Phase.DOOR:
+					for s: Match.Seat in m.seats:
+						var ids: Array[int] = []
+						if s.host.is_player:
+							for v: Villager in s.knockers():
+								ids.append(v.id)
+						else:
+							ids = d.host_decide(s, "beg")
+						m.admit(s, ids)
+					m.tunnel_pass(false)
+					d.after_door(m.seats)
+					d.read_report(m.resolve_night())
+				Match.Phase.MORNING:
+					m.end_morning()
+		var e := m.player_death
+		if e == null:
+			continue
+		kinds[e.kind] = kinds.get(e.kind, 0) + 1
+		var t := "\n".join(Recap.death_lines(m, e, m.report))
+		var good := true
+		match e.kind:
+			NightReport.Kind.KILLED_INSIDE:
+				good = e.killer != null and e.killer.is_upyr and t.contains(e.killer.name) and t.contains("упыр")
+			NightReport.Kind.KILLED_STREET:
+				good = t.contains(m.house_name(e.house)) and t.contains("%")
+			NightReport.Kind.KILLED_ALONE:
+				good = t.contains("один")
+			NightReport.Kind.KILLED_CREATURE:
+				good = t.contains("Оберег") and t.contains("подправить")
+			NightReport.Kind.KILLED_MIMIC:
+				good = t.contains("Подражатель") and t.contains(Ru.genitive(e.voice.name))
+		if not good:
+			why_ok = false
+			bad = "%s: «%s»" % [NightReport.Kind.keys()[e.kind], t]
+		if not Recap.verdict(m, d).begins_with("Ты погиб в ночь"):
+			why_ok = false
+			bad = "итог: «%s»" % Recap.verdict(m, d)
+	print("гибель игрока по видам: %s" % kinds)
+	ok += _expect(fails, kinds.size() >= 4, "в разборе встретились не все виды гибели: %s" % kinds)
+	ok += _expect(fails, why_ok, "причина гибели объяснена неверно — %s" % bad)
+
+	# 2. Что решило партию: впустил упыря, изгнал упыря, изгнал человека, изгнан сам, чистая партия
+	var m2 := Match.new()
+	m2.start(c, 33)
+	var up: Villager = null
+	var hu: Villager = null
+	for v: Villager in m2.alive_bots():
+		if v.is_upyr and up == null:
+			up = v
+		if not v.is_upyr and hu == null:
+			hu = v
+	m2.player().is_upyr = false
+	ok += _expect(fails, Recap.verdict(m2, null).contains("ни разу не открыл"), "чистая партия без итога")
+	up.exiled = true
+	up.alive = false
+	up.exiled_day = 2
+	m2.player_votes.append({"day": 2, "who": up})
+	ok += _expect(fails, Recap.verdict(m2, null).contains("помог изгнать упыря") and Recap.verdict(m2, null).contains(up.name), "не засчитан голос против упыря")
+	m2.player_votes.clear()
+	hu.exiled = true
+	hu.alive = false
+	hu.exiled_day = 2
+	m2.player_votes.append({"day": 2, "who": hu})
+	ok += _expect(fails, Recap.verdict(m2, null).contains("человеком") and Recap.verdict(m2, null).contains(Ru.genitive(hu.name)), "не сказано, что изгнали человека")
+	m2.player_admits.append({"day": 1, "who": up, "mimic": false})
+	ok += _expect(fails, Recap.verdict(m2, null).contains("впустил") and Recap.verdict(m2, null).contains(Ru.accusative(up.name)), "не сказано, что ты впустил упыря: «%s»" % Recap.verdict(m2, null))
+	m2.player().exiled = true
+	m2.player().alive = false
+	m2.player().exiled_day = 3
+	m2.vote_log.append({"day": 3, "votes": {hu.id: 0, up.id: 0}, "exiled": m2.player()})
+	var ev := Recap.verdict(m2, null)
+	ok += _expect(fails, ev.contains("изгнали в день 3") and ev.contains(up.name), "не сказано, кто голосовал против тебя: «%s»" % ev)
+
+	# решения игрока записываются по ходу партии: кого впустил, за кого голосовал
+	var m4 := _rules_to_night(77, 1, Match.Event.NONE)
+	var ch4: Dictionary[int, int] = {}
+	var arr4: Dictionary[int, float] = {}
+	for v: Villager in m4.alive():
+		ch4[v.id] = 0
+		arr4[v.id] = 5.0
+	arr4[0] = 0.0
+	m4.seat_night(ch4, arr4)
+	var guest: Villager = m4.seats[0].queue[0]
+	var g_ids: Array[int] = [guest.id]
+	m4.admit(m4.seats[0], g_ids)
+	ok += _expect(fails, m4.player_admits.size() == 1 and m4.player_admits[0].who == guest, "не записано, кого впустил игрок")
+
+	# 3. Лента: разделы по ночам и дням, строки без приставки
+	var m3 := Match.new()
+	m3.start(c, 5)
+	m3.chronicle = PackedStringArray(["Ночь 1: в «Сарае» ночевали Рита и Нина — все целы.", "Утром: оберег у «Сарая» треснул.", "День 2: посёлок изгнал Тимура.", "Ночь 2: туман."])
+	var tl := Recap.timeline(m3)
+	ok += _expect(fails, tl.size() == 3 and tl[0].title == "Ночь 1" and (tl[0].lines as PackedStringArray).size() == 2 and tl[1].title == "День 2"
+		and String((tl[0].lines as PackedStringArray)[0]).begins_with("В «Сарае»"), "лента партии разбита неверно: %s" % [tl])
+
+	# 4. Экраны: утро с «почему ты погиб», финал с итогом, ролями и лентой
+	Save.set_difficulty("normal")
+	Nav.start_match()
+	await _settle(tree)
+	var m := Game.m
+	var r := NightReport.new()
+	r.p_out = 0.9
+	var e2 := r.add(NightReport.Kind.KILLED_STREET, m.player(), 0)
+	e2.host = m.alive_bots()[0]
+	m.player().alive = false
+	m.report = r
+	m.player_death = e2
+	Nav.show(MorningScreen.new())
+	await _settle(tree)
+	var mt := _all_text(Nav.host.current)
+	ok += _expect(fails, mt.contains("Почему ты погиб") and mt.contains(m.alive_bots()[0].name) and mt.contains("90%"), "утром не видно, почему ты погиб")
+	m.winner = Match.Team.UPYRI
+	m.chronicle.append("Ночь 1: проверка ленты.")
+	Nav.show(EndScreen.new())
+	await _settle(tree)
+	var et := _all_text(Nav.host.current)
+	var role_holder := m.role_holder(Match.Role.ELDER)
+	ok += _expect(fails, et.contains("Что решило партию") and et.contains("Ты погиб в ночь"), "на финале нет итога партии")
+	ok += _expect(fails, role_holder == null or et.contains("%s — человек, старожил" % role_holder.name), "на финале не видно ролей")
+	ok += _expect(fails, et.contains("Ночь 1") and et.contains("Проверка ленты."), "на финале нет ленты по ночам")
+	Nav.show_menu()
+	await _settle(tree)
+	_finish(fails, ok, "разбор партии", "почему ты погиб, что решило партию, кто кем был и как всё шло по ночам")

@@ -27,12 +27,16 @@ class Entry:
 	var others: Array[Villager] = []
 	var voice: Villager = null      ## Подражатель: чьим голосом стучал
 	var cause: String = ""          ## SAVED: "upyr", "creature" или "mimic"
+	var killer: Villager = null     ## KILLED_INSIDE: кто из упырей убил
+	var host: Villager = null       ## кто был хозяином двери этого дома
 
 	func is_death() -> bool:
 		return kind == Kind.KILLED_STREET or kind == Kind.KILLED_INSIDE or kind == Kind.KILLED_ALONE \
 			or kind == Kind.KILLED_CREATURE or kind == Kind.KILLED_MIMIC
 
 var entries: Array[Entry] = []
+var p_out: float = 0.0              ## шанс погибнуть на улице этой ночью
+var p_alone: Dictionary = {}        ## дом -> шанс погибнуть одному в нём этой ночью
 
 
 func add(kind: Kind, who: Villager, house: int = -1, others: Array[Villager] = []) -> Entry:
