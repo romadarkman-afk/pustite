@@ -3,10 +3,12 @@ extends Resource
 ## Внешность жителя. Всё рисуется кодом из этих цветов и формы головы.
 
 enum Head { BARE, CAP, SCARF, HAT, HOOD }
-enum Hair { SHORT, BANGS, PONYTAIL, CURLY, BALD, BOB, BUN, SPIKY, LONG }
+enum Hair { SHORT, BANGS, PONYTAIL, CURLY, BALD, BOB, BUN, SPIKY, LONG, BRAIDS, PIGTAILS }
 enum Beard { NONE, STUBBLE, MUSTACHE, FULL }
 enum Brows { THIN, THICK, STERN }
 enum Nose { BUTTON, LONG, ROUND }
+enum Outfit { COAT, DRESS, SWEATER, JACKET }
+enum Bow { NONE, BOW, CLIP, FLOWER }
 
 @export var who: String = ""
 @export var coat: Color = Color("3a4650")
@@ -25,3 +27,8 @@ enum Nose { BUTTON, LONG, ROUND }
 @export var freckles: bool = false
 @export var scar: bool = false
 @export_range(0, 2) var age: int = 1           ## 0 — молодой, 1 — взрослый, 2 — старый (седина, морщины)
+## Пол и одежда: девушку видно по силуэту — платье, косы, ресницы.
+@export var female: bool = false
+@export var outfit: Outfit = Outfit.COAT
+@export var bow: Bow = Bow.NONE
+@export var earrings: bool = false

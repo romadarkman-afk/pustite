@@ -330,9 +330,10 @@ func send_to_job(vid: int, ji: int) -> void:
 	var spot := job_spot(ji, vid)
 	at_job[vid] = ji
 	f.set_working(false)
+	var t := VillagerFigure.tool_for(day_jobs[ji].kind) if ji >= 0 and ji < day_jobs.size() else ""
 	f.arrived.connect(func() -> void:
 		if at_job.get(vid, -1) == ji and f.position.distance_to(spot) < 2.0:
-			f.set_working(true), CONNECT_ONE_SHOT)
+			f.set_working(true, t), CONNECT_ONE_SHOT)
 	f.walk_to(spot)
 
 
@@ -351,6 +352,16 @@ func stop_all_work() -> void:
 	at_job.clear()
 	for f: VillagerFigure in figures.values():
 		f.set_working(false)
+
+
+## Все, кто рядом, поворачиваются к точке x: к говорящему, к обвинённому, к изгнанному.
+func turn_to(x: float, except: Array[int] = [], radius: float = 320.0, seconds: float = 2.5) -> void:
+	for vid: int in figures:
+		var f: VillagerFigure = figures[vid]
+		if except.has(vid) or f.state == VillagerFigure.State.DEAD or f.state == VillagerFigure.State.GONE:
+			continue
+		if absf(f.position.x - x) <= radius:
+			f.look_at_x(x, seconds)
 
 
 func set_night(n: float) -> void:
@@ -477,6 +488,11 @@ func sync(m: Match, phase: Match.Phase) -> void:
 	# живой игрок: бег начнётся по колоколу (Nav вызовет arrange_run). Без игрока — все к своим домам.
 	if phase == Match.Phase.NIGHT and not m.player().alive:
 		arrange_night(m, -1)
+	# ночью у двери все ёжатся от холода, днём отпускает
+	var cold := phase == Match.Phase.NIGHT or phase == Match.Phase.DOOR
+	for v: Villager in m.villagers:
+		if figures.has(v.id):
+			figures[v.id].set_cold(cold and v.alive)
 	if phase == Match.Phase.MORNING:
 		for v: Villager in m.villagers:
 			if v.alive and figures.has(v.id):

@@ -1,8 +1,9 @@
 class_name VillagerFigure
 extends Node2D
-## Житель на площади. Тело рисуется кодом в отдельном узле — его сжимает и растягивает
-## анимация, а имя под ногами остаётся ровным. Дыхание и подпрыгивания — через трансформ,
-## без перерисовки: перерисовка только при смене состояния и на моргании.
+## Житель на площади. Тело рисует Folk в отдельном узле — его сжимает и растягивает
+## анимация, а имя под ногами остаётся ровным. Дыхание, дрожь и подпрыгивания — через трансформ,
+## без перерисовки. Перерисовка — при смене лица, моргании, повороте головы, а на бегу
+## и за работой — каждый кадр: там двигаются ноги, руки и инструмент.
 
 signal arrived
 
@@ -27,8 +28,8 @@ var pact: bool = false
 var _eye_pop: float = 0.0
 var highlight: bool = false        ## метка «Вы»: стрелка над головой и кольцо под ногами
 
-const MARK_X := 30.0       ## колонка отметок справа от головы
-const S := 0.55            ## масштаб рисунка жителя относительно стиль-кадра
+const MARK_X := 33.0       ## колонка отметок справа от головы
+const S := 0.62            ## масштаб рисунка жителя (Folk) в единицах посёлка
 const FIG_TOP := 88.0      ## высота жителя с шапкой, логических единиц
 
 var emotion: String = ""   ## временная эмоция: angry, shocked, happy, suspicious
@@ -39,6 +40,13 @@ var _talk_t: float = 0.0
 var _point_dir: float = 0.0
 var _last_face: String = ""
 var working := false        ## занят делом: работает в охотку
+var tool: String = ""       ## чем работает: bucket, axe, oar, can, chalk
+var cold := false           ## ночью у двери: ёжится и дрожит
+var turn: float = 0.0       ## куда повёрнута голова: −1 влево … 1 вправо (к тому, кто говорит)
+var _walk: float = 0.0
+var _work: float = 0.0
+var _anim_acc: float = 0.0
+var _turn_t: float = 0.0
 
 const WALK_SPEED := 190.0   ## единиц посёлка в секунду
 
@@ -91,18 +99,40 @@ func talk(seconds: float) -> void:
 
 func current_face() -> String:
 	if state == State.SCARED:
-		return "shocked"
+		return "scared"
 	if _emotion_t > 0.0 and emotion != "":
 		return emotion
 	if _talk_t > 0.0:
-		return "talk" if fmod(_t * 6.0, 1.0) < 0.5 else "normal"
-	if working:
-		return "happy"
+		return "talk" if fmod(_t * 6.0, 1.0) < 0.5 else "neutral"
 	if _eyes_closed:
 		return "blink"
-	if night > 0.6:
-		return "worried"
-	return "normal"
+	if working:
+		return "relieved" if fmod(_t * 0.5 + _phase, 2.0) < 0.4 else "neutral"
+	if cold:
+		return "cold"
+	return "neutral"
+
+
+## Повернуть голову к точке на поле (x в координатах посёлка) на seconds секунд.
+## Дальше 160 единиц — до упора.
+func look_at_x(x: float, seconds: float = 2.5) -> void:
+	var t := clampf((x - position.x) / 160.0, -1.0, 1.0) * 0.8
+	_turn_t = seconds
+	if absf(t - turn) > 0.05:
+		turn = t
+		body.queue_redraw()
+
+
+func look_ahead() -> void:
+	if turn != 0.0:
+		turn = 0.0
+		body.queue_redraw()
+
+
+func set_cold(on: bool) -> void:
+	if cold != on:
+		cold = on
+		body.queue_redraw()
 
 
 const LABEL_SIZE := 14
@@ -125,7 +155,7 @@ func label_rect_local() -> Rect2:
 func body_rect_local() -> Rect2:
 	var h := look.height if look != null else 1.0
 	var extra := 26.0 if highlight else 0.0
-	return Rect2(-17, -FIG_TOP * h - extra, 17 + MARK_X + 12, FIG_TOP * h + 2 + extra)
+	return Rect2(-23, -FIG_TOP * h - extra, 23 + MARK_X + 12, FIG_TOP * h + 2 + extra)
 
 
 func set_highlight(on: bool) -> void:
@@ -228,10 +258,24 @@ func walk_to(target: Vector2) -> void:
 	run_to(target, clampf(position.distance_to(target) / WALK_SPEED, 0.25, 4.0))
 
 
-func set_working(on: bool) -> void:
-	if working != on:
+## Встал к делу или отошёл. t — инструмент по виду дела.
+func set_working(on: bool, t: String = "") -> void:
+	if working != on or (on and t != tool):
 		working = on
+		tool = t if on else ""
+		_work = 0.0
 		body.queue_redraw()
+
+
+## Инструмент для вида дела.
+static func tool_for(kind: JobDef.Kind) -> String:
+	match kind:
+		JobDef.Kind.WATER: return "bucket"
+		JobDef.Kind.WOOD: return "axe"
+		JobDef.Kind.LAMP: return "can"
+		JobDef.Kind.FISH: return "oar"
+		JobDef.Kind.TALISMAN: return "chalk"
+	return ""
 
 
 func scare(seconds: float = 1.2) -> void:
@@ -299,29 +343,44 @@ func _process(delta: float) -> void:
 			_point_dir = 0.0
 	if _talk_t > 0.0:
 		_talk_t -= delta
+	if _turn_t > 0.0:
+		_turn_t -= delta
+		if _turn_t <= 0.0:
+			look_ahead()
 	var f := current_face()
 	if f != _last_face:
 		_last_face = f
 		body.queue_redraw()
 	match state:
 		State.IDLE:
-			if working:
-				var w := sin(_t * 9.0 + _phase)
-				body.scale = Vector2(_face * (1.0 - 0.06 * w), 1.0 + 0.08 * w)
-				body.position.y = -absf(w) * 2.0
-				return
-			body.position.y = 0.0
-			var s := sin(_t * 1.7 + _phase)
-			body.scale = Vector2(_face * (1.0 - 0.02 * s), 1.0 + 0.03 * s)
 			_blink_in -= delta
 			if _blink_in <= 0.0:
 				_eyes_closed = not _eyes_closed
 				_blink_in = 0.12 if _eyes_closed else 2.2 + fmod(_t * 0.37 + _phase, 2.5)
 				body.queue_redraw()
+			if working:
+				# работа: руки с инструментом ходят — перерисовка ~20 раз в секунду
+				_work = fmod(_work + delta * 0.9, 1.0)
+				_anim_step(delta)
+				body.scale = Vector2(_face, 1.0)
+				body.position = Vector2.ZERO
+				return
+			var s := sin(_t * 1.7 + _phase)
+			body.scale = Vector2(_face * (1.0 - 0.015 * s), 1.0 + 0.025 * s)   # дыхание
+			body.position = Vector2(sin(_t * 38.0 + _phase) * 0.9 if cold else 0.0, 0.0)   # дрожь на холоде
 		State.RUN:
-			body.position.y = -absf(sin(_t * 15.0)) * 3.5
+			_walk = fmod(_walk + delta * 2.6, 1.0)
+			_anim_step(delta)
 		State.SCARED:
 			body.position.x = sin(_t * 46.0) * 1.5
+
+
+## Ноги и руки двигаются только на бегу и за работой: перерисовка не чаще 24 раз в секунду.
+func _anim_step(delta: float) -> void:
+	_anim_acc += delta
+	if _anim_acc >= 1.0 / 24.0:
+		_anim_acc = 0.0
+		body.queue_redraw()
 
 
 # =============================================================
@@ -436,10 +495,22 @@ func _bright(c: Color) -> Color:
 
 
 func _draw_body() -> void:
-	var h := look.height if look != null else 1.0
 	var f := current_face()
-	var pointing := f == "angry" and _point_dir != 0.0
-	Art.villager(body, S * h, _pal(), f, {"lantern": is_player, "point": pointing, "dir": 1.0})
+	var pose := {"lantern": is_player, "turn": turn * _face, "look": Vector2(turn * _face, 0.0),
+		"emote": state == State.SCARED or (_emotion_t > 0.0 and emotion != "" and emotion != "sly")}
+	if f == "angry" and _point_dir != 0.0:
+		pose["point"] = true
+		pose["dir"] = 1.0
+	if state == State.RUN:
+		pose["walk"] = _walk
+		pose["amp"] = 1.0
+	if working and tool != "":
+		pose["tool"] = tool
+		pose["work"] = _work
+		pose["hop"] = 0.0
+	if cold and f == "cold":
+		pose["shiver"] = true
+	Folk.figure(body, Vector2.ZERO, S, look, f, pose, Folk.palette(look))
 
 
 func _ellipse(c: Vector2, r: Vector2, seg: int = 18) -> PackedVector2Array:

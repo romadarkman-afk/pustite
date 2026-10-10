@@ -99,6 +99,7 @@ func _ready() -> void:
 		if host.current != null:
 			host.current.on_clock_expired())
 	Game.vote_resolved.connect(func(tally: Dictionary, exiled: Villager) -> void:
+		_exile_fx(exiled)
 		if host.current is VoteScreen:
 			var t: Dictionary[int, int] = {}
 			t.assign(tally)
@@ -317,6 +318,48 @@ func _accuse_fx(who: Villager, target: Villager) -> void:
 	var t: VillagerFigure = cr.figures[target.id]
 	a.set_emotion("angry", 2.6, signf(t.position.x - a.position.x) if t.position.x != a.position.x else 1.0)
 	t.set_emotion("shocked", 2.6)
+	# толпа поворачивается к обвинённому; кто-то щурится с подозрением
+	cr.turn_to(t.position.x, [who.id, target.id] as Array[int], 400.0, 3.0)
+	for vid: int in cr.figures:
+		if vid == who.id or vid == target.id or vid == 0:
+			continue
+		if randf() < 0.45:
+			(cr.figures[vid] as VillagerFigure).set_emotion("suspicious", 2.2)
+
+
+## Изгнание: изгнанный пугается, остальные смотрят на него, кто-то растерян.
+func _exile_fx(exiled: Villager) -> void:
+	if exiled == null or not village.crowd.figures.has(exiled.id):
+		return
+	var cr := village.crowd
+	var f: VillagerFigure = cr.figures[exiled.id]
+	f.set_emotion("scared", 2.5)
+	cr.turn_to(f.position.x, [exiled.id] as Array[int], 600.0, 3.0)
+	for vid: int in cr.figures:
+		if vid != exiled.id and randf() < 0.4:
+			(cr.figures[vid] as VillagerFigure).set_emotion("confused" if randf() < 0.5 else "sad", 2.0)
+
+
+## Упырь иногда выдаёт себя: на долю секунды жуткая ухмылка. Только днём и редко.
+var _sly_in := 30.0
+
+
+func _sly_step(delta: float) -> void:
+	if Game.m == null or Game.m.phase != Match.Phase.DAY or Game.held():
+		return
+	_sly_in -= delta
+	if _sly_in > 0.0:
+		return
+	_sly_in = randf_range(22.0, 40.0)
+	var ups: Array[Villager] = []
+	for v: Villager in Game.m.alive_bots():
+		if v.is_upyr and village.crowd.figures.has(v.id):
+			ups.append(v)
+	if ups.is_empty():
+		return
+	var u: Villager = ups[randi() % ups.size()]
+	(village.crowd.figures[u.id] as VillagerFigure).set_emotion("sly", 0.45)
+	Diag.step("ухмылка: %s" % u.name)
 
 
 func _on_chat(line: ChatLine) -> void:
@@ -324,6 +367,7 @@ func _on_chat(line: ChatLine) -> void:
 		(host.current as DayScreen).append_line(line)
 		if line.speaker != null and village.crowd.figures.has(line.speaker.id):
 			var f: VillagerFigure = village.crowd.figures[line.speaker.id]
+			village.crowd.turn_to(f.position.x, [line.speaker.id] as Array[int], 260.0, 2.2)
 			var b := bubbles.say(Ru.nom(line.speaker), line.text, f.head_global(), line.speaker.is_player, f)
 			f.talk(b.life if b != null else 2.5)
 			Sfx.voice(line.speaker.id, line.speaker.female, line.text.length())
@@ -515,6 +559,8 @@ func _on_job_started(vid: int, ji: int) -> void:
 
 
 func _on_job_finished(vid: int, ji: int, counted: bool, real: bool) -> void:
+	if counted and village.crowd.figures.has(vid):
+		(village.crowd.figures[vid] as VillagerFigure).set_emotion("happy", 1.4)
 	# ящик и испорченное дело показывают свою всплывашку сами
 	if ji != _spoiled_ji and Game.m.jobs[ji].kind != JobDef.Kind.BOX:
 		var kind := "done" if counted else ("fail" if not real else "none")
@@ -532,7 +578,8 @@ func _on_job_finished(vid: int, ji: int, counted: bool, real: bool) -> void:
 func _on_player_job() -> void:
 	var cr := village.crowd
 	if cr.figures.has(0):
-		(cr.figures[0] as VillagerFigure).set_working(Game.player_job >= 0)
+		var tl := VillagerFigure.tool_for(Game.m.jobs[Game.player_job].kind) if Game.player_job >= 0 else ""
+		(cr.figures[0] as VillagerFigure).set_working(Game.player_job >= 0, tl)
 	village.jobs_layer.set_progress(Game.player_job, Game.player_job_progress())
 
 
@@ -582,7 +629,8 @@ func _on_supplies() -> void:
 		(host.current as DayScreen).update_supplies()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_sly_step(delta)
 	if Game.player_job >= 0 and village != null and village.jobs_layer.visible:
 		village.jobs_layer.set_progress(Game.player_job, Game.player_job_progress())
 

@@ -1332,6 +1332,10 @@ static func marks() -> void:
 	# тап по жителю → шторка про него → обвинить → глаз изменился, ответил
 	var bots := Game.m.alive_bots()
 	var target: Villager = bots[0]
+	Game.director.public_susp[target.id] = 0.0   # старожил мог обелить его утром — начинаем с нуля
+	Game.director.public_susp[0] = 0.0           # а если старожил назвал тебя, твоим словам не верят
+	Game.marks_changed.emit()
+	await _frames(tree, 1)
 	var before: int = cr.figures[target.id].eye_level
 	Nav.handle_intent(Intent.FIELD_TAP, {"pos": cr.figures[target.id].hit_rect_global().get_center()}, day)
 	await _frames(tree, 2)
@@ -1357,6 +1361,7 @@ static func marks() -> void:
 	ok += _expect(fails, replied, "обвинённый %s не ответил" % target.name)
 
 	# позвать с собой — кто-нибудь согласится; кольцо уговора; ночью вместе к одной двери
+	Game.director.public_susp[0] = 0.0      # старожил мог назвать тебя упырём — тогда не согласится никто
 	var partner: Villager = null
 	for b: Villager in bots:
 		if b == target:
@@ -4286,3 +4291,151 @@ static func recap() -> void:
 	Nav.show_menu()
 	await _settle(tree)
 	_finish(fails, ok, "разбор партии", "почему ты погиб, что решило партию, кто кем был и как всё шло по ночам")
+
+
+
+# =============================================================
+# Новые жители (Task 35–37): Folk — пол, приметы, эмоции всем телом, анимация, реакции толпы.
+# =============================================================
+static func folk() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+	var book := load("res://config/looks.tres") as LookBook
+
+	# 1. Внешности: девушки — с женскими приметами, у каждого свой набор примет
+	var sig: Dictionary = {}
+	var fem_ok := true
+	for l: LookDef in book.looks:
+		var f := Match.FEMALE.has(l.who)
+		if f != l.female:
+			fem_ok = false
+		if f and not (l.outfit == LookDef.Outfit.DRESS and (l.bow != LookDef.Bow.NONE or l.earrings or l.hair_style in [LookDef.Hair.LONG, LookDef.Hair.BRAIDS, LookDef.Hair.PIGTAILS, LookDef.Hair.PONYTAIL, LookDef.Hair.BUN, LookDef.Hair.BOB, LookDef.Hair.CURLY])):
+			fem_ok = false
+		var key := "%d-%d-%d-%d-%d-%s-%s-%s" % [l.hair_style, l.head, l.beard, l.outfit, l.age, l.glasses, l.freckles, l.scar]
+		sig[key] = sig.get(key, 0) + 1
+	ok += _expect(fails, fem_ok, "у девушек нет женских примет (платье, причёска, украшения) или пол перепутан")
+	ok += _expect(fails, sig.size() == book.looks.size(), "двое жителей выглядят одинаково: %d наборов примет на %d жителей" % [sig.size(), book.looks.size()])
+
+	# 2. Эмоции: каждое лицо рисуется, у сильных эмоций своя поза тела
+	var probe := Node2D.new()
+	tree.root.add_child(probe)
+	var drawn := [0]          # лямбда захватывает копию числа — счётчик в массиве
+	probe.draw.connect(func() -> void:
+		for f2: String in Folk.FACES:
+			Folk.figure(probe, Vector2(100, 200), 0.6, book.looks[0], f2, {})
+			drawn[0] += 1)
+	probe.queue_redraw()
+	await _frames(tree, 3)
+	probe.queue_free()
+	ok += _expect(fails, drawn[0] >= Folk.FACES.size(), "не все эмоции нарисовались (%d из %d)" % [drawn[0], Folk.FACES.size()])
+	var poses := {}
+	for f3: String in ["scared", "angry", "happy", "sad", "cold", "shocked"]:
+		poses[str(Folk.emotion_pose(f3))] = true
+	ok += _expect(fails, poses.size() == 6, "у сильных эмоций одинаковые позы тела")
+
+	# 3. Анимация: на бегу ноги идут каждый кадр, в покое — почти без перерисовки
+	Save.set_difficulty("normal")
+	Nav.start_match()
+	await _settle(tree)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	var m := Game.m
+	var cr := Nav.village.crowd
+	var bot: Villager = m.alive_bots()[0]
+	var f4: VillagerFigure = cr.figures[bot.id]
+	var draws := [0]
+	f4.body.draw.connect(func() -> void: draws[0] += 1)
+	Game.hold(&"test")            # реплики ботов стоят: говорящий шевелит ртом — это честная перерисовка
+	f4._talk_t = 0.0
+	f4._emotion_t = 0.0
+	f4._blink_in = 5.0
+	Juice.instant = false
+	await tree.create_timer(0.6).timeout
+	var idle_draws: int = draws[0]
+	draws[0] = 0
+	var walk0 := f4._walk
+	f4.walk_to(f4.position + Vector2(160, 0))
+	await tree.create_timer(0.6).timeout
+	var run_draws: int = draws[0]
+	ok += _expect(fails, run_draws >= 8 and f4._walk != walk0, "на бегу ноги не двигаются (перерисовок %d)" % run_draws)
+	ok += _expect(fails, idle_draws <= 3, "в покое житель перерисовывается слишком часто (%d за 0,6 с)" % idle_draws)
+	await tree.create_timer(1.0).timeout
+	Juice.instant = true
+	Game.release(&"test")
+
+	# 4. Работа с инструментом по виду дела
+	var wj := m.job_index(&"water")
+	cr.send_to_job(bot.id, wj)
+	await _frames(tree, 3)
+	ok += _expect(fails, f4.working and f4.tool == "bucket", "у колодца житель работает без ведра (инструмент «%s»)" % f4.tool)
+	cr.leave_job(bot.id)
+	await _frames(tree, 2)
+
+	# 5. Голова к говорящему, толпа — к обвинённому
+	var speaker: Villager = m.alive_bots()[1]
+	var sf: VillagerFigure = cr.figures[speaker.id]
+	m.post(ChatLine.say(speaker, "Слушайте все."))
+	await _frames(tree, 2)
+	var turned := 0
+	var right_way := true
+	for v: Villager in m.alive():
+		if v == speaker:
+			continue
+		var fv: VillagerFigure = cr.figures[v.id]
+		if absf(fv.position.x - sf.position.x) <= 260.0 and absf(fv.position.x - sf.position.x) > 10.0:
+			if fv.turn != 0.0:
+				turned += 1
+				if signf(fv.turn) != signf(sf.position.x - fv.position.x):
+					right_way = false
+	ok += _expect(fails, turned >= 2 and right_way, "жители не поворачиваются к говорящему (повернулись %d)" % turned)
+	var target: Villager = m.alive_bots()[2]
+	Nav._accuse_fx(m.player(), target)
+	await _frames(tree, 2)
+	var sus := 0
+	for v: Villager in m.alive_bots():
+		if v != target and (cr.figures[v.id] as VillagerFigure).emotion == "suspicious":
+			sus += 1
+	ok += _expect(fails, (cr.figures[target.id] as VillagerFigure).emotion == "shocked", "обвинённый не испугался")
+	print("на обвинение прищурились: %d" % sus)
+
+	# 6. Изгнание: изгнанный в страхе, толпа смотрит на него
+	Nav._exile_fx(target)
+	await _frames(tree, 2)
+	ok += _expect(fails, (cr.figures[target.id] as VillagerFigure).emotion == "scared", "изгнанный не испугался")
+
+	# 7. Ухмылка упыря: только у упырей
+	var sly_ok := true
+	var sly_n := 0
+	for k in range(30):
+		for v: Villager in m.alive_bots():
+			(cr.figures[v.id] as VillagerFigure).emotion = ""
+		Nav._sly_in = 0.0
+		Nav._sly_step(0.016)
+		for v: Villager in m.alive_bots():
+			if (cr.figures[v.id] as VillagerFigure).emotion == "sly":
+				sly_n += 1
+				if not v.is_upyr:
+					sly_ok = false
+	ok += _expect(fails, sly_ok and sly_n > 0, "ухмылка мелькает не у упыря или не мелькает совсем (%d)" % sly_n)
+
+	# 8. Ночь: у двери все ёжатся, днём — нет
+	Save.mark_hint("night")
+	Game.end_day()
+	await _settle(tree)
+	if m.phase == Match.Phase.VOTE:
+		Game.vote(-1)
+		await _settle(tree)
+		Game.proceed()
+		await _settle(tree)
+	var cold_all := true
+	for v: Villager in m.alive():
+		if not (cr.figures[v.id] as VillagerFigure).cold:
+			cold_all = false
+	ok += _expect(fails, cold_all, "ночью жители не ёжатся от холода")
+	Nav.show_menu()
+	await _settle(tree)
+	_finish(fails, ok, "новые жители", "девушки отличаются, у каждого свои приметы, эмоции всем телом, ноги идут, толпа реагирует")

@@ -21,6 +21,10 @@ glasses = false
 freckles = false
 scar = false
 age = 1
+female = true
+outfit = 1
+bow = 3
+earrings = true
 
 [sub_resource type="Resource" id="look_1"]
 script = ExtResource("2_look")
@@ -40,6 +44,10 @@ glasses = true
 freckles = false
 scar = false
 age = 2
+female = true
+outfit = 1
+bow = 0
+earrings = true
 
 [sub_resource type="Resource" id="look_2"]
 script = ExtResource("2_look")
@@ -59,6 +67,10 @@ glasses = false
 freckles = false
 scar = false
 age = 0
+female = true
+outfit = 1
+bow = 1
+earrings = false
 
 [sub_resource type="Resource" id="look_3"]
 script = ExtResource("2_look")
@@ -69,7 +81,7 @@ skin = Color(0.8314, 0.6902, 0.6039, 1)
 hair = Color(0.6588, 0.2706, 0.1647, 1)
 head = 0
 height = 0.94
-hair_style = 1
+hair_style = 9
 beard = 0
 brows = 0
 nose = 0
@@ -78,6 +90,10 @@ glasses = false
 freckles = true
 scar = false
 age = 0
+female = true
+outfit = 1
+bow = 1
+earrings = false
 
 [sub_resource type="Resource" id="look_4"]
 script = ExtResource("2_look")
@@ -97,6 +113,10 @@ glasses = false
 freckles = false
 scar = false
 age = 1
+female = true
+outfit = 1
+bow = 0
+earrings = true
 
 [sub_resource type="Resource" id="look_5"]
 script = ExtResource("2_look")
@@ -116,6 +136,10 @@ glasses = false
 freckles = false
 scar = false
 age = 2
+female = true
+outfit = 1
+bow = 0
+earrings = true
 
 [sub_resource type="Resource" id="look_6"]
 script = ExtResource("2_look")
@@ -135,6 +159,10 @@ glasses = false
 freckles = false
 scar = false
 age = 1
+female = false
+outfit = 3
+bow = 0
+earrings = false
 
 [sub_resource type="Resource" id="look_7"]
 script = ExtResource("2_look")
@@ -154,6 +182,10 @@ glasses = false
 freckles = true
 scar = false
 age = 0
+female = false
+outfit = 2
+bow = 0
+earrings = false
 
 [sub_resource type="Resource" id="look_8"]
 script = ExtResource("2_look")
@@ -173,6 +205,10 @@ glasses = false
 freckles = false
 scar = false
 age = 2
+female = false
+outfit = 0
+bow = 0
+earrings = false
 
 [sub_resource type="Resource" id="look_9"]
 script = ExtResource("2_look")
@@ -192,6 +228,10 @@ glasses = false
 freckles = false
 scar = true
 age = 1
+female = false
+outfit = 3
+bow = 0
+earrings = false
 
 [sub_resource type="Resource" id="look_10"]
 script = ExtResource("2_look")
@@ -211,6 +251,10 @@ glasses = true
 freckles = false
 scar = false
 age = 1
+female = false
+outfit = 0
+bow = 0
+earrings = false
 
 [sub_resource type="Resource" id="look_11"]
 script = ExtResource("2_look")
@@ -230,6 +274,10 @@ glasses = false
 freckles = false
 scar = false
 age = 1
+female = false
+outfit = 2
+bow = 0
+earrings = false
 
 [sub_resource type="Resource" id="look_99"]
 script = ExtResource("2_look")
@@ -249,6 +297,10 @@ glasses = false
 freckles = false
 scar = false
 age = 1
+female = false
+outfit = 0
+bow = 0
+earrings = false
 
 [resource]
 script = ExtResource("1_book")
