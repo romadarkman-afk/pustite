@@ -99,6 +99,7 @@ const FOG_DEATH := 0.1          ## туман: настолько опаснее
 const QUIET_SAFE := 0.25        ## тихая ночь: настолько безопаснее улица
 var night_event: Event = Event.NONE
 var force_event: int = -1       ## самотесты: следующее событие ночи будет этим (со второй ночи)
+var rule: String = ""           ## испытание дня (Challenge.RULES) или "" — обычная партия. Ставится до start()
 
 ## Знахарка: кто из знахарок взял травы этой ночью.
 var healer_on: Dictionary[int, bool] = {}
@@ -814,6 +815,8 @@ func _deal_roles() -> void:
 			hums.append(v)
 	_shuffle(hums)
 	var roles := [Role.ELDER, Role.HEALER, Role.HEADMAN]
+	if rule == "no_elder":
+		roles.erase(Role.ELDER)
 	for k in range(mini(roles.size(), hums.size() - 1)):
 		(hums[k] as Villager).role = roles[k]
 
@@ -980,9 +983,12 @@ func _set_phase(p: Phase) -> void:
 
 func _roll_event() -> void:
 	night_event = Event.NONE
-	if day < 2:
+	var always := Challenge.night_event(rule)
+	if always != Event.NONE:
+		night_event = always            # испытание дня: одно событие все ночи, с первой
+	elif day < 2:
 		return
-	if force_event >= 0:
+	elif force_event >= 0:
 		night_event = force_event as Event
 	elif rng.randf() < EVENT_P:
 		night_event = (rng.randi_range(1, Event.size() - 1)) as Event

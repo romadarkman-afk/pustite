@@ -41,6 +41,10 @@ const W_TUNNEL := 0.8      ## пролез туннелем в чужой дом
 const HEAL_P := 0.6        ## знахарка берёт травы, когда ночует не одна
 const MEETING_SUSP := 2.0  ## бот бьёт в колокол днём, если кого-то подозревают хотя бы так
 const MEETING_P := 0.6
+## Жесты игрока без слов: слабее сказанного вслух. Повтор того же жеста тому же жителю в тот же день ничего не добавляет.
+const GEST_POINT := 0.4       ## показал пальцем — молчаливое обвинение
+const GEST_DISTRUST := 0.25   ## «не верю»
+const GEST_TRUST := 0.6       ## «верю»: этот бот лучше думает об игроке и охотнее пустит его
 
 
 class JobTask:
@@ -61,6 +65,12 @@ var liar_last_night: Dictionary[int, int] = {}   ## id -> дом, о котор�
 var evidence: Dictionary = {}                    ## id -> {"street": n, "liar": n, "death": n} за всю партию
 var pending_lines: Array[ChatLine] = []          ## что скажут первым делом утром (старожил)
 var fake_elder_done := false
+var gestured: Dictionary = {}   ## «жест:id:день» — какие жесты уже засчитаны
+## Подстройка под игрока (задача 49): −1 — игрок проиграл несколько раз подряд, боты слабее;
+## +1 — игрок часто выигрывает, боты собраннее. Ступень сложности не меняется.
+## Слабее значит: против игрока-человека упыри врут неубедительно, люди-хозяева лучше верят игроку;
+## против игрока-упыря люди чаще ошибаются у двери и медленнее его подозревают.
+var tune := 0.0
 
 
 func attach(match_ref: Match) -> void:
@@ -105,10 +115,14 @@ func eye_level(vid: int) -> int:
 	return 4
 
 
+## Все виды улик-значков над жителем, по важности.
+const BADGES: PackedStringArray = ["death", "sabotage", "street", "liar", "tunnel", "fake"]
+
+
 func badges(vid: int) -> PackedStringArray:
 	var out := PackedStringArray()
 	var ev: Dictionary = evidence.get(vid, {})
-	for k: String in ["death", "sabotage", "street", "liar", "tunnel", "fake"]:
+	for k: String in BADGES:
 		if int(ev.get(k, 0)) > 0:
 			out.append(k)
 	return out
@@ -200,7 +214,7 @@ func after_job(vid: int, ji: int, counted: bool, real: bool) -> Array[ChatLine]:
 				if b.is_upyr and b != worker:
 					liars.append(b)
 			if not liars.is_empty():
-				out.append(_blame_fake(liars[rng.randi_range(0, liars.size() - 1)], worker, job))
+				out.append(_blame_fake(liars[rng.randi_range(0, liars.size() - 1)], worker, job, true))
 		return out
 	if real or worker.is_player:
 		return out
@@ -213,8 +227,10 @@ func after_job(vid: int, ji: int, counted: bool, real: bool) -> Array[ChatLine]:
 
 
 ## Сказать вслух «работал впустую» — честно или облыжно. Посёлок верит на слово.
-func _blame_fake(speaker: Villager, worker: Villager, job: JobDef) -> ChatLine:
-	_bump(worker.id, W_FAKE)
+func _blame_fake(speaker: Villager, worker: Villager, job: JobDef, lie: bool = false) -> ChatLine:
+	_bump(worker.id, lie_weight(W_FAKE) if lie else W_FAKE)
+	if lie:
+		_lie_exposed(speaker)
 	_note_evidence(worker.id, "fake")
 	if worker.is_player:
 		return _say(speaker, "JOB_FAKE_AT_PLAYER", worker, {"place": job.place})
@@ -318,7 +334,35 @@ func box_runner() -> Villager:
 
 
 func _bump(vid: int, w: float) -> void:
+	if vid == 0 and w > 0.0 and m.player().is_upyr:
+		w *= clampf(1.0 - 0.35 * give(), 0.5, 1.4)    # игрок-упырь: подозрение растёт медленнее при поддавках
 	public_susp[vid] = maxf(0.0, susp(vid) + w)
+
+
+## Насколько боты поддаются: +1 — сильно, 0 — как задумано, −1 — собраннее обычного.
+func give() -> float:
+	return clampf(-tune, -1.0, 1.0)
+
+
+## Вес лжи упыря: против игрока-человека при поддавках слабее, у собранных ботов — убедительнее.
+func lie_weight(w: float) -> float:
+	if m.player().is_upyr:
+		return w
+	return w * clampf(1.0 - 0.5 * give(), 0.3, 1.6)
+
+
+## Разброс в оценке гостей у двери у бота-человека: чем больше, тем чаще он впускает не того.
+func door_noise(host: Villager) -> float:
+	if host.is_upyr:
+		return 0.4
+	var k := 1.5 if m.player().is_upyr else -0.5
+	return 0.4 * clampf(1.0 + k * give(), 0.3, 2.5)
+
+
+## Соврал неубедительно: при поддавках на лгуна самого начинают коситься.
+func _lie_exposed(liar: Villager) -> void:
+	if give() > 0.0 and not m.player().is_upyr:
+		_bump(liar.id, 0.3 * give())
 
 
 func _by_susp(list: Array[Villager], ascending: bool = true) -> Array[Villager]:
@@ -412,7 +456,8 @@ func _elder_day() -> void:
 			if not victims.is_empty():
 				fake_elder_done = true
 				var t2: Villager = victims[rng.randi_range(0, victims.size() - 1)]
-				_bump(t2.id, W_ELDER)
+				_bump(t2.id, lie_weight(W_ELDER))
+				_lie_exposed(liar)
 				m.claim(liar, t2, L.t("claim.elder_upyr", {"me": liar, "who": t2}), true)
 				pending_lines.append(_say(liar, "ELDER_UPYR", t2))
 
@@ -669,8 +714,10 @@ func host_decide(seat: Match.Seat, player_plea: String = "") -> Array[int]:
 			s += 3.0
 		if g.is_player:
 			s += _plea_weight(host, player_plea)
+			if not host.is_upyr:
+				s += 0.35 * give()          # при поддавках хозяин-человек охотнее верит игроку
 		else:
-			s += rng.randf_range(0.0, 0.4)
+			s += rng.randf_range(0.0, door_noise(host))
 		if host.is_upyr:
 			s += b.grudge.get(g.id, 0.0) * 0.5   # упырю обиды безразличны
 		scored.append([s, g.id])
@@ -707,6 +754,42 @@ func _plea_weight(host: Villager, plea: String) -> float:
 		"beg":
 			return 0.25
 	return 0.1
+
+
+## Жест игрока жителю t: подозрения посёлка, личное отношение t к игроку и ответ вслух.
+## Показал пальцем — один из соседей, кто тоже подозревает t, поддерживает; кто верит t — заступается.
+func gesture(kind: String, t: Villager) -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	var me := m.player()
+	var key := "%s:%d:%d" % [kind, t.id, m.day]
+	var fresh := not gestured.has(key)
+	gestured[key] = true
+	var b: BotBrain = brains.get(t.id)
+	match kind:
+		"point":
+			if fresh:
+				_bump(t.id, GEST_POINT)
+				if b != null:
+					b.grudge[me.id] = b.grudge.get(me.id, 0.0) + 0.5
+			out.append(_say(t, "GEST_POINTED"))
+			var others: Array[Villager] = []
+			for o: Villager in m.alive_bots():
+				if o != t:
+					others.append(o)
+			var side: Villager = others[rng.randi_range(0, others.size() - 1)] if not others.is_empty() else null
+			if side != null and rng.randf() < 0.6:
+				out.append(_say(side, "AGREE_ACCUSE" if view(side, t) >= 1.0 else "DISAGREE_ACCUSE", t))
+		"trust":
+			if fresh and b != null:
+				b.private_delta[me.id] = b.private_delta.get(me.id, 0.0) - GEST_TRUST
+			out.append(_say(t, "GEST_TRUSTED"))
+		"distrust":
+			if fresh:
+				_bump(t.id, GEST_DISTRUST)
+				if b != null:
+					b.grudge[me.id] = b.grudge.get(me.id, 0.0) + 0.3
+			out.append(_say(t, "GEST_DISTRUSTED"))
+	return out
 
 
 func after_door(seats: Array[Match.Seat]) -> void:

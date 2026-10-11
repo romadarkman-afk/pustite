@@ -146,8 +146,24 @@ func show_settings() -> void:
 	show(s)
 
 
+func show_wardrobe() -> void:
+	Game.abandon()
+	village.crowd.clear()
+	show(WardrobeScreen.new())
+
+
 func start_match() -> void:
 	Game.start(Save.config)
+
+
+## Испытание дня: одна попытка в сутки. Уже сыграно — сказать, когда следующее.
+func start_daily() -> bool:
+	var date := Challenge.today()
+	if Save.daily_last == date:
+		toast(L.t("daily.tomorrow"))
+		return false
+	Game.start(Challenge.config(Challenge.rule_for(date)), date)
+	return true
 
 
 func show_howto(then_play: bool) -> void:
@@ -300,6 +316,31 @@ func _react_to_accusation(line: ChatLine) -> void:
 		_accuse_fx(line.speaker, v)
 
 
+## Жест игрока на поле: ты показываешь пальцем, киваешь или качаешь головой; тот, кому жест, отвечает лицом.
+func _gesture_fx(kind: String, target: Villager) -> void:
+	var cr := village.crowd
+	if not cr.figures.has(0) or not cr.figures.has(target.id):
+		return
+	var me: VillagerFigure = cr.figures[0]
+	var t: VillagerFigure = cr.figures[target.id]
+	var dir := signf(t.position.x - me.position.x) if t.position.x != me.position.x else 1.0
+	me.look_at_x(t.position.x, 2.0)
+	t.look_at_x(me.position.x, 2.0)
+	match kind:
+		"point":
+			me.set_emotion("point", 1.8, dir)
+			t.set_emotion("shocked", 1.6)
+			t.recoil(dir, 1.0)
+			cr.turn_to(t.position.x, [0, target.id] as Array[int], 400.0, 2.5)
+		"trust":
+			me.set_emotion("happy", 1.2)
+			t.set_emotion("relieved", 1.6)
+		"distrust":
+			me.set_emotion("suspicious", 1.6)
+			t.set_emotion("sad", 1.4)
+	Sfx.play(&"tap")
+
+
 func _accuse_fx(who: Villager, target: Villager) -> void:
 	var cr := village.crowd
 	if not cr.figures.has(who.id) or not cr.figures.has(target.id):
@@ -308,6 +349,7 @@ func _accuse_fx(who: Villager, target: Villager) -> void:
 	var t: VillagerFigure = cr.figures[target.id]
 	a.set_emotion("angry", 2.6, signf(t.position.x - a.position.x) if t.position.x != a.position.x else 1.0)
 	t.set_emotion("shocked", 2.6)
+	t.recoil(signf(t.position.x - a.position.x) if t.position.x != a.position.x else 1.0)
 	# толпа поворачивается к обвинённому; кто-то щурится с подозрением
 	cr.turn_to(t.position.x, [who.id, target.id] as Array[int], 400.0, 3.0)
 	for vid: int in cr.figures:
@@ -401,6 +443,34 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			Save.set_difficulty(data.d)
 			if sender is MenuScreen:
 				(sender as MenuScreen).refresh(Save.difficulty, Save.config)
+		Intent.FIELD_HOLD:
+			if Game.m == null or not (sender is DayScreen) or Game.m.phase != Match.Phase.DAY or not Game.m.player().alive:
+				return
+			var hv := village.crowd.figure_at(data.pos)
+			var hold_v := Game.m.get_villager(hv) if hv >= 0 else null
+			if hold_v != null and hold_v.alive and not hold_v.is_player:
+				Juice.haptic(Juice.Haptic.TAP)
+				village.crowd.figures[hv].poke()
+				(sender as DayScreen).gesture_actions(hold_v)
+		Intent.GESTURE:
+			if Game.m != null and Game.m.phase == Match.Phase.DAY:
+				var gt := Game.m.get_villager(int(data.id))
+				if gt != null and gt.alive and not gt.is_player:
+					_gesture_fx(String(data.kind), gt)
+					Game.gesture(String(data.kind), gt.id)
+		Intent.DAILY:
+			start_daily()
+		Intent.OPEN_WARDROBE:
+			show_wardrobe()
+		Intent.WEAR:
+			if Save.wear(String(data.kind), String(data.id)) and sender is WardrobeScreen:
+				Sfx.play(&"tap")
+				(sender as WardrobeScreen).build()
+		Intent.SET_TEXT:
+			Save.set_text_size(int(data.size))
+			ui.theme = ThemeFactory.build()
+			if sender is SettingsScreen:
+				(sender as SettingsScreen).build()
 		Intent.SET_LANG:
 			Save.set_lang(String(data.code))
 			relocalize()
@@ -681,7 +751,7 @@ func _on_back() -> void:
 		var ss := s as SettingsScreen
 		_apply_settings({"cfg": ss.cfg, "haptics": ss.haptics, "reset_hints": ss.reset_hints, "difficulty": ss.difficulty})
 		show_menu()
-	elif s is EndScreen:
+	elif s is EndScreen or s is WardrobeScreen:
 		show_menu()
 	elif s is HowToScreen:
 		Save.mark_howto()

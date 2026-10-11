@@ -20,6 +20,8 @@ signal box_opened(vid: int, res: Dictionary)                       ## ящик �
 
 var m: Match
 var director: Director
+var daily: String = ""             ## дата испытания дня, если идёт оно; "" — обычная партия
+var new_items: PackedStringArray = []   ## что открылось за эту партию: «lantern:copper»
 var host_pleas: Dictionary[int, String] = {}
 var clock: PhaseClock
 var screen_kept_on: bool = false
@@ -64,11 +66,16 @@ func active() -> bool:
 	return m != null and m.phase != Match.Phase.OVER and m.phase != Match.Phase.IDLE
 
 
-func start(cfg: GameConfig) -> void:
+## daily — дата испытания дня ("" — обычная партия): правило и зерно берутся по ней.
+func start(cfg: GameConfig, daily_date: String = "") -> void:
 	abandon()
 	m = Match.new()
 	director = Director.new()
-	m.start(cfg)
+	daily = daily_date
+	if daily != "":
+		m.rule = Challenge.rule_for(daily)
+	m.start(cfg, Challenge.seed_for(daily) if daily != "" else 0)
+	director.tune = 0.0 if daily != "" else Save.tune()   # испытание дня у всех одинаковое
 	director.attach(m)
 	_keep_screen(true)
 	m.phase_changed.connect(_on_phase)
@@ -343,7 +350,15 @@ func _on_phase(p: Match.Phase) -> void:
 		Match.Phase.OVER:
 			_keep_screen(false)
 			var you := m.player()
-			Save.record_result((m.winner == Match.Team.PEOPLE) != you.is_upyr, you.is_upyr)
+			var won := (m.winner == Match.Team.PEOPLE) != you.is_upyr
+			var before := Cosmetics.open_ids()
+			Save.record_result(won, you.is_upyr, daily == "")
+			if daily != "":
+				Save.record_daily(daily, won)
+			new_items.clear()
+			for id: String in Cosmetics.open_ids():
+				if not before.has(id):
+					new_items.append(id)
 			phase_entered.emit(p)
 		_:
 			phase_entered.emit(p)
@@ -422,6 +437,17 @@ func invite(vid: int, house: int) -> void:
 func ask(vid: int) -> void:
 	var t := m.get_villager(vid)
 	_player_says(L.t("say.ask", {"who": t}), _intent(IntentParser.Kind.ASK, t))
+
+
+## Жест без слов: в журнал — строкой о том, что ты сделал; боты отвечают и запоминают.
+func gesture(kind: String, vid: int) -> void:
+	var t := m.get_villager(vid)
+	if t == null or not t.alive or t.is_player or m.phase != Match.Phase.DAY:
+		return
+	m.post(ChatLine.system(L.t("gest.log_" + kind, {"who": t})))
+	var replies := director.gesture(kind, t)
+	marks_changed.emit()
+	_feed(replies)
 
 
 func defend() -> void:

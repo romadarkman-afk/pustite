@@ -7,7 +7,7 @@ func screen_id() -> String:
 
 
 func field_ratio() -> float:
-	return 0.4
+	return 0.38 / ThemeFactory.text_scale     # крупный текст: посёлок ниже, кнопки видны без прокрутки
 
 
 func mood() -> Vector2:
@@ -29,33 +29,42 @@ func build() -> void:
 		&"Tale"))
 	body.add_child(W.gap(6))
 	body.add_child(W.label(L.t("menu.hint"), &"Hint"))
-	var row0 := W.hbox(8)
-	var how := W.button(L.t("menu.howto"), &"Row")
-	how.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	how.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-	how.pressed.connect(func() -> void: emit_intent(Intent.OPEN_HOWTO))
-	row0.add_child(how)
-	row0.add_child(lang_button(self))
-	body.add_child(row0)
-
-	var start := W.button(L.t("menu.play"))
-	start.pressed.connect(func() -> void: emit_intent(Intent.START))
-	footer.add_child(start)
-	var row := W.hbox(8)
+	var dbs: Array[Button] = []
+	var custom_b: Button = null
 	for d: String in ["easy", "normal", "hard", "custom"]:
 		var b := W.button(Difficulty.title(d) + ("…" if d == "custom" else ""), &"Row")
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var key := d
 		b.pressed.connect(func() -> void:
 			if key == "custom":
 				emit_intent(Intent.OPEN_SETTINGS)
 			else:
 				emit_intent(Intent.SET_DIFFICULTY, {"d": key}))
-		row.add_child(b)
+		if d == "custom":
+			custom_b = b
+		else:
+			dbs.append(b)
 		_diff_buttons[d] = b
-	footer.add_child(row)
+	# «Своя…» открывает настройки — ей место рядом с «Как играть» и языком, а не в лестнице
+	var how := W.button(L.t("menu.howto"), &"Row")
+	how.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	how.pressed.connect(func() -> void: emit_intent(Intent.OPEN_HOWTO))
+	var lb := lang_button(self)
+	lb.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	custom_b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	var wardrobe := W.button(L.t("cos.title"), &"Row")
+	wardrobe.name = "Wardrobe"
+	wardrobe.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	wardrobe.pressed.connect(func() -> void: emit_intent(Intent.OPEN_WARDROBE))
+	body.add_child(W.fit_row([how, lb, custom_b, wardrobe] as Array[Button]))
+
+	footer.add_child(daily_button())        # испытание дня — на виду, рядом с «Играть»
+	footer.add_child(W.fit_row(dbs))
+	# «Играть» — самая нижняя, под большим пальцем; строка о партии — над ступенями сложности
+	var start := W.button(L.t("menu.play"))
+	start.pressed.connect(func() -> void: emit_intent(Intent.START))
+	footer.add_child(start)
 	_diff_note = W.label("", &"Small")
-	footer.add_child(_diff_note)
+	body.add_child(_diff_note)          # над кнопкой «Играть»: при крупном тексте подвал не съедает экран
 	refresh(difficulty, cfg)
 	for i in range(body.get_child_count()):
 		Juice.pop_in(body.get_child(i) as Control, 0.08 * i)
@@ -70,6 +79,24 @@ func refresh(d: String, c: GameConfig) -> void:
 		(_diff_buttons[k] as Button).theme_type_variation = &"RowOn" if k == d else &"Row"
 	if c != null and _diff_note != null:
 		_diff_note.text = L.t("diff.note", {"d": Difficulty.title(d), "text": Difficulty.describe(d, c)})
+
+
+## Испытание дня: правило сегодняшнего дня; сыграно — итог, серия и «новое завтра».
+func daily_button() -> Button:
+	var date := Challenge.today()
+	var done := Save.daily_last == date
+	var streak := Save.daily_streak_on(date)
+	var txt := L.t("daily.title") + ": " + Challenge.title(Challenge.rule_for(date))
+	if done:
+		txt = L.t("daily.won" if Save.daily_won else "daily.lost") + ". " + L.t("daily.tomorrow")
+	if streak > 0:
+		txt += " · " + L.t("daily.streak", {"n": streak})
+	var b := W.wrap(W.button(txt, &"RowOn" if not done else &"Row"))
+	b.name = "Daily"
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.disabled = done
+	b.pressed.connect(func() -> void: emit_intent(Intent.DAILY))
+	return b
 
 
 ## Кнопка языка: название на самом языке, чтобы его нашёл тот, кто не читает текущий.

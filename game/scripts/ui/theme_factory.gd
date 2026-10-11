@@ -19,6 +19,15 @@ const RADIUS := 24
 
 static var _fonts: Dictionary = {}
 
+## Размер текста из настроек: обычный, крупный, самый крупный.
+const TEXT_SCALES: Array[float] = [1.0, 1.15, 1.3]
+static var text_scale := 1.0
+
+
+## Размер шрифта с поправкой на настройку игрока.
+static func fs(n: float) -> int:
+	return roundi(n * text_scale)
+
 
 ## Шрифт Nunito нужной толщины: 600 — текст, 800 — кнопки и имена, 900 — заголовки.
 ## Запасные шрифты письменностей, которых нет в Nunito: иероглифы (урезаны до ~3900 частых)
@@ -66,7 +75,7 @@ static func build() -> Theme:
 	var ui_font := font(650)
 	var bold := font(850)
 	t.default_font = ui_font
-	t.default_font_size = 23
+	t.default_font_size = fs(23)
 
 	var serif_regular := font(600)
 	var serif_strong := font(900)
@@ -109,7 +118,7 @@ static func build() -> Theme:
 	t.set_color("font_color", "LineEdit", BONE)
 	t.set_color("font_placeholder_color", "LineEdit", Color(FROST, 0.7))
 	t.set_color("caret_color", "LineEdit", LAMP)
-	t.set_font_size("font_size", "LineEdit", 23)
+	t.set_font_size("font_size", "LineEdit", fs(23))
 
 	var track := StyleBoxFlat.new()
 	track.bg_color = Color(1, 1, 1, 0.12)
@@ -145,7 +154,7 @@ static func build() -> Theme:
 static func _label(t: Theme, name: StringName, font: Font, size: int, col: Color, spacing: int) -> void:
 	t.set_type_variation(name, "Label")
 	t.set_font("font", name, font)
-	t.set_font_size("font_size", name, size)
+	t.set_font_size("font_size", name, fs(size))
 	t.set_color("font_color", name, col)
 	t.set_constant("line_spacing", name, spacing)
 
@@ -174,7 +183,7 @@ static func _button(t: Theme, name: StringName, bg: Color, fg: Color, edge: Colo
 	for state: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		t.set_color(state, name, fg)
 	t.set_color("font_disabled_color", name, Color(fg, 0.4))
-	t.set_font_size("font_size", name, size)
+	t.set_font_size("font_size", name, fs(size))
 
 
 static func _panel(t: Theme, name: StringName, bg: Color, edge: Color, pad: int = 18) -> void:

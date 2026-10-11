@@ -1,9 +1,9 @@
 extends Control
 ## Точка входа. Логотип ровно 1 секунду → меню. Тап — пропустить.
-## Для сборки здесь же запускаются самотесты: --sim, --flow, --layout, --lifecycle, --field, --crowd, --bubbles, --marks, --input, --hints, --difficulty, --howto, --night, --sound, --village, --talisman, --bell, --events, --mimic, --sabotage, --box, --roles, --meeting, --tunnel, --diary, --recap, --folk, --loc.
-## --lang=en рядом с любым самотестом гоняет его на другом языке.
+## Для сборки здесь же запускаются самотесты: --sim, --flow, --layout, --lifecycle, --field, --crowd, --bubbles, --marks, --input, --hints, --difficulty, --howto, --night, --sound, --village, --talisman, --bell, --events, --mimic, --sabotage, --box, --roles, --meeting, --tunnel, --diary, --recap, --folk, --loc, --access, --daily, --cosmetics, --adapt, --gestures.
+## --lang=en рядом с любым самотестом гоняет его на другом языке, --text=2 — с самым крупным текстом.
 
-const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk", "--loc"]
+const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk", "--loc", "--access", "--daily", "--cosmetics", "--adapt", "--gestures"]
 const TEST_TIMEOUT_SEC := 240.0
 const LOGO_SEC := 1.0
 
@@ -16,6 +16,11 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var args := OS.get_cmdline_user_args()
 	for a: String in args:
+		if a.begins_with("--text="):
+			Save.text_size = clampi(int(a.substr(7)), 0, 2)
+			ThemeFactory.text_scale = ThemeFactory.TEXT_SCALES[Save.text_size]
+			Nav.ui.theme = ThemeFactory.build()
+			continue
 		if a.begins_with("--lang="):
 			Save.lang = a.substr(7)
 			L.use(Save.lang)
@@ -150,6 +155,26 @@ func _run_test(flag: String) -> void:
 			Juice.instant = true
 			Nav.start()
 			SelfTest.folk()
+		"--access":
+			Juice.instant = true
+			Nav.start()
+			SelfTest.access()
+		"--daily":
+			Juice.instant = true
+			Nav.start()
+			SelfTest.daily()
+		"--cosmetics":
+			Juice.instant = true
+			Nav.start()
+			SelfTest.cosmetics()
+		"--adapt":
+			Juice.instant = true
+			Nav.start()
+			SelfTest.adapt()
+		"--gestures":
+			Juice.instant = true
+			Nav.start()
+			SelfTest.gestures()
 
 
 # ---------------------------------------------------------------

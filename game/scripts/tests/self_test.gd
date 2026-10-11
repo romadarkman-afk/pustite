@@ -170,14 +170,20 @@ static func check_ru(texts: PackedStringArray) -> Dictionary:
 
 
 ## Прогон партий без экрана. Игрок ходит случайно — это нижняя граница его силы.
-static func balance(cfg: GameConfig, runs: int = 3000) -> Dictionary:
+static func balance(cfg: GameConfig, runs: int = 3000, rule: String = "", tune: float = 0.0) -> Dictionary:
 	var wins := 0
 	var nights := 0
 	var guest_turns := 0
 	var host_turns := 0
+	var as_human := 0
+	var human_wins := 0
+	var as_upyr := 0
+	var upyr_wins := 0
 	for g in range(runs):
 		var m := Match.new()
 		var d := Director.new()
+		m.rule = rule
+		d.tune = tune
 		m.start(cfg, 1000 + g)
 		d.attach(m)
 		m.begin_day()
@@ -223,9 +229,17 @@ static func balance(cfg: GameConfig, runs: int = 3000) -> Dictionary:
 		nights += m.day
 		if m.winner == Match.Team.PEOPLE:
 			wins += 1
+		if m.player().is_upyr:
+			as_upyr += 1
+			upyr_wins += 1 if m.winner != Match.Team.PEOPLE else 0
+		else:
+			as_human += 1
+			human_wins += 1 if m.winner == Match.Team.PEOPLE else 0
 	return {
 		"runs": runs,
 		"people_win": float(wins) / runs,
+		"human_win": float(human_wins) / maxi(1, as_human),     ## игрок-человек выиграл
+		"upyr_win": float(upyr_wins) / maxi(1, as_upyr),        ## игрок-упырь выиграл
 		"avg_nights": float(nights) / runs,
 		"player_host": host_turns,
 		"player_guest": guest_turns,
@@ -393,6 +407,9 @@ static func layout() -> void:
 		Nav.show_settings()
 		await _settle(tree)
 		checks += _check(tag, problems)
+		Nav.show_wardrobe()
+		await _settle(tree)
+		checks += _check(tag, problems)
 		Nav.show_howto(false)
 		await _settle(tree)
 		for pg in range(HowToScreen.PAGES.size()):
@@ -495,6 +512,15 @@ static func _layout_step(tag: String, out: PackedStringArray) -> int:
 				await tree.process_frame
 			await _settle(tree)
 			n += _check(tag, out)
+			var entries := 0
+			for c: Node in ms.body.get_children():
+				if c.has_meta("entry"):
+					entries += 1
+					if not (c.get_child(0).get_child(0) is Glyph):
+						out.append("%s · утро: строка сводки без значка" % tag)
+			if entries == 0:
+				out.append("%s · утро: сводка без карточек" % tag)
+			n += 1
 			Nav.handle_intent(Intent.CONTINUE, {}, s)
 	return n
 
@@ -522,7 +548,35 @@ static func _check_doors(tag: String, out: PackedStringArray) -> int:
 		Nav.show(d)
 		await _settle(Nav.get_tree())
 		n += _check(tag, out)
+		# до первого действия — не больше двух строк текста; пояснения — под «Подробнее»
+		var lines := _reading_lines(d)
+		if lines > 2:
+			out.append("%s · дверь %s: до первого действия %d строк текста" % [tag, d.screen_id(), lines])
+		var more := _more_text(d)
+		if more.length() < 20:
+			out.append("%s · дверь %s: в «Подробнее» пусто" % [tag, d.screen_id()])
+		n += 2
 	return n
+
+
+## Строки текста, которые надо прочитать до действия: подписи в теле экрана и подвале,
+## кроме надписей на кнопках и карточек стучащих (карточка — сама кнопка выбора).
+static func _reading_lines(s: Screen) -> int:
+	var total := 0
+	for root: Control in [s.body, s.footer]:
+		for c: Control in _controls(root):
+			if not (c is Label) or not c.is_visible_in_tree():
+				continue
+			var skip := false
+			var p := c.get_parent()
+			while p != null and p != root:
+				if p is Button or p.has_meta("action"):
+					skip = true
+					break
+				p = p.get_parent()
+			if not skip:
+				total += maxi(1, (c as Label).get_visible_line_count())
+	return total
 
 
 static func _check(tag: String, out: PackedStringArray) -> int:
@@ -624,7 +678,16 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 			var f := b.get_theme_font("font")
 			var fs := b.get_theme_font_size("font_size")
 			var sb := b.get_theme_stylebox("normal")
-			var need := f.get_multiline_string_size(b.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + sb.get_margin(SIDE_LEFT) + sb.get_margin(SIDE_RIGHT)
+			var pad := sb.get_margin(SIDE_LEFT) + sb.get_margin(SIDE_RIGHT)
+			var need := f.get_multiline_string_size(b.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + pad
+			if b.autowrap_mode != TextServer.AUTOWRAP_OFF:
+				# перенос по словам: влезть должно самое длинное слово, а по высоте — все строки
+				need = 0.0
+				for word: String in b.text.replace("\n", " ").split(" ", false):
+					need = maxf(need, f.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + pad)
+				var tall := f.get_multiline_string_size(b.text, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - pad, fs).y
+				if r.size.y + 1.0 < tall:
+					out.append("%s: перенесённый текст не влезает в кнопку по высоте: «%s»" % [w, b.text.replace("\n", " ").left(30)])
 			if r.size.x + 1.0 < need:
 				out.append("%s: текст на кнопке обрезан: «%s» (%d px из нужных %d)" % [w, b.text.replace("\n", " ").left(30), int(r.size.x), int(need)])
 	return 1
@@ -2957,6 +3020,21 @@ static func _on_plate(ds: DoorScreen) -> bool:
 	return ds.footer.get_parent() is PanelContainer   # кнопки тоже на подложке
 
 
+## Нажать «Подробнее» на экране и вернуть текст шторки (шторка закрывается).
+static func _more_text(s: Node) -> String:
+	var b := s.find_child("More", true, false) as Button
+	if b == null:
+		return ""
+	b.pressed.emit()
+	var sh := s.find_child("InfoSheet", true, false) as InfoSheet
+	if sh == null:
+		return ""
+	var t := _all_text(sh)
+	sh.close()
+	sh.get_parent().remove_child(sh)       # уйдёт из дерева сразу, удалится в конце кадра
+	return t
+
+
 static func _all_text(root: Node) -> String:
 	var out := PackedStringArray()
 	for c: Control in _controls(root):
@@ -3068,7 +3146,8 @@ static func events() -> void:
 	Game.m.config.vote_from_day = 9      # без изгнания: игрок точно жив и бежит по колоколу
 	await _to_night(tree)
 	var ns := Nav.host.current as NightScreen
-	ok += _expect(fails, ns != null and _all_text(ns).contains(Match.event_text(Match.Event.FOG)), "колокол не объявил туман")
+	ok += _expect(fails, ns != null and _all_text(ns).contains(Match.event_title(Match.Event.FOG)) and ns.find_child("Event", true, false).get_child(0) is Glyph, "колокол не объявил туман значком")
+	ok += _expect(fails, ns != null and _more_text(ns).contains(Match.event_text(Match.Event.FOG)), "в «Подробнее» нет, что делает туман")
 	ok += _expect(fails, Game.clock.time_left() <= float(Game.m.config.run_seconds - Match.FOG_RUN) + 0.01, "в тумане отсчёт не короче (%.1f с)" % Game.clock.time_left())
 	Game.choose_house(0)
 	await _settle(tree)
@@ -3084,7 +3163,7 @@ static func events() -> void:
 	if Game.m.phase == Match.Phase.MORNING:
 		await tree.create_timer(0.3).timeout
 		await _settle(tree)
-		ok += _expect(fails, _all_text(Nav.host.current).contains("Этой ночью: туман."), "утром не сказано про туман")
+		ok += _expect(fails, _all_text(Nav.host.current).contains(Match.event_text(Match.Event.FOG)), "утром не сказано про туман")
 		Game.proceed()
 		await _settle(tree)
 	if Game.m.phase == Match.Phase.DAY:
@@ -3255,7 +3334,7 @@ static func mimic() -> void:
 	Nav.show(ds)
 	await _settle(tree)
 	var txt := _all_text(ds)
-	ok += _expect(fails, txt.contains("У других дверей: %s." % bots[1].name), "хозяин не видит, кто сейчас у других дверей")
+	ok += _expect(fails, _more_text(ds).contains("У других дверей: %s." % bots[1].name), "хозяин не видит, кто сейчас у других дверей")
 	ok += _expect(fails, ds._rows.size() == 2 and ds._rows.has(bots[1].id) and txt.contains(bots[1].name), "голоса за дверью нет в очереди")
 	var plea_ok := false
 	for line: String in Phrases.b("MIMIC_PLEAS"):
@@ -3274,7 +3353,7 @@ static func mimic() -> void:
 	gs.seat = gseat
 	Nav.show(gs)
 	await _settle(tree)
-	ok += _expect(fails, _all_text(gs).contains("голосом %s" % _ru_case("gen", bots[3].name)), "гость не слышит голоса Подражателя за спиной")
+	ok += _expect(fails, _all_text(gs).contains("Голос за спиной: %s" % bots[3].name) and _more_text(gs).contains("голосом %s" % _ru_case("gen", bots[3].name)), "гость не слышит голоса Подражателя за спиной")
 	ok += _expect(fails, _on_plate(gs), "текст у чужой двери не на тёмной подложке")
 	Nav.show_menu()
 	await _settle(tree)
@@ -4368,6 +4447,8 @@ static func folk() -> void:
 	f4._talk_t = 0.0
 	f4._emotion_t = 0.0
 	f4._blink_in = 5.0
+	f4.fidgets_on = false         # действия от скуки проверяются отдельно (п. 9)
+	f4.fidget = ""
 	Juice.instant = false
 	await tree.create_timer(0.6).timeout
 	var idle_draws: int = draws[0]
@@ -4408,6 +4489,12 @@ static func folk() -> void:
 					right_way = false
 	ok += _expect(fails, turned >= 2 and right_way, "жители не поворачиваются к говорящему (повернулись %d)" % turned)
 	var target: Villager = m.alive_bots()[2]
+	cr.day_life = false               # чтобы наклон не пришёл от шёпота соседу
+	for v: Villager in m.alive():
+		var fz: VillagerFigure = cr.figures[v.id]
+		fz.fidgets_on = false
+		fz.fidget = ""
+		fz._lean = 0.0
 	Nav._accuse_fx(m.player(), target)
 	await _frames(tree, 2)
 	var sus := 0
@@ -4415,6 +4502,10 @@ static func folk() -> void:
 		if v != target and (cr.figures[v.id] as VillagerFigure).emotion == "suspicious":
 			sus += 1
 	ok += _expect(fails, (cr.figures[target.id] as VillagerFigure).emotion == "shocked", "обвинённый не испугался")
+	var tf: VillagerFigure = cr.figures[target.id]
+	var tpose: Dictionary = tf.pose_now()[1]
+	var lean_world: float = tpose.get("lean", 0.0) * tf._face      # поза в координатах тела, тело развёрнуто по _face
+	ok += _expect(fails, lean_world != 0.0 and signf(lean_world) == signf(tf.position.x - cr.figures[0].position.x), "обвинённый не отшатнулся от обвинителя")
 	print("на обвинение прищурились: %d" % sus)
 
 	# 6. Изгнание: изгнанный в страхе, толпа смотрит на него
@@ -4437,6 +4528,50 @@ static func folk() -> void:
 					sly_ok = false
 	ok += _expect(fails, sly_ok and sly_n > 0, "ухмылка мелькает не у упыря или не мелькает совсем (%d)" % sly_n)
 
+	# 9. Жизнь на площади: за минуту дня каждый живой что-то делает, все остаются на местах
+	Game.hold(&"test")
+	cr.day_life = true
+	var pos0: Dictionary[int, Vector2] = {}
+	for v: Villager in m.alive():
+		var fv: VillagerFigure = cr.figures[v.id]
+		fv.fidgets_on = true
+		fv.fidget_count = 0
+		fv._emotion_t = 0.0
+		fv.emotion = ""
+		fv._talk_t = 0.0
+		pos0[v.id] = fv.position
+	cr.whispers = 0
+	var kinds: Dictionary = {}
+	for step in range(600):
+		for v: Villager in m.alive():
+			var fv: VillagerFigure = cr.figures[v.id]
+			fv._process(0.1)
+			if fv.fidget != "":
+				kinds[fv.fidget] = true
+		cr.life_step(0.1)
+		for v: Villager in m.alive():
+			var fv: VillagerFigure = cr.figures[v.id]
+			if fv.fidget != "" and not kinds.has("pose:" + fv.fidget) and fv.pose_now()[1] != _plain_pose(fv):
+				kinds["pose:" + fv.fidget] = true
+	var idle_ones: PackedStringArray = []
+	var moved: PackedStringArray = []
+	var vr := Rect2(Vector2.ZERO, Vector2(tree.root.size))
+	for v: Villager in m.alive():
+		var fv: VillagerFigure = cr.figures[v.id]
+		if fv.fidget_count < 1:
+			idle_ones.append(v.name)
+		var gp := fv.get_global_transform_with_canvas().origin
+		if fv.position.distance_to(pos0[v.id]) > 0.5 or not vr.has_point(gp):
+			moved.append(v.name)
+	ok += _expect(fails, idle_ones.is_empty(), "за минуту дня ничего не сделали: %s" % ", ".join(idle_ones))
+	ok += _expect(fails, moved.is_empty(), "от действий сдвинулись или ушли из кадра: %s" % ", ".join(moved))
+	var posed := kinds.keys().filter(func(k: String) -> bool: return k.begins_with("pose:"))
+	ok += _expect(fails, kinds.size() - posed.size() >= 4, "действий мало: %s" % ", ".join(kinds.keys()))
+	ok += _expect(fails, posed.size() == kinds.size() - posed.size(), "не все действия меняют позу тела: %s" % ", ".join(kinds.keys()))
+	ok += _expect(fails, cr.whispers >= 3, "соседи почти не шепчутся (%d раз за минуту)" % cr.whispers)
+	print("за минуту: действия %s, шёпотов %d" % [", ".join(posed), cr.whispers])
+	Game.release(&"test")
+
 	# 8. Ночь: у двери все ёжатся, днём — нет
 	Save.mark_hint("night")
 	Game.end_day()
@@ -4451,9 +4586,23 @@ static func folk() -> void:
 		if not (cr.figures[v.id] as VillagerFigure).cold:
 			cold_all = false
 	ok += _expect(fails, cold_all, "ночью жители не ёжатся от холода")
+	ok += _expect(fails, cr.flinched == m.alive().size(), "на колокол вздрогнули %d из %d" % [cr.flinched, m.alive().size()])
+	var day_still := true
+	for v: Villager in m.alive():
+		if (cr.figures[v.id] as VillagerFigure).fidgets_on:
+			day_still = false
+	ok += _expect(fails, day_still and not cr.day_life, "ночью жители продолжают дневные действия")
 	Nav.show_menu()
 	await _settle(tree)
-	_finish(fails, ok, "новые жители", "девушки отличаются, у каждого свои приметы, эмоции всем телом, ноги идут, толпа реагирует")
+	_finish(fails, ok, "новые жители", "девушки отличаются, у каждого свои приметы, эмоции всем телом, ноги идут, толпа реагирует, днём все чем-то заняты")
+
+
+static func _plain_pose(fv: VillagerFigure) -> Dictionary:
+	var keep := fv.fidget
+	fv.fidget = ""
+	var p: Dictionary = fv.pose_now()[1]
+	fv.fidget = keep
+	return p
 
 
 ## Имя в падеже по русской грамматике — для проверок русских текстов.
@@ -4635,3 +4784,503 @@ static func _missing_glyphs(texts: PackedStringArray) -> String:
 			if not hit:
 				out += char(ch)
 	return out
+
+
+# =============================================================
+# Доступность (задача 46): три размера текста, глаз и улики различимы без цвета
+# =============================================================
+static func access() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+
+	# 1. Размер текста: три кнопки в настройках, тема меняется сразу, выбор сохраняется
+	Nav.show_settings()
+	await _settle(tree)
+	var ss := Nav.host.current as SettingsScreen
+	var row := ss.find_child("TextSizes", true, false) as HBoxContainer
+	ok += _expect(fails, row != null and row.get_child_count() == 3, "в настройках нет трёх размеров текста")
+	var sizes: Array[int] = []
+	for i in range(3):
+		if row == null:
+			break
+		(row.get_child(i) as Button).pressed.emit()
+		await _settle(tree)
+		ss = Nav.host.current as SettingsScreen
+		row = ss.find_child("TextSizes", true, false) as HBoxContainer
+		var probe := ss.body.get_child(0) as Label
+		sizes.append(probe.get_theme_font_size("font_size"))
+		var on := (row.get_child(i) as Button).theme_type_variation == &"RowOn"
+		ok += _expect(fails, Save.text_size == i and on, "размер %d не выбран или не подсвечен" % i)
+	ok += _expect(fails, sizes.size() == 3 and sizes[0] < sizes[1] and sizes[1] < sizes[2], "текст не растёт по ступеням: %s" % str(sizes))
+	var cf := ConfigFile.new()
+	cf.load(Save.SETTINGS_PATH)
+	ok += _expect(fails, int(cf.get_value("ui", "text_size", -1)) == 2, "размер текста не сохранился в настройках")
+	# реплика в пузыре тоже крупнее
+	Save.set_text_size(2)
+	Nav.start_match()
+	await _settle(tree)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	var bb := Nav.bubbles
+	var said: Bubbles.Bubble = null
+	if Nav.field_screen != null and bb.field.size.x > 0.0:
+		said = bb.say("Тест", "Проверка размера текста в пузыре.", bb.field.get_center(), false)
+	ok += _expect(fails, said != null and said.fsize == ThemeFactory.fs(Bubbles.FONT_SIZE) and said.fsize > Bubbles.FONT_SIZE, "пузыри не крупнее при большом тексте")
+	Save.set_text_size(0)
+	Nav.ui.theme = ThemeFactory.build()
+
+	# 2. Глаз подозрения: на каждом уровне своё число штрихов
+	var cr := Nav.village.crowd
+	var bot: Villager = Game.m.alive_bots()[0]
+	var f: VillagerFigure = cr.figures[bot.id]
+	var strokes: Array[int] = []
+	for lvl in range(1, 5):
+		f.set_marks(lvl, PackedStringArray(), false)
+		f.queue_redraw()
+		await _frames(tree, 2)
+		strokes.append(f.drawn_strokes)
+	ok += _expect(fails, str(strokes) == "[1, 2, 3, 4]", "у глаза не различается число штрихов по уровню: %s" % str(strokes))
+
+	# 3. Улики: у каждой свой силуэт рамки, и рамка правда рисуется
+	var shapes := {}
+	for b: String in Director.BADGES:
+		# силуэт по геометрии: число вершин и габариты рамки
+		var pts := VillagerFigure.badge_outline(b, Vector2.ZERO)
+		var ext := Rect2(pts[0], Vector2.ZERO)
+		for q: Vector2 in pts:
+			ext = ext.expand(q)
+		var key := "%d:%dx%d" % [pts.size(), roundi(ext.size.x), roundi(ext.size.y)]
+		shapes[key] = b
+	ok += _expect(fails, shapes.size() == Director.BADGES.size(), "у улик одинаковые силуэты: %s" % str(shapes.keys()))
+	var drawn := {}
+	for i in range(0, Director.BADGES.size(), 2):
+		var pair := PackedStringArray([Director.BADGES[i], Director.BADGES[mini(i + 1, Director.BADGES.size() - 1)]])
+		f.set_marks(0, pair, false)
+		f.queue_redraw()
+		await _frames(tree, 2)
+		for k in range(f.drawn_frames.size()):
+			drawn[pair[k]] = f.drawn_frames[k]
+	var same_ok := true
+	for b: String in Director.BADGES:
+		if int(drawn.get(b, -1)) != VillagerFigure.badge_outline(b, Vector2.ZERO).size():
+			same_ok = false
+	ok += _expect(fails, same_ok, "рамки улик рисуются не своим силуэтом: %s" % str(drawn))
+	Nav.show_menu()
+	await _settle(tree)
+	_finish(fails, ok, "доступность", "три размера текста, глаз со штрихами, у каждой улики свой силуэт")
+
+
+# =============================================================
+# Испытание дня (задача 47): одно правило на дату, одна попытка, серия дней, кнопка в меню
+# =============================================================
+static func daily() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+	Save.daily_last = ""
+	Save.daily_streak = 0
+	var today := Challenge.today()
+
+	# 1. Правило — от даты: пять дней подряд дают пять разных правил, одна дата — одно правило и посёлок
+	var seen := {}
+	for i in range(Challenge.RULES.size()):
+		seen[Challenge.rule_for(_shift_date(today, i))] = true
+	ok += _expect(fails, seen.size() == Challenge.RULES.size(), "правила не идут по кругу: %s" % str(seen.keys()))
+	var m1 := Match.new()
+	m1.rule = Challenge.rule_for(today)
+	m1.start(Challenge.config(m1.rule), Challenge.seed_for(today))
+	var m2 := Match.new()
+	m2.rule = Challenge.rule_for(today)
+	m2.start(Challenge.config(m2.rule), Challenge.seed_for(today))
+	var same := true
+	for i in range(m1.villagers.size()):
+		if m1.villagers[i].name != m2.villagers[i].name or m1.villagers[i].is_upyr != m2.villagers[i].is_upyr or m1.villagers[i].role != m2.villagers[i].role:
+			same = false
+	ok += _expect(fails, same and Challenge.seed_for(today) != Challenge.seed_for(_shift_date(today, 1)), "у одной даты разные посёлки или у разных дат одно зерно")
+
+	# 2. Каждое правило правда меняет партию
+	for rule: String in Challenge.RULES:
+		var m := Match.new()
+		m.rule = rule
+		m.start(Challenge.config(rule), 77)
+		m.begin_day()
+		m.end_day()
+		if m.phase == Match.Phase.VOTE:
+			m.apply_vote({} as Dictionary[int, int])
+			m.after_vote()
+		var upyrs := 0
+		for v: Villager in m.villagers:
+			if v.is_upyr:
+				upyrs += 1
+		match rule:
+			"no_elder":
+				ok += _expect(fails, m.role_holder(Match.Role.ELDER) == null, "в испытании без старожила старожил есть")
+			"three_upyr":
+				ok += _expect(fails, upyrs == 3, "в испытании трёх упырей их %d" % upyrs)
+			_:
+				ok += _expect(fails, m.phase == Match.Phase.NIGHT and m.night_event == Challenge.night_event(rule), "«%s»: в первую ночь нет своего события (%d)" % [rule, m.night_event])
+	# 3. Баланс каждого правила: люди выигрывают от 25 до 75% партий
+	for rule: String in Challenge.RULES:
+		var r := balance(Challenge.config(rule), 300, rule)
+		print("испытание %s: люди побеждают в %.0f%%" % [rule, 100.0 * r.people_win])
+		ok += _expect(fails, r.people_win >= 0.25 and r.people_win <= 0.75, "испытание «%s» вне коридора: людей %.0f%%" % [rule, 100.0 * r.people_win])
+
+	# 4. Кнопка в меню запускает испытание дня
+	Nav.show_menu()
+	await _settle(tree)
+	var db := Nav.host.current.find_child("Daily", true, false) as Button
+	ok += _expect(fails, db != null and not db.disabled and db.text.contains(Challenge.title(Challenge.rule_for(today))), "в меню нет кнопки испытания дня с сегодняшним правилом")
+	var win_streak0 := Save.win_streak
+	var diff0 := Save.difficulty
+	if db != null:
+		db.pressed.emit()
+	await _settle(tree)
+	ok += _expect(fails, Game.daily == today and Game.m != null and Game.m.rule == Challenge.rule_for(today), "кнопка не начала испытание дня")
+	ok += _expect(fails, Nav.host.current.find_child("Daily", true, false) != null, "в прологе не сказано про правило дня")
+	# 5. Итог сохраняется, лестница сложности не трогается
+	var human := not Game.m.player().is_upyr
+	Game.m.winner = Match.Team.PEOPLE if human else Match.Team.UPYRI
+	Game.m.phase = Match.Phase.MORNING
+	Game.m.end_morning()
+	await _settle(tree)
+	ok += _expect(fails, Save.daily_last == today and Save.daily_won and Save.daily_streak == 1, "итог испытания не сохранился (%s, %s, %d)" % [Save.daily_last, Save.daily_won, Save.daily_streak])
+	ok += _expect(fails, Save.win_streak == win_streak0 and Save.offer == "" and Save.difficulty == diff0, "испытание сдвинуло лестницу сложности")
+	ok += _expect(fails, Nav.host.current.find_child("Daily", true, false) != null, "на финале нет итога испытания")
+	var cf := ConfigFile.new()
+	cf.load(Save.SETTINGS_PATH)
+	ok += _expect(fails, String(cf.get_value("daily", "last", "")) == today, "итог испытания не записан в файл")
+	# 6. Одна попытка: повтор не начинается и не перезаписывает итог
+	Nav.show_menu()
+	await _settle(tree)
+	db = Nav.host.current.find_child("Daily", true, false) as Button
+	ok += _expect(fails, db != null and db.disabled and db.text.contains(L.t("daily.won")), "после испытания кнопка не показывает итог")
+	ok += _expect(fails, not Nav.start_daily() and not Save.record_daily(today, false) and Save.daily_won, "испытание можно пройти второй раз")
+	# 7. Серия: вчера сыграл — +1, пропустил день — заново
+	Save.daily_last = _shift_date(today, -1)
+	Save.daily_streak = 3
+	ok += _expect(fails, Save.daily_streak_on(today) == 3, "серия пропала до сегодняшней игры")
+	Save.record_daily(today, true)
+	ok += _expect(fails, Save.daily_streak == 4, "серия не выросла после вчерашнего (%d)" % Save.daily_streak)
+	Save.daily_last = _shift_date(today, -3)
+	ok += _expect(fails, Save.daily_streak_on(today) == 0, "серия не прервалась после пропуска")
+	Save.record_daily(today, false)
+	ok += _expect(fails, Save.daily_streak == 1, "после пропуска серия не началась заново (%d)" % Save.daily_streak)
+	Save.daily_last = ""
+	Save.daily_streak = 0
+	Save.flush()
+	Nav.show_menu()
+	await _settle(tree)
+	_finish(fails, ok, "испытание дня", "правило по дате у всех одно, одна попытка, итог и серия сохраняются, баланс в коридоре")
+
+
+## Дата со сдвигом на n дней: «2026-10-11» + 1 → «2026-10-12».
+static func _shift_date(date: String, n: int) -> String:
+	var t := Time.get_unix_time_from_datetime_string(date + "T12:00:00") + n * 86400
+	return Time.get_date_string_from_unix_time(t)
+
+
+# =============================================================
+# Косметика (задача 48): фонари и шапки за победы и испытания, только картинка
+# =============================================================
+static func cosmetics() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+	var stats0 := Save.stats.duplicate()
+	Save.stats["wins"] = 0
+	Save.daily_wins = 0
+	Save.daily_best = 0
+	Save.lantern = "classic"
+	Save.hat = "own"
+
+	# 1. С нуля открыто только своё; закрытое не надевается
+	var open0 := Cosmetics.open_ids()
+	ok += _expect(fails, open0.size() == 2 and open0.has("lantern:classic") and open0.has("hat:own"), "с нуля открыто лишнее: %s" % ", ".join(open0))
+	ok += _expect(fails, not Save.wear("lantern", "copper") and Save.lantern == "classic", "закрытый фонарь надевается")
+	for it: Dictionary in Cosmetics.LANTERNS + Cosmetics.HATS:
+		if not it.need.is_empty() and Cosmetics.need_text(it) == "":
+			fails.append("у «%s» не написано, как открыть" % it.id)
+
+	# 2. Победа открывает медный фонарь — на финале об этом сказано
+	Save.set_difficulty("normal")
+	await _finish_match(tree, true)
+	ok += _expect(fails, Game.new_items.has("lantern:copper"), "победа не открыла медный фонарь: %s" % ", ".join(Game.new_items))
+	ok += _expect(fails, Nav.host.current is EndScreen and Nav.host.current.find_child("NewItems", true, false) != null, "на финале не сказано, что открылось")
+
+	# 3. Шкаф: открытые надеваются, закрытые серые с условием
+	Save.stats["wins"] = 3
+	Save.daily_wins = 1
+	Nav.show_wardrobe()
+	await _settle(tree)
+	var ws := Nav.host.current as WardrobeScreen
+	var lg := ws.find_child("Grid_lantern", true, false) as GridContainer
+	var hg := ws.find_child("Grid_hat", true, false) as GridContainer
+	ok += _expect(fails, lg != null and hg != null and lg.get_child_count() == Cosmetics.LANTERNS.size() and hg.get_child_count() == Cosmetics.HATS.size(), "в шкафу не все вещи")
+	var frost := ws.find_child("lantern_frost", true, false) as Button
+	ok += _expect(fails, frost != null and frost.disabled and frost.text.contains(Cosmetics.need_text(Cosmetics.item("lantern", "frost"))), "закрытый фонарь без условия или нажимается")
+	(ws.find_child("lantern_paper", true, false) as Button).pressed.emit()
+	await _settle(tree)
+	ws = Nav.host.current as WardrobeScreen
+	(ws.find_child("hat_top_hat", true, false) as Button).pressed.emit()
+	await _settle(tree)
+	ws = Nav.host.current as WardrobeScreen
+	ok += _expect(fails, Save.lantern == "paper" and Save.hat == "top_hat", "вещи не надеваются (%s, %s)" % [Save.lantern, Save.hat])
+	ok += _expect(fails, ws.preview.look.head == LookDef.Head.TOP_HAT and ws.preview.lantern_id == "paper", "в примерке не видно надетого")
+	ok += _expect(fails, (ws.find_child("hat_top_hat", true, false) as Button).theme_type_variation == &"RowOn", "надетая шапка не подсвечена")
+	var cf := ConfigFile.new()
+	cf.load(Save.SETTINGS_PATH)
+	ok += _expect(fails, String(cf.get_value("look", "lantern", "")) == "paper" and String(cf.get_value("look", "hat", "")) == "top_hat", "выбор не сохранился")
+
+	# 4. В партии твой житель в цилиндре и с бумажным фонарём; у других всё как было
+	Nav.start_match()
+	await _settle(tree)
+	var me: VillagerFigure = Nav.village.crowd.figures[0]
+	var style: Dictionary = me.pose_now()[1].get("lantern_style", {})
+	ok += _expect(fails, me.look.head == LookDef.Head.TOP_HAT and String(style.get("shape", "")) == "paper", "на поле житель не в своём (шапка %d, фонарь %s)" % [me.look.head, style.get("shape", "")])
+	var other: VillagerFigure = Nav.village.crowd.figures[1]
+	ok += _expect(fails, not other.pose_now()[1].has("lantern_style"), "фонарь игрока достался боту")
+
+	# 5. На партию не влияет: игра и боты не знают о вещах, итоги прогона те же
+	var clean := true
+	for path: String in ["res://scripts/core/match.gd", "res://scripts/ai/director.gd", "res://scripts/ai/bot_brain.gd", "res://scripts/core/game_config.gd"]:
+		var src := FileAccess.get_file_as_string(path)
+		if src.contains("Cosmetics") or src.contains("Save.lantern") or src.contains("Save.hat"):
+			clean = false
+	ok += _expect(fails, clean, "правила или боты читают косметику")
+	var cfg := Difficulty.preset("normal")
+	var r1 := balance(cfg, 60)
+	Save.lantern = "classic"
+	Save.hat = "own"
+	var r2 := balance(cfg, 60)
+	ok += _expect(fails, r1.people_win == r2.people_win and r1.avg_nights == r2.avg_nights, "косметика меняет исход партий")
+
+	Save.stats = stats0
+	Save.daily_wins = 0
+	Save.daily_best = 0
+	Save.lantern = "classic"
+	Save.hat = "own"
+	Save.flush()
+	Nav.show_menu()
+	await _settle(tree)
+	_finish(fails, ok, "косметика", "фонари и шапки открываются победами и испытаниями, видны на поле, на исход не влияют")
+
+
+# =============================================================
+# Подстройка ботов (задача 49): проигрываешь подряд — боты поддаются, часто выигрываешь — собираются.
+# Ступень сложности при этом не меняется; баланс проверяется на каждой ступени.
+# =============================================================
+static func adapt() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	var recent0 := Save.recent.duplicate()
+	var diff0 := Save.difficulty
+
+	# 1. Когда боты поддаются, а когда собираются
+	var cases := [[[1, 0, 0], 0.0], [[1, 0, 0, 0], -0.5], [[0, 0, 0, 0, 0], -1.0], [[1, 0, 1, 0, 1, 0], 0.0],
+		[[1, 1, 1, 1, 0, 1, 1, 1, 0, 1], 0.5], [[1, 1, 1, 1, 1], 1.0]]
+	for c: Array in cases:
+		Save.recent = PackedInt32Array(c[0])
+		ok += _expect(fails, is_equal_approx(Save.tune(), float(c[1])), "по итогам %s подстройка %.2f, ждали %.2f" % [str(c[0]), Save.tune(), c[1]])
+	# три поражения подряд через настоящую запись итогов; ступень та же
+	Save.set_difficulty("normal")
+	Save.recent = PackedInt32Array([1, 1])
+	for i in range(3):
+		Save.record_result(false, false)
+	ok += _expect(fails, Save.tune() < 0.0 and Save.difficulty == "normal", "после трёх поражений боты не поддаются или сменилась ступень")
+	var cf := ConfigFile.new()
+	cf.load(Save.SETTINGS_PATH)
+	ok += _expect(fails, String(cf.get_value("game", "recent", "")).ends_with("0,0,0"), "итоги для подстройки не сохраняются")
+
+	# 2. Партия берёт подстройку; испытание дня — нет
+	Nav.start_match()
+	await _settle(tree)
+	ok += _expect(fails, Game.director.tune == Save.tune(), "партия не взяла подстройку")
+	Game.start(Challenge.config("fog"), "2026-10-11")
+	await _settle(tree)
+	ok += _expect(fails, Game.director.tune == 0.0, "испытание дня подстроилось под игрока")
+
+	# 3. Чем именно поддаются: ложь упыря слабее, хозяин-человек ошибается чаще
+	var m := Match.new()
+	m.start(Difficulty.preset("normal"), 5)
+	var d := Director.new()
+	d.attach(m)
+	m.player().is_upyr = false
+	d.tune = -1.0
+	var weak := d.lie_weight(Director.W_FAKE)
+	d.tune = 1.0
+	var strong := d.lie_weight(Director.W_FAKE)
+	ok += _expect(fails, weak < Director.W_FAKE and strong > Director.W_FAKE, "ложь упыря не зависит от подстройки (%.2f / %.2f)" % [weak, strong])
+	var host: Villager = null
+	for v: Villager in m.villagers:
+		if not v.is_upyr and not v.is_player:
+			host = v
+	m.player().is_upyr = true
+	d.tune = -1.0
+	var n_easy := d.door_noise(host)
+	d.tune = 1.0
+	var n_hard := d.door_noise(host)
+	ok += _expect(fails, n_easy > 0.4 and n_hard < 0.4, "хозяин-человек ошибается у двери одинаково (%.2f / %.2f)" % [n_easy, n_hard])
+	# и правда ошибается: из двух гостей пускает подозрительного то чаще, то реже
+	var guests: Array[Villager] = []
+	for v: Villager in m.villagers:
+		if not v.is_player and v != host and guests.size() < 2:
+			guests.append(v)
+	d.public_susp[guests[0].id] = 0.5
+	d.public_susp[guests[1].id] = 0.0
+	var wrong := {}
+	for t: float in [-1.0, 1.0]:
+		d.tune = t
+		var n := 0
+		for i in range(400):
+			var seat := Match.Seat.new()
+			seat.house = 0
+			seat.host = host
+			seat.queue = [guests[0], guests[1]] as Array[Villager]
+			var ids := d.host_decide(seat)
+			if ids.size() == 1 and ids[0] == guests[0].id:
+				n += 1
+		wrong[t] = n
+	ok += _expect(fails, int(wrong[-1.0]) > int(wrong[1.0]) and int(wrong[-1.0]) > 10, "ошибки у двери не зависят от подстройки (%s)" % str(wrong))
+
+	# 4. Баланс на каждой ступени: поддавки помогают игроку за обе стороны, собранность мешает
+	for diff: String in Difficulty.LADDER:
+		var cfg := Difficulty.preset(diff)
+		var r: Array[Dictionary] = []
+		for t: float in [-1.0, 0.0, 1.0]:
+			r.append(balance(cfg, 500, "", t))
+		print("%s: человек %.0f / %.0f / %.0f%%, упырь %.0f / %.0f / %.0f%% (поддавки / как есть / собранные)" % [diff,
+			100 * r[0].human_win, 100 * r[1].human_win, 100 * r[2].human_win, 100 * r[0].upyr_win, 100 * r[1].upyr_win, 100 * r[2].upyr_win])
+		ok += _expect(fails, r[0].human_win > r[1].human_win and r[1].human_win > r[2].human_win, "%s: подстройка не меняет шансы игрока-человека" % diff)
+		if not cfg.player_always_human:
+			ok += _expect(fails, r[0].upyr_win > r[1].upyr_win and r[1].upyr_win > r[2].upyr_win, "%s: подстройка не меняет шансы игрока-упыря" % diff)
+		# подстройка мягкая: шанс игрока сдвигается не больше чем на 20 пунктов
+		for x: Dictionary in [r[0], r[2]]:
+			ok += _expect(fails, absf(x.human_win - r[1].human_win) <= 0.2 and absf(x.upyr_win - r[1].upyr_win) <= 0.2, "%s: подстройка слишком резкая" % diff)
+		# на обычной и сложной общий баланс остаётся в коридоре 25–75% при любой подстройке
+		if diff != "easy":
+			for x: Dictionary in r:
+				ok += _expect(fails, x.people_win >= 0.25 and x.people_win <= 0.75, "%s: баланс вне коридора при подстройке (%.0f%%)" % [diff, 100 * x.people_win])
+
+	Save.recent = recent0
+	Save.set_difficulty(diff0 if Difficulty.PRESETS.has(diff0) else "easy")
+	Save.flush()
+	Nav.show_menu()
+	await _settle(tree)
+	_finish(fails, ok, "подстройка ботов", "три поражения — боты поддаются, частые победы — собираются, ступень та же, баланс на каждой ступени в коридоре")
+
+
+# =============================================================
+# Жесты без слов (задача 50): долгое нажатие на жителя — показать пальцем, «верю», «не верю»
+# =============================================================
+static func gestures() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+	Save.set_difficulty("normal")
+	Nav.start_match()
+	await _settle(tree)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	var day := Nav.host.current as DayScreen
+	var m := Game.m
+	var d := Game.director
+	var cr := Nav.village.crowd
+	var target: Villager = m.alive_bots()[1]
+	var tf: VillagerFigure = cr.figures[target.id]
+	var at: Vector2 = tf.hit_rect_global().get_center() - day.field_spacer.get_global_rect().position
+
+	# 1. Долгое нажатие открывает жесты, отпускание после него — не тап
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = at
+	day._on_field_tap_input(press)
+	await tree.create_timer(Screen.HOLD_SEC + 0.15).timeout
+	var sheets := day.find_children("*", "ActionSheet", true, false)
+	ok += _expect(fails, sheets.size() == 1 and _all_text(sheets[0]).contains(target.name) and _all_text(sheets[0]).contains(L.t("gest.trust")), "долгое нажатие не открыло жесты")
+	var release := press.duplicate() as InputEventMouseButton
+	release.pressed = false
+	day._on_field_tap_input(release)
+	await _frames(tree, 2)
+	ok += _expect(fails, day.find_children("*", "ActionSheet", true, false).size() == 1, "отпускание после жеста открыло ещё и обычное меню")
+	# короткий тап по-прежнему открывает обычное меню, а не жесты
+	if not sheets.is_empty():
+		(sheets[0] as ActionSheet).close(-1)
+	await _frames(tree, 2)
+	var tap := press.duplicate() as InputEventMouseButton
+	day._on_field_tap_input(tap)
+	day._on_field_tap_input(release)
+	await _frames(tree, 3)
+	var tap_sheets := day.find_children("*", "ActionSheet", true, false)
+	ok += _expect(fails, tap_sheets.size() == 1 and _all_text(tap_sheets[0]).contains(L.t("day.p_ask")), "короткий тап не открыл обычное меню жителя")
+	for sh: Node in tap_sheets:
+		(sh as ActionSheet).close(-1)
+	# повёл пальцем — не жест
+	day._on_field_tap_input(press)
+	var drag := InputEventMouseMotion.new()
+	drag.position = at + Vector2(60, 0)
+	day._on_field_tap_input(drag)
+	await tree.create_timer(Screen.HOLD_SEC + 0.15).timeout
+	ok += _expect(fails, day.find_children("*", "ActionSheet", true, false).is_empty(), "жест открылся, хотя палец сдвинулся")
+	day._on_field_tap_input(release)
+
+	# 2. Показать пальцем: ты указываешь, он вздрагивает, посёлок чуть больше его подозревает, он отвечает
+	Game.hold(&"test")
+	var s0 := d.susp(target.id)
+	Nav.handle_intent(Intent.GESTURE, {"kind": "point", "id": target.id}, day)
+	await _frames(tree, 2)
+	var me: VillagerFigure = cr.figures[0]
+	ok += _expect(fails, me.pose_now()[1].get("point", false) and tf.emotion == "shocked", "жест не виден: игрок не показывает пальцем или житель не вздрогнул")
+	ok += _expect(fails, is_equal_approx(d.susp(target.id), s0 + Director.GEST_POINT), "палец не добавил подозрений (%.2f → %.2f)" % [s0, d.susp(target.id)])
+	ok += _expect(fails, m.chat.back().kind == ChatLine.Kind.SYSTEM and m.chat.back().text.contains(_ru_case("acc", target.name)), "жеста нет в журнале")
+	Game.release(&"test")
+	var replied := false
+	for i in range(600):
+		for l: ChatLine in m.chat:
+			if l.speaker == target and Phrases.b("GEST_POINTED").has(l.text):
+				replied = true
+		if replied:
+			break
+		await tree.process_frame
+	ok += _expect(fails, replied, "житель не ответил на палец")
+	Game.hold(&"test")
+	Nav.handle_intent(Intent.GESTURE, {"kind": "point", "id": target.id}, day)
+	ok += _expect(fails, is_equal_approx(d.susp(target.id), s0 + Director.GEST_POINT), "повторный палец снова добавил подозрений")
+
+	# 3. «Верю»: этот житель лучше думает о тебе (охотнее пустит); «не верю»: подозрение и обида
+	var friend: Villager = m.alive_bots()[2]
+	var v0 := d.view(friend, m.player())
+	Nav.handle_intent(Intent.GESTURE, {"kind": "trust", "id": friend.id}, day)
+	ok += _expect(fails, d.view(friend, m.player()) < v0 - 0.5, "«верю» не изменило отношение жителя к тебе")
+	ok += _expect(fails, (cr.figures[friend.id] as VillagerFigure).emotion == "relieved", "на «верю» житель не ответил лицом")
+	var foe: Villager = m.alive_bots()[3]
+	var f0 := d.susp(foe.id)
+	var g0: float = d.brains[foe.id].grudge.get(0, 0.0)
+	Nav.handle_intent(Intent.GESTURE, {"kind": "distrust", "id": foe.id}, day)
+	ok += _expect(fails, d.susp(foe.id) > f0 and float(d.brains[foe.id].grudge.get(0, 0.0)) > g0, "«не верю» ничего не изменило")
+	var lines := d.gesture("distrust", foe)
+	ok += _expect(fails, lines.size() >= 1 and lines[0].speaker == foe, "житель не отвечает на «не верю»")
+	Game.release(&"test")
+	# 4. Ночью и мёртвым жесты не работают
+	Game.m.phase = Match.Phase.VOTE
+	var other: Villager = m.alive_bots()[4]
+	var s1 := d.susp(other.id)
+	Game.gesture("point", other.id)
+	ok += _expect(fails, d.susp(other.id) == s1, "жест сработал не днём")
+	Nav.show_menu()
+	await _settle(tree)
+	_finish(fails, ok, "жесты", "долгое нажатие — палец, «верю», «не верю»; видно на поле, есть в журнале, боты отвечают и запоминают")

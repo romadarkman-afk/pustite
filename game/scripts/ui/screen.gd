@@ -102,14 +102,32 @@ func enable_field_taps() -> void:
 	field_spacer.gui_input.connect(_on_field_tap_input)
 
 
+## Долгое нажатие на месте — FIELD_HOLD (жест жителю), короткое — FIELD_TAP.
+const HOLD_SEC := 0.5
+var _hold_gen := 0
+
+
 func _on_field_tap_input(e: InputEvent) -> void:
 	if e is InputEventMouseButton and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		var mb := e as InputEventMouseButton
+		_hold_gen += 1
 		if mb.pressed:
 			_field_press = mb.position
+			_wait_hold(_hold_gen, mb.position)
 		elif _field_press != Vector2.INF and mb.position.distance_to(_field_press) < 24.0:
 			emit_intent(Intent.FIELD_TAP, {"pos": field_spacer.get_global_rect().position + mb.position})
 			_field_press = Vector2.INF
+	elif e is InputEventMouseMotion and _field_press != Vector2.INF:
+		if (e as InputEventMouseMotion).position.distance_to(_field_press) >= 24.0:
+			_hold_gen += 1        # повёл пальцем — это не долгое нажатие
+
+
+func _wait_hold(gen: int, at: Vector2) -> void:
+	await get_tree().create_timer(HOLD_SEC).timeout
+	if gen != _hold_gen or _field_press == Vector2.INF or not is_instance_valid(field_spacer):
+		return
+	_field_press = Vector2.INF      # отпускание после жеста — уже не тап
+	emit_intent(Intent.FIELD_HOLD, {"pos": field_spacer.get_global_rect().position + at})
 
 
 ## Переопределяется: какая доля экрана обязана остаться под текст и кнопки в теле экрана.

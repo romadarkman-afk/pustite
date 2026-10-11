@@ -72,7 +72,7 @@ func show_result(tally: Dictionary[int, int], exiled: Villager) -> void:
 	if exiled != null:
 		head_text = L.t("vote.gone_you") if exiled.is_player else L.t("vote.gone", {"who": exiled})
 	var head := W.label(head_text, &"Title")
-	head.add_theme_font_size_override("font_size", 44)
+	head.add_theme_font_size_override("font_size", ThemeFactory.fs(44))
 	body.add_child(head)
 	Juice.haptic(Juice.Haptic.DEATH)
 	Sfx.play(&"exile")

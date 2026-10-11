@@ -29,7 +29,9 @@ scripts/autoload/nav.gd
 scripts/autoload/save.gd
 scripts/autoload/sfx.gd
 scripts/boot.gd
+scripts/core/challenge.gd
 scripts/core/chat_line.gd
+scripts/core/cosmetics.gd
 scripts/core/difficulty.gd
 scripts/core/game_config.gd
 scripts/core/match.gd
@@ -54,8 +56,10 @@ scripts/ui/action_sheet.gd
 scripts/ui/atmosphere.gd
 scripts/ui/bubbles.gd
 scripts/ui/diary_sheet.gd
+scripts/ui/glyph.gd
 scripts/ui/hint.gd
 scripts/ui/howto_art.gd
+scripts/ui/info_sheet.gd
 scripts/ui/intent.gd
 scripts/ui/journal_sheet.gd
 scripts/ui/phase_clock.gd
@@ -73,6 +77,7 @@ scripts/ui/screens/night_screen.gd
 scripts/ui/screens/prologue_screen.gd
 scripts/ui/screens/settings_screen.gd
 scripts/ui/screens/vote_screen.gd
+scripts/ui/screens/wardrobe_screen.gd
 scripts/ui/scrim.gd
 scripts/ui/supplies_badge.gd
 scripts/ui/text_sheet.gd

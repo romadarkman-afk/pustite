@@ -26,7 +26,7 @@ func min_content_ratio() -> float:
 ## На высоких телефонах картинка растёт, а не остаётся пустая полоса.
 func field_height(h: float) -> float:
 	var sep := float(get_theme_constant("separation", "VBoxContainer")) if has_theme_constant("separation", "VBoxContainer") else 18.0
-	var reserved := 46.0 + footer.get_combined_minimum_size().y + ThemeFactory.TOUCH + 4.0 * sep + 24.0
+	var reserved := 46.0 * ThemeFactory.text_scale + footer.get_combined_minimum_size().y + ThemeFactory.TOUCH + 4.0 * sep + 24.0
 	return maxf(h * 0.55, h - reserved)
 
 
@@ -76,32 +76,31 @@ func build() -> void:
 		return
 
 	Diag.step("день-экран: чат готов, кнопки")
-	var quick := W.hbox(8)
+	var qb: Array[Button] = []
 	for spec: Array in [[L.t("day.defend"), _defend], [L.t("day.invite"), _invite_flow], [L.t("day.accuse"), _accuse_flow]]:
 		var q := W.button(spec[0], &"Quick")
-		q.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var cb: Callable = spec[1]
 		q.pressed.connect(func() -> void: cb.call())
-		quick.add_child(q)
-	footer.add_child(quick)
+		qb.append(q)
+	footer.add_child(W.fit_row(qb))
 
-	var row := W.hbox(8)
+	var rb: Array[Button] = []
 	var write := W.button(L.t("day.say"), &"Row")
-	write.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	write.pressed.connect(_write_flow)
-	row.add_child(write)
+	rb.append(write)
 	if m.can_meeting(m.player()):
 		var bell := W.button(L.t("day.bell"), &"Ghost")
 		bell.name = "Meeting"
 		bell.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		bell.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 		bell.pressed.connect(_meeting_flow)
-		row.add_child(bell)
+		rb.append(bell)
 	var ready_btn := W.button(L.t("day.ready"), &"Ghost")
-	ready_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ready_btn.pressed.connect(func() -> void: commit(Intent.END_DAY))
-	row.add_child(ready_btn)
+	rb.append(ready_btn)
+	var row := W.fit_row(rb)
 	footer.add_child(row)
+
 
 
 ## Днём камера ближе: жители крупнее, камера идёт за тобой.
@@ -184,14 +183,30 @@ func person_actions(v: Villager) -> void:
 		L.t("day.p_ask"),
 	])
 	var me := m.player()
-	if me.role == Match.Role.ELDER and not me.role_used:
+	var elder := me.role == Match.Role.ELDER and not me.role_used
+	if elder:
 		opts.append(L.t("day.p_elder", {"who": v}))
+	opts.append(L.t("day.p_gesture"))        # то же, что долгое нажатие на жителя
 	var i: int = await ActionSheet.ask(self, head, opts)
+	if i == opts.size() - 1:
+		gesture_actions(v)
+		return
 	match i:
 		0: emit_intent(Intent.ACCUSE, {"id": v.id})
 		1: _pick_house_for(v)
 		2: emit_intent(Intent.ASK, {"id": v.id})
 		3: emit_intent(Intent.ELDER, {"id": v.id})
+
+
+## Долгое нажатие на жителя: жест без слов — показать пальцем, «верю», «не верю».
+func gesture_actions(v: Villager) -> void:
+	var kinds := ["point", "trust", "distrust"]
+	var opts := PackedStringArray()
+	for k: String in kinds:
+		opts.append(L.t("gest." + k))
+	var i: int = await ActionSheet.ask(self, L.t("gest.title", {"who": v}), opts)
+	if i >= 0:
+		emit_intent(Intent.GESTURE, {"kind": kinds[i], "id": v.id})
 
 
 ## Игрок-упырь у дела, где сегодня уже работали: поработать по-настоящему или испортить сделанное.

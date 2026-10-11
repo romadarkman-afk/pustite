@@ -71,6 +71,34 @@ static func emotion_pose(face: String) -> Dictionary:
 	return {}
 
 
+## Фонарь в руке. style — из Cosmetics.LANTERNS: цвет стекла и огня, форма (box, round, paper).
+static func _lantern(ci: CanvasItem, hand: Vector2, s: float, k: Color, lw: float, style: Dictionary) -> void:
+	var glass: Color = style.get("glass", Color("ffcf6b"))
+	var flame: Color = style.get("flame", Color(1, 0.95, 0.7))
+	ci.draw_line(hand, hand + Vector2(0, 5 * s), k, 2.2 * s, true)
+	match String(style.get("shape", "box")):
+		"round":
+			var c := hand + Vector2(0, 15 * s)
+			Art.shape(ci, Art.rrect(Rect2(hand.x - 4 * s, hand.y + 4 * s, 8 * s, 4 * s), 1.5 * s), k.lightened(0.3), k, lw * 0.6)
+			Art.shape(ci, Art.ellipse(c, Vector2(7.5 * s, 9 * s), 16), glass, k, lw * 0.8)
+			ci.draw_line(c + Vector2(-7.5 * s, 0), c + Vector2(7.5 * s, 0), k, 1.2 * s)
+			ci.draw_circle(c + Vector2(0, 1 * s), 3.2 * s, flame)
+		"paper":
+			var c := hand + Vector2(0, 14 * s)
+			Art.shape(ci, Art.ellipse(c, Vector2(9.5 * s, 8.5 * s), 18), glass, k, lw * 0.8)
+			for dy: float in [-4.0, 0.0, 4.0]:
+				var hw := 9.5 * sqrt(maxf(0.0, 1.0 - pow(dy / 8.5, 2.0)))
+				ci.draw_line(c + Vector2(-hw * s, dy * s), c + Vector2(hw * s, dy * s), Color(k, 0.6), 1.0 * s)
+			ci.draw_rect(Rect2(c.x - 4 * s, c.y - 10.5 * s, 8 * s, 3 * s), k)
+			ci.draw_rect(Rect2(c.x - 4 * s, c.y + 7.5 * s, 8 * s, 3 * s), k)
+			ci.draw_circle(c, 2.6 * s, flame)
+		_:
+			var lr := Rect2(hand.x - 7 * s, hand.y + 5 * s, 14 * s, 18 * s)
+			Art.shape(ci, Art.rrect(lr, 4 * s), glass, k, lw * 0.8)
+			ci.draw_line(Vector2(lr.position.x, lr.position.y + 5 * s), Vector2(lr.end.x, lr.position.y + 5 * s), k, 1.6 * s)
+			ci.draw_circle(lr.get_center() + Vector2(0, 2 * s), 3.2 * s, flame)
+
+
 ## Нарисовать жителя целиком. pose: walk (фаза шага 0..1), amp (размах шага 0..1),
 ## arm_l / arm_r (угол руки от опущенной, рад), look (Vector2, куда смотрят глаза),
 ## turn (−1..1, поворот головы вбок), tilt (наклон головы, рад), lantern, point (указать рукой),
@@ -213,12 +241,7 @@ static func figure(ci: CanvasItem, o: Vector2, s: float, look: LookDef, face: St
 	if tool != "":
 		_draw_tool(ci, tool, lhand, rhand, work, s, k)
 	if pose.get("lantern", false) and tool == "":
-		var hand := rhand
-		ci.draw_line(hand, hand + Vector2(0, 5 * s), k, 2.2 * s, true)
-		var lr := Rect2(hand.x - 7 * s, hand.y + 5 * s, 14 * s, 18 * s)
-		Art.shape(ci, Art.rrect(lr, 4 * s), Color("ffcf6b"), k, lw * 0.8)
-		ci.draw_line(Vector2(lr.position.x, lr.position.y + 5 * s), Vector2(lr.end.x, lr.position.y + 5 * s), k, 1.6 * s)
-		ci.draw_circle(lr.get_center() + Vector2(0, 2 * s), 3.2 * s, Color(1, 0.95, 0.7))
+		_lantern(ci, rhand, s, k, lw, pose.get("lantern_style", {}))
 
 	# шарф или воротник
 	if dressy or look.outfit == LookDef.Outfit.ROBE or look.outfit == LookDef.Outfit.DRESS:

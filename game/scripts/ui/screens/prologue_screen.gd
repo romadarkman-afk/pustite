@@ -43,6 +43,11 @@ func build() -> void:
 	if role_l.text.is_empty():
 		role_l.visible = false
 	body.add_child(role_l)
+	if m.rule != "":
+		var dl := W.icon_line(MorningScreen.event_glyph(Challenge.night_event(m.rule)) if Challenge.night_event(m.rule) != Match.Event.NONE else "bell",
+			L.t("daily.title") + ": " + Challenge.title(m.rule) + ". " + Challenge.text(m.rule), &"Hint")
+		dl.name = "Daily"
+		body.add_child(dl)
 	var facts := W.label(L.t("prologue.facts", {"p": m.config.players, "u": m.config.monsters,
 		"s": m.config.shelters, "c": m.config.capacity, "n": m.config.nights}), &"Small")
 	facts.modulate.a = 0.0

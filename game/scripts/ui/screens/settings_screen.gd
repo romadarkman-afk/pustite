@@ -28,6 +28,18 @@ func build() -> void:
 	# звук и вибрация — наверху: их меняют чаще, чем баланс
 	body.add_child(W.label(L.t("settings.lang"), &"Hint"))
 	body.add_child(MenuScreen.lang_button(self))
+	# размер текста: три кнопки «A» — каждая сразу своим размером
+	body.add_child(W.label(L.t("settings.text"), &"Hint"))
+	var sizes := W.hbox(8)
+	sizes.name = "TextSizes"
+	for i in range(ThemeFactory.TEXT_SCALES.size()):
+		var tb := W.button("A" + "+".repeat(i), &"RowOn" if i == Save.text_size else &"Row")
+		tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tb.add_theme_font_size_override("font_size", roundi(23 * ThemeFactory.TEXT_SCALES[i]))
+		var idx := i
+		tb.pressed.connect(func() -> void: emit_intent(Intent.SET_TEXT, {"size": idx}))
+		sizes.add_child(tb)
+	body.add_child(sizes)
 	body.add_child(W.label(L.t("settings.sound"), &"Hint"))
 	for row: Array in [[&"Music", L.t("settings.music")], [&"Sfx", L.t("settings.sfx")], [&"Ambience", L.t("settings.ambience")]]:
 		body.add_child(_volume_row(row[0], row[1]))

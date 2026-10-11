@@ -48,6 +48,21 @@ var _work: float = 0.0
 var _anim_acc: float = 0.0
 var _turn_t: float = 0.0
 
+## Жизнь на площади (задача 44): между репликами житель что-то делает — чешет затылок,
+## смотрит на небо, потягивается, скрещивает руки, переминается. Включает толпа, только днём.
+## Поза меняется в начале и в конце действия (у «почесать» — ещё раз посередине): две-три перерисовки.
+const FIDGETS: PackedStringArray = ["scratch", "sky", "stretch", "arms", "shift"]
+var fidgets_on := false
+var fidget: String = ""
+var fidget_count := 0          ## сколько действий сделал — для самотеста
+var _fidget_t := 0.0
+var _fidget_len := 0.0
+var _fidget_in := 0.0
+var _lean := 0.0               ## отшатнулся (обвинили) или наклонился к соседу (шепчет)
+var _lean_t := 0.0
+
+var lantern_id := "classic"     ## фонарь игрока (Cosmetics.LANTERNS) — только картинка и цвет света
+
 const WALK_SPEED := 190.0   ## единиц посёлка в секунду
 
 
@@ -101,7 +116,7 @@ func current_face() -> String:
 	if state == State.SCARED:
 		return "scared"
 	if _emotion_t > 0.0 and emotion != "":
-		return emotion
+		return "suspicious" if emotion == "point" else emotion
 	if _talk_t > 0.0:
 		return "talk" if fmod(_t * 6.0, 1.0) < 0.5 else "neutral"
 	if _eyes_closed:
@@ -127,6 +142,51 @@ func look_ahead() -> void:
 	if turn != 0.0:
 		turn = 0.0
 		body.queue_redraw()
+
+
+## Отшатнуться от того, кто обвиняет: верх тела уходит в сторону dir (−1 / 1).
+func recoil(dir: float, seconds: float = 1.4) -> void:
+	lean_for(0.16 * signf(dir) if dir != 0.0 else 0.16, seconds)
+
+
+func lean_for(amount: float, seconds: float) -> void:
+	if state == State.DEAD or state == State.GONE:
+		return
+	_lean = amount
+	_lean_t = seconds
+	body.queue_redraw()
+
+
+## Шепнуть соседу, который стоит в стороне x: повернуться, наклониться, пошевелить губами.
+func whisper_to(x: float, seconds: float = 1.6) -> bool:
+	if state != State.IDLE or working:
+		return false
+	look_at_x(x, seconds)
+	lean_for(0.1 * signf(x - position.x), seconds)
+	talk(seconds)
+	return _talk_t > 0.0 and _lean != 0.0
+
+
+## Начать действие сейчас (самотест и толпа). Пустое имя — случайное.
+func start_fidget(f: String = "") -> void:
+	if state != State.IDLE or working or cold:
+		return
+	if f == "":
+		f = FIDGETS[(fidget_count * 3 + int(_phase * 10.0)) % FIDGETS.size()]
+	fidget = f
+	_fidget_len = 1.4 + fmod(_phase * 7.0 + fidget_count * 0.61, 1.1)
+	_fidget_t = _fidget_len
+	fidget_count += 1
+	body.queue_redraw()
+
+
+## Стоит без дела: можно шепнуть ему или начать действие.
+func is_free() -> bool:
+	return state == State.IDLE and not working and not cold and _talk_t <= 0.0 and fidget == "" and (_emotion_t <= 0.0 or emotion == "")
+
+
+func _next_fidget_in() -> float:
+	return 5.0 + fmod(_phase * 13.0 + fidget_count * 2.3, 7.0)
 
 
 func set_cold(on: bool) -> void:
@@ -365,6 +425,12 @@ func _process(delta: float) -> void:
 		_turn_t -= delta
 		if _turn_t <= 0.0:
 			look_ahead()
+	if _lean_t > 0.0:
+		_lean_t -= delta
+		if _lean_t <= 0.0:
+			_lean = 0.0
+			body.queue_redraw()
+	_fidget_step(delta)
 	var f := current_face()
 	if f != _last_face:
 		_last_face = f
@@ -391,6 +457,56 @@ func _process(delta: float) -> void:
 			_anim_step(delta)
 		State.SCARED:
 			body.position.x = sin(_t * 46.0) * 1.5
+
+
+func _fidget_step(delta: float) -> void:
+	if fidget != "":
+		var half_before := _fidget_t > _fidget_len * 0.5
+		_fidget_t -= delta
+		var busy := state != State.IDLE or working or cold or (_emotion_t > 0.0 and emotion != "")
+		if _fidget_t <= 0.0 or busy:
+			fidget = ""
+			_fidget_in = _next_fidget_in()
+			body.queue_redraw()
+		elif fidget == "scratch" and half_before and _fidget_t <= _fidget_len * 0.5:
+			body.queue_redraw()      # рука переходит на другое место затылка
+		return
+	if not fidgets_on or state != State.IDLE or working or cold or _talk_t > 0.0:
+		return
+	if _fidget_in <= 0.0:
+		_fidget_in = 1.5 + fmod(_phase * 3.0, 6.0)    # первые действия в разное время, без хора
+	_fidget_in -= delta
+	if _fidget_in <= 0.0:
+		start_fidget()
+
+
+## Поза действия поверх обычной.
+func _fidget_pose(pose: Dictionary) -> String:
+	match fidget:
+		"scratch":
+			var up := _fidget_t > _fidget_len * 0.5
+			pose["arm_r"] = 2.75 if up else 2.55
+			pose["tilt"] = 0.12
+			return "confused"
+		"sky":
+			pose["look"] = Vector2(0.2, -1.0)
+			pose["tilt"] = -0.14
+			return ""
+		"stretch":
+			pose["arm_l"] = 2.85
+			pose["arm_r"] = 2.85
+			pose["breath"] = 1.0
+			return "relieved"
+		"arms":
+			pose["arm_l"] = 1.15
+			pose["arm_r"] = 1.15
+			return ""
+		"shift":
+			pose["walk"] = 0.2
+			pose["amp"] = 0.45
+			pose["lean"] = 0.05
+			return ""
+	return ""
 
 
 ## Ноги и руки двигаются только на бегу и за работой: перерисовка не чаще 24 раз в секунду.
@@ -436,7 +552,55 @@ func _draw() -> void:
 const EYE_COLORS := [Color(0, 0, 0, 0), Color("8fa3ab"), Color("d9a24e"), Color("d0683a"), Color("c23a33")]
 
 
+## Штрихи над глазом подозрения: по одному на уровень, веером.
+static func eye_strokes(level: int, c: Vector2, s: float = 1.0) -> Array[PackedVector2Array]:
+	var out: Array[PackedVector2Array] = []
+	var n := clampi(level, 0, 4)
+	for i in range(n):
+		var a := -PI * 0.5 + (float(i) - (n - 1) * 0.5) * 0.42
+		var d := Vector2(cos(a), sin(a))
+		out.append(PackedVector2Array([c + d * 12.0 * s, c + d * 17.0 * s]))
+	return out
+
+
+const BADGE_SHAPES := {"street": "circle", "liar": "square", "death": "diamond", "fake": "hex", "tunnel": "pill", "sabotage": "triangle"}
+
+
+## Рамка значка улики: силуэт по виду улики, радиус ~9.
+static func badge_outline(b: String, c: Vector2) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	match BADGE_SHAPES.get(b, "square"):
+		"circle":
+			for i in range(16):
+				var a := TAU * i / 16.0
+				pts.append(c + Vector2(cos(a), sin(a)) * 9.5)
+		"diamond":
+			pts = PackedVector2Array([c + Vector2(0, -11), c + Vector2(11, 0), c + Vector2(0, 11), c + Vector2(-11, 0)])
+		"hex":
+			for i in range(6):
+				var a := TAU * i / 6.0
+				pts.append(c + Vector2(cos(a), sin(a)) * 10.0)
+		"pill":
+			for i in range(8):
+				var a := -PI * 0.5 + PI * i / 7.0
+				pts.append(c + Vector2(4, 0) + Vector2(cos(a), sin(a)) * 7.5)
+			for i in range(8):
+				var a := PI * 0.5 + PI * i / 7.0
+				pts.append(c + Vector2(-4, 0) + Vector2(cos(a), sin(a)) * 7.5)
+		"triangle":
+			pts = PackedVector2Array([c + Vector2(0, -11), c + Vector2(11, 8.5), c + Vector2(-11, 8.5)])
+		_:
+			pts = PackedVector2Array([c + Vector2(-9, -9), c + Vector2(9, -9), c + Vector2(9, 9), c + Vector2(-9, 9)])
+	return pts
+
+
+var drawn_strokes := 0                 ## для самотеста: сколько штрихов у глаза нарисовано
+var drawn_frames: PackedInt32Array = [] ## для самотеста: вершины рамок значков
+
+
 func _draw_marks() -> void:
+	drawn_frames.clear()
+	drawn_strokes = 0
 	if pact:
 		var ring := _ellipse(Vector2(0, 2), Vector2(17, 6.5), 22)
 		ring.append(ring[0])
@@ -461,6 +625,11 @@ func _draw_marks() -> void:
 		draw_polyline(outline, col, 1.6)
 		draw_circle(c, minf(open, 2.2 + eye_level * 0.6), col)
 		draw_circle(c, 1.2 * s, Color("0d1214"))
+		# штрихи над глазом: сколько штрихов, столько уровней подозрения — различимо без цвета
+		drawn_strokes = 0
+		for seg: PackedVector2Array in eye_strokes(eye_level, c, s):
+			draw_line(seg[0], seg[1], col, 2.0)
+			drawn_strokes += 1
 	var y := -46.0
 	for b: String in badges.slice(0, 2):
 		var accent := ThemeFactory.LAMP
@@ -468,9 +637,13 @@ func _draw_marks() -> void:
 			"liar": accent = Color("e0533f")
 			"death": accent = Color("e0533f")
 			"sabotage": accent = Color("e0533f")
-		var r := Rect2(MARK_X - 9.0, y - 9.0, 18.0, 18.0)
-		draw_rect(r, Color(ThemeFactory.NIGHT, 0.9))
-		draw_rect(r, Color(accent, 0.9), false, 1.2)
+		# у каждой улики свой силуэт рамки: круг, ромб, щит… — различимы без цвета
+		var frame := badge_outline(b, Vector2(MARK_X, y))
+		drawn_frames.append(frame.size())
+		draw_colored_polygon(frame, Color(ThemeFactory.NIGHT, 0.9))
+		var fo := frame.duplicate()
+		fo.append(frame[0])
+		draw_polyline(fo, Color(accent, 0.9), 1.6)
 		match b:
 			"street":
 				draw_colored_polygon(_ellipse(Vector2(MARK_X - 3.2, y + 2.5), Vector2(2.6, 4.2), 10), ThemeFactory.LAMP)
@@ -513,10 +686,16 @@ func _bright(c: Color) -> Color:
 
 
 func _draw_body() -> void:
+	var fp := pose_now()
+	Folk.figure(body, Vector2.ZERO, S, look, fp[0], fp[1], Folk.palette(look))
+
+
+## Лицо и поза, которыми житель нарисуется сейчас: [лицо, поза].
+func pose_now() -> Array:
 	var f := current_face()
 	var pose := {"lantern": is_player, "turn": turn * _face, "look": Vector2(turn * _face, 0.0),
 		"emote": state == State.SCARED or (_emotion_t > 0.0 and emotion != "" and emotion != "sly")}
-	if f == "angry" and _point_dir != 0.0:
+	if (f == "angry" or emotion == "point") and _point_dir != 0.0 and _emotion_t > 0.0:
 		pose["point"] = true
 		pose["dir"] = 1.0
 	if state == State.RUN:
@@ -528,7 +707,23 @@ func _draw_body() -> void:
 		pose["hop"] = 0.0
 	if cold and f == "cold":
 		pose["shiver"] = true
-	Folk.figure(body, Vector2.ZERO, S, look, f, pose, Folk.palette(look))
+	if fidget != "" and state == State.IDLE and not working:
+		var ff := _fidget_pose(pose)
+		if ff != "" and f == "neutral":
+			f = ff
+	if _lean != 0.0:
+		pose["lean"] = _lean * _face
+	if is_player:
+		pose["lantern_style"] = Cosmetics.lantern(lantern_id)
+	return [f, pose]
+
+
+## Надеть фонарь: стекло, огонь и цвет света вокруг.
+func set_lantern(id: String) -> void:
+	lantern_id = id
+	if lantern_light != null:
+		lantern_light.color = Cosmetics.lantern(id).light
+	body.queue_redraw()
 
 
 func _ellipse(c: Vector2, r: Vector2, seg: int = 18) -> PackedVector2Array:

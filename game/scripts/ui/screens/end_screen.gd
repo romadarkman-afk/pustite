@@ -31,7 +31,28 @@ func build() -> void:
 	Juice.haptic(Juice.Haptic.SUCCESS if won else Juice.Haptic.DEATH)
 	Sfx.play(&"win" if won else &"lose")
 	body.add_child(_verdict_card())
-	if offer != "":
+	if m.rule != "":
+		var card := W.panel(&"Card")
+		card.name = "Daily"
+		var date := Challenge.today()
+		card.add_child(W.icon_line("safe" if won else "skull",
+			L.t("daily.won" if won else "daily.lost") + ". " + L.t("daily.streak", {"n": Save.daily_streak_on(Game.daily if Game.daily != "" else date)}) + ". " + L.t("daily.tomorrow"), &"Body"))
+		body.add_child(card)
+	if not Game.new_items.is_empty():
+		var names := PackedStringArray()
+		for key: String in Game.new_items:
+			var parts := key.split(":")
+			names.append(Cosmetics.title(parts[0], parts[1]))
+		var nc := W.panel(&"Card")
+		nc.name = "NewItems"
+		var nb := W.vbox(8)
+		nb.add_child(W.icon_line("street_ok", L.t("cos.new", {"list": L.t("list.sep").join(names)}), &"Body"))
+		var wear := W.button(L.t("cos.title"), &"Row")
+		wear.pressed.connect(func() -> void: commit(Intent.OPEN_WARDROBE))
+		nb.add_child(wear)
+		nc.add_child(nb)
+		body.add_child(nc)
+	if offer != "" and m.rule == "":
 		body.add_child(_offer_card())
 
 	body.add_child(W.label(L.t("end.who"), &"Hint"))

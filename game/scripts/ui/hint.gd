@@ -32,7 +32,7 @@ func setup(t: String) -> void:
 ## Встать над прямоугольником target (координаты родителя) или под ним, стрелкой к нему.
 func place(target: Rect2, width: float, below: bool) -> void:
 	var inner := width - PAD.x * 2.0
-	_text_size = _font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, inner, FONT_SIZE)
+	_text_size = _font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, inner, ThemeFactory.fs(FONT_SIZE))
 	var h := ceilf(_text_size.y) + PAD.y * 2.0
 	var parent_w := (get_parent() as Control).size.x
 	var x := clampf(target.get_center().x - width * 0.5, 0.0, maxf(0.0, parent_w - width))
@@ -67,8 +67,8 @@ func _draw() -> void:
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(10)
 	draw_style_box(sb, card_rect)
-	draw_multiline_string(_font, card_rect.position + PAD + Vector2(0, _font.get_ascent(FONT_SIZE)), text,
-		HORIZONTAL_ALIGNMENT_LEFT, card_rect.size.x - PAD.x * 2.0, FONT_SIZE, -1, ThemeFactory.BONE)
+	draw_multiline_string(_font, card_rect.position + PAD + Vector2(0, _font.get_ascent(ThemeFactory.fs(FONT_SIZE))), text,
+		HORIZONTAL_ALIGNMENT_LEFT, card_rect.size.x - PAD.x * 2.0, ThemeFactory.fs(FONT_SIZE), -1, ThemeFactory.BONE)
 	var bob := sin(_t * 4.0) * 2.5
 	var c := ThemeFactory.LAMP
 	if _arrow_up:

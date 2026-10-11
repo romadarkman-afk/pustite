@@ -34,7 +34,7 @@ func build() -> void:
 		L.t("mo.all_alive") if deaths.is_empty()
 		else (L.t("mo.one_dead") if deaths.size() == 1 else L.t("mo.dead_n", {"n": deaths.size()})),
 		&"Title")
-	head.add_theme_font_size_override("font_size", 44)
+	head.add_theme_font_size_override("font_size", ThemeFactory.fs(44))
 	body.add_child(head)
 	# тебя не стало этой ночью — сразу видно почему: кто был рядом, кто открыл дверь
 	if m.player_death != null and r.entries.has(m.player_death):
@@ -50,23 +50,26 @@ func build() -> void:
 
 
 func _reveal(r: NightReport) -> void:
+	# каждая строка сводки — карточка со значком события: смерть видно до того, как прочитал
 	var lines: Array[Array] = []
 	for e: NightReport.Entry in r.entries:
 		if e.is_death():
-			lines.append([_text(e), &"Body", true])
+			lines.append([_text(e), &"Body", true, _glyph(e)])
 	for e: NightReport.Entry in r.entries:
 		if not e.is_death():
-			lines.append([_text(e), &"Hint" if e.kind != NightReport.Kind.CLEAN_ROOM else &"Small", false])
+			lines.append([_text(e), &"Small", false, _glyph(e)])
 	if m.night_event != Match.Event.NONE:
-		lines.append([L.t("mo.event", {"e": Match.event_title(m.night_event, true)}), &"Small", false])
+		lines.append([Match.event_text(m.night_event), &"Small", false, event_glyph(m.night_event)])
 
 	await Juice.wait(0.6)
 	for l: Array in lines:
 		if not is_instance_valid(self):
 			return
-		var lab := W.label(l[0], l[1])
-		body.add_child(lab)
-		Juice.pop_in(lab)
+		var card := W.panel(&"Card")
+		card.set_meta("entry", true)
+		card.add_child(W.icon_line(l[3], l[0], l[1], 44, ThemeFactory.BLOOD if l[2] else Color(0, 0, 0, 0)))
+		body.add_child(card)
+		Juice.pop_in(card)
 		if l[2]:
 			Juice.haptic(Juice.Haptic.DEATH)
 			Sfx.play(&"death")
@@ -82,6 +85,38 @@ func _reveal(r: NightReport) -> void:
 	footer.add_child(next)
 	Juice.pop_in(next)
 	revealed = true
+
+
+## Значок события ночи: туман, луна, тишина, ливень.
+static func event_glyph(e: Match.Event) -> String:
+	match e:
+		Match.Event.FOG: return "fog"
+		Match.Event.MOON: return "moon"
+		Match.Event.QUIET: return "quiet"
+		Match.Event.RAIN: return "rain"
+	return "info"
+
+
+## Значок строки сводки: по нему видно, что случилось, ещё до чтения.
+func _glyph(e: NightReport.Entry) -> String:
+	match e.kind:
+		NightReport.Kind.KILLED_STREET: return "street"
+		NightReport.Kind.KILLED_ALONE: return "alone"
+		NightReport.Kind.KILLED_INSIDE: return "skull"
+		NightReport.Kind.KILLED_CREATURE: return "claw"
+		NightReport.Kind.KILLED_MIMIC: return "mimic"
+		NightReport.Kind.SURVIVED_STREET: return "street_ok"
+		NightReport.Kind.SURVIVED_ALONE: return "alone"
+		NightReport.Kind.CLEAN_ROOM: return "safe"
+		NightReport.Kind.LIAR: return "liar"
+		NightReport.Kind.TALISMAN_WORN:
+			var lvl: int = m.talisman[e.house] if e.house >= 0 and e.house < m.talisman.size() else 1
+			return "talisman_cracked" if lvl > 0 else "talisman_broken"
+		NightReport.Kind.SAVED: return "heal"
+		NightReport.Kind.TUNNEL: return "tunnel"
+		NightReport.Kind.MIMIC_SPARED: return "mimic"
+		NightReport.Kind.MIMIC_KNOCK: return "knock"
+	return "info"
 
 
 func _text(e: NightReport.Entry) -> String:

@@ -48,8 +48,10 @@ func build() -> void:
 		footer.add_child(go_dead)
 		return
 
-	_status = W.label(L.t("night.bell"), &"Tale")
-	body.add_child(_status)
+	var head := W.icon_line("bell", L.t("night.bell"), &"Tale", 52)
+	_status = head.get_child(1)
+	head.add_child(W.more(self, _info))
+	body.add_child(head)
 	_event_label()
 	var me := m.player()
 	var list := W.vbox(10)
@@ -70,26 +72,32 @@ func build() -> void:
 			text += "\n" + L.t("night.tunnel", {"house": m.house_name(m.tunnel_to(i))})
 		if i < m.talisman.size() and m.talisman[i] < Match.TALISMAN_MAX:
 			text += "\n" + L.t("night.tal_broken" if m.talisman[i] <= 0 else "night.tal_cracked")
-		var b := W.button(text, &"Row", 108)
+		var b := W.wrap(W.button(text, &"Row", 108))
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		var idx := i
 		b.pressed.connect(func() -> void: select_house(idx))
 		_rows.append(b)
 		list.add_child(b)
 	body.add_child(list)
-	body.add_child(W.label(L.t("night.rule"), &"Small"))
 	if me.role == Match.Role.HEALER and not me.role_used:
-		heal_button = W.button(L.t("night.heal"), &"Row")
+		heal_button = W.wrap(W.button(L.t("night.heal"), &"Row"))
 		heal_button.pressed.connect(func() -> void: emit_intent(Intent.HEAL))
 		body.add_child(heal_button)
 
 
-## Событие ночи — строкой под призывом бежать.
+## Событие ночи — значком и названием; что оно делает, написано в «Подробнее».
 func _event_label() -> void:
 	if m.night_event != Match.Event.NONE:
-		var l := W.label(Match.event_text(m.night_event), &"Hint")
+		var l := W.icon_line(MorningScreen.event_glyph(m.night_event), Match.event_title(m.night_event), &"Hint")
 		l.name = "Event"
 		body.add_child(l)
+
+
+func _info() -> Array:
+	var out: Array = [["bell", L.t("night.rule")]]
+	if m.night_event != Match.Event.NONE:
+		out.append([MorningScreen.event_glyph(m.night_event), Match.event_text(m.night_event)])
+	return out
 
 
 func hint_id() -> String:

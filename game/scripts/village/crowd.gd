@@ -10,6 +10,10 @@ var view: VillageView
 var book: LookBook
 var figures: Dictionary[int, VillagerFigure] = {}
 var ring: Dictionary[int, Vector2] = {}
+var day_life := false           ## днём жители переминаются, чешут затылок и шепчутся
+var _whisper_in := 4.0
+var whispers := 0               ## для самотеста
+var flinched := 0               ## сколько жителей вздрогнули на последний колокол
 
 
 func _ready() -> void:
@@ -29,8 +33,11 @@ func populate(m: Match) -> void:
 	var figs: Array[VillagerFigure] = []
 	for v: Villager in m.villagers:
 		var f := VillagerFigure.new()
-		f.setup(v.name, book.for_name(v.name, v.is_player), v.is_player)
+		var l := book.for_name(v.name, v.is_player)
+		f.setup(v.name, Cosmetics.dress(l, Save.hat) if v.is_player else l, v.is_player)
 		add_child(f)
+		if v.is_player:
+			f.set_lantern(Save.lantern)
 		figures[v.id] = f
 		figs.append(f)
 	var widths: Array[float] = []
@@ -62,7 +69,9 @@ static func fig_rect(p: Vector2, w: float) -> Rect2:
 	var ww := maxf(w, MIN_W)
 	var left := maxf(ww * 0.5, 19.0)
 	var right := maxf(ww * 0.5, VillagerFigure.MARK_X + 14.0)
-	return Rect2(p.x - left, p.y - 90.0, left + right, 117.0)
+	# высота — по самому высокому жителю (рост до 1.07 с шапкой): иначе макушка задевает табличку дома
+	var top := VillagerFigure.FIG_TOP * 1.08
+	return Rect2(p.x - left, p.y - top, left + right, top + 27.0)
 
 
 static func slot_rect(p: Vector2, w: float) -> Rect2:
@@ -104,9 +113,9 @@ func spots_for(n: int) -> Array[Vector2]:
 ## в два ряда (11–12 человек с длинными именами), ряды расширяются до краёв кадра.
 func layout_day(widths: Array[float]) -> Array[Vector2]:
 	var strict := _layout_day(widths, false)
-	var third_y := view.def.square_center.y + ROW_BACK - QUEUE_ROW
+	var back_y := view.def.square_center.y + ROW_BACK
 	for p: Vector2 in strict:
-		if absf(p.y - third_y) < 0.5:
+		if p.y < back_y - 0.5:        # кто-то попал в запасной третий ряд — пробуем ряды пошире
 			return _layout_day(widths, true)
 	return strict
 
@@ -180,16 +189,24 @@ func _layout_day(widths: Array[float], wide: bool) -> Array[Vector2]:
 				if placed:
 					break
 		if not placed:
-			# запасной третий ряд позади: свободное место от центра в обе стороны, только в кадре
+			# запасной третий ряд позади: свободное место от центра в обе стороны, только в кадре.
+			# Нет места на линии ряда — пробуем чуть ближе к колодцу (за ним, под табличкой дома)
 			var y3 := b_y - QUEUE_ROW
 			var best := Vector2.INF
-			for off in range(0, 320, 10):
-				for sgn: float in ([1.0, -1.0] if side > 0 else [-1.0, 1.0]):
-					var cx := c.x + sgn * (WELL_GAP + w * 0.5 + off)
-					if cx - w * 0.5 < VillageView.SAFE_X.x or cx + w * 0.5 > VillageView.SAFE_X.y:
-						continue
-					if _free(fig_rect(Vector2(cx, y3), w - GAP), obs + c_used):
-						best = Vector2(cx, y3)
+			for dy: float in [0.0, 15.0, 30.0, 45.0]:
+				for off in range(0, 320, 10):
+					var xs3: Array[float] = []
+					if off == 0 and dy > 0.0:
+						xs3.append(c.x)       # ближе к колодцу середина ряда тоже годится
+					for sgn: float in ([1.0, -1.0] if side > 0 else [-1.0, 1.0]):
+						xs3.append(c.x + sgn * (WELL_GAP + w * 0.5 + off))
+					for cx: float in xs3:
+						if cx - w * 0.5 < VillageView.SAFE_X.x or cx + w * 0.5 > VillageView.SAFE_X.y:
+							continue
+						if _free(fig_rect(Vector2(cx, y3 + dy), w - GAP), obs + c_used):
+							best = Vector2(cx, y3 + dy)
+							break
+					if best != Vector2.INF:
 						break
 				if best != Vector2.INF:
 					break
@@ -477,6 +494,7 @@ func sync(m: Match, phase: Match.Phase) -> void:
 			else:
 				f.die()
 			continue
+		f.fidgets_on = phase == Match.Phase.DAY
 		match phase:
 			Match.Phase.NIGHT:
 				pass
@@ -485,6 +503,9 @@ func sync(m: Match, phase: Match.Phase) -> void:
 			_:
 				if f.position.distance_to(ring[v.id]) > 4.0:
 					f.run_to(ring[v.id])
+	day_life = phase == Match.Phase.DAY
+	if phase == Match.Phase.NIGHT:
+		flinch_all()
 	# живой игрок: бег начнётся по колоколу (Nav вызовет arrange_run). Без игрока — все к своим домам.
 	if phase == Match.Phase.NIGHT and not m.player().alive:
 		arrange_night(m, -1)
@@ -497,3 +518,42 @@ func sync(m: Match, phase: Match.Phase) -> void:
 		for v: Villager in m.villagers:
 			if v.alive and figures.has(v.id):
 				figures[v.id].scare()
+
+
+## Колокол: все живые вздрагивают и отшатываются от колодца.
+func flinch_all() -> void:
+	var cx: float = view.def.square_center.x if view != null else 0.0
+	flinched = 0
+	for f: VillagerFigure in figures.values():
+		if f.state == VillagerFigure.State.DEAD or f.state == VillagerFigure.State.GONE:
+			continue
+		f.set_emotion("shocked", 0.8)
+		flinched += 1
+		f.lean_for(-0.1 if f.position.x < cx else 0.1, 0.6)
+
+
+func _process(delta: float) -> void:
+	life_step(delta)
+
+
+## Раз в 6–12 секунд двое соседей по ряду шепчутся: один наклоняется к другому, второй поворачивает голову.
+func life_step(delta: float) -> void:
+	if not day_life:
+		return
+	_whisper_in -= delta
+	if _whisper_in > 0.0:
+		return
+	_whisper_in = randf_range(6.0, 12.0)
+	var free: Array[VillagerFigure] = []
+	for vid: int in figures:
+		var f: VillagerFigure = figures[vid]
+		if vid != 0 and f.is_free():
+			free.append(f)
+	free.shuffle()
+	for a: VillagerFigure in free:
+		for b: VillagerFigure in free:
+			if a != b and absf(a.position.y - b.position.y) < 30.0 and absf(a.position.x - b.position.x) < 150.0:
+				if a.whisper_to(b.position.x):
+					whispers += 1
+				b.look_at_x(a.position.x, 1.6)
+				return

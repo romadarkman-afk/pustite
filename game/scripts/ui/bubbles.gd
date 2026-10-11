@@ -4,7 +4,7 @@ extends Control
 ## был одного читаемого размера на любом телефоне. Пузыри не налезают друг на друга:
 ## новый поднимается над старыми, а если места в поле нет — уходит самый старый.
 
-const FONT_SIZE := 19
+const FONT_SIZE := 19        ## при обычном размере текста; крупнее — по настройке (ThemeFactory.fs)
 const NAME_SIZE := 15
 const PAD := Vector2(12, 8)
 const MAX_ON_SCREEN := 3
@@ -26,6 +26,8 @@ class Bubble:
 	var order: int = 0
 	var text_w: float = 0.0
 	var fig: Node2D            ## кто говорит: пузырь едет за ним и за камерой
+	var fsize: int = FONT_SIZE ## размер текста на момент реплики
+	var nsize: int = NAME_SIZE
 
 var field: Rect2 = Rect2()
 var bubbles: Array[Bubble] = []
@@ -58,12 +60,14 @@ func say(who: String, text: String, head: Vector2, mine: bool, fig: Node2D = nul
 	for b: Bubble in bubbles:
 		if b.who == who and not b.dying:
 			_kill(b)
-	var maxw := minf(330.0, field.size.x * 0.56)
+	var fsz := ThemeFactory.fs(FONT_SIZE)
+	var nsz := ThemeFactory.fs(NAME_SIZE)
+	var maxw := minf(330.0 * ThemeFactory.text_scale, field.size.x * minf(0.7, 0.56 * ThemeFactory.text_scale))
 	var inner := maxw - PAD.x * 2.0
-	var ts := _font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, inner, FONT_SIZE)
-	var nw := _font.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE).x
+	var ts := _font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, inner, fsz)
+	var nw := _font.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, nsz).x
 	var w := ceilf(maxf(ts.x, nw)) + PAD.x * 2.0
-	var h := ceilf(ts.y) + NAME_SIZE + 4.0 + PAD.y * 2.0
+	var h := ceilf(ts.y) + nsz + 4.0 + PAD.y * 2.0
 	var x := clampf(head.x - w * 0.5, field.position.x + 4.0, field.end.x - 4.0 - w)
 	var y0 := minf(head.y - 12.0 - h, field.end.y - h - 4.0)
 	var r := Rect2(x, maxf(y0, field.position.y + 2.0), w, h)
@@ -88,6 +92,8 @@ func say(who: String, text: String, head: Vector2, mine: bool, fig: Node2D = nul
 	b.tail_x = clampf(head.x, r.position.x + 14.0, r.end.x - 14.0)
 	b.life = clampf(2.2 + 0.055 * text.length(), 3.0, 7.0)
 	b.text_w = inner
+	b.fsize = fsz
+	b.nsize = nsz
 	b.fig = fig
 	_order += 1
 	b.order = _order
@@ -211,8 +217,8 @@ func _draw() -> void:
 			draw_colored_polygon(PackedVector2Array([Vector2(ax, ay - 8), Vector2(ax, ay + 8), Vector2(ax + d * 10.0, ay)]), Color(edge, a))
 		var x := b.rect.position.x + PAD.x
 		var y := b.rect.position.y + PAD.y
-		draw_string(_font, Vector2(x, y + _font.get_ascent(NAME_SIZE)), b.who, HORIZONTAL_ALIGNMENT_LEFT, -1, NAME_SIZE,
+		draw_string(_font, Vector2(x, y + _font.get_ascent(b.nsize)), b.who, HORIZONTAL_ALIGNMENT_LEFT, -1, b.nsize,
 			Color(ThemeFactory.LAMP if b.mine else ThemeFactory.LAMP_D, a))
-		draw_multiline_string(_font, Vector2(x, y + NAME_SIZE + 4.0 + _font.get_ascent(FONT_SIZE)), b.text,
-			HORIZONTAL_ALIGNMENT_LEFT, b.text_w, FONT_SIZE, -1, Color(ThemeFactory.BONE, a))
+		draw_multiline_string(_font, Vector2(x, y + b.nsize + 4.0 + _font.get_ascent(b.fsize)), b.text,
+			HORIZONTAL_ALIGNMENT_LEFT, b.text_w, b.fsize, -1, Color(ThemeFactory.BONE, a))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
