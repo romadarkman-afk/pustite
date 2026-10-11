@@ -1,11 +1,13 @@
 extends Control
 ## Точка входа. Логотип ровно 1 секунду → меню. Тап — пропустить.
+## Фон логотипа — картинка заставки (assets/splash.png): Android показывает её, пока грузится движок.
 ## Для сборки здесь же запускаются самотесты: --sim, --flow, --layout, --lifecycle, --field, --crowd, --bubbles, --marks, --input, --hints, --difficulty, --howto, --night, --sound, --village, --talisman, --bell, --events, --mimic, --sabotage, --box, --roles, --meeting, --tunnel, --diary, --recap, --folk, --loc, --access, --daily, --cosmetics, --adapt, --gestures.
 ## --lang=en рядом с любым самотестом гоняет его на другом языке, --text=2 — с самым крупным текстом.
 
 const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk", "--loc", "--access", "--daily", "--cosmetics", "--adapt", "--gestures"]
 const TEST_TIMEOUT_SEC := 240.0
 const LOGO_SEC := 1.0
+const SPLASH: Texture2D = preload("res://assets/splash.png")
 
 var open: float = 0.0          ## насколько приоткрыта щель, 0..1
 var _title: Label
@@ -207,8 +209,8 @@ func _place_title() -> void:
 		return
 	_title.offset_left = -size.x * 0.5
 	_title.offset_right = size.x * 0.5
-	_title.offset_top = -size.y * 0.24
-	_title.offset_bottom = -size.y * 0.24 + 90
+	_title.offset_top = -size.y * 0.17
+	_title.offset_bottom = -size.y * 0.17 + 90
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -231,12 +233,15 @@ func _process(_delta: float) -> void:
 	queue_redraw()
 
 
-## Дверь и щель света — всё рисуется кодом.
+## Фон — та же ночная деревня, что на заставке при запуске; дверь и щель света рисуются кодом.
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), ThemeFactory.NIGHT)
-	var w := minf(size.x * 0.34, 260.0)
+	var sk := maxf(size.x / SPLASH.get_width(), size.y / SPLASH.get_height())
+	var ss := SPLASH.get_size() * sk
+	draw_texture_rect(SPLASH, Rect2((size - ss) * 0.5, ss), false)
+	var w := minf(size.x * 0.3, 230.0)
 	var h := w * 1.7
-	var c := Vector2(size.x * 0.5, size.y * 0.42)
+	var c := Vector2(size.x * 0.5, size.y * 0.6)
 	var door := Rect2(c - Vector2(w, h) * 0.5, Vector2(w, h))
 	var flick := 0.92 + 0.08 * sin(Time.get_ticks_msec() * 0.011)
 

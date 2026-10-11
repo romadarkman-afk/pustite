@@ -996,6 +996,27 @@ static func field() -> void:
 		"туман не идёт или стоит на месте")
 	ok += _expect(fails, v.dust().emitting, "пыль не летит")
 
+	# картинки посёлка: все загружены; дверь каждого дома на картинке стоит в точке, куда встаёт очередь;
+	# табличка висит на самом доме; заставка запуска — та же ночная деревня
+	var missing := PackedStringArray()
+	for f: String in VillageView.ART_FILES:
+		if not (v._tex.get(f) is Texture2D):
+			missing.append(f)
+	ok += _expect(fails, missing.is_empty(), "нет картинок посёлка: %s" % ", ".join(missing))
+	for i in range(v.open_shelters()):
+		var sh: HouseDef = v.def.shelters[i]
+		var dr := v.door_rect(sh)
+		ok += _expect(fails, absf(dr.get_center().x - sh.pos.x) < 2.0 and absf(dr.end.y - sh.pos.y) < 2.0,
+			"дверь убежища %d на картинке не там, где очередь (%s, а дверь %s)" % [i, sh.pos, dr])
+		ok += _expect(fails, v.house_rect(sh).encloses(v.shelter_label_rect_local(i)), "табличка убежища %d висит мимо дома" % i)
+	ok += _expect(fails, ProjectSettings.get_setting("application/boot_splash/show_image", false)
+		and ResourceLoader.exists(String(ProjectSettings.get_setting("application/boot_splash/image", ""))), "нет заставки при запуске")
+	var presets := ConfigFile.new()
+	if presets.load("res://export_presets.cfg") == OK:
+		for key: String in ["main_192x192", "adaptive_foreground_432x432", "adaptive_background_432x432"]:
+			var ip := String(presets.get_value("preset.0.options", "launcher_icons/" + key, ""))
+			ok += _expect(fails, ip != "" and FileAccess.file_exists(ip), "у Android нет значка приложения %s" % key)
+
 	var d0 := v.draws
 	await _frames(tree, 60)
 	ok += _expect(fails, v.draws - d0 <= 1, "посёлок перерисовывается в покое: %d раз за 60 кадров" % (v.draws - d0))
@@ -1054,12 +1075,12 @@ static func field() -> void:
 			inside = false
 	ok += _expect(fails, inside, "кто-то из жителей стоит за пределами площади")
 
-	# дыхание: 8 замеров за секунду — размах масштаба тела. Два замера давали ложные провалы,
-	# когда попадали симметрично по разные стороны от вершины вдоха.
+	# дыхание: 16 замеров за 2 секунды — размах масштаба тела. Вдох длится ~3,7 с: за одну секунду
+	# у вершины вдоха размах бывал ровно 0.010, и тест ложно падал.
 	var probe: VillagerFigure = cr.figures[1]
 	var lo_b := 9.0
 	var hi_b := 0.0
-	for k in range(8):
+	for k in range(16):
 		await tree.create_timer(0.13).timeout
 		lo_b = minf(lo_b, probe.body_scale().y)
 		hi_b = maxf(hi_b, probe.body_scale().y)
@@ -5249,9 +5270,13 @@ static func gestures() -> void:
 	ok += _expect(fails, m.chat.back().kind == ChatLine.Kind.SYSTEM and m.chat.back().text.contains(_ru_case("acc", target.name)), "жеста нет в журнале")
 	Game.release(&"test")
 	var replied := false
-	for i in range(600):
+	var pointed: Array = []      # реплики с подставленным родом: «[сделал|сделала]» → как сказал бы этот житель
+	for tpl: String in Phrases.b("GEST_POINTED"):
+		pointed.append(L.fill(tpl, {"me": target}))
+	var wait_until := Time.get_ticks_msec() + 12000   # по часам, а не по кадрам: под нагрузкой кадры идут иначе
+	while Time.get_ticks_msec() < wait_until:
 		for l: ChatLine in m.chat:
-			if l.speaker == target and Phrases.b("GEST_POINTED").has(l.text):
+			if l.speaker == target and pointed.has(l.text):
 				replied = true
 		if replied:
 			break
