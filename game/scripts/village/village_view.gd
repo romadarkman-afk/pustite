@@ -38,6 +38,8 @@ var _tree_spots: PackedVector3Array = PackedVector3Array()
 var _grass: PackedVector2Array = PackedVector2Array()
 var _lamp_lights: Array[PointLight2D] = []
 var _tex: Dictionary = {}                  ## имя картинки -> Texture2D
+var _props: Array[VillageProp] = []        ## дома, колодец, фонари и реквизит — в слое толпы
+var _labels: Node2D                        ## таблички убежищ — над толпой
 
 ## Камера. Днём приближена и следует за игроком по горизонтали; в остальных фазах
 ## показывает посёлок целиком. Двигается только узел: посёлок от этого не перерисовывается.
@@ -71,6 +73,11 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	crowd.view = self
 	crowd.book = L.looks()
 	add_child(crowd)
+	_build_props()
+	_labels = Node2D.new()
+	_labels.name = "Plaques"
+	_labels.draw.connect(_draw_plaques)
+	add_child(_labels)
 	jobs_layer = JobLayer.new()
 	jobs_layer.view = self
 	jobs_layer.visible = false
@@ -81,7 +88,7 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 func set_open_count(n: int) -> void:
 	open_count = clampi(n, 1, def.shelters.size())
 	_build_glows()
-	queue_redraw()
+	_refresh()
 
 
 func open_shelters() -> int:
@@ -98,7 +105,6 @@ func set_night(v: float) -> void:
 		_fog.modulate.a = 0.35 + 0.65 * night
 		_dust.modulate.a = 0.12 + 0.88 * (1.0 - night)
 	if crowd != null:
-		crowd.modulate = Color(1, 1, 1).lerp(Color(0.62, 0.64, 0.86), night)
 		crowd.set_night(night)
 	if eyes != null:
 		eyes.night = night
@@ -106,7 +112,7 @@ func set_night(v: float) -> void:
 	var q := snappedf(night, 0.025)
 	if q != _q:
 		_q = q
-		queue_redraw()
+		_refresh()
 
 
 func set_mood(v: float, dur: float) -> void:
@@ -177,7 +183,7 @@ var tunnel: Vector2i = Vector2i(-1, -1)   ## туннель между двум�
 func set_tunnel(t: Vector2i) -> void:
 	if t != tunnel:
 		tunnel = t
-		queue_redraw()
+		_refresh()
 
 
 ## Где люк туннеля у дома i — справа от двери.
@@ -189,14 +195,14 @@ func hatch_pos(i: int) -> Vector2:
 func set_talismans(t: PackedInt32Array) -> void:
 	if t != talismans:
 		talismans = t.duplicate()
-		queue_redraw()
+		_refresh()
 
 
 ## Ночью горит столько фонарей, сколько заправили днём.
 func set_lamps_fueled(n: int) -> void:
 	if n != lamps_fueled:
 		lamps_fueled = n
-		queue_redraw()
+		_refresh()
 
 
 func _lamp_fuel(i: int) -> float:
@@ -205,13 +211,13 @@ func _lamp_fuel(i: int) -> float:
 
 func set_selected_house(i: int) -> void:
 	selected_house = i
-	queue_redraw()
+	_refresh()
 
 
 func set_house_going(counts: PackedInt32Array, on: bool) -> void:
 	house_going = counts
 	show_going = on
-	queue_redraw()
+	_refresh()
 
 
 ## Дом под пальцем: открытое убежище, в чью зону касания попала точка. -1 — мимо.
@@ -334,7 +340,7 @@ func _draw() -> void:
 	for tp: Vector3 in _tree_spots:
 		var th := 118.0 * tp.z
 		var tw: float = th * _tex.tree.get_width() / _tex.tree.get_height()
-		_blit(_tex.tree, Rect2(tp.x - tw * 0.5, tp.y - th * 0.97, tw, th), int(tp.x) % 2 == 0, haze)
+		_blit(self, _tex.tree, Rect2(tp.x - tw * 0.5, tp.y - th * 0.97, tw, th), int(tp.x) % 2 == 0, haze)
 	# земля и трава
 	Art.vgrad(self, Rect2(-2000, 186, 4720, 3200), Art.dn(Color("9cbf72"), n), Art.dn(Color("78a35a"), n))
 	var gc := Art.dn(Color("62904a"), n)
@@ -345,45 +351,90 @@ func _draw() -> void:
 		_draw_river(n, k)
 	_draw_square(n, k)
 
-	# дома: дальние раньше ближних
-	var items: Array = []
-	for di in range(def.decor.size()):
-		items.append([def.decor[di], 0, DECOR_PALS[di % DECOR_PALS.size()], 2])
-	for i in range(def.shelters.size()):
-		items.append([def.shelters[i], 1 if i < open_count else 2, SHELTER_PALS[i % SHELTER_PALS.size()], talismans[i] if i < talismans.size() else 2])
-	items.sort_custom(func(a: Array, b: Array) -> bool: return (a[0] as HouseDef).pos.y < (b[0] as HouseDef).pos.y)
-	for it: Array in items:
-		var h: HouseDef = it[0]
-		if h.pos.y > def.well.y:
-			continue
-		_draw_house(h, it[1], n, _lit(h, n), it[3])
-	_draw_props(n, k)
-	_draw_well(n, k)
-	for li2 in range(def.lamps.size()):
-		_draw_lamp_post(def.lamps[li2], n, _lamp_on(li2, n) * _lamp_fuel(li2))
-	for it: Array in items:
-		var h: HouseDef = it[0]
-		if h.pos.y <= def.well.y:
-			continue
-		_draw_house(h, it[1], n, _lit(h, n), it[3])
+	# дома, колодец, фонари, поленница и бочка — предметы в слое толпы (VillageProp):
+	# кто стоит за домом, того дом закрывает. Здесь только то, что лежит на земле.
+	_draw_hatches(n, k)
+	_draw_fish(n, k)
 	_draw_fences(n, k)
+	draw_usec_total += Time.get_ticks_usec() - t0
 
-	# выбранный ночью дом — тёплая рамка
-	if selected_house >= 0 and selected_house < open_count:
-		var sh: HouseDef = def.shelters[selected_house]
-		var sr := house_rect(sh).grow(6.0)
-		Art._outline(self, Art.rrect(sr, 12), ThemeFactory.LAMP, 3.5)
-	# таблички открытых убежищ — капсулы на стене над дверью: очередь у двери их не закрывает
+
+## Перерисовать посёлок вместе с предметами и табличками.
+func _refresh() -> void:
+	queue_redraw()
+	for p: VillageProp in _props:
+		p.queue_redraw()
+	if _labels != null:
+		_labels.queue_redraw()
+
+
+func _nq() -> float:
+	return _q if _q >= 0.0 else night
+
+
+func _build_props() -> void:
+	for p: VillageProp in _props:
+		p.queue_free()
+	_props.clear()
+	for i in range(def.shelters.size()):
+		var idx := i
+		_add_prop(def.shelters[i].pos, func(ci: CanvasItem) -> void: _paint_shelter(ci, idx))
+	for hd: HouseDef in def.decor:
+		var h := hd
+		_add_prop(h.pos, func(ci: CanvasItem) -> void: _draw_house(ci, h, 0, _nq(), _lit(h, _nq()), 2))
+	_add_prop(def.well, func(ci: CanvasItem) -> void: _draw_well(ci, _nq()))
+	for li in range(def.lamps.size()):
+		var lidx := li
+		_add_prop(def.lamps[li], func(ci: CanvasItem) -> void:
+			_draw_lamp_post(ci, def.lamps[lidx], _nq(), _lamp_on(lidx, _nq()) * _lamp_fuel(lidx)))
+	for j: JobDef in def.jobs:
+		var jp := j.pos
+		match j.kind:
+			JobDef.Kind.WOOD:
+				_add_prop(jp + Vector2(36, 4), func(ci: CanvasItem) -> void: _prop(ci, _tex.woodpile, jp + Vector2(36, 4), 76.0, _nq()))
+			JobDef.Kind.LAMP:
+				_add_prop(jp + Vector2(-30, 3), func(ci: CanvasItem) -> void: _prop(ci, _tex.barrel, jp + Vector2(-30, 3), 30.0, _nq()))
+
+
+func _add_prop(at: Vector2, paint: Callable) -> void:
+	var p := VillageProp.new()
+	p.position = at
+	p.paint = paint
+	crowd.add_child(p)
+	_props.append(p)
+
+
+## Убежище: открытое или заколоченное, с оберегом; выбранное ночью — в тёплой рамке.
+func _paint_shelter(ci: CanvasItem, i: int) -> void:
+	var h: HouseDef = def.shelters[i]
+	var n := _nq()
+	_draw_house(ci, h, 1 if i < open_count else 2, n, _lit(h, n), talismans[i] if i < talismans.size() else 2)
+	if i == selected_house and i < open_count:
+		Art._outline(ci, Art.rrect(house_rect(h).grow(6.0), 12), ThemeFactory.LAMP, 3.5)
+
+
+## Где житель спрятался бы за предметом: от верха картинки дома (колодца) до точки, где тот стоит.
+## Толпа не ставит туда людей: из-за дома не было бы видно ни фигуры, ни имени.
+func hidden_zones() -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	for h: HouseDef in def.shelters + def.decor:
+		var r := house_rect(h)
+		out.append(Rect2(r.position.x + r.size.x * 0.08, r.position.y, r.size.x * 0.84, h.pos.y - r.position.y))
+	out.append(Rect2(def.well.x - 30.0, def.well.y - 70.0, 60.0, 70.0))
+	return out
+
+
+## Таблички открытых убежищ — капсулы на доме над дверью; рисуются над толпой.
+func _draw_plaques() -> void:
 	for i in range(open_count):
 		var r := shelter_label_rect_local(i)
 		var sel := i == selected_house
-		Art.shape(self, Art.rrect(r, r.size.y * 0.5), Color(0.08, 0.06, 0.12, 0.82), ThemeFactory.LAMP if sel else Color(1, 1, 1, 0.3), 2.0 if sel else 1.2)
+		Art.shape(_labels, Art.rrect(r, r.size.y * 0.5), Color(0.08, 0.06, 0.12, 0.82), ThemeFactory.LAMP if sel else Color(1, 1, 1, 0.3), 2.0 if sel else 1.2)
 		var name_w := _font.get_string_size(_title(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE).x
 		var x2 := r.position.x + 8.0
-		draw_string(_font, Vector2(x2, r.end.y - 4.5), _title(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE, Color(1, 1, 1))
+		_labels.draw_string(_font, Vector2(x2, r.end.y - 4.5), _title(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE, Color(1, 1, 1))
 		if _going_text(i) != "":
-			draw_string(_font, Vector2(x2 + name_w, r.end.y - 4.5), _going_text(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE, ThemeFactory.LAMP)
-	draw_usec_total += Time.get_ticks_usec() - t0
+			_labels.draw_string(_font, Vector2(x2 + name_w, r.end.y - 4.5), _going_text(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE, ThemeFactory.LAMP)
 
 
 const PLAQUE_SIZE := 14
@@ -444,46 +495,47 @@ func _night_mod(n: float) -> Color:
 
 
 ## Картинка в прямоугольник; flip — зеркально по горизонтали.
-func _blit(tex: Texture2D, r: Rect2, flip: bool, mod: Color = Color(1, 1, 1)) -> void:
+func _blit(ci: CanvasItem, tex: Texture2D, r: Rect2, flip: bool, mod: Color = Color(1, 1, 1)) -> void:
+	var off := Vector2.ZERO if ci == self else -(ci as Node2D).position
 	if flip:
-		draw_set_transform(Vector2(r.end.x, r.position.y), 0.0, Vector2(-1, 1))
-		draw_texture_rect(tex, Rect2(Vector2.ZERO, r.size), false, mod)
-		draw_set_transform(Vector2.ZERO)
+		ci.draw_set_transform(Vector2(r.end.x, r.position.y) + off, 0.0, Vector2(-1, 1))
+		ci.draw_texture_rect(tex, Rect2(Vector2.ZERO, r.size), false, mod)
+		ci.draw_set_transform(off)
 	else:
-		draw_texture_rect(tex, r, false, mod)
+		ci.draw_texture_rect(tex, r, false, mod)
 
 
 ## Реквизит: низ по центру в точке p, ширина w.
-func _prop(tex: Texture2D, p: Vector2, w: float, n: float) -> void:
+func _prop(ci: CanvasItem, tex: Texture2D, p: Vector2, w: float, n: float) -> void:
 	var h := w * tex.get_height() / tex.get_width()
-	draw_colored_polygon(Art.ellipse(p + Vector2(0, -3), Vector2(w * 0.46, 6)), Color(0, 0, 0, 0.2))
-	_blit(tex, Rect2(p.x - w * 0.5, p.y - h, w, h), false, _night_mod(n))
+	ci.draw_colored_polygon(Art.ellipse(p + Vector2(0, -3), Vector2(w * 0.46, 6)), Color(0, 0, 0, 0.2))
+	_blit(ci, tex, Rect2(p.x - w * 0.5, p.y - h, w, h), false, _night_mod(n))
 
 
 ## Дом: дневная картинка, к ночи темнеет; когда в доме загорается свет, поверх ложится
 ## ночная картинка с горящими окнами. state: 0 — фон, 1 — открытое убежище, 2 — заколоченное.
-func _draw_house(h: HouseDef, state: int, n: float, lit: float, tal: int) -> void:
+func _draw_house(ci: CanvasItem, h: HouseDef, state: int, n: float, lit: float, tal: int) -> void:
 	var a := _art(h)
 	var r := house_rect(h)
 	var flip := _flip(h)
-	draw_colored_polygon(Art.ellipse(Vector2(r.get_center().x, h.pos.y + 2.0), Vector2(r.size.x * 0.5, 11)), Color(0, 0, 0, 0.2))
+	ci.draw_colored_polygon(Art.ellipse(Vector2(r.get_center().x, h.pos.y + 2.0), Vector2(r.size.x * 0.5, 11)), Color(0, 0, 0, 0.2))
 	var mod := _night_mod(n)
 	if state == 2:
 		mod = mod.darkened(0.32)
 	elif state == 0:
 		mod = mod.darkened(0.08)
-	_blit(_tex[a[0] + "_day"], r, flip, mod)
+	_blit(ci, _tex[a[0] + "_day"], r, flip, mod)
 	if state != 2 and lit > 0.0:
-		_blit(_tex[a[0] + "_night"], r, flip, Color(1, 1, 1, lit * (1.0 if state == 1 else 0.85)))
+		_blit(ci, _tex[a[0] + "_night"], r, flip, Color(1, 1, 1, lit * (1.0 if state == 1 else 0.85)))
 	var dr := door_rect(h)
 	if state == 2:
-		Art._planks(self, dr.grow(2.0), n, Art.ink(n))
+		Art._planks(ci, dr.grow(2.0), n, Art.ink(n))
 	elif state == 1:
-		_draw_talisman(dr, flip, n, tal)
+		_draw_talisman(ci, dr, flip, n, tal)
 
 
 ## Оберег на стене у двери, со стороны от площади. tal: 2 целый, 1 треснул, 0 расколот.
-func _draw_talisman(dr: Rect2, flip: bool, n: float, tal: int) -> void:
+func _draw_talisman(ci: CanvasItem, dr: Rect2, flip: bool, n: float, tal: int) -> void:
 	var w := clampf(dr.size.x * 0.6, 18.0, 24.0)
 	var hh: float = w * _tex.talisman.get_height() / _tex.talisman.get_width()
 	var cx := dr.position.x - w * 0.62 if not flip else dr.end.x + w * 0.62
@@ -493,13 +545,13 @@ func _draw_talisman(dr: Rect2, flip: bool, n: float, tal: int) -> void:
 		mod = mod * Color(0.62, 0.42, 0.42)
 	elif tal == 1:
 		mod = mod.darkened(0.12)
-	_blit(_tex.talisman, r, false, mod)
+	_blit(ci, _tex.talisman, r, false, mod)
 	if tal < 2:
 		var c := r.get_center() + Vector2(0, hh * 0.12)
 		var crack := PackedVector2Array([c + Vector2(3, -w * 0.42), c + Vector2(-1, -2), c + Vector2(2, 3), c + Vector2(-2, w * 0.42)])
-		draw_polyline(crack, Color(0.08, 0.05, 0.06), 2.6, true)
+		ci.draw_polyline(crack, Color(0.08, 0.05, 0.06), 2.6, true)
 		if tal <= 0:
-			draw_polyline(crack, ThemeFactory.BLOOD, 1.2, true)
+			ci.draw_polyline(crack, ThemeFactory.BLOOD, 1.2, true)
 
 
 func _title(i: int) -> String:
@@ -570,14 +622,10 @@ func _draw_hatches(n: float, k: Color) -> void:
 		draw_arc(c + Vector2(9, -1), 3.2, 0, TAU, 10, Art.dn(Color("c8c8d0"), n), 1.6, true)
 
 
-func _draw_props(n: float, k: Color) -> void:
-	_draw_hatches(n, k)
+## Мостки и ведро у реки — плоские, их никто не заслоняет; поленница и бочка — предметы (VillageProp).
+func _draw_fish(n: float, k: Color) -> void:
 	for j: JobDef in def.jobs:
 		match j.kind:
-			JobDef.Kind.WOOD:
-				_prop(_tex.woodpile, j.pos + Vector2(36, 4), 76.0, n)
-			JobDef.Kind.LAMP:
-				_prop(_tex.barrel, j.pos + Vector2(-30, 3), 30.0, n)
 			JobDef.Kind.FISH:
 				var b2 := j.pos + Vector2(-30, 6)
 				var plank := Art.dn(Color("c8925e"), n)
@@ -592,8 +640,8 @@ func _draw_props(n: float, k: Color) -> void:
 				pass
 
 
-func _draw_well(n: float, _k: Color) -> void:
-	_prop(_tex.well, def.well + Vector2(0, 8), 80.0, n)
+func _draw_well(ci: CanvasItem, n: float) -> void:
+	_prop(ci, _tex.well, def.well + Vector2(0, 8), 80.0, n)
 
 
 ## Фонарный столб: фонарь справа на кронштейне, ночью горит, если его заправили днём.
@@ -601,15 +649,15 @@ const LAMP_H := 84.0
 const LAMP_BASE_X := 0.42                  ## где столб на отражённой картинке, доля ширины
 
 
-func _draw_lamp_post(p: Vector2, n: float, on: float = -1.0) -> void:
+func _draw_lamp_post(ci: CanvasItem, p: Vector2, n: float, on: float = -1.0) -> void:
 	if on < 0.0:
 		on = n
 	var w: float = LAMP_H * _tex.lamp_day.get_width() / _tex.lamp_day.get_height()
 	var r := Rect2(p.x - LAMP_BASE_X * w, p.y - LAMP_H * 0.98, w, LAMP_H)
-	draw_colored_polygon(Art.ellipse(p + Vector2(0, 2), Vector2(9, 3.5)), Color(0, 0, 0, 0.22))
-	_blit(_tex.lamp_day, r, true, _night_mod(n))
+	ci.draw_colored_polygon(Art.ellipse(p + Vector2(0, 2), Vector2(9, 3.5)), Color(0, 0, 0, 0.22))
+	_blit(ci, _tex.lamp_day, r, true, _night_mod(n))
 	if on > 0.0:
-		_blit(_tex.lamp_night, r, true, Color(1, 1, 1, on))
+		_blit(ci, _tex.lamp_night, r, true, Color(1, 1, 1, on))
 
 
 func _draw_fences(n: float, k: Color) -> void:
@@ -878,10 +926,18 @@ class Eyes extends Node2D:
 		var a := alpha()
 		if a <= 0.0:
 			return
-		# тварь выглядывает из просвета между домами — застывшая улыбка, медленный наклон головы
-		var pal := {"coat": Color("5d4a6b", a), "coat_d": Color("463652", a), "skin": Color("e2d6c4", a), "skin_d": Color("c2b39e", a),
-			"hair": Color("1e1a1a", a), "scarf": Color("2a2a3a", a), "hat": Color("2a2a3a", a), "top": "hat"}
-		Art.villager(self, 0.32, pal, "grin", {"origin": Vector2(292, 214), "ink": Color(Art.INK_N, a), "tilt": 0.18 + 0.06 * sin(_t * 0.7)})
+		# тварь выглядывает из просвета между домами: чёрный силуэт жителя, чуть выше человека,
+		# медленно наклоняет голову; светятся только глаза и застывшая улыбка
+		var tex := VillagerFigure.folk_tex(2)
+		var h := 74.0
+		var w := h * tex.get_width() / tex.get_height()
+		# стоит в просвете между домом и часовней; его глаза — вторая пара красных огоньков (SPOTS[1])
+		var o := Vector2(300, 245)
+		var tilt := 0.05 * sin(_t * 0.7)
+		draw_set_transform(o, tilt, Vector2(1.0, 1.08))
+		draw_texture_rect(tex, Rect2(-w * 0.5, -h, w, h), false, Color(0.03, 0.02, 0.05, 0.85 * a))
+		draw_arc(Vector2(0, -h * 0.86 + 5.0), 4.5, 0.35, PI - 0.35, 8, Color(0.92, 0.9, 0.8, 0.7 * a), 1.2, true)
+		draw_set_transform(Vector2.ZERO)
 		for i in range(SPOTS.size()):
 			if _closed[i] == 1:
 				continue

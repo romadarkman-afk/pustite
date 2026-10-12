@@ -1025,6 +1025,21 @@ static func field() -> void:
 
 	Nav.start_match()
 	await _settle(tree)
+	# жители — картинки из листа: у каждого своя, пока хватает подходящих; подпись над домами
+	var seen := {}
+	var drawn_ok := true
+	var women := 0
+	var men := 0
+	for f: VillagerFigure in v.crowd.figures.values():
+		drawn_ok = drawn_ok and f.sprite_id > 0 and VillagerFigure.folk_tex(f.sprite_id) != null and f.tag.z_index > 0
+		seen[f.sprite_id] = int(seen.get(f.sprite_id, 0)) + 1
+		if f.look.female:
+			women += 1
+		else:
+			men += 1
+	ok += _expect(fails, drawn_ok, "жители не из картинок или подпись не над домами")
+	ok += _expect(fails, seen.size() >= mini(women, VillagerFigure.FOLK_FEMALE.size()) + mini(men, VillagerFigure.FOLK_MALE.size()),
+		"картинки жителей повторяются раньше времени (%d разных на %d женщин и %d мужчин)" % [seen.size(), women, men])
 	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
 	await _settle(tree)
 	ok += _expect(fails, Nav.host.current is DayScreen and absf(v.night - 0.12) < 0.02,
@@ -1271,6 +1286,10 @@ static func _check_crowd(tag: String, out: PackedStringArray) -> int:
 		if all.position.y < fld.position.y - 40.0:
 			out.append("%s: %s выше поля" % [tag, f.who])
 	var vv := Nav.village
+	# за домом или колодцем никто не стоит: слой толпы сортируется по глубине, и дом закрыл бы фигуру
+	for f: VillagerFigure in figs:
+		if f.state != VillagerFigure.State.RUN and vv.crowd._hidden(f.position):
+			out.append("%s: %s стоит за домом или колодцем (%s)" % [tag, f.who, f.position])
 	for hi in range(vv.open_count):
 		var plaque := vv.shelter_label_rect_global(hi).grow(-1.0)
 		for f: VillagerFigure in figs:

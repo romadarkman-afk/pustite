@@ -31,10 +31,13 @@ func populate(m: Match) -> void:
 	clear()
 	view.set_open_count(m.config.shelters)   # таблички этой партии — до расстановки
 	var figs: Array[VillagerFigure] = []
+	var used := {}          # картинки жителей: повтор, только когда подходящие кончились
 	for v: Villager in m.villagers:
 		var f := VillagerFigure.new()
 		var l := book.for_name(v.name, v.is_player)
 		f.setup(v.name, Cosmetics.dress(l, Save.hat) if v.is_player else l, v.is_player)
+		f.sprite_id = VillagerFigure.pick_sprite(l, used)
+		f.modulate = night_tint
 		add_child(f)
 		if v.is_player:
 			f.set_lantern(Save.lantern)
@@ -101,6 +104,44 @@ func _free(r: Rect2, obs: Array[Rect2]) -> bool:
 	return true
 
 
+## Последний запасной вариант: любое свободное место на площади, где житель виден целиком и не
+## задевает уже расставленных, ближе к середине. Нужен, когда дома закрыли концы рядов.
+func _any_spot(out: Array[Vector2], widths: Array[float], i: int, w: float, obs: Array[Rect2]) -> Vector2:
+	var taken: Array[Rect2] = obs.duplicate()
+	for k in range(i):
+		taken.append(fig_rect(out[k], maxf(widths[k], MIN_W)))
+	var c := view.def.square_center
+	var r := view.def.square_radii * Vector2(1.1, 1.3)
+	var best := Vector2.INF
+	var best_d := INF
+	var y := c.y - r.y
+	while y <= minf(c.y + r.y, VillageView.BAND.end.y - 30.0):
+		var x := VillageView.SAFE_X.x + w * 0.5
+		while x <= VillageView.SAFE_X.y - w * 0.5:
+			var p := Vector2(x, y)
+			var d := ((p - c) / r).length()
+			if d <= 1.0 and d < best_d and _spot_ok(p, w, taken):
+				best = p
+				best_d = d
+			x += 8.0
+		y += 8.0
+	return best
+
+
+## Стоял бы за домом или колодцем: ступни внутри картинки предмета, выше точки, где тот стоит.
+func _hidden(p: Vector2) -> bool:
+	if view == null:
+		return false
+	for z: Rect2 in view.hidden_zones():
+		if z.has_point(p):
+			return true
+	return false
+
+
+func _spot_ok(p: Vector2, w: float, obs: Array[Rect2]) -> bool:
+	return _free(fig_rect(p, w), obs) and not _hidden(p)
+
+
 ## Совместимость: места по числу жителей (без учёта ширины имён).
 func spots_for(n: int) -> Array[Vector2]:
 	var widths: Array[float] = []
@@ -154,14 +195,14 @@ func _layout_day(widths: Array[float], wide: bool) -> Array[Vector2]:
 		for attempt in range(2):
 			var sd := side if attempt == 0 else -side
 			if sd > 0 and a_open[1] and a_right + w <= c.x + a_half:
-				if _free(fig_rect(Vector2(a_right + w * 0.5, a_y), w - GAP), obs):
+				if _spot_ok(Vector2(a_right + w * 0.5, a_y), w - GAP, obs):
 					out[i] = Vector2(a_right + w * 0.5, a_y)
 					a_right += w
 					placed = true
 				else:
 					a_open[1] = false
 			elif sd < 0 and a_open[0] and a_left - w >= c.x - a_half:
-				if _free(fig_rect(Vector2(a_left - w * 0.5, a_y), w - GAP), obs):
+				if _spot_ok(Vector2(a_left - w * 0.5, a_y), w - GAP, obs):
 					out[i] = Vector2(a_left - w * 0.5, a_y)
 					a_left -= w
 					placed = true
@@ -173,14 +214,14 @@ func _layout_day(widths: Array[float], wide: bool) -> Array[Vector2]:
 			for attempt in range(2):
 				var sd := side if attempt == 0 else -side
 				if sd > 0 and b_open[1] and b_right + w <= minf(c.x + b_half, b_max):
-					if _free(fig_rect(Vector2(b_right + w * 0.5, b_y), w - GAP), obs):
+					if _spot_ok(Vector2(b_right + w * 0.5, b_y), w - GAP, obs):
 						out[i] = Vector2(b_right + w * 0.5, b_y)
 						b_right += w
 						placed = true
 					else:
 						b_open[1] = false
 				elif sd < 0 and b_open[0] and b_left - w >= c.x - b_half:
-					if _free(fig_rect(Vector2(b_left - w * 0.5, b_y), w - GAP), obs):
+					if _spot_ok(Vector2(b_left - w * 0.5, b_y), w - GAP, obs):
 						out[i] = Vector2(b_left - w * 0.5, b_y)
 						b_left -= w
 						placed = true
@@ -203,13 +244,15 @@ func _layout_day(widths: Array[float], wide: bool) -> Array[Vector2]:
 					for cx: float in xs3:
 						if cx - w * 0.5 < VillageView.SAFE_X.x or cx + w * 0.5 > VillageView.SAFE_X.y:
 							continue
-						if _free(fig_rect(Vector2(cx, y3 + dy), w - GAP), obs + c_used):
+						if _spot_ok(Vector2(cx, y3 + dy), w - GAP, obs + c_used):
 							best = Vector2(cx, y3 + dy)
 							break
 					if best != Vector2.INF:
 						break
 				if best != Vector2.INF:
 					break
+			if best == Vector2.INF:
+				best = _any_spot(out, widths, i, w - GAP, obs + c_used)
 			if best == Vector2.INF:
 				best = Vector2(c.x, y3)
 			out[i] = best
@@ -268,7 +311,7 @@ func _door_rows(house: int, n: int, per_row: int, avoid: Array[Rect2]) -> Array[
 			var p := Vector2(x + delta, base_y)
 			var r := slot_rect(p, QUEUE_COL - 2.0)
 			var inside := r.position.y >= band.position.y and r.end.y <= band.end.y - 2.0
-			if inside and _free(r, avoid):
+			if inside and _free(r, avoid) and not _hidden(p):
 				out.append(p)
 		row += 1
 	return out
@@ -381,9 +424,16 @@ func turn_to(x: float, except: Array[int] = [], radius: float = 320.0, seconds: 
 			f.look_at_x(x, seconds)
 
 
+## Ночью жители синеют вместе с посёлком. Красится каждая фигура: дома и колодец в этом же слое
+## окрашивает сам посёлок, общий цвет слоя затемнил бы их дважды.
+var night_tint := Color(1, 1, 1)
+
+
 func set_night(n: float) -> void:
+	night_tint = Color(1, 1, 1).lerp(Color(0.62, 0.64, 0.86), n)
 	for f: VillagerFigure in figures.values():
 		f.set_night(n)
+		f.modulate = night_tint
 
 
 func set_player_highlight(on: bool) -> void:

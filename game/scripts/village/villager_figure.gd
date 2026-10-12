@@ -63,6 +63,16 @@ var _lean_t := 0.0
 
 var lantern_id := "classic"     ## фонарь игрока (Cosmetics.LANTERNS) — только картинка и цвет света
 
+## Тело — картинка из листа жителей (assets/folk/f1..f8): старуха, мужик с бородой, девушка в кокошнике,
+## парень, старик с клюкой, девочка, кузнец, охотник. 0 — рисовать кодом (примерка в гардеробе).
+## Двигается кодом: дыхание, шаг, наклон, дрожь; эмоция — знак над головой.
+const FOLK_DIR := "res://assets/folk/"
+const FOLK_FEMALE: PackedInt32Array = [1, 3, 6]
+const FOLK_MALE: PackedInt32Array = [2, 4, 5, 7, 8]
+static var _folk_tex: Dictionary = {}
+var sprite_id: int = 0
+var tag: Node2D               ## слой подписи над всем посёлком
+
 const WALK_SPEED := 190.0   ## единиц посёлка в секунду
 
 
@@ -76,6 +86,12 @@ func setup(name: String, l: LookDef, player: bool) -> void:
 	body = Node2D.new()
 	add_child(body)
 	body.draw.connect(_draw_body)
+	# имя, отметки и стрелка «Вы» — поверх домов и колодца: житель у угла дома не теряет подпись
+	tag = Node2D.new()
+	tag.z_index = 2
+	add_child(tag)
+	tag.draw.connect(_draw_tag)
+	sprite_id = sprite_pref(l)[0]
 	if player:
 		lantern_light = PointLight2D.new()
 		lantern_light.texture = _soft()
@@ -85,6 +101,51 @@ func setup(name: String, l: LookDef, player: bool) -> void:
 		lantern_light.energy = 0.0
 		lantern_light.visible = false
 		add_child(lantern_light)
+
+
+static func folk_tex(id: int) -> Texture2D:
+	if not _folk_tex.has(id):
+		_folk_tex[id] = load(FOLK_DIR + "f%d.png" % id)
+	return _folk_tex[id]
+
+
+## Какие картинки подходят внешности, лучшие первыми: пол, возраст, борода, рост.
+static func sprite_pref(l: LookDef) -> PackedInt32Array:
+	if l == null:
+		return PackedInt32Array([4])
+	if l.female:
+		if l.age >= 2:
+			return PackedInt32Array([1, 3, 6])
+		if l.height < 0.95:
+			return PackedInt32Array([6, 3, 1])
+		return PackedInt32Array([3, 6, 1])
+	if l.age >= 2:
+		return PackedInt32Array([5, 2, 7, 8, 4])
+	if l.beard == LookDef.Beard.FULL:
+		return PackedInt32Array([2, 7, 8, 5, 4])
+	if l.age == 0:
+		return PackedInt32Array([4, 8, 7, 2, 5])
+	return PackedInt32Array([7, 8, 2, 4, 5])
+
+
+## Картинка для жителя в толпе: подходящая и ещё не занятая; когда своего пола не осталось — повтор.
+static func pick_sprite(l: LookDef, used: Dictionary) -> int:
+	var pref := sprite_pref(l)
+	for id: int in pref:
+		if not used.has(id):
+			used[id] = true
+			return id
+	var least := pref[0]
+	for id: int in pref:
+		if int(used.get(id, 0)) < int(used.get(least, 0)):
+			least = id
+	used[least] = int(used.get(least, 1)) + 1
+	return least
+
+
+func set_sprite(id: int) -> void:
+	sprite_id = id
+	body.queue_redraw()
 
 
 ## Ночью фонарь игрока светит, днём погашен; ночью у всех встревоженные лица.
@@ -238,7 +299,7 @@ func has_marks() -> bool:
 
 func set_highlight(on: bool) -> void:
 	highlight = on
-	queue_redraw()
+	_redraw()
 
 
 ## Где стрелка метки «Вы» — для самотестов, в координатах экрана.
@@ -260,12 +321,12 @@ func set_marks(level: int, b: PackedStringArray, has_pact: bool) -> void:
 	eye_level = level
 	badges = b
 	pact = has_pact
-	queue_redraw()
+	_redraw()
 	if grew and not Juice.instant:
 		var t := create_tween()
 		t.tween_method(func(v: float) -> void:
 			_eye_pop = v
-			queue_redraw(), 1.0, 0.0, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			_redraw(), 1.0, 0.0, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 ## Отклик на тап: короткий подскок.
@@ -377,14 +438,14 @@ func die() -> void:
 	state = State.DEAD
 	if Juice.instant:
 		body.visible = false
-		queue_redraw()
+		_redraw()
 		return
 	_tw = create_tween().set_parallel(true)
 	_tw.tween_property(body, "scale", Vector2(_face * 1.25, 0.05), 0.55).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	_tw.tween_property(body, "modulate:a", 0.0, 0.55)
 	_tw.chain().tween_callback(func() -> void:
 		body.visible = false
-		queue_redraw())
+		_redraw())
 
 
 func walk_off(dir: float) -> void:
@@ -413,7 +474,7 @@ func _settle_idle() -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	if highlight:
-		queue_redraw()
+		_redraw()
 	if _emotion_t > 0.0:
 		_emotion_t -= delta
 		if _emotion_t <= 0.0:
@@ -520,6 +581,13 @@ func _anim_step(delta: float) -> void:
 # =============================================================
 # Рисование
 # =============================================================
+func _redraw() -> void:
+	queue_redraw()
+	if tag != null:
+		tag.queue_redraw()
+
+
+## Тень, кольцо «Вы» и надгробие — на земле, в общем порядке по глубине.
 func _draw() -> void:
 	if state == State.GONE:
 		return
@@ -532,21 +600,27 @@ func _draw() -> void:
 		draw_line(Vector2(-6, -18), Vector2(6, -18), Color(k, 0.7), 2.6, true)
 		for gx in [-12.0, -6.0, 7.0, 12.0]:
 			draw_line(Vector2(gx, 0), Vector2(gx - 2, -6), Color("6aa04e"), 1.8, true)
-	if state != State.DEAD:
-		_draw_marks()
 	if highlight and state != State.DEAD:
 		var p := 0.5 + 0.5 * sin(_t * 4.0)
 		var ring := _ellipse(Vector2(0, 2), Vector2(24.0 + 4.0 * p, 8.0 + 1.5 * p), 26)
 		ring.append(ring[0])
 		draw_polyline(ring, Color(ThemeFactory.LAMP, 0.5 + 0.45 * p), 3.0, true)
+
+
+## Отметки, стрелка «Вы» и имя в тёмной капсуле.
+func _draw_tag() -> void:
+	if state == State.GONE:
+		return
+	if state != State.DEAD:
+		_draw_marks()
+	if highlight and state != State.DEAD:
 		var hh := look.height if look != null else 1.0
 		var y0 := -FIG_TOP * hh - 10.0 + 3.0 * sin(_t * 5.0)
-		draw_colored_polygon(PackedVector2Array([Vector2(-9, y0 - 12), Vector2(9, y0 - 12), Vector2(0, y0)]), ThemeFactory.LAMP)
-	# имя — в тёмной капсуле
+		tag.draw_colored_polygon(PackedVector2Array([Vector2(-9, y0 - 12), Vector2(9, y0 - 12), Vector2(0, y0)]), ThemeFactory.LAMP)
 	var lr := label_rect_local()
 	var col := ThemeFactory.LAMP if is_player else Color(1, 1, 1, 0.95 if state != State.DEAD else 0.45)
-	Art.shape(self, Art.rrect(lr, lr.size.y * 0.5), Color(0.08, 0.06, 0.12, 0.72 if state != State.DEAD else 0.4), Color(col, 0.35), 1.2)
-	draw_string(_font, Vector2(lr.position.x + 8.0, lr.end.y - 5.0), who, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size(), col)
+	Art.shape(tag, Art.rrect(lr, lr.size.y * 0.5), Color(0.08, 0.06, 0.12, 0.72 if state != State.DEAD else 0.4), Color(col, 0.35), 1.2)
+	tag.draw_string(_font, Vector2(lr.position.x + 8.0, lr.end.y - 5.0), who, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size(), col)
 
 
 const EYE_COLORS := [Color(0, 0, 0, 0), Color("8fa3ab"), Color("d9a24e"), Color("d0683a"), Color("c23a33")]
@@ -604,13 +678,13 @@ func _draw_marks() -> void:
 	if pact:
 		var ring := _ellipse(Vector2(0, 2), Vector2(17, 6.5), 22)
 		ring.append(ring[0])
-		draw_polyline(ring, Color(ThemeFactory.LAMP, 0.85), 2.0)
+		tag.draw_polyline(ring, Color(ThemeFactory.LAMP, 0.85), 2.0)
 	var bg := Color(ThemeFactory.NIGHT, 0.8)
 	if eye_level > 0:
 		var c := Vector2(MARK_X, -66)
 		var s := 1.0 + 0.5 * _eye_pop
 		var col: Color = EYE_COLORS[clampi(eye_level, 0, 4)]
-		draw_circle(c, 11.0 * s, bg)
+		tag.draw_circle(c, 11.0 * s, bg)
 		var open := (2.5 + eye_level * 1.1) * s
 		var pts := PackedVector2Array()
 		for i in range(9):
@@ -619,16 +693,16 @@ func _draw_marks() -> void:
 		for i in range(7, 0, -1):
 			var t := float(i) / 8.0
 			pts.append(c + Vector2((t - 0.5) * 18.0 * s, sin(t * PI) * open))
-		draw_colored_polygon(pts, Color(col, 0.25))
+		tag.draw_colored_polygon(pts, Color(col, 0.25))
 		var outline := pts.duplicate()
 		outline.append(pts[0])
-		draw_polyline(outline, col, 1.6)
-		draw_circle(c, minf(open, 2.2 + eye_level * 0.6), col)
-		draw_circle(c, 1.2 * s, Color("0d1214"))
+		tag.draw_polyline(outline, col, 1.6)
+		tag.draw_circle(c, minf(open, 2.2 + eye_level * 0.6), col)
+		tag.draw_circle(c, 1.2 * s, Color("0d1214"))
 		# штрихи над глазом: сколько штрихов, столько уровней подозрения — различимо без цвета
 		drawn_strokes = 0
 		for seg: PackedVector2Array in eye_strokes(eye_level, c, s):
-			draw_line(seg[0], seg[1], col, 2.0)
+			tag.draw_line(seg[0], seg[1], col, 2.0)
 			drawn_strokes += 1
 	var y := -46.0
 	for b: String in badges.slice(0, 2):
@@ -640,31 +714,31 @@ func _draw_marks() -> void:
 		# у каждой улики свой силуэт рамки: круг, ромб, щит… — различимы без цвета
 		var frame := badge_outline(b, Vector2(MARK_X, y))
 		drawn_frames.append(frame.size())
-		draw_colored_polygon(frame, Color(ThemeFactory.NIGHT, 0.9))
+		tag.draw_colored_polygon(frame, Color(ThemeFactory.NIGHT, 0.9))
 		var fo := frame.duplicate()
 		fo.append(frame[0])
-		draw_polyline(fo, Color(accent, 0.9), 1.6)
+		tag.draw_polyline(fo, Color(accent, 0.9), 1.6)
 		match b:
 			"street":
-				draw_colored_polygon(_ellipse(Vector2(MARK_X - 3.2, y + 2.5), Vector2(2.6, 4.2), 10), ThemeFactory.LAMP)
-				draw_colored_polygon(_ellipse(Vector2(MARK_X + 3.2, y - 3.0), Vector2(2.6, 4.2), 10), ThemeFactory.LAMP)
+				tag.draw_colored_polygon(_ellipse(Vector2(MARK_X - 3.2, y + 2.5), Vector2(2.6, 4.2), 10), ThemeFactory.LAMP)
+				tag.draw_colored_polygon(_ellipse(Vector2(MARK_X + 3.2, y - 3.0), Vector2(2.6, 4.2), 10), ThemeFactory.LAMP)
 			"liar":
 				var hc := ThemeFactory.BONE
-				draw_polyline(PackedVector2Array([Vector2(MARK_X - 5.5, y + 5.5), Vector2(MARK_X - 5.5, y - 1), Vector2(MARK_X, y - 6.5),
+				tag.draw_polyline(PackedVector2Array([Vector2(MARK_X - 5.5, y + 5.5), Vector2(MARK_X - 5.5, y - 1), Vector2(MARK_X, y - 6.5),
 					Vector2(MARK_X + 5.5, y - 1), Vector2(MARK_X + 5.5, y + 5.5), Vector2(MARK_X - 5.5, y + 5.5)]), hc, 1.6)
-				draw_line(Vector2(MARK_X - 7, y + 7), Vector2(MARK_X + 7, y - 7), accent, 2.2)
+				tag.draw_line(Vector2(MARK_X - 7, y + 7), Vector2(MARK_X + 7, y - 7), accent, 2.2)
 			"death":
-				draw_circle(Vector2(MARK_X, y + 2.5), 4.6, accent)
-				draw_colored_polygon(PackedVector2Array([Vector2(MARK_X - 4.2, y + 1), Vector2(MARK_X + 4.2, y + 1), Vector2(MARK_X, y - 7)]), accent)
+				tag.draw_circle(Vector2(MARK_X, y + 2.5), 4.6, accent)
+				tag.draw_colored_polygon(PackedVector2Array([Vector2(MARK_X - 4.2, y + 1), Vector2(MARK_X + 4.2, y + 1), Vector2(MARK_X, y - 7)]), accent)
 			"fake":   # пустое ведро
-				draw_polyline(PackedVector2Array([Vector2(MARK_X - 5, y - 4), Vector2(MARK_X - 3.6, y + 5.5), Vector2(MARK_X + 3.6, y + 5.5), Vector2(MARK_X + 5, y - 4)]), ThemeFactory.BONE, 1.6)
-				draw_arc(Vector2(MARK_X, y - 4), 5.0, PI, TAU, 8, ThemeFactory.BONE, 1.2)
+				tag.draw_polyline(PackedVector2Array([Vector2(MARK_X - 5, y - 4), Vector2(MARK_X - 3.6, y + 5.5), Vector2(MARK_X + 3.6, y + 5.5), Vector2(MARK_X + 5, y - 4)]), ThemeFactory.BONE, 1.6)
+				tag.draw_arc(Vector2(MARK_X, y - 4), 5.0, PI, TAU, 8, ThemeFactory.BONE, 1.2)
 			"tunnel":   # люк
-				draw_rect(Rect2(MARK_X - 6, y - 3, 12, 8), Color("8a5a3a"))
-				draw_rect(Rect2(MARK_X - 6, y - 3, 12, 8), ThemeFactory.BONE, false, 1.2)
-				draw_circle(Vector2(MARK_X + 3, y + 1), 1.4, ThemeFactory.BONE)
+				tag.draw_rect(Rect2(MARK_X - 6, y - 3, 12, 8), Color("8a5a3a"))
+				tag.draw_rect(Rect2(MARK_X - 6, y - 3, 12, 8), ThemeFactory.BONE, false, 1.2)
+				tag.draw_circle(Vector2(MARK_X + 3, y + 1), 1.4, ThemeFactory.BONE)
 			"sabotage":   # трещина
-				draw_polyline(PackedVector2Array([Vector2(MARK_X - 1, y - 7), Vector2(MARK_X + 3, y - 2), Vector2(MARK_X - 2.5, y + 1.5), Vector2(MARK_X + 2, y + 7)]), accent, 2.0)
+				tag.draw_polyline(PackedVector2Array([Vector2(MARK_X - 1, y - 7), Vector2(MARK_X + 3, y - 2), Vector2(MARK_X - 2.5, y + 1.5), Vector2(MARK_X + 2, y + 7)]), accent, 2.0)
 		y += 19.0
 
 
@@ -687,7 +761,66 @@ func _bright(c: Color) -> Color:
 
 func _draw_body() -> void:
 	var fp := pose_now()
-	Folk.figure(body, Vector2.ZERO, S, look, fp[0], fp[1], Folk.palette(look))
+	if sprite_id <= 0:
+		Folk.figure(body, Vector2.ZERO, S, look, fp[0], fp[1], Folk.palette(look))
+		return
+	_draw_sprite(fp[0], fp[1])
+
+
+## Житель-картинка. Ноги не рисуются отдельно, поэтому шаг — покачивание и подскок, работа — кивки,
+## наклон — поворот вокруг ступней. Фонарь игрока и жест рукой дорисовываются поверх.
+func _draw_sprite(face: String, pose: Dictionary) -> void:
+	var tex := folk_tex(sprite_id)
+	var h := FIG_TOP * (look.height if look != null else 1.0) * 0.97
+	var w := h * tex.get_width() / tex.get_height()
+	var ph: float = pose.get("walk", 0.0)
+	var amp: float = pose.get("amp", 0.0)
+	var bob := -absf(sin(ph * TAU)) * 4.0 * amp
+	var rot := sin(ph * TAU) * 0.06 * amp + float(pose.get("lean", 0.0)) * 0.45 + float(pose.get("tilt", 0.0)) * 0.25
+	if pose.has("work"):
+		var wk: float = pose.get("work", 0.0)
+		bob -= absf(sin(wk * TAU)) * 3.0
+		rot += sin(wk * TAU) * 0.07
+	if face == "talk":
+		bob -= absf(sin(_t * 9.0)) * 1.2
+	var dx := sin(_t * 55.0) * 0.9 if pose.get("shiver", false) else 0.0
+	body.draw_colored_polygon(_ellipse(Vector2(0, 1.5), Vector2(w * 0.42, 4.5)), Color(0, 0, 0, 0.28))
+	body.draw_set_transform(Vector2(dx, bob), rot, Vector2.ONE)
+	body.draw_texture_rect(tex, Rect2(-w * 0.5, -h, w, h), false)
+	if pose.get("lantern", false) and not pose.has("tool"):
+		Folk._lantern(body, Vector2(w * 0.4, -h * 0.46), S, Art.INK, 2.8 * S, pose.get("lantern_style", {}))
+	if pose.get("point", false):
+		# рука-указатель: от плеча вперёд, в сторону взгляда
+		var a := Vector2(w * 0.28, -h * 0.68)
+		var b := a + Vector2(26, -3)
+		body.draw_line(a, b, Art.INK, 6.0, true)
+		body.draw_line(a, b, Color("d8b090"), 3.6, true)
+		body.draw_colored_polygon(PackedVector2Array([b + Vector2(0, -5), b + Vector2(9, 0), b + Vector2(0, 5)]), ThemeFactory.LAMP)
+	body.draw_set_transform(Vector2.ZERO)
+	if pose.get("emote", false):
+		_emote_mark(face, Vector2(-w * 0.32, -h + 2.0))
+
+
+## Знак эмоции над плечом. Только симметричные знаки: фигурка отражается, когда смотрит влево.
+func _emote_mark(face: String, at: Vector2) -> void:
+	var k := Color(0.08, 0.06, 0.1, 0.9)
+	match face:
+		"shocked", "scared":
+			var c := ThemeFactory.BONE if face == "shocked" else Color("9fd8f0")
+			body.draw_rect(Rect2(at.x - 3.5, at.y - 22, 7, 14), k)
+			body.draw_rect(Rect2(at.x - 2, at.y - 20.5, 4, 11), c)
+			body.draw_circle(at + Vector2(0, -3), 3.6, k)
+			body.draw_circle(at + Vector2(0, -3), 2.2, c)
+		"angry":
+			for q: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+				var c2 := at + Vector2(0, -12) + q * 4.0
+				body.draw_arc(c2, 3.4, q.angle() + PI * 0.5, q.angle() + PI * 1.5, 6, k, 3.4, true)
+				body.draw_arc(c2, 3.4, q.angle() + PI * 0.5, q.angle() + PI * 1.5, 6, ThemeFactory.BLOOD, 2.0, true)
+		"suspicious", "confused", "sad", "cold":
+			for i in range(3):
+				var p := at + Vector2((i - 1) * 6.0, -9)
+				body.draw_circle(p, 2.8, k)
+				body.draw_circle(p, 1.8, ThemeFactory.BONE)
 
 
 ## Лицо и поза, которыми житель нарисуется сейчас: [лицо, поза].

@@ -94,6 +94,7 @@ scripts/village/job_layer.gd
 scripts/village/look_book.gd
 scripts/village/look_def.gd
 scripts/village/village_def.gd
+scripts/village/village_prop.gd
 scripts/village/village_view.gd
 scripts/village/villager_figure.gd
 shaders/atmos.gdshader

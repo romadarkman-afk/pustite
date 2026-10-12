@@ -538,17 +538,19 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			var vid := village.crowd.figure_at(data.pos)
 			if Game.m == null:
 				return
+			var day_play: bool = sender is DayScreen and Game.m.player().alive and Game.m.phase == Match.Phase.DAY
+			# значок дела нарисован поверх жителей: палец на значке — это дело, даже если под ним кто-то стоит
+			var ji := village.jobs_layer.job_at(data.pos) if day_play else -1
+			if ji >= 0 and (vid < 0 or village.jobs_layer.icon_rect_global(ji).has_point(data.pos)):
+				_hint_done(sender, action)
+				if Game.m.player().is_upyr and Game.m.can_sabotage(ji):
+					(sender as DayScreen).job_actions(ji)
+				else:
+					go_work(ji)
+				return
 			if vid < 0:
-				if sender is DayScreen and Game.m.player().alive and Game.m.phase == Match.Phase.DAY:
-					var ji := village.jobs_layer.job_at(data.pos)
-					if ji >= 0:
-						_hint_done(sender, action)
-						if Game.m.player().is_upyr and Game.m.can_sabotage(ji):
-							(sender as DayScreen).job_actions(ji)
-						else:
-							go_work(ji)
-					else:
-						walk_player(data.pos)
+				if day_play:
+					walk_player(data.pos)
 				return
 			var v := Game.m.get_villager(vid)
 			_hint_done(sender, action)

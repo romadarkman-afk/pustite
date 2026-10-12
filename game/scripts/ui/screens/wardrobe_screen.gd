@@ -29,6 +29,7 @@ func build() -> void:
 	preview = VillagerFigure.new()
 	var book := L.looks()
 	preview.setup(L.t("you_name"), Cosmetics.dress(book.for_name("", true), Save.hat), true)
+	preview.sprite_id = 0      # в примерке житель нарисован кодом: на нём видна шапка
 	preview.set_lantern(Save.lantern)
 	preview.scale = Vector2(2.4, 2.4)
 	_art.add_child(preview)
