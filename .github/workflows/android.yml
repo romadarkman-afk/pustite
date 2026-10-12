@@ -20,8 +20,8 @@ jobs:
   build:
     # Версия сервера закреплена: ubuntu-latest с 19.10.2026 переезжает на Ubuntu 26.
     runs-on: ubuntu-24.04
-    # Сборка занимает пару минут. Всё, что дольше 20, — зависание, а не работа.
-    timeout-minutes: 20
+    # Сборка с самотестами занимает около 20 минут. Всё, что дольше 40, — зависание, а не работа.
+    timeout-minutes: 40
 
     steps:
       - name: Забрать код
@@ -132,7 +132,7 @@ jobs:
             echo "::error title=Не хватает файлов в game::Не загрузились: $(echo $missing). Загрузите папку game заново целиком."
           fi
           [ -z "$extra" ] && [ -z "$missing" ] || exit 1
-          for flag in sim flow layout lifecycle field crowd bubbles marks input hints difficulty howto night sound village talisman bell events mimic sabotage box roles meeting tunnel diary recap folk loc; do
+          for flag in sim flow layout lifecycle field crowd bubbles marks input hints difficulty howto night sound village talisman bell events mimic sabotage box roles meeting tunnel diary recap folk loc access daily cosmetics adapt gestures; do
             grep -q -- "\"--$flag\"" scripts/boot.gd || { echo "::error::В scripts/boot.gd нет режима --$flag."; exit 1; }
           done
           echo "Комплект совпадает с описью: $(wc -l < /tmp/expected.txt) файлов"
@@ -412,13 +412,67 @@ jobs:
             exit 1
           fi
 
-      - name: Самотест языков (все ключи, шаблоны, посёлки, шрифты; раскладка и толпа на длинных языках)
-        timeout-minutes: 15
+      - name: Самотест доступности (размер текста, глаз и улики без цвета)
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          timeout 300 godot --headless --path game -- --access 2>&1 | tee /tmp/access.log
+          if grep -q "SCRIPT ERROR" /tmp/access.log; then
+            echo "::error title=Ошибки скриптов::Во время самотеста --access в логе есть SCRIPT ERROR — см. выше."
+            exit 1
+          fi
+
+      - name: Самотест испытания дня (правило по дате, одна попытка, серия)
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          timeout 300 godot --headless --path game -- --daily 2>&1 | tee /tmp/daily.log
+          if grep -q "SCRIPT ERROR" /tmp/daily.log; then
+            echo "::error title=Ошибки скриптов::Во время самотеста --daily в логе есть SCRIPT ERROR — см. выше."
+            exit 1
+          fi
+
+      - name: Самотест косметики (фонари и шапки, без влияния на партию)
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          timeout 300 godot --headless --path game -- --cosmetics 2>&1 | tee /tmp/cosmetics.log
+          if grep -q "SCRIPT ERROR" /tmp/cosmetics.log; then
+            echo "::error title=Ошибки скриптов::Во время самотеста --cosmetics в логе есть SCRIPT ERROR — см. выше."
+            exit 1
+          fi
+
+      - name: Самотест подстройки ботов (поддавки и собранность, баланс по ступеням)
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          timeout 300 godot --headless --path game -- --adapt 2>&1 | tee /tmp/adapt.log
+          if grep -q "SCRIPT ERROR" /tmp/adapt.log; then
+            echo "::error title=Ошибки скриптов::Во время самотеста --adapt в логе есть SCRIPT ERROR — см. выше."
+            exit 1
+          fi
+
+      - name: Самотест жестов (долгое нажатие, палец, верю, не верю)
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          timeout 300 godot --headless --path game -- --gestures 2>&1 | tee /tmp/gestures.log
+          if grep -q "SCRIPT ERROR" /tmp/gestures.log; then
+            echo "::error title=Ошибки скриптов::Во время самотеста --gestures в логе есть SCRIPT ERROR — см. выше."
+            exit 1
+          fi
+
+      - name: Самотест языков (все ключи, шаблоны, посёлки, шрифты; раскладка и толпа на длинных языках и крупном тексте)
+        timeout-minutes: 25
         run: |
           set -o pipefail
           timeout 400 godot --headless --path game -- --loc 2>&1 | tee /tmp/loc.log
           for lang in de fr hi; do
             timeout 300 godot --headless --path game -- --layout --lang=$lang 2>&1 | tee -a /tmp/loc.log
+          done
+          # самый крупный текст: русский, немецкий (длинные слова) и хинди (высокие строки)
+          for lang in ru de hi; do
+            timeout 300 godot --headless --path game -- --layout --lang=$lang --text=2 2>&1 | tee -a /tmp/loc.log
           done
           for lang in en fr tr pt; do
             timeout 300 godot --headless --path game -- --crowd --lang=$lang 2>&1 | tee -a /tmp/loc.log
