@@ -301,7 +301,9 @@ static func flow() -> void:
 						continue
 					match ds.role:
 						Match.DoorRole.HOST:
-							var ids: Array[int] = [ds.seat.knockers()[0].id]
+							var ids: Array[int] = []
+							if not ds.seat.knockers().is_empty():
+								ids.append(ds.seat.knockers()[0].id)
 							Nav.handle_intent(Intent.ADMIT, {"ids": ids}, s)
 						Match.DoorRole.GUEST:
 							Nav.handle_intent(Intent.PLEA, {"plea": "shared"}, s)
@@ -490,7 +492,10 @@ static func _layout_step(tag: String, out: PackedStringArray) -> int:
 				return n
 			match ds.role:
 				Match.DoorRole.HOST:
-					var ids: Array[int] = [ds.seat.queue[0].id]
+					# на медленной машине очередь у двери может быть ещё пустой — тогда никого не впускаем
+					var ids: Array[int] = []
+					if not ds.seat.queue.is_empty():
+						ids.append(ds.seat.queue[0].id)
 					Nav.handle_intent(Intent.ADMIT, {"ids": ids}, s)
 				Match.DoorRole.GUEST:
 					Nav.handle_intent(Intent.PLEA, {"plea": "beg"}, s)
@@ -999,7 +1004,7 @@ static func field() -> void:
 	# картинки посёлка: все загружены; дверь каждого дома на картинке стоит в точке, куда встаёт очередь;
 	# табличка висит на самом доме; заставка запуска — та же ночная деревня
 	var missing := PackedStringArray()
-	for f: String in VillageView.ART_FILES:
+	for f: String in VillageView.ART_FILES + VillageView.GROUND_FILES:
 		if not (v._tex.get(f) is Texture2D):
 			missing.append(f)
 	ok += _expect(fails, missing.is_empty(), "нет картинок посёлка: %s" % ", ".join(missing))
@@ -1038,6 +1043,8 @@ static func field() -> void:
 		else:
 			men += 1
 	ok += _expect(fails, drawn_ok, "жители не из картинок или подпись не над домами")
+	var me0: VillagerFigure = v.crowd.figures[0]
+	ok += _expect(fails, me0.sprite_id == VillagerFigure.hero_for(me0.look), "игрок не герой с фонарём (картинка %d)" % me0.sprite_id)
 	ok += _expect(fails, seen.size() >= mini(women, VillagerFigure.FOLK_FEMALE.size()) + mini(men, VillagerFigure.FOLK_MALE.size()),
 		"картинки жителей повторяются раньше времени (%d разных на %d женщин и %d мужчин)" % [seen.size(), women, men])
 	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
@@ -2215,7 +2222,8 @@ static func sound() -> void:
 			# в экспортированной сборке исходник лежит внутри .import — размер берём из него
 			continue
 		total += f.get_length()
-	ok += _expect(fails, total < 1024 * 1024, "звуки весят %d КБ — больше 1 МБ" % (total / 1024))
+	# с v0.24.0 часть звуков — записи, а не формулы; запас под музыку меню и ночи
+	ok += _expect(fails, total < 3 * 1024 * 1024, "звуки весят %d КБ — больше 3 МБ" % (total / 1024))
 
 	# 2. Громкость: ползунок → канал → файл настроек
 	Save.set_volume(&"Music", 0.5)
@@ -4943,7 +4951,10 @@ static func daily() -> void:
 	for i in range(m1.villagers.size()):
 		if m1.villagers[i].name != m2.villagers[i].name or m1.villagers[i].is_upyr != m2.villagers[i].is_upyr or m1.villagers[i].role != m2.villagers[i].role:
 			same = false
-	ok += _expect(fails, same and Challenge.seed_for(today) != Challenge.seed_for(_shift_date(today, 1)), "у одной даты разные посёлки или у разных дат одно зерно")
+	var seeds := {}
+	for i in range(400):
+		seeds[Challenge.seed_for(_shift_date(today, i))] = true
+	ok += _expect(fails, same and seeds.size() == 400, "у одной даты разные посёлки или у разных дат одно зерно (%d разных на 400 дней)" % seeds.size())
 
 	# 2. Каждое правило правда меняет партию
 	for rule: String in Challenge.RULES:

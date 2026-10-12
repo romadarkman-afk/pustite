@@ -36,7 +36,12 @@ func populate(m: Match) -> void:
 		var f := VillagerFigure.new()
 		var l := book.for_name(v.name, v.is_player)
 		f.setup(v.name, Cosmetics.dress(l, Save.hat) if v.is_player else l, v.is_player)
-		f.sprite_id = VillagerFigure.pick_sprite(l, used)
+		if v.is_player:
+			f.set_sprite(VillagerFigure.hero_for(l))
+			if not l.female:
+				used[4] = true        # парень в картузе на листе — тот же герой, у ботов его не будет
+		else:
+			f.sprite_id = VillagerFigure.pick_sprite(l, used)
 		f.modulate = night_tint
 		add_child(f)
 		if v.is_player:

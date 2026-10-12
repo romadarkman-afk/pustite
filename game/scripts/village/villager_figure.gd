@@ -69,6 +69,11 @@ var lantern_id := "classic"     ## фонарь игрока (Cosmetics.LANTERNS
 const FOLK_DIR := "res://assets/folk/"
 const FOLK_FEMALE: PackedInt32Array = [1, 3, 6]
 const FOLK_MALE: PackedInt32Array = [2, 4, 5, 7, 8]
+## Герой игрока — с горящим фонарём в руке (assets/folk/hero_m, hero_f).
+const HERO_M := 101
+const HERO_F := 102
+## Где фонарь на картинке героя: доля ширины от середины и доля высоты от земли.
+const HERO_LANTERN := {HERO_M: Vector2(0.41, 0.56), HERO_F: Vector2(0.30, 0.52)}
 static var _folk_tex: Dictionary = {}
 var sprite_id: int = 0
 var tag: Node2D               ## слой подписи над всем посёлком
@@ -91,11 +96,11 @@ func setup(name: String, l: LookDef, player: bool) -> void:
 	tag.z_index = 2
 	add_child(tag)
 	tag.draw.connect(_draw_tag)
-	sprite_id = sprite_pref(l)[0]
+	sprite_id = hero_for(l) if player else sprite_pref(l)[0]
 	if player:
 		lantern_light = PointLight2D.new()
 		lantern_light.texture = _soft()
-		lantern_light.position = Vector2(25 * S, -28 * S)
+		lantern_light.position = _hero_lantern_pos()
 		lantern_light.texture_scale = 2.6
 		lantern_light.color = Color(1.0, 0.8, 0.5)
 		lantern_light.energy = 0.0
@@ -105,8 +110,14 @@ func setup(name: String, l: LookDef, player: bool) -> void:
 
 static func folk_tex(id: int) -> Texture2D:
 	if not _folk_tex.has(id):
-		_folk_tex[id] = load(FOLK_DIR + "f%d.png" % id)
+		var file := "hero_m" if id == HERO_M else ("hero_f" if id == HERO_F else "f%d" % id)
+		_folk_tex[id] = load(FOLK_DIR + file + ".png")
 	return _folk_tex[id]
+
+
+## Картинка героя игрока по полу.
+static func hero_for(l: LookDef) -> int:
+	return HERO_F if l != null and l.female else HERO_M
 
 
 ## Какие картинки подходят внешности, лучшие первыми: пол, возраст, борода, рост.
@@ -145,7 +156,20 @@ static func pick_sprite(l: LookDef, used: Dictionary) -> int:
 
 func set_sprite(id: int) -> void:
 	sprite_id = id
+	if lantern_light != null:
+		lantern_light.position = _hero_lantern_pos()
 	body.queue_redraw()
+
+
+## Свет фонаря — там, где фонарь у героя на картинке; у жителя, нарисованного кодом, — в правой руке.
+func _hero_lantern_pos() -> Vector2:
+	if not HERO_LANTERN.has(sprite_id):
+		return Vector2(25 * S, -28 * S)
+	var tex := folk_tex(sprite_id)
+	var h := FIG_TOP * (look.height if look != null else 1.0) * 0.97
+	var w := h * tex.get_width() / tex.get_height()
+	var k: Vector2 = HERO_LANTERN[sprite_id]
+	return Vector2(w * k.x, -h * k.y)
 
 
 ## Ночью фонарь игрока светит, днём погашен; ночью у всех встревоженные лица.
@@ -787,7 +811,7 @@ func _draw_sprite(face: String, pose: Dictionary) -> void:
 	body.draw_colored_polygon(_ellipse(Vector2(0, 1.5), Vector2(w * 0.42, 4.5)), Color(0, 0, 0, 0.28))
 	body.draw_set_transform(Vector2(dx, bob), rot, Vector2.ONE)
 	body.draw_texture_rect(tex, Rect2(-w * 0.5, -h, w, h), false)
-	if pose.get("lantern", false) and not pose.has("tool"):
+	if pose.get("lantern", false) and not pose.has("tool") and not HERO_LANTERN.has(sprite_id):
 		Folk._lantern(body, Vector2(w * 0.4, -h * 0.46), S, Art.INK, 2.8 * S, pose.get("lantern_style", {}))
 	if pose.get("point", false):
 		# рука-указатель: от плеча вперёд, в сторону взгляда

@@ -27,7 +27,12 @@ static func rule_for(date: String) -> String:
 
 ## Зерно партии: одно на дату, не ноль.
 static func seed_for(date: String) -> int:
-	return (hash("pustite-daily-" + date) & 0x7fffffff) | 1
+	# дата в начале строки и перемешивание битов: у хэша соседних дат различались только младшие биты,
+	# и «| 1» склеивал два дня в один посёлок
+	var h := hash(date + "|pustite-daily")
+	h = ((h ^ (h >> 16)) * 0x45d9f3b) & 0xffffffff
+	h = h ^ (h >> 16)
+	return (h & 0x7fffffff) | 1
 
 
 ## Баланс испытания: обычная сложность и правка под правило.

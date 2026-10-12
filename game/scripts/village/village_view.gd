@@ -1,7 +1,7 @@
 class_name VillageView
 extends Node2D
-## Игровое поле: посёлок. Небо, земля и площадь нарисованы кодом; дома, колодец,
-## фонари, ели и реквизит дел — картинки из assets/village (для домов и фонарей — дневная и ночная).
+## Игровое поле: посёлок. Земля с площадью, рекой и лесом — картинка (днём и ночью своя);
+## дома, колодец, фонари и реквизит дел — отдельные картинки из assets/village, жители — из assets/folk.
 ## Статика (небо, дома, площадь) перерисовывается только при смене дня и ночи.
 ## Живое — туман, пыль, мерцание фонарей — частицы и свечение, без перерисовки.
 
@@ -33,9 +33,6 @@ var _fog: CPUParticles2D
 var _dust: CPUParticles2D
 var _lamp_glows: Array[Sprite2D] = []
 var _house_glows: Array[Sprite2D] = []
-var _stones: PackedVector3Array = PackedVector3Array()
-var _tree_spots: PackedVector3Array = PackedVector3Array()
-var _grass: PackedVector2Array = PackedVector2Array()
 var _lamp_lights: Array[PointLight2D] = []
 var _tex: Dictionary = {}                  ## имя картинки -> Texture2D
 var _props: Array[VillageProp] = []        ## дома, колодец, фонари и реквизит — в слое толпы
@@ -60,10 +57,6 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	titles = names
 	_font = ThemeFactory.font_bold()
 	_load_art()
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 7
-	_build_trees(rng)
-	_build_stones(rng)
 	_build_particles()
 	_build_thresholds()
 	_build_lights()
@@ -304,13 +297,10 @@ func _draw() -> void:
 	var n := _q if _q >= 0.0 else night
 	var k := Art.ink(n)
 
-	# небо: день — голубое с облаками и солнцем; ночь — лиловое со звёздами и луной
-	var sky_top := Color("4fb0e0").lerp(Color("0b0a24"), n)
+	# небо над лесом: днём пасмурное, ночью лиловое со звёздами и луной
+	var sky_top := Color("4a5560").lerp(Color("0b0a24"), n)
 	draw_rect(Rect2(-2000, -2400, 4720, 2000), sky_top)
-	Art.vgrad(self, Rect2(-2000, -400, 4720, 600), sky_top, Color("ffe0b8").lerp(Color("33285a"), n))
-	if n < 0.95:
-		Art.glow(self, Vector2(590, -60), 130, Color(1.0, 0.95, 0.7, 0.9 * (1.0 - n)))
-		draw_circle(Vector2(590, -60), 32, Color(1.0, 0.96, 0.77, 1.0 - n))
+	Art.vgrad(self, Rect2(-2000, -400, 4720, 600), sky_top, Color("9aa29a").lerp(Color("2a2448"), n))
 	if n > 0.05:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 5
@@ -323,33 +313,20 @@ func _draw() -> void:
 		for cr: Vector3 in [Vector3(-10, -7, 6), Vector3(9, 11, 4.5), Vector3(12, -13, 3.5)]:
 			draw_circle(mc + Vector2(cr.x, cr.y), cr.z, Color(0.87, 0.84, 0.72, n))
 	for cl: Vector3 in [Vector3(130, -150, 0.85), Vector3(420, -260, 0.7), Vector3(560, 40, 0.55), Vector3(170, 70, 0.5)]:
-		var cc := Color(1, 1, 1, 0.95).lerp(Color(0.16, 0.13, 0.3, 0.85), n)
+		var cc := Color(0.78, 0.8, 0.8, 0.85).lerp(Color(0.16, 0.13, 0.3, 0.85), n)
 		for b: Vector3 in [Vector3(0, 0, 34), Vector3(40, 7, 26), Vector3(-36, 9, 24), Vector3(74, 14, 18), Vector3(8, -22, 24)]:
 			draw_circle(Vector2(cl.x + b.x * cl.z, cl.y + b.y * cl.z), b.z * cl.z, cc)
-	# холмы слоями — дальние светлее
-	var hills := [Color("9ec9b4"), Color("78ad94"), Color("5b9278")]
-	for li in range(3):
-		var pts := PackedVector2Array([Vector2(-600, 260)])
-		var x := -600.0
-		while x <= 1320.0:
-			pts.append(Vector2(x, 140 + li * 16 + sin(x * 0.012 + li * 1.7) * 16 + sin(x * 0.031 + li) * 6))
-			x += 24.0
-		pts.append(Vector2(1320, 260))
-		draw_colored_polygon(pts, Art.dn(hills[li], n))
-	var haze := Color(0.82, 0.9, 0.86).lerp(Art.NIGHT_TINT, n)
-	for tp: Vector3 in _tree_spots:
-		var th := 118.0 * tp.z
-		var tw: float = th * _tex.tree.get_width() / _tex.tree.get_height()
-		_blit(self, _tex.tree, Rect2(tp.x - tw * 0.5, tp.y - th * 0.97, tw, th), int(tp.x) % 2 == 0, haze)
-	# земля и трава
-	Art.vgrad(self, Rect2(-2000, 186, 4720, 3200), Art.dn(Color("9cbf72"), n), Art.dn(Color("78a35a"), n))
-	var gc := Art.dn(Color("62904a"), n)
-	for g: Vector2 in _grass:
-		draw_line(g, g + Vector2(-2.5, -7), gc, 1.8, true)
-		draw_line(g, g + Vector2(2.5, -8), gc, 1.8, true)
-	if def.river:
-		_draw_river(n, k)
-	_draw_square(n, k)
+	# земля — картинка: площадь, тропы, река слева, лес по верхнему краю. Ночью её сменяет ночная
+	# картинка того же места. Выше картинки лес темнеет и уходит в небо, края закрыты цветом земли.
+	var gr := GROUND_RECT
+	var forest := Color("1e2620").lerp(Color("0e1420"), n)
+	draw_rect(Rect2(-2000, gr.position.y + 40.0, 4720, 3000), Color("4a4636").lerp(Color("1c2430"), n))
+	Art.vgrad(self, Rect2(-2000, gr.position.y - 70.0, 4720, 80.0), Color(forest, 0.0), forest)
+	draw_rect(Rect2(-2000, gr.position.y + 9.0, 4720, 40.0), forest)
+	draw_texture_rect(_tex.ground_day, gr, false)
+	if n > 0.0:
+		draw_texture_rect(_tex.ground_night, gr, false, Color(1, 1, 1, n))
+	Art.vgrad(self, Rect2(gr.position.x, gr.position.y, gr.size.x, 46.0), forest, Color(forest, 0.0))
 
 	# дома, колодец, фонари, поленница и бочка — предметы в слое толпы (VillageProp):
 	# кто стоит за домом, того дом закрывает. Здесь только то, что лежит на земле.
@@ -449,14 +426,20 @@ const HOUSE_ART := {
 	HouseDef.Kind.GARAGE: ["garage", 1.25, Rect2(0.10, 0.48, 0.25, 0.40)],
 	HouseDef.Kind.SHED: ["shed", 1.4, Rect2(0.17, 0.40, 0.18, 0.45)],
 }
+## Земля посёлка — одна картинка днём и одна ночью (Nano Banana, 2400×1792, уменьшены).
+## Площадь на картинке (центр 1320×1060 px, полуоси 660×340) совпадает с площадью посёлка.
+const GROUND_FILES: PackedStringArray = ["ground_day", "ground_night"]
+const GROUND_RECT := Rect2(-88.8, 31.6, 816.0, 609.3)
 const ART_FILES: PackedStringArray = ["house_day", "house_night", "barn_day", "barn_night", "church_day", "church_night",
 	"cellar_day", "cellar_night", "garage_day", "garage_night", "shed_day", "shed_night", "lamp_day", "lamp_night",
-	"well", "woodpile", "barrel", "talisman", "tree"]
+	"well", "woodpile", "barrel", "talisman"]
 
 
 func _load_art() -> void:
 	for f: String in ART_FILES:
 		_tex[f] = load(ART_DIR + f + ".png")
+	for g: String in GROUND_FILES:
+		_tex[g] = load(ART_DIR + g + ".jpg")
 
 
 ## Дома слева от площади смотрят дверью вправо, к площади: картинку отражаем.
@@ -580,32 +563,6 @@ func shelter_label_rect_global(i: int) -> Rect2:
 	return Rect2(to_global(r.position), r.size * scale)
 
 
-func _draw_river(n: float, k: Color) -> void:
-	var pts := PackedVector2Array([Vector2(-600, 214), Vector2(52, 214), Vector2(84, 262), Vector2(58, 330),
-		Vector2(96, 410), Vector2(64, 520), Vector2(102, 900), Vector2(-600, 900)])
-	draw_colored_polygon(pts, Art.dn(Color("6fb7d9"), n))
-	var o := pts.slice(1, 7)
-	draw_polyline(o, Color(k, 0.6), 3.0, true)
-	var shine := Color(1, 1, 1, 0.55 - 0.25 * n)
-	for y in [244, 300, 366, 432, 494]:
-		var x: float = 24.0 + 14.0 * sin(y * 0.05)
-		draw_line(Vector2(x - 16, y), Vector2(x + 12, y), shine, 2.6, true)
-
-
-func _draw_square(n: float, k: Color) -> void:
-	var c := def.square_center
-	Art.shape(self, Art.ellipse(c, def.square_radii, 44), Art.dn(Color("e7cf98"), n), Color(k, 0.45), 2.6)
-	var stone := Art.dn(Color("d6b97c"), n)
-	for st: Vector3 in _stones:
-		Art.shape(self, Art.ellipse(Vector2(st.x, st.y), Vector2(st.z, st.z * 0.5), 10), stone, Color(k, 0.22), 1.2)
-	var path := Art.dn(Color("e2c88f"), n)
-	for i in range(def.shelters.size()):
-		var h: HouseDef = def.shelters[i]
-		var dir := (h.pos - c).normalized()
-		var a := c + Vector2(dir.x * def.square_radii.x, dir.y * def.square_radii.y) * 0.92
-		draw_line(a, h.pos + Vector2(0, 2), path, 15.0, true)
-
-
 ## Реквизит дел: поленница и мостки с ведром у реки. Остальные дела — у колодца,
 ## фонаря и оберега, которые и так стоят на карте.
 func _draw_hatches(n: float, k: Color) -> void:
@@ -723,36 +680,6 @@ func _lit(h: HouseDef, n: float) -> float:
 func _lamp_on(i: int, n: float) -> float:
 	var th: float = _lamp_th[i] if i < _lamp_th.size() else 0.5
 	return clampf((n - th) / 0.08, 0.0, 1.0)
-
-
-func _build_trees(rng: RandomNumberGenerator) -> void:
-	_tree_spots = PackedVector3Array()
-	var x := -260.0
-	while x < 980.0:
-		_tree_spots.append(Vector3(x + rng.randf_range(-6, 6), 204 + rng.randf_range(-6, 4), rng.randf_range(0.55, 0.8)))
-		x += rng.randf_range(34, 46)
-	_grass = PackedVector2Array()
-	for i in range(170):
-		var g := Vector2(rng.randf_range(-200, 920), rng.randf_range(214, 600))
-		var d := (g - def.square_center) / def.square_radii
-		if d.length() > 1.05:
-			_grass.append(g)
-
-
-func _build_stones(rng: RandomNumberGenerator) -> void:
-	_stones = PackedVector3Array()
-	var c := def.square_center
-	var r := def.square_radii
-	var tries := 0
-	while _stones.size() < 80 and tries < 2000:
-		tries += 1
-		var p := Vector2(rng.randf_range(-1, 1), rng.randf_range(-1, 1))
-		if p.length() > 0.93:
-			continue
-		var pos := c + Vector2(p.x * r.x, p.y * r.y)
-		if pos.distance_to(def.well) < 40.0:
-			continue
-		_stones.append(Vector3(pos.x, pos.y, rng.randf_range(6, 11)))
 
 
 func _soft_texture() -> GradientTexture2D:

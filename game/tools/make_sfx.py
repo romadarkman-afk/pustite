@@ -12,6 +12,8 @@ import numpy as np
 from scipy import signal
 
 SR = 32000
+## Эти звуки с v0.24.0 — записи, а не формулы: скрипт их не трогает.
+RECORDED = {'knock', 'door_open', 'door_shut', 'bell', 'amb_night'}
 rng = np.random.default_rng(7)
 
 
@@ -349,6 +351,8 @@ def main():
         'job_done': job_done, 'job_fail': job_fail,
     }
     for name, fn in jobs.items():
+        if name in RECORDED:
+            continue       # записанные звуки (стук, двери, колокол, ночной лес) — не перезаписываем
         save(os.path.join(sfx, name + '.ogg'), fn())
     save(os.path.join(mus, 'menu.ogg'), music([AM, [F, A, C], CM, [196.0, 246.9, D]], 16.0, 0.6, 0.35, 2200, 84), q=3)
     save(os.path.join(mus, 'day.ogg'), music([CM, AM, [F, A, C], [196.0, 246.9, D]], 16.0, 0.35, 0.5, 3200, 100), q=3)

@@ -224,6 +224,10 @@ func _send_plea(plea_id: String) -> void:
 	commit(Intent.PLEA, {"plea": plea_id})
 
 
+## Удары в записи стука (assets/sfx/knock.ogg): пауза перед каждым, с.
+const KNOCK_BEATS: Array[float] = [0.08, 0.14, 0.15]
+
+
 ## Nav вызывает, когда хозяин решил. Пауза, стук, засов — или шаги прочь.
 func show_guest_result(admitted: bool) -> void:
 	W.clear(_box)
@@ -231,14 +235,14 @@ func show_guest_result(admitted: bool) -> void:
 	var g: Glyph = line.get_child(0)
 	var t: Label = line.get_child(1)
 	_box.add_child(line)
-	for i in range(3):
+	# в записи три удара подряд: дверь вздрагивает в такт каждому
+	Sfx.play(&"knock", randf_range(0.96, 1.04))
+	for gap: float in KNOCK_BEATS:
+		await Juice.wait(gap)
 		knock_fx.emit()
 		Juice.haptic(Juice.Haptic.KNOCK)
-		Sfx.play(&"knock", randf_range(0.92, 1.06))
-		Sfx.play(&"knock", 1.0 + 0.04 * i)
-		Juice.shake(self, 6.0, 0.2)
-		await Juice.wait(0.55)
-	await Juice.wait(0.6)
+		Juice.shake(self, 6.0, 0.12)
+	await Juice.wait(1.1)
 	if admitted:
 		open_fx.emit(0.4)
 		Juice.haptic(Juice.Haptic.SUCCESS)
