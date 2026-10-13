@@ -2305,8 +2305,8 @@ static func sound() -> void:
 			Game.proceed()
 			await _settle(tree)
 		if attempt == 0:
-			ok += _expect(fails, Sfx.played.has(&"bell") and Sfx.ambience_name == &"amb_night" and Sfx.music_name == &"",
-				"ночь без колокола или ночного фона (%s / %s)" % [Sfx.ambience_name, Sfx.music_name])
+			ok += _expect(fails, Sfx.played.has(&"bell") and Sfx.ambience_name == &"amb_night" and Sfx.music_name == &"night",
+				"ночь без колокола, ночного фона или музыки (%s / %s)" % [Sfx.ambience_name, Sfx.music_name])
 		if not Game.m.player().alive:
 			continue
 		Sfx.played.clear()

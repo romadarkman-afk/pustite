@@ -1,7 +1,6 @@
 extends Node
 ## Звук: одиночные звуки, фон (ветер, сверчки), музыка и сердцебиение.
-## Все звуки синтезированы из формул (tools/make_sfx.py), лицензий не требуют.
-## Музыку можно заменить своими треками: положить файлы с теми же именами в assets/music/.
+## Эффекты и дневная музыка синтезированы tools/make_sfx.py; menu/night — отдельные петли в assets/music/.
 ##
 ## Каналы громкости: Music, Sfx, Ambience — каждый отдельно в настройках.
 ## Свёрнута игра — все каналы заглушены, вернулась — звук возвращается.
@@ -29,6 +28,7 @@ const LOOPS := {
 	&"heartbeat": "res://assets/sfx/heartbeat.ogg",
 	&"menu": "res://assets/music/menu.ogg",
 	&"day": "res://assets/music/day.ogg",
+	&"night": "res://assets/music/night.ogg",
 }
 const BUSES := [&"Music", &"Sfx", &"Ambience"]
 const POOL := 8
@@ -130,7 +130,7 @@ func set_ambience(n: StringName, fade: float = 1.5) -> void:
 		_fade(cur, -4.0, fade, false)
 
 
-## Музыка: «menu», «day» или "" (тишина).
+## Музыка: «menu», «day», «night» или "" (тишина).
 func set_music(n: StringName, fade: float = 1.2) -> void:
 	if n == music_name:
 		return

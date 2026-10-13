@@ -38,6 +38,7 @@ func populate(m: Match) -> void:
 		f.setup(v.name, Cosmetics.dress(l, Save.hat) if v.is_player else l, v.is_player)
 		if v.is_player:
 			f.set_sprite(VillagerFigure.hero_for(l))
+			f.set_hero_hat(Save.hat)
 			if not l.female:
 				used[4] = true        # парень в картузе на листе — тот же герой, у ботов его не будет
 		else:

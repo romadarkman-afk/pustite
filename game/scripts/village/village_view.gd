@@ -809,13 +809,16 @@ func _half_ellipse(base: Vector2, r: Vector2, seg: int = 24) -> PackedVector2Arr
 ## Глаза в темноте: пары огоньков в лесу и у реки. Появляются к концу сумерек и моргают.
 ## Отдельный слой — ради них посёлок не перерисовывается.
 class Eyes extends Node2D:
+	const CREATURE_PATH := "res://assets/village/creature.png"
 	const SPOTS := [Vector2(160, 158), Vector2(300, 176), Vector2(432, 178), Vector2(640, 162), Vector2(28, 330)]
+	var creature_tex: Texture2D
 	var night: float = 0.0
 	var _blink: PackedFloat32Array = PackedFloat32Array()
 	var _closed: PackedByteArray = PackedByteArray()
 	var _t := 0.0
 
 	func _ready() -> void:
+		creature_tex = load(CREATURE_PATH) as Texture2D
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 23
 		for i in range(SPOTS.size()):
@@ -853,16 +856,18 @@ class Eyes extends Node2D:
 		var a := alpha()
 		if a <= 0.0:
 			return
-		# тварь выглядывает из просвета между домами: чёрный силуэт жителя, чуть выше человека,
-		# медленно наклоняет голову; светятся только глаза и застывшая улыбка
-		var tex := VillagerFigure.folk_tex(2)
+		# прозрачный рисунок твари выглядывает из просвета между домами. Глаза и улыбка
+		# остаются на отдельном слое; движение добавляет лёгкий наклон.
+		var tex: Texture2D = creature_tex if creature_tex != null else VillagerFigure.folk_tex(2)
+		if tex == null:
+			return
 		var h := 74.0
 		var w := h * tex.get_width() / tex.get_height()
 		# стоит в просвете между домом и часовней; его глаза — вторая пара красных огоньков (SPOTS[1])
 		var o := Vector2(300, 245)
 		var tilt := 0.05 * sin(_t * 0.7)
 		draw_set_transform(o, tilt, Vector2(1.0, 1.08))
-		draw_texture_rect(tex, Rect2(-w * 0.5, -h, w, h), false, Color(0.03, 0.02, 0.05, 0.85 * a))
+		draw_texture_rect(tex, Rect2(-w * 0.5, -h, w, h), false, Color(0.62, 0.60, 0.65, 0.94 * a))
 		draw_arc(Vector2(0, -h * 0.86 + 5.0), 4.5, 0.35, PI - 0.35, 8, Color(0.92, 0.9, 0.8, 0.7 * a), 1.2, true)
 		draw_set_transform(Vector2.ZERO)
 		for i in range(SPOTS.size()):

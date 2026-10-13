@@ -70,13 +70,16 @@ var lantern_id := "classic"     ## фонарь игрока (Cosmetics.LANTERNS
 const FOLK_DIR := "res://assets/folk/"
 const FOLK_FEMALE: PackedInt32Array = [1, 3, 6, 9, 10, 11, 12]
 const FOLK_MALE: PackedInt32Array = [2, 4, 5, 7, 8, 13, 14, 15, 16]
-## Герой игрока — с горящим фонарём в руке (assets/folk/hero_m, hero_f).
+## Герой игрока — с фонарём в руке; варианты шапок лежат рядом как hero_m_<hat> / hero_f_<hat>.
 const HERO_M := 101
 const HERO_F := 102
+const HERO_HAT_IDS: PackedStringArray = ["top_hat", "beret", "straw", "ushanka", "flower", "jester"]
 ## Где фонарь на картинке героя: доля ширины от середины и доля высоты от земли.
 const HERO_LANTERN := {HERO_M: Vector2(0.41, 0.56), HERO_F: Vector2(0.30, 0.52)}
 static var _folk_tex: Dictionary = {}
+static var _hero_hat_tex: Dictionary = {}
 var sprite_id: int = 0
+var hero_hat_id: String = "own"
 var tag: Node2D               ## слой подписи над всем посёлком
 
 const WALK_SPEED := 190.0   ## единиц посёлка в секунду
@@ -114,6 +117,20 @@ static func folk_tex(id: int) -> Texture2D:
 		var file := "hero_m" if id == HERO_M else ("hero_f" if id == HERO_F else "f%d" % id)
 		_folk_tex[id] = load(FOLK_DIR + file + ".png")
 	return _folk_tex[id]
+
+
+## Вариант портрета героя с выбранной шапкой. Пустой ресурс позволит тесту поймать недостающий файл.
+static func hero_hat_texture(id: int, hat_id: String) -> Texture2D:
+	if id not in [HERO_M, HERO_F] or not HERO_HAT_IDS.has(hat_id):
+		return null
+	var gender := "hero_m" if id == HERO_M else "hero_f"
+	var path := FOLK_DIR + gender + "_" + hat_id + ".png"
+	if not _hero_hat_tex.has(path):
+		var texture: Texture2D = null
+		if ResourceLoader.exists(path):
+			texture = load(path) as Texture2D
+		_hero_hat_tex[path] = texture
+	return _hero_hat_tex[path] as Texture2D
 
 
 ## Картинка героя игрока по полу.
@@ -163,6 +180,11 @@ func set_sprite(id: int) -> void:
 	sprite_id = id
 	if lantern_light != null:
 		lantern_light.position = _hero_lantern_pos()
+	body.queue_redraw()
+
+
+func set_hero_hat(id: String) -> void:
+	hero_hat_id = id if id == "own" or HERO_HAT_IDS.has(id) else "own"
 	body.queue_redraw()
 
 
@@ -790,7 +812,10 @@ func _bright(c: Color) -> Color:
 
 func _draw_body() -> void:
 	var fp := pose_now()
-	if sprite_id <= 0:
+	# Если PNG выбранной шапки недоступен, используем запасное рисование героя кодом.
+	# Так шапка остаётся видна на поле; загруженный PNG-вариант сохранит исходный стиль.
+	var missing_hero_hat := is_player and hero_hat_id != "own" and hero_hat_texture(sprite_id, hero_hat_id) == null
+	if sprite_id <= 0 or missing_hero_hat:
 		Folk.figure(body, Vector2.ZERO, S, look, fp[0], fp[1], Folk.palette(look))
 		return
 	_draw_sprite(fp[0], fp[1])
@@ -800,6 +825,10 @@ func _draw_body() -> void:
 ## наклон — поворот вокруг ступней. Фонарь игрока и жест рукой дорисовываются поверх.
 func _draw_sprite(face: String, pose: Dictionary) -> void:
 	var tex := folk_tex(sprite_id)
+	if is_player and hero_hat_id != "own":
+		var hat_tex := hero_hat_texture(sprite_id, hero_hat_id)
+		if hat_tex != null:
+			tex = hat_tex
 	var h := FIG_TOP * (look.height if look != null else 1.0) * 0.97
 	var w := h * tex.get_width() / tex.get_height()
 	var ph: float = pose.get("walk", 0.0)

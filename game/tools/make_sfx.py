@@ -1,6 +1,7 @@
-"""Синтез всех звуков «Пустите» из формул — без чужих записей и лицензий.
+"""Синтез звуковых эффектов и музыки «Пустите».
 Запуск из папки game: python3 tools/make_sfx.py .  → assets/sfx/*.ogg и assets/music/*.ogg
-Циклы (ambience, музыка, сердце) бесшовные: хвост сведён с началом.
+Меню и ночь генерируются как 60-секундные цикличные OGG 44,1 кГц.
+Записанные звуковые эффекты остаются без изменений.
 """
 import os
 import subprocess
@@ -9,9 +10,14 @@ import tempfile
 import wave
 
 import numpy as np
-from scipy import signal
+try:
+    from scipy import signal
+except ImportError:
+    signal = None
 
 SR = 32000
+MUSIC_SR = 44100
+MUSIC_SECONDS = 60
 ## Эти звуки с v0.24.0 — записи, а не формулы: скрипт их не трогает.
 RECORDED = {'knock', 'door_open', 'door_shut', 'bell', 'amb_night'}
 rng = np.random.default_rng(7)
@@ -73,6 +79,129 @@ def save(path, x, q=3):
         w.writeframes(pcm.tobytes())
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', tmp, '-c:a', 'libvorbis', '-q:a', str(q), path], check=True)
     os.remove(tmp)
+
+
+def save_music(path, x, q=3):
+    """Стерео музыка 44,1 кГц, OGG Vorbis. q=3 оставляет запас в общем лимите 3 МиБ."""
+    x = np.clip(x, -1, 1)
+    pcm = (x * 32767).astype(np.int16)
+    with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
+        tmp = f.name
+    with wave.open(tmp, 'wb') as w:
+        w.setnchannels(2)
+        w.setsampwidth(2)
+        w.setframerate(MUSIC_SR)
+        w.writeframes(pcm.tobytes())
+    ffmpeg = os.environ.get('FFMPEG_BIN', 'ffmpeg')
+    subprocess.run([ffmpeg, '-y', '-loglevel', 'error', '-i', tmp,
+                    '-c:a', 'libvorbis', '-q:a', str(q), path], check=True)
+    os.remove(tmp)
+
+
+def _music_freq(midi: int, detune_cents: float = 0.0) -> float:
+    """Округляет ноту к целому числу колебаний за минуту, чтобы цикл замыкался."""
+    hz = 440.0 * (2.0 ** ((midi - 69) / 12.0)) * (2.0 ** (detune_cents / 1200.0))
+    return round(hz * MUSIC_SECONDS) / MUSIC_SECONDS
+
+
+def _add_music_voice(out, t, midi: int, envelope, gain: float, pan: float, phase: float) -> None:
+    """Мягкий аддитивный голос с лёгкой расстройкой и медленной цикличной модуляцией."""
+    pan = float(np.clip(pan, -0.85, 0.85))
+    left_gain = np.sqrt((1.0 - pan) * 0.5)
+    right_gain = np.sqrt((1.0 + pan) * 0.5)
+    breath = np.sin(2.0 * np.pi * 6.0 * t / MUSIC_SECONDS + phase * 0.37)
+    for channel, detune, channel_phase, channel_gain in (
+        (0, -3.0, phase, left_gain),
+        (1, 3.0, phase + 0.13, right_gain),
+    ):
+        hz = _music_freq(midi, detune)
+        theta = 2.0 * np.pi * hz * t + channel_phase + 0.025 * breath
+        tone = (0.76 * np.sin(theta)
+                + 0.19 * np.sin(2.0 * theta + 0.23)
+                + 0.05 * np.sin(3.0 * theta + 0.51))
+        out[:, channel] += (tone * envelope * gain * channel_gain).astype(np.float32)
+
+
+def _note_envelope(t, start: float, attack: float = 1.5, release: float = 7.0):
+    """Цикличная медленная огибающая одиночной ноты; хвост проходит через конец файла."""
+    elapsed = np.mod(t - start, MUSIC_SECONDS)
+    rise = 0.5 - 0.5 * np.cos(np.pi * np.minimum(elapsed / attack, 1.0))
+    fall = 0.5 + 0.5 * np.cos(np.pi * np.clip((elapsed - attack) / release, 0.0, 1.0))
+    envelope = np.where(elapsed < attack, rise,
+                        np.where(elapsed < attack + release, fall, 0.0))
+    return envelope.astype(np.float32)
+
+
+def _compose_music(kind: str):
+    """Минорная минутная петля. Конец содержит точную копию первых двух секунд."""
+    count = MUSIC_SR * MUSIC_SECONDS
+    t = np.arange(count, dtype=np.float32) / MUSIC_SR
+    if kind == 'menu':
+        chords = [
+            [45, 52, 57, 59],  # Am(add9)
+            [41, 48, 52, 57],  # Fmaj7
+            [38, 45, 48, 52],  # Dm(add9)
+            [40, 47, 50, 55],  # Em7
+        ]
+        high_notes = [(11.0, 76), (35.0, 74), (52.0, 71)]
+        pad_gain = 0.075
+        bass_gain = 0.095
+        high_gain = 0.024
+    elif kind == 'night':
+        chords = [
+            [38, 45, 48, 50],  # Dm(add9)
+            [34, 41, 45, 50],  # Bbmaj7
+            [31, 38, 41, 45],  # Gm7
+            [33, 40, 43, 50],  # Asus4
+        ]
+        high_notes = [(16.0, 74), (39.0, 72), (54.0, 69)]
+        pad_gain = 0.065
+        bass_gain = 0.11
+        high_gain = 0.014
+    else:
+        raise ValueError('неизвестная музыка: %s' % kind)
+
+    out = np.zeros((count, 2), dtype=np.float32)
+    bar = MUSIC_SECONDS / len(chords)
+    fade = 2.8
+    slot = np.floor(t / bar).astype(np.int8)
+    in_bar = np.mod(t, bar)
+    progress = np.clip(in_bar / fade, 0.0, 1.0)
+    fade_in = (0.5 - 0.5 * np.cos(np.pi * progress)).astype(np.float32)
+    for chord_index, chord in enumerate(chords):
+        # Переход держит предыдущий аккорд первые секунды новой части.
+        current = np.where(slot == chord_index, fade_in, 0.0).astype(np.float32)
+        next_index = (chord_index + 1) % len(chords)
+        previous = np.where(slot == next_index, 1.0 - fade_in, 0.0).astype(np.float32)
+        weight = current + previous
+        _add_music_voice(out, t, chord[0] - 12, weight, bass_gain, 0.0, chord_index * 0.21)
+        for note_index, midi in enumerate(chord):
+            pan = (note_index - 1.5) * 0.19
+            _add_music_voice(out, t, midi, weight, pad_gain, pan,
+                             chord_index * 0.31 + note_index * 0.47)
+
+    for note_index, (start, midi) in enumerate(high_notes):
+        _add_music_voice(out, t, midi, _note_envelope(t, start), high_gain,
+                         (-0.25 if note_index % 2 == 0 else 0.25), note_index * 0.8)
+
+    # Небольшой стерео хвост сглаживает пэды и остаётся цикличным.
+    dry = out.copy()
+    delay_left = int(0.37 * MUSIC_SR)
+    delay_right = int(0.53 * MUSIC_SR)
+    out[:, 0] += np.roll(dry[:, 1], delay_left) * 0.12
+    out[:, 1] += np.roll(dry[:, 0], delay_right) * 0.12
+    peak = float(np.max(np.abs(out)))
+    if peak > 0.0:
+        out *= min(1.0, 0.28 / peak)
+
+    # На стыке используется та же форма волны: 2-секундный кроссфейд даёт ровно 60 с.
+    overlap = 2 * MUSIC_SR
+    raw = np.concatenate([out, out[:overlap]], axis=0)
+    head = raw[:overlap]
+    tail = raw[-overlap:]
+    w = np.linspace(0.0, 1.0, overlap, dtype=np.float32)[:, None]
+    start = tail * (1.0 - w) + head * w
+    return np.concatenate([start, raw[overlap:-overlap]], axis=0)
 
 
 # ---------------------------------------------------------------- одиночные звуки
@@ -344,6 +473,13 @@ def main():
     mus = os.path.join(game, 'assets', 'music')
     os.makedirs(sfx, exist_ok=True)
     os.makedirs(mus, exist_ok=True)
+    if '--music-only' in sys.argv[2:]:
+        for name in ('menu', 'night'):
+            save_music(os.path.join(mus, name + '.ogg'), _compose_music(name), q=3)
+        print('созданы menu.ogg и night.ogg; дневной трек и звуки не менялись')
+        return
+    if signal is None:
+        raise RuntimeError('для синтеза звуков установите scipy; меню/ночь можно создать с --music-only')
     jobs = {
         'knock': knock, 'door_open': door_open, 'door_shut': door_shut, 'tap': tap, 'blip': blip,
         'bell': bell, 'tick': tick, 'death': death, 'exile': exile, 'win': win, 'lose': lose,
@@ -354,10 +490,18 @@ def main():
         if name in RECORDED:
             continue       # записанные звуки (стук, двери, колокол, ночной лес) — не перезаписываем
         save(os.path.join(sfx, name + '.ogg'), fn())
-    save(os.path.join(mus, 'menu.ogg'), music([AM, [F, A, C], CM, [196.0, 246.9, D]], 16.0, 0.6, 0.35, 2200, 84), q=3)
-    save(os.path.join(mus, 'day.ogg'), music([CM, AM, [F, A, C], [196.0, 246.9, D]], 16.0, 0.35, 0.5, 3200, 100), q=3)
+    music_jobs = {
+        'day': ([CM, AM, [F, A, C], [196.0, 246.9, D]], 16.0, 0.35, 0.5, 3200, 100),
+    }
+    generated_music = 0
+    for name, params in music_jobs.items():
+        save(os.path.join(mus, name + '.ogg'), music(*params), q=3)
+        generated_music += 1
+    for name in ('menu', 'night'):
+        save_music(os.path.join(mus, name + '.ogg'), _compose_music(name), q=3)
+        generated_music += 1
     total = sum(os.path.getsize(os.path.join(d, f)) for d in (sfx, mus) for f in os.listdir(d) if f.endswith('.ogg'))
-    print('звуков: %d, музыки: 2, всего %.0f КБ' % (len(jobs), total / 1024))
+    print('звуков: %d, синтезированных музыкальных треков: %d, всего %.0f КБ' % (len(jobs), generated_music, total / 1024))
 
 
 if __name__ == '__main__':

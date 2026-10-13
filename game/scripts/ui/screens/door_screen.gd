@@ -303,7 +303,7 @@ func ambience() -> StringName:
 
 
 func music() -> StringName:
-	return &""
+	return &"night"
 
 
 func heart() -> bool:
