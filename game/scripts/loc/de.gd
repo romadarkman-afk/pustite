@@ -87,6 +87,10 @@ func data() -> Dictionary:
 			"Entscheiden wir schneller, es wird dunkel.",
 			"Ich traue niemandem. Gar niemandem.",
 			"Einer von euch lügt gerade.",
+			"Der Friedhof wächst. Das einzige Projekt hier, das nach Plan läuft.",
+			"Der Totengräber hat heute Abend noch einen Termin frei. Zufall? Hier sollte man nachfragen.",
+			"Selbst „Gute Nacht“ klingt in diesem Dorf wie ein Geständnis.",
+			"Der Plan für heute: den Tag überleben. Gestern klang er auch zuverlässig.",
 		],
 		"ph.REPLY_TO_ACCUSED_HUMAN": [
 			"Ich? Im Ernst? Schau lieber {who} an.",

@@ -97,6 +97,10 @@ func data() -> Dictionary:
 			"Décidons plus vite, il fait nuit.",
 			"Je ne fais confiance à personne. À personne.",
 			"L'un de vous ment en ce moment même.",
+			"Le cimetière s'agrandit. C'est le seul projet du village qui avance comme prévu.",
+			"Le fossoyeur a encore un créneau ce soir. Une coïncidence ? Ici, mieux vaut vérifier.",
+			"Dans ce village, même « bonne nuit » sonne comme un aveu.",
+			"Le programme du jour : survivre. Hier, ça semblait fiable aussi.",
 		],
 		"ph.REPLY_TO_ACCUSED_HUMAN": [
 			"Moi ? Sérieusement ? Regarde plutôt {who}.",

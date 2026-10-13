@@ -86,6 +86,10 @@ func data() -> Dictionary:
 			"Let's decide faster, it's getting dark.",
 			"I don't trust anyone. Anyone.",
 			"One of you is lying right now.",
+			"The cemetery keeps growing. It's the only project here that's on schedule.",
+			"The gravedigger has an opening tonight. Coincidence? Around here, check first.",
+			"Even ‘good night’ sounds like a confession in this village.",
+			"Today's plan: make it through the day. Yesterday it looked reliable too.",
 		],
 		"ph.REPLY_TO_ACCUSED_HUMAN": [
 			"Me? Really? Look at {who} instead.",

@@ -45,7 +45,7 @@ var cold := false           ## ночью у двери: ёжится и дро�
 var turn: float = 0.0       ## куда повёрнута голова: −1 влево … 1 вправо (к тому, кто говорит)
 var _walk: float = 0.0
 var _work: float = 0.0
-var _anim_acc: float = 0.0
+var _walk_weight: float = 0.0
 var _turn_t: float = 0.0
 
 ## Жизнь на площади (задача 44): между репликами житель что-то делает — чешет затылок,
@@ -524,6 +524,8 @@ func _settle_idle() -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
+	var walk_target := 1.0 if state == State.RUN else 0.0
+	_walk_weight = lerpf(_walk_weight, walk_target, 1.0 - exp(-12.0 * delta))
 	if highlight:
 		_redraw()
 	if _emotion_t > 0.0:
@@ -555,12 +557,15 @@ func _process(delta: float) -> void:
 				_blink_in = 0.12 if _eyes_closed else 2.2 + fmod(_t * 0.37 + _phase, 2.5)
 				body.queue_redraw()
 			if working:
-				# работа: руки с инструментом ходят — перерисовка ~20 раз в секунду
+				# Запросы перерисовки объединяются движком до игрового кадра.
 				_work = fmod(_work + delta * 0.9, 1.0)
 				_anim_step(delta)
 				body.scale = Vector2(_face, 1.0)
 				body.position = Vector2.ZERO
 				return
+			if _walk_weight > 0.01:
+				_walk = fmod(_walk + delta * 2.6, 1.0)
+				_anim_step(delta)
 			var s := sin(_t * 1.7 + _phase)
 			body.scale = Vector2(_face * (1.0 - 0.015 * s), 1.0 + 0.025 * s)   # дыхание
 			body.position = Vector2(sin(_t * 38.0 + _phase) * 0.9 if cold else 0.0, 0.0)   # дрожь на холоде
@@ -621,12 +626,11 @@ func _fidget_pose(pose: Dictionary) -> String:
 	return ""
 
 
-## Ноги и руки двигаются только на бегу и за работой: перерисовка не чаще 24 раз в секунду.
-func _anim_step(delta: float) -> void:
-	_anim_acc += delta
-	if _anim_acc >= 1.0 / 24.0:
-		_anim_acc = 0.0
-		body.queue_redraw()
+## Движение обновляется каждый игровой кадр. CanvasItem объединяет запросы до отрисовки,
+## поэтому отдельный предел 24 Гц давал заметные рывки при лимите игры 60 кадров.
+func _anim_step(_delta: float) -> void:
+	body.queue_redraw()
+	queue_redraw()
 
 
 # =============================================================
@@ -833,8 +837,9 @@ func _draw_sprite(face: String, pose: Dictionary) -> void:
 	var w := h * tex.get_width() / tex.get_height()
 	var ph: float = pose.get("walk", 0.0)
 	var amp: float = pose.get("amp", 0.0)
-	var bob := -absf(sin(ph * TAU)) * 4.0 * amp
-	var rot := sin(ph * TAU) * 0.06 * amp + float(pose.get("lean", 0.0)) * 0.45 + float(pose.get("tilt", 0.0)) * 0.25
+	var stride := sin(ph * TAU)
+	var bob := -absf(stride) * 4.0 * amp
+	var rot := stride * 0.06 * amp + float(pose.get("lean", 0.0)) * 0.45 + float(pose.get("tilt", 0.0)) * 0.25
 	if pose.has("work"):
 		var wk: float = pose.get("work", 0.0)
 		bob -= absf(sin(wk * TAU)) * 3.0
@@ -842,8 +847,11 @@ func _draw_sprite(face: String, pose: Dictionary) -> void:
 	if face == "talk":
 		bob -= absf(sin(_t * 9.0)) * 1.2
 	var dx := sin(_t * 55.0) * 0.9 if pose.get("shiver", false) else 0.0
+	var sway := stride * 1.5 * amp
+	var squash := absf(stride) * amp
+	var sprite_scale := Vector2(1.0 + 0.012 * squash, 1.0 - 0.018 * squash)
 	body.draw_colored_polygon(_ellipse(Vector2(0, 1.5), Vector2(w * 0.42, 4.5)), Color(0, 0, 0, 0.28))
-	body.draw_set_transform(Vector2(dx, bob), rot, Vector2.ONE)
+	body.draw_set_transform(Vector2(dx + sway, bob), rot, sprite_scale)
 	body.draw_texture_rect(tex, Rect2(-w * 0.5, -h, w, h), false)
 	if pose.get("lantern", false) and not pose.has("tool") and not HERO_LANTERN.has(sprite_id):
 		Folk._lantern(body, Vector2(w * 0.4, -h * 0.46), S, Art.INK, 2.8 * S, pose.get("lantern_style", {}))
@@ -889,9 +897,9 @@ func pose_now() -> Array:
 	if (f == "angry" or emotion == "point") and _point_dir != 0.0 and _emotion_t > 0.0:
 		pose["point"] = true
 		pose["dir"] = 1.0
-	if state == State.RUN:
+	if state == State.RUN or _walk_weight > 0.01:
 		pose["walk"] = _walk
-		pose["amp"] = 1.0
+		pose["amp"] = _walk_weight
 	if working and tool != "":
 		pose["tool"] = tool
 		pose["work"] = _work

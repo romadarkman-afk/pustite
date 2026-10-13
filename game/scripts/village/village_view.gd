@@ -35,6 +35,7 @@ var _lamp_glows: Array[Sprite2D] = []
 var _house_glows: Array[Sprite2D] = []
 var _lamp_lights: Array[PointLight2D] = []
 var _tex: Dictionary = {}                  ## имя картинки -> Texture2D
+var _art_locale: String = ""             ## страна для региональных спрайтов
 var _props: Array[VillageProp] = []        ## дома, колодец, фонари и реквизит — в слое толпы
 var _labels: Node2D                        ## таблички убежищ — над толпой
 
@@ -56,7 +57,7 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	def = village
 	titles = names
 	_font = ThemeFactory.font_bold()
-	_load_art()
+	_load_art(L.code)
 	_build_particles()
 	_build_thresholds()
 	_build_lights()
@@ -435,11 +436,38 @@ const ART_FILES: PackedStringArray = ["house_day", "house_night", "barn_day", "b
 	"well", "woodpile", "barrel", "talisman"]
 
 
-func _load_art() -> void:
+## Немецкий и французский наборы хранятся отдельно. Отсутствующий ресурс
+## берётся из общей русской деревни, поэтому набор можно добавлять частями.
+func set_art_locale(locale_code: String) -> void:
+	if locale_code == _art_locale:
+		return
+	_load_art(locale_code)
+	_refresh()
+
+
+func _load_art(locale_code: String) -> void:
+	_art_locale = locale_code
+	var regional_dir := _regional_art_dir(locale_code)
 	for f: String in ART_FILES:
-		_tex[f] = load(ART_DIR + f + ".png")
+		_tex[f] = _load_art_texture(regional_dir, f, ".png")
 	for g: String in GROUND_FILES:
-		_tex[g] = load(ART_DIR + g + ".jpg")
+		_tex[g] = _load_art_texture(regional_dir, g, ".jpg")
+
+
+func _regional_art_dir(locale_code: String) -> String:
+	if locale_code == "de" or locale_code == "fr":
+		return ART_DIR + "regions/" + locale_code + "/"
+	return ""
+
+
+func _load_art_texture(regional_dir: String, file_name: String, extension: String) -> Texture2D:
+	if not regional_dir.is_empty():
+		var regional_path := regional_dir + file_name + extension
+		if ResourceLoader.exists(regional_path):
+			var regional_texture := load(regional_path) as Texture2D
+			if regional_texture != null:
+				return regional_texture
+	return load(ART_DIR + file_name + extension) as Texture2D
 
 
 ## Дома слева от площади смотрят дверью вправо, к площади: картинку отражаем.

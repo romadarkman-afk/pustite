@@ -770,6 +770,7 @@ func _on_back() -> void:
 func relocalize() -> void:
 	village.titles = L.houses()
 	village.crowd.book = L.looks()
+	village.set_art_locale(L.code)
 	village.crowd.clear()
 	village.queue_redraw()
 	ThemeFactory.refresh_fonts()
