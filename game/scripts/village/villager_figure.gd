@@ -63,12 +63,13 @@ var _lean_t := 0.0
 
 var lantern_id := "classic"     ## фонарь игрока (Cosmetics.LANTERNS) — только картинка и цвет света
 
-## Тело — картинка из листа жителей (assets/folk/f1..f8): старуха, мужик с бородой, девушка в кокошнике,
-## парень, старик с клюкой, девочка, кузнец, охотник. 0 — рисовать кодом (примерка в гардеробе).
+## Тело — картинка из листов жителей (assets/folk/f1..f16): первый лист — старуха, мужик с бородой,
+## девушка в кокошнике, парень, старик с клюкой, девочка, кузнец, охотник; второй — четыре женщины,
+## рыбак, крестьянин, мальчик и священник. 0 — рисовать кодом (примерка в гардеробе).
 ## Двигается кодом: дыхание, шаг, наклон, дрожь; эмоция — знак над головой.
 const FOLK_DIR := "res://assets/folk/"
-const FOLK_FEMALE: PackedInt32Array = [1, 3, 6]
-const FOLK_MALE: PackedInt32Array = [2, 4, 5, 7, 8]
+const FOLK_FEMALE: PackedInt32Array = [1, 3, 6, 9, 10, 11, 12]
+const FOLK_MALE: PackedInt32Array = [2, 4, 5, 7, 8, 13, 14, 15, 16]
 ## Герой игрока — с горящим фонарём в руке (assets/folk/hero_m, hero_f).
 const HERO_M := 101
 const HERO_F := 102
@@ -126,17 +127,21 @@ static func sprite_pref(l: LookDef) -> PackedInt32Array:
 		return PackedInt32Array([4])
 	if l.female:
 		if l.age >= 2:
-			return PackedInt32Array([1, 3, 6])
+			return PackedInt32Array([11, 12, 1, 3, 6, 9, 10])
 		if l.height < 0.95:
-			return PackedInt32Array([6, 3, 1])
-		return PackedInt32Array([3, 6, 1])
+			return PackedInt32Array([6, 9, 3, 10, 1, 11, 12])
+		if l.age == 0:
+			return PackedInt32Array([9, 3, 10, 6, 11, 12, 1])
+		return PackedInt32Array([10, 9, 3, 6, 11, 12, 1])
 	if l.age >= 2:
-		return PackedInt32Array([5, 2, 7, 8, 4])
+		return PackedInt32Array([5, 16, 13, 2, 7, 8, 14, 4, 15])
 	if l.beard == LookDef.Beard.FULL:
-		return PackedInt32Array([2, 7, 8, 5, 4])
+		return PackedInt32Array([16, 13, 2, 7, 8, 5, 14, 4, 15])
 	if l.age == 0:
-		return PackedInt32Array([4, 8, 7, 2, 5])
-	return PackedInt32Array([7, 8, 2, 4, 5])
+		if l.height < 0.95:
+			return PackedInt32Array([15, 4, 8, 14, 13, 7, 2, 5, 16])
+		return PackedInt32Array([4, 15, 8, 14, 13, 7, 2, 5, 16])
+	return PackedInt32Array([13, 14, 7, 8, 2, 4, 5, 16, 15])
 
 
 ## Картинка для жителя в толпе: подходящая и ещё не занятая; когда своего пола не осталось — повтор.

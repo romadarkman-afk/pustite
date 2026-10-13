@@ -4448,6 +4448,56 @@ static func folk() -> void:
 	Nav.frame.refresh()
 	var book := load("res://config/looks.tres") as LookBook
 
+	# 0. Новый лист: все 16 спрайтов загружаются, женские и мужские типы не смешаны.
+	var all_sprites_loaded := true
+	for sprite_id in range(1, 17):
+		var tex: Texture2D = VillagerFigure.folk_tex(sprite_id)
+		if tex == null or tex.get_width() < 50 or tex.get_height() < 180:
+			all_sprites_loaded = false
+	var pools_ok := true
+	for sprite_id in range(9, 13):
+		if not VillagerFigure.FOLK_FEMALE.has(sprite_id) or VillagerFigure.FOLK_MALE.has(sprite_id):
+			pools_ok = false
+	for sprite_id in range(13, 17):
+		if not VillagerFigure.FOLK_MALE.has(sprite_id) or VillagerFigure.FOLK_FEMALE.has(sprite_id):
+			pools_ok = false
+	var young_woman := LookDef.new()
+	young_woman.female = true
+	young_woman.age = 0
+	var adult_woman := LookDef.new()
+	adult_woman.female = true
+	var old_woman := LookDef.new()
+	old_woman.female = true
+	old_woman.age = 2
+	var boy := LookDef.new()
+	boy.age = 0
+	boy.height = 0.9
+	var bearded_man := LookDef.new()
+	bearded_man.beard = LookDef.Beard.FULL
+	var prefs_ok := VillagerFigure.sprite_pref(young_woman)[0] == 9 \
+		and VillagerFigure.sprite_pref(adult_woman)[0] == 10 \
+		and VillagerFigure.sprite_pref(old_woman)[0] == 11 \
+		and VillagerFigure.sprite_pref(boy)[0] == 15 \
+		and VillagerFigure.sprite_pref(bearded_man)[0] == 16
+	ok += _expect(fails, all_sprites_loaded, "не загрузился один из спрайтов f1–f16")
+	ok += _expect(fails, pools_ok, "спрайты f9–f16 распределены по неверному полу")
+	ok += _expect(fails, prefs_ok, "возраст или борода не выбирают подходящий новый спрайт")
+	var female_used: Dictionary = {}
+	var male_used: Dictionary = {}
+	var unique_ok := true
+	for _i in range(VillagerFigure.FOLK_FEMALE.size()):
+		var before_female := female_used.size()
+		var picked_female := VillagerFigure.pick_sprite(adult_woman, female_used)
+		if not VillagerFigure.FOLK_FEMALE.has(picked_female) or female_used.size() != before_female + 1:
+			unique_ok = false
+	for _i in range(VillagerFigure.FOLK_MALE.size()):
+		var before_male := male_used.size()
+		var picked_male := VillagerFigure.pick_sprite(bearded_man, male_used)
+		if not VillagerFigure.FOLK_MALE.has(picked_male) or male_used.size() != before_male + 1:
+			unique_ok = false
+	ok += _expect(fails, unique_ok and female_used.size() == VillagerFigure.FOLK_FEMALE.size()
+		and male_used.size() == VillagerFigure.FOLK_MALE.size(), "новые спрайты повторяются до исчерпания списка пола")
+
 	# 1. Внешности: девушки — с женскими приметами, у каждого свой набор примет
 	var sig: Dictionary = {}
 	var fem_ok := true
