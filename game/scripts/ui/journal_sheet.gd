@@ -19,7 +19,7 @@ static func line_row(line: ChatLine) -> Control:
 	if line.kind == ChatLine.Kind.SYSTEM:
 		return W.label(line.text, &"Small")
 	var row := W.hbox(8)
-	var nm := W.label(L.t("journal.who", {"who": L.t("you_name") if line.kind == ChatLine.Kind.MINE else line.speaker.name}), &"Speaker")
+	var nm := W.label(L.t("journal.who", {"who": Save.player_display_name() if line.kind == ChatLine.Kind.MINE else line.speaker.name}), &"Speaker")
 	nm.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	nm.autowrap_mode = TextServer.AUTOWRAP_OFF
 	if line.kind == ChatLine.Kind.MINE:

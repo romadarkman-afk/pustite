@@ -7,6 +7,8 @@ var kind: Kind
 var speaker: Villager      ## null для системных строк
 var text: String
 var about: Villager = null   ## кого обвиняет реплика: толпа поворачивается к нему
+var asks_player: bool = false
+var question_kind: String = ""
 
 
 static func say(who: Villager, t: String) -> ChatLine:

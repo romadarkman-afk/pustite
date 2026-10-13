@@ -10,7 +10,8 @@ extends RefCounted
 ## Банки, где говорящий кого-то обвиняет: толпа поворачивается к названному.
 const ACCUSING: PackedStringArray = ["ACCUSE_STRONG", "ACCUSE_STREET", "ACCUSE_LIAR", "UPYR_DEFLECT",
 	"AGREE_ACCUSE", "REPLY_TO_ACCUSED_HUMAN", "AT_PLAYER", "JOB_FAKE", "JOB_FAKE_AT_PLAYER",
-	"SABOTAGE_SEEN", "SABOTAGE_SEEN_AT_PLAYER", "ELDER_UPYR", "MEETING_CALL"]
+	"SABOTAGE_SEEN", "SABOTAGE_SEEN_AT_PLAYER", "ELDER_UPYR", "MEETING_CALL",
+	"ACCUSE_DEATH", "ACCUSE_FAKE", "ACCUSE_SABOTAGE", "ACCUSE_TUNNEL"]
 
 ## Мольбы игрока у чужой двери: id и вес в глазах хозяина (Director._plea_weight).
 const PLEA_IDS: PackedStringArray = ["shared", "promise", "name", "beg"]
@@ -18,6 +19,8 @@ const PLEA_IDS: PackedStringArray = ["shared", "promise", "name", "beg"]
 
 ## Банк реплик по имени: Phrases.b("ACCUSE_STRONG").
 static func b(bank: String) -> PackedStringArray:
+	if SocialContent.has_bank(bank):
+		return SocialContent.bank(bank)
 	return L.arr("ph." + bank)
 
 

@@ -28,8 +28,9 @@ func build() -> void:
 	_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	preview = VillagerFigure.new()
 	var book := L.looks()
-	preview.setup(L.t("you_name"), Cosmetics.dress(book.for_name("", true), Save.hat), true)
-	preview.sprite_id = 0      # в примерке житель нарисован кодом: на нём видна шапка
+	preview.setup(Save.player_display_name(), Cosmetics.dress(book.for_name(Save.player_display_name(), true), Save.hat), true)
+	preview.set_sprite(VillagerFigure.hero_for(preview.look))
+	preview.set_hero_hat(Save.hat)
 	preview.set_lantern(Save.lantern)
 	preview.scale = Vector2(2.4, 2.4)
 	_art.add_child(preview)

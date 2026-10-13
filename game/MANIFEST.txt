@@ -48,6 +48,7 @@ scripts/loc/hi.gd
 scripts/loc/l.gd
 scripts/loc/pt.gd
 scripts/loc/ru.gd
+scripts/loc/social_content.gd
 scripts/loc/tr.gd
 scripts/loc/vi.gd
 scripts/loc/zh.gd

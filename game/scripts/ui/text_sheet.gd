@@ -13,15 +13,15 @@ var send_button: Button
 var _closed := false
 
 
-static func ask(parent: Control, title: String, quick: PackedStringArray = PackedStringArray()) -> String:
+static func ask(parent: Control, title: String, quick: PackedStringArray = PackedStringArray(), initial_text: String = "", max_length: int = 120) -> String:
 	var s := TextSheet.new()
 	parent.add_child(s)
-	s._build(title, quick)
+	s._build(title, quick, initial_text, max_length)
 	var t: String = await s.done
 	return t
 
 
-func _build(title: String, quick: PackedStringArray = PackedStringArray()) -> void:
+func _build(title: String, quick: PackedStringArray, initial_text: String = "", max_length: int = 120) -> void:
 	Diag.step("ввод: открыт")
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -50,7 +50,8 @@ func _build(title: String, quick: PackedStringArray = PackedStringArray()) -> vo
 	box.add_child(quick_box)
 	field = LineEdit.new()
 	field.placeholder_text = L.t("say.placeholder")
-	field.max_length = 120
+	field.max_length = maxi(1, max_length)
+	field.text = initial_text
 	field.custom_minimum_size = Vector2(0, ThemeFactory.TOUCH)
 	field.text_submitted.connect(func(t: String) -> void: close(t.strip_edges()))
 	field.focus_entered.connect(func() -> void:

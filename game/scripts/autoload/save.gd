@@ -26,6 +26,7 @@ var daily_wins: int = 0
 var daily_best: int = 0                ## лучшая серия дней подряд
 var lantern: String = "classic"        ## фонарь твоего жителя (Cosmetics.LANTERNS)
 var hat: String = "own"                ## шапка (Cosmetics.HATS)
+var player_name: String = ""            ## имя игрока, пусто — локализованное обращение по умолчанию
 var hints_seen: Dictionary = {}       ## id подсказки -> true: больше не показывать
 var stats: Dictionary[String, int] = {
 	"games": 0, "wins": 0, "as_upyr": 0, "upyr_wins": 0,
@@ -72,6 +73,7 @@ func load_all() -> void:
 	daily_best = int(cf.get_value("daily", "best", 0)) if has else 0
 	lantern = String(cf.get_value("look", "lantern", "classic")) if has else "classic"
 	hat = String(cf.get_value("look", "hat", "own")) if has else "own"
+	player_name = String(cf.get_value("profile", "name", "")).strip_edges().left(20) if has else ""
 	if DisplayServer.get_name() == "headless":
 		lantern = "classic"   # самотесты видят жителя без косметики; --cosmetics надевает сам
 		hat = "own"
@@ -144,6 +146,22 @@ func set_haptics(on: bool) -> void:
 	haptics = on
 	Juice.haptics_enabled = on
 	flush()
+
+
+func set_player_name(value: String) -> bool:
+	var clean := value.strip_edges().left(20)
+	if clean.is_empty():
+		return false
+	for i in range(clean.length()):
+		if clean.unicode_at(i) < 32:
+			return false
+	player_name = clean
+	flush()
+	return true
+
+
+func player_display_name() -> String:
+	return player_name if not player_name.is_empty() else L.t("you_name")
 
 
 ## Своя сложность: ползунки в настройках.
@@ -254,6 +272,7 @@ func flush() -> void:
 	cf.set_value("daily", "best", daily_best)
 	cf.set_value("look", "lantern", lantern)
 	cf.set_value("look", "hat", hat)
+	cf.set_value("profile", "name", player_name)
 	cf.set_value("hints", "seen", ",".join(PackedStringArray(hints_seen.keys())))
 	cf.save(SETTINGS_PATH)
 

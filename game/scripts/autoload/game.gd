@@ -439,6 +439,18 @@ func ask(vid: int) -> void:
 	_player_says(L.t("say.ask", {"who": t}), _intent(IntentParser.Kind.ASK, t))
 
 
+func answer_question(vid: int, answer: String, answer_kind: int) -> void:
+	if m == null or m.phase != Match.Phase.DAY or answer.strip_edges().is_empty():
+		return
+	var asker := m.get_villager(vid)
+	if asker == null or not asker.alive or asker.is_player:
+		return
+	m.post(ChatLine.say(m.player(), answer.strip_edges()))
+	var replies := director.answer_player_question(asker, answer, answer_kind)
+	marks_changed.emit()
+	_feed(replies)
+
+
 ## Жест без слов: в журнал — строкой о том, что ты сделал; боты отвечают и запоминают.
 func gesture(kind: String, vid: int) -> void:
 	var t := m.get_villager(vid)

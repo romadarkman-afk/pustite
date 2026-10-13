@@ -5,6 +5,7 @@ extends RefCounted
 var id: int
 var name: String
 var is_player: bool
+var story_id: int = -1             ## постоянная личная история NPC в пределах партии
 var is_upyr: bool = false
 var female: bool = false            ## для согласования реплик: «был» / «была»
 var alive: bool = true

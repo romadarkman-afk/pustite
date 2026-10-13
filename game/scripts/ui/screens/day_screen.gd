@@ -7,6 +7,7 @@ extends Screen
 var journal_button: Button
 var supplies: SuppliesBadge
 var journal_preview: Label
+var _question_prompt_open := false
 
 
 func screen_id() -> String:
@@ -133,6 +134,24 @@ func on_clock_expired() -> void:
 ## Nav вызывает при каждой новой реплике.
 func append_line(_line: ChatLine) -> void:
 	_update_journal()
+	if _line.asks_player and not _question_prompt_open:
+		_question_prompt_open = true
+		_answer_npc_question.call_deferred(_line)
+
+
+func _answer_npc_question(line: ChatLine) -> void:
+	if not is_inside_tree() or m == null or line.speaker == null or m.phase != Match.Phase.DAY:
+		return
+	Game.hold(&"dialog")
+	var quick := SocialContent.question_answers()
+	var prompt := SocialContent.question_title(line.speaker.name) + "\n" + line.text
+	var answer := await TextSheet.ask(self, prompt, quick)
+	Game.release(&"dialog")
+	if answer.is_empty() or not is_inside_tree() or m == null or m.phase != Match.Phase.DAY:
+		return
+	var answer_kind := quick.find(answer)
+	emit_intent(Intent.QUESTION_REPLY, {"id": line.speaker.id, "kind": line.question_kind,
+		"answer": answer, "answer_kind": answer_kind})
 
 
 func open_journal() -> void:
@@ -161,7 +180,7 @@ func _update_journal() -> void:
 	elif last.kind == ChatLine.Kind.SYSTEM:
 		journal_preview.text = last.text
 	else:
-		journal_preview.text = L.t("day.preview", {"who": L.t("you_name") if last.kind == ChatLine.Kind.MINE else last.speaker.name, "text": last.text})
+	journal_preview.text = L.t("day.preview", {"who": Save.player_display_name() if last.kind == ChatLine.Kind.MINE else last.speaker.name, "text": last.text})
 
 
 func _write_flow() -> void:
@@ -176,7 +195,11 @@ func _defend() -> void:
 
 func person_actions(v: Villager) -> void:
 	var ev := director.evidence_text(v) if director != null else ""
-	var head := v.name if ev.is_empty() else L.t("day.person_ev", {"who": v.name, "ev": ev})
+	var head := v.name
+	if v.story_id >= 0:
+		head += "\n" + SocialContent.story(v.story_id)
+	if not ev.is_empty():
+		head += "\n" + ev
 	var opts := PackedStringArray([
 		L.t("day.p_accuse", {"who": v}),
 		L.t("day.p_invite"),

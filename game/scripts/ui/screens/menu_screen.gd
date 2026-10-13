@@ -29,6 +29,11 @@ func build() -> void:
 		&"Tale"))
 	body.add_child(W.gap(6))
 	body.add_child(W.label(L.t("menu.hint"), &"Hint"))
+	var name_button := W.button(SocialContent.player_name_label(Save.player_display_name()), &"Row")
+	name_button.name = "PlayerName"
+	name_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	name_button.pressed.connect(func() -> void: emit_intent(Intent.SET_PLAYER_NAME))
+	body.add_child(name_button)
 	var dbs: Array[Button] = []
 	var custom_b: Button = null
 	for d: String in ["easy", "normal", "hard", "custom"]:
@@ -79,6 +84,9 @@ func refresh(d: String, c: GameConfig) -> void:
 		(_diff_buttons[k] as Button).theme_type_variation = &"RowOn" if k == d else &"Row"
 	if c != null and _diff_note != null:
 		_diff_note.text = L.t("diff.note", {"d": Difficulty.title(d), "text": Difficulty.describe(d, c)})
+	var name_button := find_child("PlayerName", true, false) as Button
+	if name_button != null:
+		name_button.text = SocialContent.player_name_label(Save.player_display_name())
 
 
 ## Испытание дня: правило сегодняшнего дня; сыграно — итог, серия и «новое завтра».

@@ -432,6 +432,10 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 				show_menu()
 		Intent.OPEN_SETTINGS:
 			show_settings()
+		Intent.SET_PLAYER_NAME:
+			var entered := await TextSheet.ask(sender, SocialContent.name_prompt(), PackedStringArray(), Save.player_name, 20)
+			if Save.set_player_name(entered) and sender is MenuScreen:
+				(sender as MenuScreen).refresh(Save.difficulty, Save.config)
 		Intent.BACK:
 			_apply_settings(data)
 			show_menu()
@@ -493,6 +497,9 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			Game.invite(data.id, data.house)
 		Intent.ASK:
 			Game.ask(data.id)
+		Intent.QUESTION_REPLY:
+			if sender is DayScreen:
+				Game.answer_question(int(data.id), String(data.answer), int(data.answer_kind))
 		Intent.DEFEND:
 			Game.defend()
 		Intent.END_DAY:

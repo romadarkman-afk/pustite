@@ -66,6 +66,8 @@ var evidence: Dictionary = {}                    ## id -> {"street": n, "liar": 
 var pending_lines: Array[ChatLine] = []          ## что скажут первым делом утром (старожил)
 var fake_elder_done := false
 var gestured: Dictionary = {}   ## «жест:id:день» — какие жесты уже засчитаны
+var last_question_topic := ""
+var last_questioner := -1
 ## Подстройка под игрока (задача 49): −1 — игрок проиграл несколько раз подряд, боты слабее;
 ## +1 — игрок часто выигрывает, боты собраннее. Ступень сложности не меняется.
 ## Слабее значит: против игрока-человека упыри врут неубедительно, люди-хозяева лучше верят игроку;
@@ -81,6 +83,8 @@ func attach(match_ref: Match) -> void:
 	street_last_night.clear()
 	liar_last_night.clear()
 	evidence.clear()
+	last_question_topic = ""
+	last_questioner = -1
 	for v: Villager in m.villagers:
 		public_susp[v.id] = 0.0
 		if not v.is_player:
@@ -385,16 +389,23 @@ func _others(of: Villager) -> Array[Villager]:
 func _say(who: Villager, bank: String, target: Villager = null, extra: Dictionary = {}) -> ChatLine:
 	var vars := extra.duplicate()
 	vars["me"] = who
+	vars["player_name"] = m.player().name
 	if Phrases.mentions_target(bank):
 		if target == null:
 			vars["who"] = L.raw("someone")
 		elif target.is_player:
-			bank = "AT_PLAYER"
+			if bank in ["ACCUSE_DEATH", "ACCUSE_FAKE", "ACCUSE_SABOTAGE", "ACCUSE_TUNNEL"]:
+				vars["who"] = target.name
+			else:
+				bank = "AT_PLAYER"
 		else:
 			vars["who"] = target
 	var lines := Phrases.b(bank)
 	var tpl := lines[rng.randi_range(0, lines.size() - 1)]
-	var line := ChatLine.say(who, L.fill(tpl, vars))
+	var text := L.fill(tpl, vars)
+	if bank == "AT_PLAYER" and not Save.player_name.is_empty():
+		text = "%s, %s" % [m.player().name, text.left(1).to_lower() + text.substr(1)]
+	var line := ChatLine.say(who, text)
 	if target != null and Phrases.ACCUSING.has(bank) and (tpl.contains("{who") or bank.ends_with("AT_PLAYER")):
 		line.about = target
 	return line
@@ -543,6 +554,16 @@ func opening_lines() -> Array[ChatLine]:
 			elif liar_last_night.has(suspect.id):
 				bank = "ACCUSE_LIAR"
 				extra["house"] = m.house_name(liar_last_night[suspect.id])
+			else:
+				var ev: Dictionary = evidence.get(suspect.id, {})
+				if int(ev.get("death", 0)) > 0:
+					bank = "ACCUSE_DEATH"
+				elif int(ev.get("sabotage", 0)) > 0:
+					bank = "ACCUSE_SABOTAGE"
+				elif int(ev.get("fake", 0)) > 0:
+					bank = "ACCUSE_FAKE"
+				elif int(ev.get("tunnel", 0)) > 0:
+					bank = "ACCUSE_TUNNEL"
 			out.append(_say(accuser, bank, suspect, extra))
 			if not suspect.is_player:
 				out.append(_say(suspect, "UPYR_DEFLECT" if suspect.is_upyr else "DEFEND", _pick_any(suspect)))
@@ -554,6 +575,78 @@ func opening_lines() -> Array[ChatLine]:
 
 	if rng.randf() < 0.6:
 		out.append(_say(shuffled[shuffled.size() - 1], "FILLER"))
+	var question := player_question()
+	if question != null:
+		out.append(question)
+	return out
+
+
+func player_question() -> ChatLine:
+	var bots := m.alive_bots()
+	if bots.is_empty() or not m.player().alive:
+		return null
+	var pool: Array[Villager] = []
+	for bot: Villager in bots:
+		if bot.id != last_questioner:
+			pool.append(bot)
+	if pool.is_empty():
+		pool = bots
+	var asker := pool[rng.randi_range(0, pool.size() - 1)]
+	last_questioner = asker.id
+	var topic := _question_topic()
+	var line := ChatLine.say(asker, SocialContent.opening_question(asker.story_id, m.player().name) if topic == "arrival"
+		else SocialContent.question(topic, m.player().name, rng))
+	line.asks_player = true
+	line.question_kind = topic
+	return line
+
+
+func _question_topic() -> String:
+	if m.day <= 1:
+		return "arrival"
+	var ev: Dictionary = evidence.get(m.player().id, {})
+	var topics := PackedStringArray()
+	if int(ev.get("street", 0)) > 0 or street_last_night.has(m.player().id):
+		topics.append("night")
+	if int(ev.get("liar", 0)) > 0 or liar_last_night.has(m.player().id):
+		topics.append("alibi")
+	if int(ev.get("fake", 0)) > 0:
+		topics.append("work")
+	if int(ev.get("sabotage", 0)) > 0:
+		topics.append("sabotage")
+	if int(ev.get("death", 0)) > 0:
+		topics.append("death")
+	if int(ev.get("tunnel", 0)) > 0:
+		topics.append("tunnel")
+	if topics.is_empty():
+		topics.append("trust")
+		topics.append("rumor")
+	var previous := topics.find(last_question_topic)
+	if topics.size() > 1 and previous >= 0:
+		topics.remove_at(previous)
+	var topic := String(topics[rng.randi_range(0, topics.size() - 1)])
+	last_question_topic = topic
+	return topic
+
+
+func answer_player_question(asker: Villager, answer: String, answer_kind: int) -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	if asker == null or asker.is_player or not brains.has(asker.id):
+		return out
+	var brain: BotBrain = brains[asker.id]
+	match answer_kind:
+		0:
+			brain.private_delta[0] = brain.private_delta.get(0, 0.0) - 0.3
+			_bump(m.player().id, -0.1)
+		1:
+			brain.private_delta[0] = brain.private_delta.get(0, 0.0) - 0.05
+		2:
+			brain.private_delta[0] = brain.private_delta.get(0, 0.0) + 0.35
+			_bump(m.player().id, 0.25)
+		_:
+			if answer.strip_edges().length() >= 18:
+				brain.private_delta[0] = brain.private_delta.get(0, 0.0) - 0.15
+	out.append(ChatLine.say(asker, SocialContent.question_reaction(answer_kind, asker.story_id, rng)))
 	return out
 
 

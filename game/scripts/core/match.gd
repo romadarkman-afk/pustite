@@ -253,10 +253,13 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	var pool := L.names().duplicate()
 	_shuffle(pool)
 	villagers.clear()
-	villagers.append(Villager.new(0, L.t("you_name"), true))
+	villagers.append(Villager.new(0, Save.player_display_name(), true))
+	var stories: Array = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+	_shuffle(stories)
 	for i in range(config.players - 1):
 		var v := Villager.new(i + 1, String(pool[i][0]), false)
 		v.female = bool(pool[i][1])
+		v.story_id = int(stories[i % stories.size()])
 		villagers.append(v)
 
 	var order: Array = range(villagers.size())
