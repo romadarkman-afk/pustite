@@ -1008,6 +1008,25 @@ static func field() -> void:
 		if not (v._tex.get(f) is Texture2D):
 			missing.append(f)
 	ok += _expect(fails, missing.is_empty(), "нет картинок посёлка: %s" % ", ".join(missing))
+	var door_closed := load("res://assets/ui/door_closed.png") as Texture2D
+	var door_open := load("res://assets/ui/door_open.png") as Texture2D
+	ok += _expect(fails, door_closed != null and door_open != null
+		and door_closed.get_width() > 700 and door_closed.get_height() > 1000
+		and door_open.get_width() > 700 and door_open.get_height() > 1000,
+		"нет полноразмерных картинок закрытой и открытой двери")
+	var art := Nav.atmos
+	var night_before: float = art._param("night")
+	var lamp_before: float = art._param("lamp_power")
+	art.door(0.05, 0.0)
+	ok += _expect(fails, art._door_art.visible and art._door_closed.modulate.a > 0.95
+		and art._door_open.modulate.a < 0.05, "у двери не показана закрытая картинка")
+	art.door(0.4, 0.0)
+	ok += _expect(fails, art._door_open.modulate.a > 0.95 and art._door_closed.modulate.a < 0.05,
+		"при открытии двери не переключается картинка")
+	art.door(0.0, 0.0)
+	ok += _expect(fails, art._door_closed.modulate.a > 0.95 and art._door_open.modulate.a < 0.05,
+		"при закрытии двери не возвращается закрытая картинка")
+	art.mood(night_before, lamp_before, 0.0)
 	for i in range(v.open_shelters()):
 		var sh: HouseDef = v.def.shelters[i]
 		var dr := v.door_rect(sh)
