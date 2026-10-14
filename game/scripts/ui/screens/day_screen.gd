@@ -180,7 +180,7 @@ func _update_journal() -> void:
 	elif last.kind == ChatLine.Kind.SYSTEM:
 		journal_preview.text = last.text
 	else:
-	journal_preview.text = L.t("day.preview", {"who": Save.player_display_name() if last.kind == ChatLine.Kind.MINE else last.speaker.name, "text": last.text})
+		journal_preview.text = L.t("day.preview", {"who": Save.player_display_name() if last.kind == ChatLine.Kind.MINE else last.speaker.name, "text": last.text})
 
 
 func _write_flow() -> void:
