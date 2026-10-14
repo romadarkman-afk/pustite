@@ -768,6 +768,7 @@ static func lifecycle() -> void:
 	await _frames(tree, 2)
 	passed += _expect(fails, Game.screen_kept_on, "в партии экран должен держаться включённым")
 	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	Game._feed_gen += 1 # открывающие реплики с вопросом игроку тестируются отдельно
 	await _frames(tree, 3)
 
 	# 1. Свернули посреди дня — таймер стоит, вернулись — идёт
@@ -873,6 +874,7 @@ static func lifecycle() -> void:
 	Nav.start_match()
 	await _frames(tree, 2)
 	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	Game._feed_gen += 1
 	await _frames(tree, 3)
 	var ds := Nav.host.current as DayScreen
 	ds._write_flow()
@@ -906,6 +908,7 @@ static func lifecycle() -> void:
 	Nav.start_match()
 	await _frames(tree, 2)
 	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	Game._feed_gen += 1
 	await _frames(tree, 3)
 	var dj := Nav.host.current as DayScreen
 	var chips_row := false
@@ -1368,7 +1371,10 @@ static func bubbles() -> void:
 		Nav.frame.refresh()
 		Nav.start_match()
 		await _settle(tree)
+		Game.hold(&"test")
 		Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+		Game._feed_gen += 1
+		Game.release(&"test")
 		await _settle(tree)
 		var tag := "%d×%d" % [sz.x, sz.y]
 		var speakers := Game.m.alive()
@@ -1452,6 +1458,7 @@ static func marks() -> void:
 	Nav.start_match()
 	await _settle(tree)
 	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	Game._feed_gen += 1
 	await _settle(tree)
 	var cr := Nav.village.crowd
 	var day := Nav.host.current as DayScreen
@@ -1504,9 +1511,14 @@ static func marks() -> void:
 	ok += _expect(fails, cr.figures[target.id].eye_level > before,
 		"обвинили %s — глаз не изменился (%d → %d)" % [_ru_case("acc", target.name), before, cr.figures[target.id].eye_level])
 	var replied := false
-	for i in range(chat_before, Game.m.chat.size()):
-		if Game.m.chat[i].speaker == target:
-			replied = true
+	var reply_until := Time.get_ticks_msec() + 5000
+	while not replied and Time.get_ticks_msec() < reply_until:
+		for i in range(chat_before, Game.m.chat.size()):
+			if Game.m.chat[i].speaker == target:
+				replied = true
+				break
+		if not replied:
+			await tree.process_frame
 	ok += _expect(fails, replied, "обвинённый %s не ответил" % target.name)
 
 	# позвать с собой — кто-нибудь согласится; кольцо уговора; ночью вместе к одной двери
@@ -1622,11 +1634,18 @@ static func input() -> void:
 		Nav.frame.refresh()
 		Nav.start_match()
 		await _settle(tree)
+		Game.hold(&"test")
 		Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+		Game._feed_gen += 1
+		Game.release(&"test")
 		await _settle(tree)
 		var tag := "%d×%d" % [sz.x, sz.y]
 		var day := Nav.host.current as DayScreen
 		var vp := Nav.frame.get_viewport_rect().size
+		for child: Node in day.get_children():
+			if child is TextSheet:
+				(child as TextSheet).close("")
+		await _frames(tree, 2)
 
 		day._write_flow()
 		await _frames(tree, 3)
@@ -2409,6 +2428,7 @@ static func village() -> void:
 	await _settle(tree)
 	var scale_wide := v.scale.x
 	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	Game._feed_gen += 1
 	await _settle(tree)
 	var day := Nav.host.current as DayScreen
 	var scale_day := v.scale.x
@@ -2791,6 +2811,7 @@ static func talisman() -> void:
 	Nav.start_match()
 	await _settle(tree)
 	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	Game._feed_gen += 1
 	await _settle(tree)
 	var m := Game.m
 	var day := Nav.host.current as DayScreen
@@ -2858,6 +2879,7 @@ static func _new_day(tree: SceneTree) -> void:
 	Nav.start_match()
 	await _settle(tree)
 	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	Game._feed_gen += 1
 	await _settle(tree)
 
 
@@ -3519,6 +3541,7 @@ static func sabotage() -> void:
 	Nav.start_match()
 	await _settle(tree)
 	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	Game._feed_gen += 1
 	await _settle(tree)
 	var m := Game.m
 	var day := Nav.host.current as DayScreen
@@ -3649,12 +3672,8 @@ static func box() -> void:
 			upyr = b
 		if not b.is_upyr and human == null:
 			human = b
-	var ups: Array[Villager] = []
-	for b: Villager in mm.villagers:
-		if b.is_upyr and b != upyr:
-			ups.append(b)
-	var hl := dm.after_box(human.id, {"loot": Match.Loot.NOTE, "a": ups[0], "b": mm.villagers[0]})
-	ok += _expect(fails, hl.size() == 1 and hl[0].text.contains(ups[0].name), "человек не рассказал, что в записке")
+	var hl := dm.after_box(human.id, {"loot": Match.Loot.NOTE, "a": upyr, "b": human})
+	ok += _expect(fails, hl.size() == 1 and hl[0].text.contains(upyr.name), "человек не рассказал, что в записке")
 	var lie_ok := true
 	for k in range(30):
 		var ul := dm.after_box(upyr.id, {"loot": Match.Loot.NOTE, "a": human, "b": upyr})
@@ -3670,6 +3689,7 @@ static func box() -> void:
 	Nav.start_match()
 	await _settle(tree)
 	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	Game._feed_gen += 1
 	await _settle(tree)
 	var m := Game.m
 	var day := Nav.host.current as DayScreen
@@ -3997,6 +4017,7 @@ static func meeting() -> void:
 	Nav.start_match()
 	await _settle(tree)
 	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	Game._feed_gen += 1
 	await _settle(tree)
 	var m := Game.m
 	var day := Nav.host.current as DayScreen
@@ -4021,6 +4042,7 @@ static func meeting() -> void:
 	Nav.start_match()
 	await _settle(tree)
 	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	Game._feed_gen += 1
 	await _settle(tree)
 	m = Game.m
 	Game.director.public_susp[m.alive_bots()[0].id] = 5.0
@@ -4559,6 +4581,7 @@ static func folk() -> void:
 	Nav.start_match()
 	await _settle(tree)
 	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	Game._feed_gen += 1
 	await _settle(tree)
 	var m := Game.m
 	var cr := Nav.village.crowd
@@ -5320,6 +5343,7 @@ static func gestures() -> void:
 	Nav.start_match()
 	await _settle(tree)
 	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	Game._feed_gen += 1
 	await _settle(tree)
 	var day: DayScreen = Nav.host.current as DayScreen
 	var m := Game.m

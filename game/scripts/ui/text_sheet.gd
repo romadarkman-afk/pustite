@@ -8,7 +8,7 @@ extends Control
 signal done(text: String)
 
 var field: LineEdit
-var quick_box: HFlowContainer
+var quick_box: VBoxContainer
 var send_button: Button
 var _closed := false
 
@@ -40,9 +40,10 @@ func _build(title: String, quick: PackedStringArray, initial_text: String = "", 
 	var box := W.vbox(10)
 	sheet.add_child(box)
 	box.add_child(W.label(title, &"Hint"))
-	quick_box = HFlowContainer.new()
+	quick_box = W.vbox(8)
 	for q: String in quick:
-		var chip := W.chip(q, &"Quick")
+		var chip := W.wrap(W.button(q, &"Quick"))
+		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var text := q
 		chip.pressed.connect(func() -> void: close(text))
 		quick_box.add_child(chip)
