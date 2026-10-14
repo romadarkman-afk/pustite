@@ -5315,7 +5315,7 @@ static func gestures() -> void:
 	await _settle(tree)
 	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
 	await _settle(tree)
-	var day := Nav.host.current as DayScreen
+	var day: DayScreen = Nav.host.current as DayScreen
 	var m := Game.m
 	var d := Game.director
 	var cr := Nav.village.crowd
@@ -5330,7 +5330,7 @@ static func gestures() -> void:
 	press.position = at
 	day._on_field_tap_input(press)
 	await tree.create_timer(Screen.HOLD_SEC + 0.15).timeout
-	var sheets := day.find_children("*", "ActionSheet", true, false)
+	var sheets: Array[Node] = day.find_children("*", "ActionSheet", true, false)
 	ok += _expect(fails, sheets.size() == 1 and _all_text(sheets[0]).contains(target.name) and _all_text(sheets[0]).contains(L.t("gest.trust")), "долгое нажатие не открыло жесты")
 	var release := press.duplicate() as InputEventMouseButton
 	release.pressed = false
@@ -5345,7 +5345,7 @@ static func gestures() -> void:
 	day._on_field_tap_input(tap)
 	day._on_field_tap_input(release)
 	await _frames(tree, 3)
-	var tap_sheets := day.find_children("*", "ActionSheet", true, false)
+	var tap_sheets: Array[Node] = day.find_children("*", "ActionSheet", true, false)
 	ok += _expect(fails, tap_sheets.size() == 1 and _all_text(tap_sheets[0]).contains(L.t("day.p_ask")), "короткий тап не открыл обычное меню жителя")
 	for sh: Node in tap_sheets:
 		(sh as ActionSheet).close(-1)
