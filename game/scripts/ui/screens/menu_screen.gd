@@ -29,9 +29,10 @@ func build() -> void:
 		&"Tale"))
 	body.add_child(W.gap(6))
 	body.add_child(W.label(L.t("menu.hint"), &"Hint"))
-	var name_button := W.button(SocialContent.player_name_label(Save.player_display_name()), &"Row")
+	var name_button := W.wrap(W.button(SocialContent.player_name_label(Save.player_display_name()), &"Row"))
 	name_button.name = "PlayerName"
-	name_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	name_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	name_button.pressed.connect(func() -> void: emit_intent(Intent.SET_PLAYER_NAME))
 	body.add_child(name_button)
 	var dbs: Array[Button] = []

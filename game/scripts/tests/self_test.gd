@@ -670,7 +670,7 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 	if fr.end.y > vp.y + 1.0:
 		out.append("%s: нижние кнопки уходят за экран (%d > %d)" % [w, int(fr.end.y), int(vp.y)])
 	for c: Control in _controls(s):
-		if not c.is_visible_in_tree() or c is ActionSheet:
+		if not c.is_visible_in_tree() or _is_fullscreen_scrim(c):
 			continue
 		var r := c.get_global_rect()
 		if r.position.x < -1.0 or r.end.x > vp.x + 1.0:
@@ -696,6 +696,12 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 			if r.size.x + 1.0 < need:
 				out.append("%s: текст на кнопке обрезан: «%s» (%d px из нужных %d)" % [w, b.text.replace("\n", " ").left(30), int(r.size.x), int(need)])
 	return 1
+
+
+## Скримы намеренно выходят за область безопасной зоны, чтобы затемнить весь дисплей.
+static func _is_fullscreen_scrim(c: Control) -> bool:
+	return c is ColorRect and c.offset_left <= -1000.0 and c.offset_top <= -1000.0 \
+		and c.offset_right >= 1000.0 and c.offset_bottom >= 1000.0
 
 
 static func _check_sheet(sheet: ActionSheet, tag: String, out: PackedStringArray) -> int:
