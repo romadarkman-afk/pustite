@@ -3,8 +3,8 @@ extends ColorRect
 ## Фон: туман, лампа, дверь. Экраны управляют им через вызовы, а не напрямую через шейдер.
 
 const SHADER := preload("res://shaders/atmos.gdshader")
-const DOOR_CLOSED := preload("res://assets/ui/door_closed.png")
-const DOOR_OPEN := preload("res://assets/ui/door_open.png")
+const DOOR_CLOSED_PATH := "res://assets/ui/door_closed.png"
+const DOOR_OPEN_PATH := "res://assets/ui/door_open.png"
 
 var mat: ShaderMaterial
 var _door_art: Control
@@ -27,8 +27,8 @@ func _ready() -> void:
 	_door_art.modulate.a = 0.0
 	_door_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_door_art)
-	_door_closed = _door_layer(DOOR_CLOSED, "Closed")
-	_door_open = _door_layer(DOOR_OPEN, "Open")
+	_door_closed = _door_layer(load(DOOR_CLOSED_PATH) as Texture2D, "Closed")
+	_door_open = _door_layer(load(DOOR_OPEN_PATH) as Texture2D, "Open")
 	_door_art.add_child(_door_closed)
 	_door_art.add_child(_door_open)
 	_door_open.modulate.a = 0.0
