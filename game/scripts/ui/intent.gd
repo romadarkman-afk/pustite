@@ -16,6 +16,7 @@ const END_DAY := &"end_day"
 const VOTE := &"vote"
 const CHOOSE_HOUSE := &"choose_house"
 const ADMIT := &"admit"
+const DOOR_INSPECT := &"door_inspect"    ## осмотр стучащего: {"id"}
 const PLEA := &"plea"
 const AGAIN := &"again"
 const FIELD_TAP := &"field_tap"

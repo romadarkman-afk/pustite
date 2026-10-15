@@ -554,6 +554,7 @@ func data() -> Dictionary:
 		"cos.need_wins": "{n} {n#win|wins}",
 		"cos.need_daily": "{n} daily {n#challenge|challenges}",
 		"cos.need_streak": "{n}-day streak",
+		"cos.need_bond": "{n} bond points with returning residents",
 		"lantern.classic": "Plain",
 		"lantern.copper": "Copper",
 		"lantern.green": "Will-o'-the-wisp",

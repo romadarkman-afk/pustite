@@ -558,6 +558,7 @@ func data() -> Dictionary:
 		"cos.need_wins": "胜利{n}次",
 		"cos.need_daily": "完成{n}次每日挑战",
 		"cos.need_streak": "连续{n}天",
+		"cos.need_bond": "与常驻村民建立{n}点信任",
 		"lantern.classic": "普通",
 		"lantern.copper": "铜灯",
 		"lantern.green": "鬼火",

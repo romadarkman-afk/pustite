@@ -592,6 +592,7 @@ func data() -> Dictionary:
 		"cos.need_wins": "{n} galibiyet",
 		"cos.need_daily": "{n} günün sınavı",
 		"cos.need_streak": "{n} günlük seri",
+		"cos.need_bond": "Düzenli köylülerle {n} güven puanı",
 		"lantern.classic": "Sade",
 		"lantern.copper": "Bakır",
 		"lantern.green": "Cin ateşi",

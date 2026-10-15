@@ -15,6 +15,12 @@ var pleas: Dictionary[int, String] = {}
 var result_shown := false
 var _selected: Array[int] = []
 var _rows: Dictionary[int, Button] = {}
+var _inspect_rows: Dictionary[int, Button] = {}
+var _visitor_figures: Dictionary[int, VillagerFigure] = {}
+var _observations: Dictionary[int, Label] = {}
+var _inspected: Dictionary[int, bool] = {}
+var _inspection_left := 2
+var _portrait_used: Dictionary = {}
 var _go: Button
 var _box: VBoxContainer       ## содержимое двери на тёмной подложке
 var _seats: HBoxContainer     ## свободные места значками: занятые светятся
@@ -91,6 +97,7 @@ func build() -> void:
 
 # ---------------------------------------------------------------
 func _build_host() -> void:
+	Sfx.set_heartbeat_pace(1.0 + 0.04 * float(mini(seat.knockers().size() - 1, 3)))
 	# до первого решения — одна строка и значки; пояснения под «Подробнее»
 	var head := W.icon_line("knock", L.t("door.host_short"), &"Tale", 52)
 	head.add_child(W.more(self, _host_info))
@@ -107,23 +114,73 @@ func _build_host() -> void:
 
 	for g: Villager in seat.knockers():
 		var card := W.panel(&"Card")
+		card.name = "Knocker_%d" % g.id
 		card.set_meta("action", true)       # карточка стучащего — сама кнопка выбора
+		var col := W.vbox(10)
 		var row := W.hbox(14)
+		var portrait := Control.new()
+		portrait.name = "Portrait_%d" % g.id
+		portrait.custom_minimum_size = Vector2(132, 178)
+		portrait.clip_contents = true
+		portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		portrait.draw.connect(func() -> void:
+			portrait.draw_rect(Rect2(Vector2.ZERO, portrait.size), Color("171f27"))
+			portrait.draw_rect(Rect2(101, 0, 31, portrait.size.y), Color("433c32"))
+			portrait.draw_line(Vector2(100, 0), Vector2(100, portrait.size.y), Color("93704c"), 1.4))
+		var figure := VillagerFigure.new()
+		var looks := L.looks()
+		var look := looks.for_name(g.name, false)
+		figure.setup(g.name, look, false)
+		figure.sprite_id = VillagerFigure.pick_sprite(look, _portrait_used)
+		if Nav.village != null and Nav.village.crowd != null:
+			var on_field: VillagerFigure = Nav.village.crowd.figures.get(g.id)
+			if on_field == null:
+				for known_figure: VillagerFigure in Nav.village.crowd.figures.values():
+					if known_figure.who == g.name:
+						on_field = known_figure
+						break
+			if is_instance_valid(on_field):
+				figure.sprite_id = on_field.sprite_id
+		figure.scale = Vector2.ONE * (2.25 / look.height)
+		figure.position = Vector2(46, 205)
+		figure.modulate = Color(0.72, 0.78, 0.88)
+		figure.door_portrait = true
+		figure.door_tell = m.door_sign_for(g, seat)
+		figure.tag.visible = false
+		figure.set_cold(true)
+		portrait.add_child(figure)
+		_visitor_figures[g.id] = figure
+		row.add_child(portrait)
 		var texts := W.vbox(4)
 		texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		texts.add_child(W.label(g.name, &"Body"))
 		texts.add_child(W.label(L.t("door.quote", {"text": pleas.get(g.id, "…")}), &"Small"))
+		var observation := W.label("", &"Hint")
+		observation.name = "Observation_%d" % g.id
+		observation.visible = false
+		texts.add_child(observation)
+		_observations[g.id] = observation
 		row.add_child(texts)
+		var inspect := W.button("%s · %d" % [SocialContent.door_ui("inspect"), _inspection_left], &"Ghost")
+		inspect.name = "Inspect_%d" % g.id
+		inspect.custom_minimum_size = Vector2(132, ThemeFactory.TOUCH)
+		var gid := g.id
+		inspect.pressed.connect(func() -> void: _inspect(gid))
+		_inspect_rows[gid] = inspect
 		var b := W.button(L.t("door.admit"), &"Row")
-		b.custom_minimum_size = Vector2(200, ThemeFactory.TOUCH)
+		b.name = "Admit_%d" % g.id
+		b.custom_minimum_size = Vector2(132, ThemeFactory.TOUCH)
 		b.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING   # крупный текст: кнопка шире, имя переносится
 		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		var gid := g.id
 		b.pressed.connect(func() -> void: _toggle(gid, cap))
 		_rows[gid] = b
-		row.add_child(b)
-		card.add_child(row)
+		col.add_child(row)
+		col.add_child(W.fit_row([inspect, b], 8))
+		card.add_child(col)
 		_box.add_child(card)
+	for record: Dictionary in m.door_inspections:
+		if int(record.day) == m.day and _visitor_figures.has(int(record.villager)):
+			show_inspection(int(record.villager), StringName(record.tell))
 
 	_go = W.button(L.t("door.open"))
 	_go.disabled = true
@@ -149,6 +206,7 @@ func _host_info() -> Array:
 		["seat", L.t("door.cap", {"n": m.config.capacity - 1})],
 		["people", "" if elsewhere.is_empty() else L.t("door.elsewhere", {"list": L.t("list.sep").join(elsewhere)})],
 		["fang" if upyr else "alone", L.t("door.upyr_note") if upyr else L.t("door.alone_note")],
+		["info", SocialContent.door_ui("limit")],
 		["info", L.t("door.hint_host")]]
 
 
@@ -168,6 +226,53 @@ func _toggle(gid: int, cap: int) -> void:
 		if c is Glyph and (c as Glyph).kind.begins_with("seat"):
 			(c as Glyph).set_kind("seat_on" if i < _selected.size() else "seat")
 			i += 1
+
+
+func _inspect(gid: int) -> void:
+	if _inspection_left <= 0 or _inspected.has(gid):
+		return
+	emit_intent(Intent.DOOR_INSPECT, {"id": gid})
+
+
+func show_inspection(gid: int, tell: StringName) -> void:
+	if _inspected.has(gid):
+		return
+	var visitor := m.get_villager(gid)
+	if visitor == null and seat.mimic != null and seat.mimic.id == gid:
+		visitor = seat.mimic
+	if visitor == null:
+		return
+	_inspected[gid] = true
+	_inspection_left -= 1
+	var note: Label = _observations.get(gid)
+	if is_instance_valid(note):
+		var identity := visitor
+		if visitor == seat.mimic:
+			for known_person: Villager in m.villagers:
+				if known_person.name == visitor.name:
+					identity = known_person
+					break
+		var known := DiarySheet.facts(m, director, identity)
+		var details := PackedStringArray([SocialContent.door_sign(tell)])
+		for fact: String in known:
+			if fact != L.t("diary.nothing") and fact != SocialContent.door_record(m.day, tell):
+				details.append(fact)
+			if details.size() >= 3:
+				break
+		note.text = "\n".join(details)
+		note.visible = true
+	var figure: VillagerFigure = _visitor_figures.get(gid)
+	if is_instance_valid(figure):
+		figure.knock()
+	var button: Button = _inspect_rows.get(gid)
+	if is_instance_valid(button):
+		button.text = SocialContent.door_ui("done")
+		button.disabled = true
+	for other_id: int in _inspect_rows:
+		var other: Button = _inspect_rows[other_id]
+		if not _inspected.has(other_id):
+			other.text = "%s · %d" % [SocialContent.door_ui("inspect"), _inspection_left]
+			other.disabled = _inspection_left <= 0
 
 
 func _finish_host(ids: Array[int]) -> void:
@@ -289,13 +394,27 @@ func _build_alone() -> void:
 
 func _knock_sequence(n: int) -> void:
 	await Juice.wait(0.5)
-	for i in range(clampi(n, 1, 3)):
-		if not is_instance_valid(self) or is_locked():
-			return
-		knock_fx.emit()
-		Juice.haptic(Juice.Haptic.KNOCK)
-		Juice.shake(self, 7.0, 0.22)
-		await Juice.wait(0.45)
+	if _visitor_figures.is_empty():
+		for i in range(clampi(n, 1, 3)):
+			if not is_instance_valid(self) or is_locked():
+				return
+			knock_fx.emit()
+			Juice.haptic(Juice.Haptic.KNOCK)
+			await Juice.wait(0.45)
+		return
+	for visitor: Villager in seat.knockers():
+		var figure: VillagerFigure = _visitor_figures.get(visitor.id)
+		var precise_rhythm := is_instance_valid(figure) and figure.door_tell == &"rhythm"
+		for beat in range(3):
+			if not is_instance_valid(self) or is_locked():
+				return
+			if beat == 0:
+				knock_fx.emit()
+			if is_instance_valid(figure):
+				figure.knock()
+			Juice.haptic(Juice.Haptic.KNOCK)
+			await Juice.wait(0.15 if precise_rhythm else KNOCK_BEATS[beat])
+		await Juice.wait(0.65)
 
 
 func ambience() -> StringName:

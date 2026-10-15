@@ -47,6 +47,14 @@ var _walk: float = 0.0
 var _work: float = 0.0
 var _walk_weight: float = 0.0
 var _turn_t: float = 0.0
+var _knock_t: float = 0.0
+const KNOCK_LEN := 0.24
+var door_portrait := false
+var door_tell: StringName = &"ordinary"
+var _door_rig: Polygon2D
+var _door_shadow: Polygon2D
+var _door_base := PackedVector2Array()
+var _door_weights := PackedFloat32Array()
 
 ## Жизнь на площади (задача 44): между репликами житель что-то делает — чешет затылок,
 ## смотрит на небо, потягивается, скрещивает руки, переминается. Включает толпа, только днём.
@@ -95,6 +103,15 @@ func setup(name: String, l: LookDef, player: bool) -> void:
 	body = Node2D.new()
 	add_child(body)
 	body.draw.connect(_draw_body)
+	_door_shadow = Polygon2D.new()
+	_door_shadow.show_behind_parent = true
+	_door_shadow.modulate = Color(0, 0, 0, 0.2)
+	_door_shadow.visible = false
+	body.add_child(_door_shadow)
+	_door_rig = Polygon2D.new()
+	_door_rig.show_behind_parent = true
+	_door_rig.visible = false
+	body.add_child(_door_rig)
 	# имя, отметки и стрелка «Вы» — поверх домов и колодца: житель у угла дома не теряет подпись
 	tag = Node2D.new()
 	tag.z_index = 2
@@ -222,6 +239,16 @@ func set_emotion(e: String, seconds: float, point_dir: float = 0.0) -> void:
 ## Говорит — рот открывается и закрывается, пока висит пузырь.
 func talk(seconds: float) -> void:
 	_talk_t = maxf(_talk_t, seconds)
+
+
+## Короткий замах у двери: кодовая фигура поднимает руку, спрайт наклоняется к створке.
+func knock() -> void:
+	if state == State.DEAD or state == State.GONE:
+		return
+	_knock_t = KNOCK_LEN
+	_talk_t = maxf(_talk_t, KNOCK_LEN)
+	look_at_x(position.x + 80.0, KNOCK_LEN)
+	body.queue_redraw()
 
 
 func current_face() -> String:
@@ -524,6 +551,9 @@ func _settle_idle() -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
+	if _knock_t > 0.0:
+		_knock_t = maxf(0.0, _knock_t - delta)
+		_anim_step(delta)
 	var walk_target := 1.0 if state == State.RUN else 0.0
 	_walk_weight = lerpf(_walk_weight, walk_target, 1.0 - exp(-12.0 * delta))
 	if highlight:
@@ -567,8 +597,13 @@ func _process(delta: float) -> void:
 				_walk = fmod(_walk + delta * 2.6, 1.0)
 				_anim_step(delta)
 			var s := sin(_t * 1.7 + _phase)
-			body.scale = Vector2(_face * (1.0 - 0.015 * s), 1.0 + 0.025 * s)   # дыхание
-			body.position = Vector2(sin(_t * 38.0 + _phase) * 0.9 if cold else 0.0, 0.0)   # дрожь на холоде
+			var breath_size := 0.008 if door_portrait else 0.025
+			body.scale = Vector2(_face * (1.0 - 0.015 * s), 1.0 + breath_size * s)
+			var chill_speed := 3.8 if door_portrait else 38.0
+			var chill_size := 0.25 if door_portrait else 0.9
+			body.position = Vector2(sin(_t * chill_speed + _phase) * chill_size if cold else 0.0, 0.0)
+			if door_portrait:
+				body.queue_redraw()
 		State.RUN:
 			_walk = fmod(_walk + delta * 2.6, 1.0)
 			_anim_step(delta)
@@ -840,19 +875,32 @@ func _draw_sprite(face: String, pose: Dictionary) -> void:
 	var stride := sin(ph * TAU)
 	var bob := -absf(stride) * 4.0 * amp
 	var rot := stride * 0.06 * amp + float(pose.get("lean", 0.0)) * 0.45 + float(pose.get("tilt", 0.0)) * 0.25
+	var knock_motion: float = pose.get("knock", 0.0)
+	bob -= knock_motion * 1.6
+	rot += knock_motion * 0.07
 	if pose.has("work"):
 		var wk: float = pose.get("work", 0.0)
 		bob -= absf(sin(wk * TAU)) * 3.0
 		rot += sin(wk * TAU) * 0.07
 	if face == "talk":
 		bob -= absf(sin(_t * 9.0)) * 1.2
-	var dx := sin(_t * 55.0) * 0.9 if pose.get("shiver", false) else 0.0
+	var dx := (sin(_t * 55.0) * 0.9 if pose.get("shiver", false) and not door_portrait else 0.0) + knock_motion * 1.8
 	var sway := stride * 1.5 * amp
 	var squash := absf(stride) * amp
 	var sprite_scale := Vector2(1.0 + 0.012 * squash, 1.0 - 0.018 * squash)
 	body.draw_colored_polygon(_ellipse(Vector2(0, 1.5), Vector2(w * 0.42, 4.5)), Color(0, 0, 0, 0.28))
 	body.draw_set_transform(Vector2(dx + sway, bob), rot, sprite_scale)
-	body.draw_texture_rect(tex, Rect2(-w * 0.5, -h, w, h), false)
+	if door_portrait:
+		_draw_door_rig(tex, h, w, Vector2(dx + sway, bob), rot, sprite_scale, knock_motion)
+		var exhale := pow(maxf(0.0, sin(_t * 1.9 + _phase)), 3.0)
+		var mist := 0.025 if door_tell == &"breath" else 0.13
+		for puff in range(3):
+			body.draw_circle(Vector2(w * 0.15 + 4.0 + puff * 2.0, -h * 0.81 - puff * 1.1),
+				2.2 + puff * 1.0, Color(0.71, 0.79, 0.85, mist * exhale / (puff + 1.0)))
+	else:
+		_door_rig.visible = false
+		_door_shadow.visible = false
+		body.draw_texture_rect(tex, Rect2(-w * 0.5, -h, w, h), false)
 	if pose.get("lantern", false) and not pose.has("tool") and not HERO_LANTERN.has(sprite_id):
 		Folk._lantern(body, Vector2(w * 0.4, -h * 0.46), S, Art.INK, 2.8 * S, pose.get("lantern_style", {}))
 	if pose.get("point", false):
@@ -865,6 +913,54 @@ func _draw_sprite(face: String, pose: Dictionary) -> void:
 	body.draw_set_transform(Vector2.ZERO)
 	if pose.get("emote", false):
 		_emote_mark(face, Vector2(-w * 0.32, -h + 2.0))
+
+
+## Рука и рукав двигаются вместе с исходной текстурой. Лицо и ноги остаются закреплены.
+func _draw_door_rig(tex: Texture2D, h: float, w: float, at: Vector2, rot: float, stretch: Vector2, motion: float) -> void:
+	if _door_rig.texture != tex or _door_base.is_empty():
+		var uv := PackedVector2Array()
+		var faces: Array = []
+		_door_base.clear()
+		_door_weights.clear()
+		var hands := {1: Vector2(0.71, 0.47), 2: Vector2(0.87, 0.48), 3: Vector2(0.76, 0.47),
+			4: Vector2(0.9, 0.49), 5: Vector2(0.84, 0.53), 6: Vector2(0.78, 0.5),
+			7: Vector2(0.88, 0.51), 8: Vector2(0.91, 0.5), 9: Vector2(0.7, 0.47),
+			10: Vector2(0.94, 0.49), 11: Vector2(0.7, 0.48), 12: Vector2(0.74, 0.44),
+			13: Vector2(0.9, 0.54), 14: Vector2(0.92, 0.54), 15: Vector2(0.92, 0.54), 16: Vector2(0.9, 0.56)}
+		var wrist: Vector2 = hands.get(sprite_id, Vector2(0.88, 0.5))
+		for row in range(14):
+			for column in range(10):
+				var x := float(column) / 9.0
+				var y := float(row) / 13.0
+				_door_base.append(Vector2((x - 0.5) * w, (y - 1.0) * h))
+				uv.append(Vector2(x * tex.get_width(), y * tex.get_height()))
+				var distance := Vector2((x - wrist.x) / 0.18, (y - wrist.y) / 0.15)
+				_door_weights.append(exp(-distance.length_squared() * 2.0))
+		for row in range(13):
+			for column in range(9):
+				var corner := row * 10 + column
+				faces.append(PackedInt32Array([corner, corner + 1, corner + 10]))
+				faces.append(PackedInt32Array([corner + 1, corner + 11, corner + 10]))
+		for rig: Polygon2D in [_door_rig, _door_shadow]:
+			rig.texture = tex
+			rig.uv = uv
+			rig.polygons = faces
+	var points := _door_base.duplicate()
+	var shadow_points := _door_base.duplicate()
+	var progress := 1.0 - _knock_t / KNOCK_LEN
+	var delay := 0.035 if door_tell == &"shadow" else 0.005
+	var shadow_motion := sin(maxf(0.0, progress - delay / KNOCK_LEN) * PI) if _knock_t > 0.0 else 0.0
+	for i in range(points.size()):
+		points[i] += Vector2(5.0, -2.3) * motion * _door_weights[i]
+		shadow_points[i] += Vector2(5.0, -2.3) * shadow_motion * _door_weights[i]
+	_door_rig.polygon = points
+	_door_shadow.polygon = shadow_points
+	_door_rig.position = at
+	_door_shadow.position = at + Vector2(4.0, 2.0)
+	for rig: Polygon2D in [_door_rig, _door_shadow]:
+		rig.rotation = rot
+		rig.scale = stretch
+		rig.visible = true
 
 
 ## Знак эмоции над плечом. Только симметричные знаки: фигурка отражается, когда смотрит влево.
@@ -912,6 +1008,12 @@ func pose_now() -> Array:
 			f = ff
 	if _lean != 0.0:
 		pose["lean"] = _lean * _face
+	if _knock_t > 0.0:
+		var hit := sin((1.0 - _knock_t / KNOCK_LEN) * PI)
+		pose["knock"] = hit
+		pose["lean"] = float(pose.get("lean", 0.0)) + 0.12 * hit
+		if sprite_id <= 0:
+			pose["arm_r"] = lerpf(float(pose.get("arm_r", 0.12)), 1.85, hit)
 	if is_player:
 		pose["lantern_style"] = Cosmetics.lantern(lantern_id)
 	return [f, pose]

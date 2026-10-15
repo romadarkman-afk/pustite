@@ -550,6 +550,7 @@ func data() -> Dictionary:
 		"cos.need_wins": "{n} {n#victoria|victorias}",
 		"cos.need_daily": "{n} {n#reto|retos} del día",
 		"cos.need_streak": "racha de {n} días",
+		"cos.need_bond": "{n} puntos de vínculo con los vecinos habituales",
 		"lantern.classic": "Sencillo",
 		"lantern.copper": "Cobre",
 		"lantern.green": "Fuego fatuo",

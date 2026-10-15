@@ -27,6 +27,7 @@ var daily_best: int = 0                ## лучшая серия дней по�
 var lantern: String = "classic"        ## фонарь твоего жителя (Cosmetics.LANTERNS)
 var hat: String = "own"                ## шапка (Cosmetics.HATS)
 var player_name: String = ""            ## имя игрока, пусто — локализованное обращение по умолчанию
+var anchor_bonds: Dictionary[String, int] = {} ## отношения с тремя постоянными жителями
 var hints_seen: Dictionary = {}       ## id подсказки -> true: больше не показывать
 var stats: Dictionary[String, int] = {
 	"games": 0, "wins": 0, "as_upyr": 0, "upyr_wins": 0,
@@ -74,6 +75,9 @@ func load_all() -> void:
 	lantern = String(cf.get_value("look", "lantern", "classic")) if has else "classic"
 	hat = String(cf.get_value("look", "hat", "own")) if has else "own"
 	player_name = String(cf.get_value("profile", "name", "")).strip_edges().left(20) if has else ""
+	anchor_bonds.clear()
+	for i in range(3):
+		anchor_bonds[str(i)] = clampi(int(cf.get_value("relationships", str(i), 0)), -3, 3) if has else 0
 	if DisplayServer.get_name() == "headless":
 		lantern = "classic"   # самотесты видят жителя без косметики; --cosmetics надевает сам
 		hat = "own"
@@ -162,6 +166,25 @@ func set_player_name(value: String) -> bool:
 
 func player_display_name() -> String:
 	return player_name if not player_name.is_empty() else L.t("you_name")
+
+
+func anchor_bond(anchor_id: int) -> int:
+	return int(anchor_bonds.get(str(anchor_id), 0)) if anchor_id >= 0 and anchor_id < 3 else 0
+
+
+func change_anchor_bond(anchor_id: int, amount: int) -> int:
+	if anchor_id < 0 or anchor_id >= 3 or amount == 0:
+		return anchor_bond(anchor_id)
+	var key := str(anchor_id)
+	anchor_bonds[key] = clampi(int(anchor_bonds.get(key, 0)) + amount, -3, 3)
+	return int(anchor_bonds[key])
+
+
+func total_anchor_bond() -> int:
+	var total := 0
+	for i in range(3):
+		total += maxi(anchor_bond(i), 0)
+	return total
 
 
 ## Своя сложность: ползунки в настройках.
@@ -273,6 +296,8 @@ func flush() -> void:
 	cf.set_value("look", "lantern", lantern)
 	cf.set_value("look", "hat", hat)
 	cf.set_value("profile", "name", player_name)
+	for i in range(3):
+		cf.set_value("relationships", str(i), anchor_bond(i))
 	cf.set_value("hints", "seen", ",".join(PackedStringArray(hints_seen.keys())))
 	cf.save(SETTINGS_PATH)
 

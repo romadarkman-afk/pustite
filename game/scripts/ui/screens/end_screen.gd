@@ -31,6 +31,17 @@ func build() -> void:
 	Juice.haptic(Juice.Haptic.SUCCESS if won else Juice.Haptic.DEATH)
 	Sfx.play(&"win" if won else &"lose")
 	body.add_child(_verdict_card())
+	var case_card := W.panel(&"Card")
+	case_card.name = "CaseRecap"
+	var case_box := W.vbox(8)
+	case_box.add_child(W.label(SocialContent.case_recap(m.case_id, m.door_inspections.size()), &"Small"))
+	for record: Dictionary in m.door_inspections:
+		var visitor := m.get_villager(int(record.villager))
+		var revealed := SocialContent.door_mimic_title() if bool(record.get("mimic", false)) else L.t("end.upyr" if visitor != null and visitor.is_upyr else "end.human")
+		case_box.add_child(W.label(L.t("end.chip", {"who": String(record.get("name", "")), "what": revealed})
+			+ "\n" + SocialContent.door_record(int(record.day), StringName(record.tell)), &"Small"))
+	case_card.add_child(case_box)
+	body.add_child(case_card)
 	if m.rule != "":
 		var card := W.panel(&"Card")
 		card.name = "Daily"

@@ -8,18 +8,18 @@ const DATA := {
 		"answers": ["Я расскажу, что знаю. Спрашивай конкретно.", "Сначала расскажи ты. Потом решу, чем делиться.", "Я надеялся пережить только ночь. У вас тут планы шире."],
 		"opening": "{story} А что привело тебя сюда{player_clause}?",
 		"stories": [
-			"Я переправлял людей через реку. Однажды лодка вернулась без пассажиров.",
-			"Я копал могилы после первой зимы. Земля у нас оттаивает быстрее, чем память.",
-			"Я держал деревенскую школу. Теперь записываю имена тех, кто перестал приходить.",
+			"Я [переправлял|переправляла] людей через реку. Однажды лодка вернулась без пассажиров.",
+			"Я [копал|копала] могилы после первой зимы. Земля у нас оттаивает быстрее, чем память.",
+			"Я [держал|держала] деревенскую школу. Теперь записываю имена тех, кто перестал приходить.",
 			"Мой брат ушёл в лес за дровами. С тех пор я каждый вечер оставляю ему место у печи.",
-			"Я лечил семью мельника. Дом заперт, а счёт за лечение так и висит.",
-			"Я дежурил у моста в ту ночь, когда исчез человек. Объяснение репетирую до сих пор.",
-			"Я подметал трактир. В ночь исчезновения троих в книге осталось шесть кружек.",
-			"Я чинил часы на башне. Однажды они остановились раньше полуночи.",
+			"Я [лечил|лечила] семью мельника. Дом заперт, а счёт за лечение так и висит.",
+			"Я [дежурил|дежурила] у моста в ту ночь, когда исчез человек. Объяснение репетирую до сих пор.",
+			"Я [подметал|подметала] трактир. В ночь исчезновения троих в книге осталось шесть кружек.",
+			"Я [чинил|чинила] часы на башне. Однажды они остановились раньше полуночи.",
 			"Моя жена умела читать следы. Она ушла в лес одна, оставив обувь у порога.",
-			"Я охотился на волков. Теперь соседи платят, чтобы я не называл их волками.",
-			"Я выращивал яблоки за часовней. Каждую осень кто-то стучит в запертую кладовую.",
-			"Меня считали лучшим кузнецом. Заказчик забрал нож и больше за ним не пришёл."
+			"Я [охотился|охотилась] на волков. Теперь соседи платят, чтобы я не [называл|называла] их волками.",
+			"Я [выращивал|выращивала] яблоки за часовней. Каждую осень кто-то стучит в запертую кладовую.",
+			"Мои ножи считались лучшими в деревне. Последний заказчик пропал сразу после покупки."
 		],
 		"questions": {
 			"arrival": ["{address}что привело тебя в нашу деревню? Сюда редко приходят случайно."],
@@ -426,8 +426,152 @@ const DATA := {
 }
 
 
+## Дополнительные эпизоды, личные главы и приметы у двери. Все строки есть на каждом языке игры.
+const EXTRA := {
+	"ru": {
+		"cases": [["Лодка вернулась пустой", "Паромщик клянётся, что перевёз троих. На берегу нашли только мокрый след и один сапог."], ["Земля у могилы", "Старую могилу кто-то перекапывает по ночам. Наутро у каждого своя версия, кто был рядом."], ["Имя на доске", "В заброшенной школе каждое утро появляется новое имя. Учитель говорит, что мел давно отсырел."]],
+		"anchor_titles": ["[Паромщик|Паромщица]", "[Могильщик|Могильщица]", "[Учитель|Учительница]"],
+		"chapters": [["В камышах я [нашёл|нашла] один сапог. Второй до сих пор стоит у меня у печи." , "Весной под водой мелькнул огонёк. Я [решил|решила], что утопленники наконец-то завели себе фонарь."], ["Одну могилу я [оставил|оставила] без имени. Каждую ночь кто-то присыпает её свежей землёй.", "Я [узнал|узнала] почерк на деревянной табличке. Он принадлежал человеку, которого я [хоронил|хоронила] дважды."], ["В классе снова появилась строка: «Мы ещё здесь». Мел лежит в запертом ящике.", "Я [перестал|перестала] стирать имена с доски. Список стал длиннее, зато посещаемость теперь безупречная."]],
+		"question_tags": ["У соседа своя версия. Сверю её с твоей.", "Подумай о подробности, которую остальные могли пропустить."],
+		"door_signs": {"breath": "Между словами почти не видно выдоха. В такую стужу пар обычно заметнее.", "rhythm": "Три удара ложатся с одинаковой паузой, словно их отмерили заранее.", "shadow": "Тень пальцев на двери на мгновение отстаёт от руки.", "ordinary": "Пальцы дрожат, слова сбиваются. Страх или холод, отсюда не понять."}
+	},
+	"en": {
+		"cases": [["The boat came back empty", "The ferryman swears he carried three people. On the bank, someone found a wet trail and one boot."], ["Fresh earth", "Someone keeps digging at an old grave. By morning, every witness remembers a different visitor."], ["A name on the slate", "A new name appears in the abandoned school each morning. The teacher says the chalk has been damp for years."]],
+		"anchor_titles": ["[Ferryman|Ferrywoman]", "Gravedigger", "Teacher"],
+		"chapters": [["I found one boot in the reeds. The other still sits by my stove.", "A light moved under the spring flood. I decided the drowned had finally bought a lantern."], ["I left one grave unnamed. Someone covers it with fresh earth every night.", "I recognized the writing on the marker. It belonged to someone I buried twice."], ["The line appeared again: ‘We are still here.’ The chalk is locked away.", "I stopped erasing the names. The list grew, but attendance became perfect."]],
+		"question_tags": ["Your neighbour has another version. I want to compare them.", "Think of one detail the others may have missed."],
+		"door_signs": {"breath": "There is barely a trace of breath between words. It should show more in this cold.", "rhythm": "The three knocks have exactly the same pause between them.", "shadow": "The shadow of the visitor’s fingers lags behind the hand for a moment.", "ordinary": "Their fingers shake and the words stumble. Fear or cold, you cannot tell from here."}
+	},
+	"de": {
+		"cases": [["Das Boot kam leer zurück", "Der Fährmann schwört, drei Menschen übergesetzt zu haben. Am Ufer fand man nur eine nasse Spur und einen Stiefel."], ["Frische Erde", "Jemand gräbt nachts an einem alten Grab. Am Morgen erinnert sich jeder Zeuge an einen anderen Besucher."], ["Ein Name auf der Tafel", "Jeden Morgen steht ein neuer Name in der verlassenen Schule. Der Lehrer sagt, die Kreide sei längst feucht."]],
+		"anchor_titles": ["[Fährmann|Fährfrau]", "[Totengräber|Totengräberin]", "[Lehrer|Lehrerin]"],
+		"chapters": [["Im Schilf fand ich einen Stiefel. Der andere steht noch immer bei meinem Ofen.", "Im Frühlingshochwasser sah ich ein Licht. Ich dachte, die Ertrunkenen hätten sich endlich eine Laterne gekauft."], ["Ein Grab ließ ich ohne Namen. Jede Nacht deckt jemand frische Erde darauf.", "Ich erkannte die Schrift auf dem Schild. Sie gehörte jemandem, den ich zweimal begraben habe."], ["Die Zeile stand wieder dort: „Wir sind noch hier.“ Die Kreide liegt eingeschlossen.", "Ich wische die Namen nicht mehr weg. Die Liste wurde länger, aber die Anwesenheit ist nun tadellos."]],
+		"question_tags": ["Dein Nachbar erzählt es anders. Ich möchte die Versionen vergleichen.", "Denk an ein Detail, das den anderen entgangen sein könnte."],
+		"door_signs": {"breath": "Zwischen den Worten ist kaum Atem zu sehen. Bei dieser Kälte müsste mehr zu sehen sein.", "rhythm": "Zwischen den drei Schlägen liegt jedes Mal genau dieselbe Pause.", "shadow": "Der Schatten der Finger hinkt einen Augenblick hinter der Hand her.", "ordinary": "Die Finger zittern, die Worte stocken. Angst oder Kälte, von hier aus schwer zu sagen."}
+	},
+	"fr": {
+		"cases": [["La barque est revenue vide", "Le passeur jure avoir transporté trois personnes. Sur la rive, on n’a trouvé qu’une trace mouillée et une botte."], ["La terre fraîche", "Quelqu’un creuse une vieille tombe chaque nuit. Au matin, les témoins décrivent chacun un visiteur différent."], ["Un nom sur l’ardoise", "Un nouveau nom apparaît chaque matin dans l’école abandonnée. Le maître dit que la craie est humide depuis des années."]],
+		"anchor_titles": ["[Passeur|Passeuse]", "[Fossoyeur|Fossoyeuse]", "[Enseignant|Enseignante]"],
+		"chapters": [["J’ai trouvé une botte dans les roseaux. L’autre est toujours près de mon poêle.", "Au printemps, une lumière a bougé sous l’eau. J’ai décidé que les noyés s’étaient enfin offert une lanterne."], ["J’ai laissé une tombe sans nom. Chaque nuit, quelqu’un la recouvre de terre fraîche.", "J’ai reconnu l’écriture sur la plaque. Elle appartenait à quelqu’un que j’ai enterré deux fois."], ["La phrase est revenue : « Nous sommes encore là. » La craie est enfermée.", "J’ai cessé d’effacer les noms. La liste s’allonge, mais les présences sont parfaites."]],
+		"question_tags": ["Ton voisin raconte autre chose. Je veux comparer vos versions.", "Pense à un détail que les autres ont peut-être manqué."],
+		"door_signs": {"breath": "On voit à peine son souffle entre les mots. Par ce froid, il devrait être plus visible.", "rhythm": "Les trois coups sont séparés par exactement la même pause.", "shadow": "L’ombre de ses doigts prend un instant de retard sur sa main.", "ordinary": "Ses doigts tremblent et ses mots hésitent. La peur ou le froid, impossible à dire d’ici."}
+	},
+	"es": {
+		"cases": [["La barca volvió vacía", "El barquero jura que cruzó a tres personas. En la orilla solo encontraron un rastro mojado y una bota."], ["Tierra removida", "Alguien cava una tumba antigua cada noche. Por la mañana, cada testigo recuerda a un visitante distinto."], ["Un nombre en la pizarra", "Cada mañana aparece un nombre nuevo en la escuela abandonada. El maestro dice que la tiza lleva años húmeda."]],
+		"anchor_titles": ["[Barquero|Barquera]", "[Sepulturero|Sepulturera]", "[Maestro|Maestra]"],
+		"chapters": [["Encontré una bota entre los juncos. La otra sigue junto a mi estufa.", "En la crecida de primavera vi una luz bajo el agua. Decidí que los ahogados por fin se habían comprado un farol."], ["Dejé una tumba sin nombre. Cada noche alguien la cubre con tierra fresca.", "Reconocí la letra de la placa. Era de alguien a quien enterré dos veces."], ["La frase volvió a aparecer: «Seguimos aquí». La tiza está bajo llave.", "Dejé de borrar los nombres. La lista creció, pero la asistencia ahora es perfecta."]],
+		"question_tags": ["Tu vecino cuenta otra versión. Quiero compararlas.", "Piensa en un detalle que los demás quizá pasaron por alto."],
+		"door_signs": {"breath": "Casi no se ve su aliento entre palabras. Con este frío debería notarse más.", "rhythm": "Los tres golpes tienen exactamente la misma pausa.", "shadow": "La sombra de sus dedos tarda un instante en seguir a la mano.", "ordinary": "Le tiemblan los dedos y tropiezan sus palabras. Desde aquí no sabes si es miedo o frío."}
+	},
+	"pt": {
+		"cases": [["O barco voltou vazio", "O barqueiro jura que levou três pessoas. Na margem, encontraram apenas um rastro molhado e uma bota."], ["Terra recém-revolvida", "Alguém mexe numa sepultura antiga toda noite. Pela manhã, cada testemunha lembra de uma visita diferente."], ["Um nome no quadro", "Toda manhã surge um nome novo na escola abandonada. O professor diz que o giz está úmido há anos."]],
+		"anchor_titles": ["[Barqueiro|Barqueira]", "[Coveiro|Coveira]", "[Professor|Professora]"],
+		"chapters": [["Encontrei uma bota entre os juncos. A outra continua perto do meu fogão.", "Na cheia da primavera vi uma luz sob a água. Decidi que os afogados enfim compraram uma lanterna."], ["Deixei uma sepultura sem nome. Toda noite alguém a cobre com terra fresca.", "Reconheci a letra na placa. Era de alguém que enterrei duas vezes."], ["A frase apareceu de novo: “Ainda estamos aqui.” O giz está trancado.", "Parei de apagar os nomes. A lista cresceu, mas a chamada ficou perfeita."]],
+		"question_tags": ["Seu vizinho conta outra versão. Quero comparar as duas.", "Pense em um detalhe que os outros talvez não tenham percebido."],
+		"door_signs": {"breath": "Quase não se vê o bafo entre as palavras. Nesse frio, deveria aparecer mais.", "rhythm": "Os três golpes têm exatamente o mesmo intervalo.", "shadow": "A sombra dos dedos demora um instante para acompanhar a mão.", "ordinary": "Os dedos tremem e as palavras falham. Daqui não dá para saber se é medo ou frio."}
+	},
+	"tr": {
+		"cases": [["Kayık boş döndü", "Kayıkçı üç kişiyi karşıya geçirdiğine yemin ediyor. Kıyıda yalnızca ıslak bir iz ve tek bir çizme bulundu."], ["Taze toprak", "Biri her gece eski bir mezarı kazıyor. Sabah olunca her tanık başka bir ziyaretçiyi hatırlıyor."], ["Tahtadaki isim", "Terk edilmiş okulda her sabah yeni bir isim beliriyor. Öğretmen tebeşirin yıllardır nemli olduğunu söylüyor."]],
+		"anchor_titles": ["Kayıkçı", "Mezarcı", "Öğretmen"],
+		"chapters": [["Sazlıkta bir çizme buldum. Diğeri hâlâ sobamın yanında duruyor.", "Bahar taşkınında suyun altında bir ışık gördüm. Boğulanlar sonunda fener almış diye düşündüm."], ["Bir mezarı isimsiz bıraktım. Biri her gece üstünü taze toprakla örtüyor.", "Tahtadaki yazıyı tanıdım. İki kez gömdüğüm birine aitti."], ["Tahtada yine şu yazıyordu: “Hâlâ buradayız.” Tebeşir kilitli çekmecede.", "İsimleri silmeyi bıraktım. Liste uzadı ama yoklama artık kusursuz."]],
+		"question_tags": ["Komşun başka türlü anlatıyor. İki anlatımı karşılaştıracağım.", "Başkalarının kaçırmış olabileceği bir ayrıntıyı düşün."],
+		"door_signs": {"breath": "Konuşurken nefesi neredeyse görünmüyor. Bu soğukta daha belirgin olmalı.", "rhythm": "Üç vuruşun arasındaki süre tamamen aynı.", "shadow": "Parmaklarının gölgesi elini bir an gecikmeyle izliyor.", "ordinary": "Parmakları titriyor, sözleri takılıyor. Buradan korku mu soğuk mu anlayamıyorsun."}
+	},
+	"hi": {
+		"cases": [["नाव खाली लौटी", "नाविक कसम खाता है कि उसने तीन लोगों को पार पहुँचाया। किनारे पर बस गीले निशान और एक जूता मिला।"], ["ताज़ी मिट्टी", "हर रात कोई पुरानी कब्र खोदता है। सुबह तक हर गवाह को कोई दूसरा आगंतुक याद रहता है।"], ["पट्टी पर नाम", "छोड़े गए स्कूल में हर सुबह एक नया नाम दिखता है। शिक्षक कहता है कि चॉक बरसों से गीली है।"]],
+		"anchor_titles": ["नाविक", "[कब्र खोदने वाला|कब्र खोदने वाली]", "[शिक्षक|शिक्षिका]"],
+		"chapters": [["सरकंडों में मुझे एक जूता मिला। दूसरा अब भी मेरे चूल्हे के पास है।", "वसंत की बाढ़ में पानी के नीचे रोशनी दिखी। मैंने सोचा, डूबे हुए लोगों ने आखिर लालटेन खरीद ली।"], ["एक कब्र पर मैंने नाम नहीं लिखा। कोई हर रात उस पर ताज़ी मिट्टी डालता है।", "तख्ती की लिखावट पहचान ली। वह उसी की थी जिसे मैंने दो बार दफनाया।"], ["पट्टी पर फिर लिखा था: “हम अब भी यहीं हैं।” चॉक ताले में बंद है।", "मैंने नाम मिटाना छोड़ दिया। सूची लंबी हुई, पर हाज़िरी अब पूरी रहती है।"]],
+		"question_tags": ["पड़ोसी की कहानी अलग है। दोनों बातों का मिलान करना है।", "ऐसी बात याद करो जो बाकी लोगों से छूट गई हो।"],
+		"door_signs": {"breath": "बातों के बीच उसकी साँस मुश्किल से दिखती है। इस ठंड में भाप अधिक दिखनी चाहिए।", "rhythm": "तीनों दस्तकों के बीच बिल्कुल बराबर ठहराव है।", "shadow": "उँगलियों की परछाईं हाथ के पीछे एक पल से चलती है।", "ordinary": "उँगलियाँ काँपती हैं और बात अटकती है। यहाँ से डर और ठंड में फर्क नहीं दिखता।"}
+	},
+	"vi": {
+		"cases": [["Con thuyền trở về trống không", "Người lái đò thề đã chở ba người qua sông. Trên bờ chỉ có dấu chân ướt và một chiếc ủng."], ["Đất mới trên mộ", "Đêm nào đó cũng đào một ngôi mộ cũ. Đến sáng, mỗi nhân chứng nhớ một người khách khác nhau."], ["Cái tên trên bảng", "Mỗi sáng, một cái tên mới hiện lên trong ngôi trường bỏ hoang. Thầy giáo nói phấn đã ẩm từ lâu."]],
+		"anchor_titles": ["Người lái đò", "Người đào mộ", "[Thầy giáo|Cô giáo]"],
+		"chapters": [["Tôi tìm thấy một chiếc ủng trong đám sậy. Chiếc còn lại vẫn ở cạnh bếp nhà tôi.", "Mùa nước lên, tôi thấy ánh đèn dưới mặt sông. Tôi nghĩ người chết đuối cuối cùng cũng mua được đèn lồng."], ["Tôi để một ngôi mộ không tên. Đêm nào cũng có người phủ đất mới lên đó.", "Tôi nhận ra nét chữ trên bia. Đó là của người tôi đã chôn hai lần."], ["Dòng chữ lại hiện ra: “Chúng tôi vẫn ở đây.” Phấn bị khóa trong ngăn kéo.", "Tôi thôi xóa tên. Danh sách dài hơn, nhưng điểm danh giờ luôn đủ."]],
+		"question_tags": ["Hàng xóm kể khác. Tôi muốn đối chiếu hai lời kể.", "Hãy nhớ một chi tiết mà người khác có thể bỏ sót."],
+		"door_signs": {"breath": "Giữa những lời nói, hơi thở gần như không hiện ra. Trời lạnh thế này đáng lẽ phải rõ hơn.", "rhythm": "Ba tiếng gõ có khoảng nghỉ giống hệt nhau.", "shadow": "Bóng ngón tay chậm hơn bàn tay một thoáng.", "ordinary": "Ngón tay run, lời nói ngập ngừng. Đứng đây không rõ vì sợ hay vì lạnh."}
+	},
+	"zh": {
+		"cases": [["空船归来", "摆渡人发誓自己送了三个人过河。岸边只找到湿的脚印和一只靴子。"], ["新翻的泥土", "每晚都有人挖一座旧坟。到了早晨，每个目击者都记得不同的访客。"], ["黑板上的名字", "废弃学校里每天早晨都会出现一个新名字。老师说粉笔早就受潮了。"]],
+		"anchor_titles": ["摆渡人", "掘墓人", "教师"],
+		"chapters": [["我在芦苇里找到一只靴子。另一只还放在我的炉边。", "春汛时我看见水下有光。我想，溺死的人终于买得起灯笼了。"], ["我留了一座无名坟。每晚都有人给它添上新土。", "我认出了墓牌上的字迹，那属于一个我埋了两次的人。"], ["那句话又出现了：“我们还在这里。”粉笔被锁了起来。", "我不再擦掉名字。名单变长了，不过出勤率总算完美。"]],
+		"question_tags": ["邻居讲的版本不同，我想把两种说法对一对。", "想想有没有别人忽略的细节。"],
+		"door_signs": {"breath": "说话间几乎看不到呼气。这样的寒夜里，本该更明显。", "rhythm": "三次敲门之间的停顿完全一样。", "shadow": "手指的影子慢了一瞬才跟上动作。", "ordinary": "手指在发抖，说话也不连贯。隔着门分不清是害怕还是冷。"}
+	}
+}
+
+
+const DOOR_UI := {
+	"ru": {"inspect": "Осмотреть", "done": "Осмотрено", "limit": "Внимательно осмотреть можно двоих. Примета может обмануть.", "record": "У двери, ночь {n}: {text}", "case_recap": "Дело «{case}». Осмотрено стучащих: {n}."},
+	"en": {"inspect": "Inspect", "done": "Inspected", "limit": "You can inspect two visitors. A sign can mislead you.", "record": "At the door, night {n}: {text}", "case_recap": "Case: “{case}”. Visitors inspected: {n}."},
+	"de": {"inspect": "Prüfen", "done": "Geprüft", "limit": "Du kannst zwei Besucher prüfen. Ein Merkmal kann täuschen.", "record": "An der Tür, Nacht {n}: {text}", "case_recap": "Fall: „{case}“. Untersuchte Besucher: {n}."},
+	"fr": {"inspect": "Observer", "done": "Observé", "limit": "Tu peux examiner deux visiteurs. Un signe peut tromper.", "record": "À la porte, nuit {n} : {text}", "case_recap": "Affaire : « {case} ». Visiteurs examinés : {n}."},
+	"es": {"inspect": "Observar", "done": "Observado", "limit": "Puedes observar a dos visitantes. Una señal puede engañar.", "record": "En la puerta, noche {n}: {text}", "case_recap": "Caso: «{case}». Visitantes observados: {n}."},
+	"pt": {"inspect": "Examinar", "done": "Examinado", "limit": "Você pode examinar dois visitantes. Um sinal pode enganar.", "record": "À porta, noite {n}: {text}", "case_recap": "Caso: “{case}”. Visitantes examinados: {n}."},
+	"tr": {"inspect": "İncele", "done": "İncelendi", "limit": "İki ziyaretçiyi inceleyebilirsin. Bir işaret yanıltabilir.", "record": "Kapıda, {n}. gece: {text}", "case_recap": "Dosya: “{case}”. İncelenen ziyaretçi: {n}."},
+	"hi": {"inspect": "जाँचें", "done": "जाँचा", "limit": "दो आगंतुकों की जाँच कर सकते हो। कोई संकेत भटका सकता है।", "record": "दरवाज़े पर, रात {n}: {text}", "case_recap": "मामला: “{case}”. जाँचे गए आगंतुक: {n}।"},
+	"vi": {"inspect": "Quan sát", "done": "Đã xem", "limit": "Bạn có thể xem xét hai người. Một dấu hiệu có thể đánh lừa.", "record": "Ở cửa, đêm {n}: {text}", "case_recap": "Vụ việc: “{case}”. Số người đã xem xét: {n}."},
+	"zh": {"inspect": "查看", "done": "已查看", "limit": "你可以仔细观察两位来客。线索可能会误导你。", "record": "门前，第{n}夜：{text}", "case_recap": "案件：“{case}”。查看的来客：{n}位。"}
+}
+
+
 static func _data() -> Dictionary:
 	return DATA.get(L.code, DATA["ru"])
+
+
+static func _extra() -> Dictionary:
+	return EXTRA.get(L.code, EXTRA["en"])
+
+
+static func case_title(id: int) -> String:
+	var cases: Array = _extra().cases
+	return String(cases[posmod(id, cases.size())][0])
+
+
+static func anchor_title(anchor_id: int, female: bool = false) -> String:
+	var titles: Array = _extra().anchor_titles
+	return L.fill(String(titles[anchor_id]), {"me_f": female}) if anchor_id >= 0 and anchor_id < titles.size() else ""
+
+
+static func case_hook(id: int) -> String:
+	var cases: Array = _extra().cases
+	return String(cases[posmod(id, cases.size())][1])
+
+
+static func anchor_chapter(anchor_id: int, chapter: int, speaker: Villager = null) -> String:
+	var chapters: Array = _extra().chapters
+	if anchor_id < 0 or anchor_id >= chapters.size():
+		return ""
+	var lines: Array = chapters[anchor_id]
+	return L.fill(String(lines[chapter]), {"me": speaker}) if chapter >= 0 and chapter < lines.size() else ""
+
+
+static func door_sign(tell: StringName) -> String:
+	var signs: Dictionary = _extra().door_signs
+	return String(signs.get(String(tell), signs.get("ordinary", "")))
+
+
+static func door_ui(key: String) -> String:
+	var ui: Dictionary = DOOR_UI.get(L.code, DOOR_UI["en"])
+	return String(ui.get(key, ""))
+
+
+static func door_mimic_title() -> String:
+	var names := {"ru": "Подражатель", "en": "Mimic", "de": "Nachahmer", "fr": "Imitateur",
+		"es": "Imitador", "pt": "Imitador", "tr": "Taklitçi", "hi": "नकलची", "vi": "Kẻ bắt chước", "zh": "模仿者"}
+	return String(names.get(L.code, names["en"]))
+
+
+static func question_tags() -> PackedStringArray:
+	return PackedStringArray(_extra().question_tags)
+
+
+static func door_record(day: int, tell: StringName) -> String:
+	return L.fill(door_ui("record"), {"n": day, "text": door_sign(tell)})
+
+
+static func case_recap(case_id: int, inspected: int) -> String:
+	return L.fill(door_ui("case_recap"), {"case": case_title(case_id), "n": inspected})
 
 
 static func player_name_label(value: String) -> String:
@@ -447,15 +591,15 @@ static func question_answers() -> PackedStringArray:
 	return PackedStringArray(_data().answers)
 
 
-static func story(id: int) -> String:
+static func story(id: int, speaker: Villager = null) -> String:
 	var stories: Array = _data().stories
-	return String(stories[posmod(id, stories.size())]) if not stories.is_empty() else ""
+	return L.fill(String(stories[posmod(id, stories.size())]), {"me": speaker}) if not stories.is_empty() else ""
 
 
-static func opening_question(story_id: int, player: String) -> String:
+static func opening_question(story_id: int, player: String, speaker: Villager = null) -> String:
 	var separator := "，" if L.code == "zh" else ", "
 	var player_clause := separator + player if not Save.player_name.is_empty() else ""
-	return L.fill(String(_data().opening), {"story": story(story_id), "player_clause": player_clause})
+	return L.fill(String(_data().opening), {"story": story(story_id, speaker), "player_clause": player_clause})
 
 
 static func question(topic: String, player: String, rng: RandomNumberGenerator) -> String:
@@ -466,10 +610,14 @@ static func question(topic: String, player: String, rng: RandomNumberGenerator) 
 	var index := rng.randi_range(0, lines.size() - 1)
 	var separator := "，" if L.code == "zh" else ", "
 	var address := player + separator if not Save.player_name.is_empty() else ""
-	return L.fill(lines[index], {"address": address})
+	var line := L.fill(lines[index], {"address": address})
+	var tags: Array = _extra().question_tags
+	if not tags.is_empty() and rng.randf() < 0.55:
+		line += ("" if L.code == "zh" else " ") + String(tags[rng.randi_range(0, tags.size() - 1)])
+	return line
 
 
-static func question_reaction(answer_kind: int, story_id: int, rng: RandomNumberGenerator) -> String:
+static func question_reaction(answer_kind: int, story_id: int, rng: RandomNumberGenerator, speaker: Villager = null) -> String:
 	var replies: Dictionary = _data().question_reply
 	var key := "written"
 	match answer_kind:
@@ -480,7 +628,7 @@ static func question_reaction(answer_kind: int, story_id: int, rng: RandomNumber
 	if lines.is_empty():
 		return ""
 	var index := rng.randi_range(0, lines.size() - 1)
-	return L.fill(lines[index], {"story": story(story_id)})
+	return L.fill(lines[index], {"story": story(story_id, speaker)})
 
 
 static func has_bank(bank_id: String) -> bool:

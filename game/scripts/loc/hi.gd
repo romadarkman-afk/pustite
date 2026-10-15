@@ -549,6 +549,7 @@ func data() -> Dictionary:
 		"cos.need_wins": "{n} जीत",
 		"cos.need_daily": "{n} दैनिक चुनौती",
 		"cos.need_streak": "लगातार {n} दिन",
+		"cos.need_bond": "पुराने ग्रामीणों से {n} भरोसे के अंक",
 		"lantern.classic": "सादी",
 		"lantern.copper": "ताँबे की",
 		"lantern.green": "छलावा",

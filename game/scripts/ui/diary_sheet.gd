@@ -39,6 +39,9 @@ static func facts(m: Match, d: Director, v: Villager) -> PackedStringArray:
 		nights.append(t)
 	if not nights.is_empty():
 		out.append(L.t("diary.nights", {"list": L.t("ev.sep").join(nights)}))
+	for inspection: Dictionary in m.door_inspections:
+		if int(inspection.get("villager", -1)) == v.id or String(inspection.get("name", "")) == v.name:
+			out.append(SocialContent.door_record(int(inspection.get("day", 0)), StringName(inspection.get("tell", "ordinary"))))
 	if v.alive and v.announced_house >= 0:
 		out.append(L.t("diary.today", {"house": m.house_name(v.announced_house)}))
 	var ev := d.evidence_text(v) if d != null else ""
@@ -80,6 +83,7 @@ func _build(m: Match, d: Director) -> void:
 	var box := W.vbox(10)
 	sheet.add_child(box)
 	box.add_child(W.label(L.t("diary.head"), &"Hint"))
+	box.add_child(W.label(SocialContent.case_title(m.case_id), &"Body"))
 	var sc := ScrollContainer.new()
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	sc.custom_minimum_size = Vector2(0, maxf(200.0, (get_parent() as Control).size.y * 0.66))

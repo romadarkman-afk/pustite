@@ -251,6 +251,60 @@ static func balance(cfg: GameConfig, runs: int = 3000, rule: String = "", tune: 
 static func flow() -> void:
 	var tree := Nav.get_tree()
 	var seen: Dictionary[String, int] = {}
+	var bonds_before: Dictionary[String, int] = Save.anchor_bonds.duplicate()
+	var name_before := Save.player_name
+	var cast_a := Match.new()
+	var cast_b := Match.new()
+	cast_a.start((load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig, 701)
+	cast_b.start((load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig, 702)
+	var cast_ok := cast_a.case_id >= 0 and cast_a.case_id < 3 and not SocialContent.case_hook(cast_a.case_id).is_empty()
+	for i in range(3):
+		var a: Villager = cast_a.villagers[i + 1]
+		var b: Villager = cast_b.villagers[i + 1]
+		cast_ok = cast_ok and a.anchor_id == i and b.anchor_id == i and a.story_id == i and b.story_id == i and a.name == b.name
+	var saved_bond := Save.anchor_bond(0)
+	Save.anchor_bonds["0"] = 1
+	Save.flush()
+	Save.anchor_bonds.clear()
+	Save.load_all()
+	var cast_memory := Match.new()
+	cast_memory.start((load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig, 703)
+	cast_ok = cast_ok and cast_memory.villagers[1].relationship == 1 and not SocialContent.anchor_chapter(0, 0).is_empty()
+	Save.anchor_bonds["0"] = saved_bond
+	Save.player_name = cast_a.villagers[1].name
+	var named_config := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
+	named_config.players = 12
+	var named_cast := Match.new()
+	named_cast.start(named_config, 704)
+	var unique_names: Dictionary[String, bool] = {}
+	for v: Villager in named_cast.villagers:
+		cast_ok = cast_ok and not unique_names.has(v.name.to_lower())
+		unique_names[v.name.to_lower()] = true
+	Save.player_name = name_before
+	var test_seat := Match.Seat.new()
+	test_seat.host = cast_a.player()
+	test_seat.house = 0
+	test_seat.queue.assign(cast_a.villagers.slice(1, 4))
+	cast_a.phase = Match.Phase.DOOR
+	var inspection_rules_ok := cast_a.inspect_visitor(test_seat, test_seat.queue[0].id) != &""
+	inspection_rules_ok = inspection_rules_ok and cast_a.inspect_visitor(test_seat, test_seat.queue[0].id) == &"" and cast_a.door_inspections.size() == 1
+	inspection_rules_ok = inspection_rules_ok and cast_a.inspect_visitor(test_seat, test_seat.queue[1].id) != &"" and cast_a.inspect_visitor(test_seat, test_seat.queue[2].id) == &"" and cast_a.door_inspections.size() == 2
+	var human_anomalies := 0
+	var upyr_anomalies := 0
+	test_seat.queue[0].is_upyr = false
+	test_seat.queue[1].is_upyr = true
+	for night in range(1, 201):
+		cast_a.day = night
+		human_anomalies += 1 if cast_a.door_sign_for(test_seat.queue[0], test_seat) != &"ordinary" else 0
+		upyr_anomalies += 1 if cast_a.door_sign_for(test_seat.queue[1], test_seat) != &"ordinary" else 0
+	inspection_rules_ok = inspection_rules_ok and human_anomalies > 0 and human_anomalies < upyr_anomalies and upyr_anomalies < 200
+	test_seat = null
+	cast_a = null
+	cast_b = null
+	cast_memory = null
+	named_cast = null
+	named_config = null
+	var door_check_ok := false
 	var required: PackedStringArray = ["menu", "settings", "prologue", "day", "vote",
 		"night", "door_host", "door_guest", "morning", "end"]
 
@@ -303,7 +357,25 @@ static func flow() -> void:
 						Match.DoorRole.HOST:
 							var ids: Array[int] = []
 							if not ds.seat.knockers().is_empty():
-								ids.append(ds.seat.knockers()[0].id)
+								var visitor: Villager = ds.seat.knockers()[0]
+								ids.append(visitor.id)
+								var inspect := ds.find_child("Inspect_%d" % visitor.id, true, false) as Button
+								var note := ds.find_child("Observation_%d" % visitor.id, true, false) as Label
+								if inspect != null and note != null:
+									inspect.pressed.emit()
+									await tree.process_frame
+									var figure: VillagerFigure = ds._visitor_figures.get(visitor.id)
+									var on_field: VillagerFigure = Nav.village.crowd.figures.get(visitor.id)
+									var visual_ok := is_instance_valid(figure) and figure.door_portrait
+									if visual_ok and on_field != null:
+										visual_ok = figure.sprite_id == on_field.sprite_id
+									if visual_ok:
+										figure.knock()
+										figure._process(VillagerFigure.KNOCK_LEN * 0.5)
+										visual_ok = float((figure.pose_now()[1] as Dictionary).get("knock", 0.0)) > 0.5
+										figure._process(VillagerFigure.KNOCK_LEN)
+										visual_ok = visual_ok and not (figure.pose_now()[1] as Dictionary).has("knock")
+									door_check_ok = door_check_ok or (visual_ok and note.visible and not note.text.is_empty() and not Game.m.door_inspections.is_empty())
 							Nav.handle_intent(Intent.ADMIT, {"ids": ids}, s)
 						Match.DoorRole.GUEST:
 							Nav.handle_intent(Intent.PLEA, {"plea": "shared"}, s)
@@ -341,8 +413,18 @@ static func flow() -> void:
 	var recorded: int = Save.stats["games"] - games_before
 	if recorded != matches:
 		missing.append("статистика: сыграно %d, записано в Save %d" % [matches, recorded])
+	if not cast_ok:
+		missing.append("три постоянных жителя или память отношений не сохранились между партиями")
+	if not door_check_ok:
+		missing.append("у двери нельзя осмотреть стучащего и записать примету")
+	if not inspection_rules_ok:
+		missing.append("лимит осмотров или неоднозначность примет нарушены")
+	Save.anchor_bonds = bonds_before
+	Save.player_name = name_before
+	Save.flush()
 	print("=== экраны: %d партий, записано в статистику: %d ===" % [matches, recorded])
 	print("посещено: " + ", ".join(keys))
+	print("осмотр: повтор и третий посетитель отклонены; приметы у людей %d/200, у упырей %d/200" % [human_anomalies, upyr_anomalies])
 	if missing.is_empty():
 		print("ИТОГ: OK — все экраны и обе роли у двери пройдены")
 		tree.quit(0)
@@ -4853,6 +4935,30 @@ static func loc() -> void:
 					for line: String in lines:
 						texts.append(L.fill(line, a))
 		texts.append_array(collect_texts(c, 25))
+		var social_rng := RandomNumberGenerator.new()
+		social_rng.seed = 91
+		for case_index in range(3):
+			texts.append(SocialContent.case_title(case_index))
+			texts.append(SocialContent.case_hook(case_index))
+			for anchor_index in range(3):
+				for speaker: Villager in [bm, bf]:
+					texts.append(SocialContent.anchor_title(anchor_index, speaker.female if speaker != null else false))
+					for chapter_index in range(2):
+						texts.append(SocialContent.anchor_chapter(anchor_index, chapter_index, speaker))
+		for speaker: Villager in [bm, bf]:
+			for story_index in range(12):
+				texts.append(SocialContent.story(story_index, speaker))
+		texts.append(SocialContent.door_mimic_title())
+		for tag: String in SocialContent.question_tags():
+			texts.append(tag)
+		for tell: StringName in [&"breath", &"rhythm", &"shadow", &"ordinary"]:
+			texts.append(SocialContent.door_sign(tell))
+			texts.append(SocialContent.door_record(2, tell))
+		texts.append(SocialContent.case_recap(0, 2))
+		for key: String in ["inspect", "done", "limit"]:
+			texts.append(SocialContent.door_ui(key))
+		for topic: String in ["arrival", "night", "alibi", "work", "sabotage", "death", "tunnel", "trust", "rumor"]:
+			texts.append(SocialContent.question(topic, m.player().name, social_rng))
 		var marks := PackedStringArray()
 		var cyr := PackedStringArray()
 		for t: String in texts:
@@ -5146,9 +5252,11 @@ static func cosmetics() -> void:
 	await _frames(tree, 3)
 	Nav.frame.refresh()
 	var stats0 := Save.stats.duplicate()
+	var bonds0: Dictionary[String, int] = Save.anchor_bonds.duplicate()
 	Save.stats["wins"] = 0
 	Save.daily_wins = 0
 	Save.daily_best = 0
+	Save.anchor_bonds = {"0": 0, "1": 0, "2": 0}
 	Save.lantern = "classic"
 	Save.hat = "own"
 
@@ -5156,6 +5264,8 @@ static func cosmetics() -> void:
 	var open0 := Cosmetics.open_ids()
 	ok += _expect(fails, open0.size() == 2 and open0.has("lantern:classic") and open0.has("hat:own"), "с нуля открыто лишнее: %s" % ", ".join(open0))
 	ok += _expect(fails, not Save.wear("lantern", "copper") and Save.lantern == "classic", "закрытый фонарь надевается")
+	ok += _expect(fails, not Cosmetics.is_open(Cosmetics.item("hat", "flower")) and Cosmetics.is_open(Cosmetics.item("hat", "flower"), {"bond": 6}), "венок не открывается доверием к постоянным жителям")
+	ok += _expect(fails, Cosmetics.is_open(Cosmetics.item("hat", "flower"), {"streak": 5}) and not Cosmetics.is_open(Cosmetics.item("hat", "flower"), {"streak": 4}), "венок, открытый прежней серией из пяти дней, потерян")
 	for it: Dictionary in Cosmetics.LANTERNS + Cosmetics.HATS:
 		if not it.need.is_empty() and Cosmetics.need_text(it) == "":
 			fails.append("у «%s» не написано, как открыть" % it.id)
@@ -5216,6 +5326,7 @@ static func cosmetics() -> void:
 	Save.stats = stats0
 	Save.daily_wins = 0
 	Save.daily_best = 0
+	Save.anchor_bonds = bonds0
 	Save.lantern = "classic"
 	Save.hat = "own"
 	Save.flush()

@@ -844,6 +844,8 @@ class Eyes extends Node2D:
 	var _blink: PackedFloat32Array = PackedFloat32Array()
 	var _closed: PackedByteArray = PackedByteArray()
 	var _t := 0.0
+	var _peek_in := 8.0
+	var _peek_left := 0.0
 
 	func _ready() -> void:
 		creature_tex = load(CREATURE_PATH) as Texture2D
@@ -878,6 +880,12 @@ class Eyes extends Node2D:
 			if _blink[i] <= 0.0:
 				_closed[i] = 1 - _closed[i]
 				_blink[i] = 0.14 if _closed[i] == 1 else randf_range(1.8, 5.0)
+		_peek_in -= delta
+		if _peek_in <= 0.0:
+			_peek_left = 0.5
+			_peek_in = randf_range(11.0, 19.0)
+		if _peek_left > 0.0:
+			_peek_left = maxf(0.0, _peek_left - delta)
 		queue_redraw()
 
 	func _draw() -> void:
@@ -892,9 +900,11 @@ class Eyes extends Node2D:
 		var h := 74.0
 		var w := h * tex.get_width() / tex.get_height()
 		# стоит в просвете между домом и часовней; его глаза — вторая пара красных огоньков (SPOTS[1])
-		var o := Vector2(300, 245)
-		var tilt := 0.05 * sin(_t * 0.7)
-		draw_set_transform(o, tilt, Vector2(1.0, 1.08))
+		var peek := sin((1.0 - _peek_left / 0.5) * PI) if _peek_left > 0.0 else 0.0
+		var o := Vector2(300 + 2.4 * peek, 245 + 1.0 * sin(_t * 0.45))
+		var tilt := 0.05 * sin(_t * 0.7) + 0.055 * peek
+		var breath := sin(_t * 0.6)
+		draw_set_transform(o, tilt, Vector2(1.0 + 0.008 * breath, 1.08 + 0.012 * breath - 0.015 * peek))
 		draw_texture_rect(tex, Rect2(-w * 0.5, -h, w, h), false, Color(0.62, 0.60, 0.65, 0.94 * a))
 		draw_arc(Vector2(0, -h * 0.86 + 5.0), 4.5, 0.35, PI - 0.35, 8, Color(0.92, 0.9, 0.8, 0.7 * a), 1.2, true)
 		draw_set_transform(Vector2.ZERO)

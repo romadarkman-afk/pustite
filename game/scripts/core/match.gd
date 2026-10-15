@@ -54,6 +54,7 @@ var config: GameConfig
 var villagers: Array[Villager] = []
 var houses: PackedStringArray = []
 var day: int = 0
+var case_id: int = 0              ## один из трёх сюжетных эпизодов партии
 var phase: Phase = Phase.IDLE
 var winner: Team = Team.NONE
 var chat: Array[ChatLine] = []
@@ -121,6 +122,7 @@ var tunnel_log: Array[Array] = []   ## этой ночью: [житель, от�
 
 ## Дневник (задача 34): что было каждой ночью. {"day", "where": {id: дом, -1 — улица}, "said": {id: дом}, "dead": [id]}
 var history: Array[Dictionary] = []
+var door_inspections: Array[Dictionary] = [] ## осмотры у двери: день, житель и неоднозначная примета
 var _night_ids: Array[int] = []     ## кто был жив, когда началась ночь
 var player_seen: Dictionary[int, int] = {}   ## что игрок-старожил увидел на рисунках: id -> 1 упырь, 0 человек
 
@@ -250,16 +252,30 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	else:
 		rng.randomize()
 
-	var pool := L.names().duplicate()
+	var names: Array = L.names().duplicate()
+	var anchors: Array = names.slice(0, mini(3, names.size()))
+	var pool: Array = names.slice(anchors.size())
+	# Три постоянных жителя должны иметь разные имена с именем игрока.
+	if not Save.player_name.is_empty():
+		for j in range(pool.size() - 1, -1, -1):
+			if String(pool[j][0]).to_lower() == Save.player_name.to_lower():
+				pool.remove_at(j)
+		for i in range(anchors.size()):
+			if String(anchors[i][0]).to_lower() == Save.player_name.to_lower() and not pool.is_empty():
+				var replacement: Array = pool.pop_back()
+				anchors[i] = replacement
 	_shuffle(pool)
 	villagers.clear()
 	villagers.append(Villager.new(0, Save.player_display_name(), true))
-	var stories: Array = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+	var stories: Array = [3, 4, 5, 6, 7, 8, 9, 10, 11]
 	_shuffle(stories)
 	for i in range(config.players - 1):
-		var v := Villager.new(i + 1, String(pool[i][0]), false)
-		v.female = bool(pool[i][1])
-		v.story_id = int(stories[i % stories.size()])
+		var data: Array = anchors[i] if i < anchors.size() else pool[i - anchors.size()]
+		var v := Villager.new(i + 1, String(data[0]), false)
+		v.female = bool(data[1])
+		v.anchor_id = i if i < anchors.size() else -1
+		v.story_id = i if i < anchors.size() else int(stories[(i - anchors.size()) % stories.size()])
+		v.relationship = Save.anchor_bond(v.anchor_id)
 		villagers.append(v)
 
 	var order: Array = range(villagers.size())
@@ -290,12 +306,14 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	if not houses.is_empty():
 		talisman[rng.randi_range(0, houses.size() - 1)] = TALISMAN_MAX - 1
 	day = 1
+	case_id = posmod(seed_value, 3) if seed_value != 0 else rng.randi_range(0, 2)
 	winner = Team.NONE
 	claims.clear()
 	claim_about.clear()
 	claim_elder.clear()
 	meeting_used.clear()
 	history.clear()
+	door_inspections.clear()
 	player_seen.clear()
 	player_admits.clear()
 	player_votes.clear()
@@ -617,6 +635,52 @@ func admit(seat: Seat, ids: Array[int]) -> void:
 			if seat.host.is_player:
 				player_admits.append({"day": day, "who": v, "mimic": v == seat.mimic})
 	seat.decided = true
+
+
+func record_door_inspection(v: Villager, tell: StringName, house: int = -1, mimic: bool = false) -> void:
+	if v == null or tell == &"" or v == get_villager(0):
+		return
+	for record: Dictionary in door_inspections:
+		if int(record.get("day", -1)) == day and int(record.get("villager", -1)) == v.id:
+			return
+	door_inspections.append({"day": day, "villager": v.id, "name": v.name, "tell": String(tell), "house": house, "mimic": mimic})
+
+
+func door_sign_for(visitor: Villager, seat: Seat) -> StringName:
+	if visitor == null or seat == null:
+		return &"ordinary"
+	var dice := RandomNumberGenerator.new()
+	dice.seed = hash("door-sign:%d:%d:%d:%d" % [day, visitor.id, seat.house, case_id])
+	var is_creature := visitor == seat.mimic or visitor.is_upyr
+	if dice.randf() >= (0.58 if is_creature else 0.23):
+		return &"ordinary"
+	var preferred: StringName = [&"breath", &"shadow", &"rhythm"][posmod(case_id, 3)]
+	if dice.randf() < 0.55:
+		return preferred
+	var signs: Array[StringName] = [&"breath", &"rhythm", &"shadow"]
+	signs.erase(preferred)
+	return signs[dice.randi_range(0, signs.size() - 1)]
+
+
+## Личные наблюдения хозяина. Два осмотра за ночь; повтор не тратит второй осмотр.
+func inspect_visitor(seat: Seat, vid: int) -> StringName:
+	if phase != Phase.DOOR or seat == null or seat.host == null or seat.decided or not seat.host.is_player:
+		return &""
+	var used := 0
+	for record: Dictionary in door_inspections:
+		if int(record.day) != day:
+			continue
+		used += 1
+		if int(record.villager) == vid:
+			return &""
+	if used >= 2:
+		return &""
+	for visitor: Villager in seat.knockers():
+		if visitor.id == vid:
+			var tell := door_sign_for(visitor, seat)
+			record_door_inspection(visitor, tell, seat.house, visitor == seat.mimic)
+			return tell
+	return &""
 
 
 func resolve_night() -> NightReport:

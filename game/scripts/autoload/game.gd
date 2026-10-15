@@ -610,8 +610,22 @@ func choose_house(house: int) -> void:
 
 
 func admit(ids: Array[int]) -> void:
-	m.admit(m.player_seat(), ids)
+	if m == null or m.phase != Match.Phase.DOOR:
+		return
+	var seat := m.player_seat()
+	if seat != null and seat.host.is_player:
+		for v: Villager in seat.knockers():
+			if v == seat.mimic or v.anchor_id < 0:
+				continue
+			v.relationship = Save.change_anchor_bond(v.anchor_id, 1 if ids.has(v.id) else -1)
+	m.admit(seat, ids)
 	_finish_night()
+
+
+func inspect_visitor(vid: int) -> StringName:
+	if m == null or m.phase != Match.Phase.DOOR:
+		return &""
+	return m.inspect_visitor(m.player_seat(), vid)
 
 
 func plea(plea_id: String) -> void:

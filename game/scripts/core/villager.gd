@@ -6,6 +6,8 @@ var id: int
 var name: String
 var is_player: bool
 var story_id: int = -1             ## постоянная личная история NPC в пределах партии
+var anchor_id: int = -1            ## постоянный житель: один из трёх лиц, которые возвращаются между партиями
+var relationship: int = 0          ## память о прошлых партиях с игроком, от -3 до +3
 var is_upyr: bool = false
 var female: bool = false            ## для согласования реплик: «был» / «была»
 var alive: bool = true

@@ -1,6 +1,6 @@
 class_name Cosmetics
 extends RefCounted
-## Фонари и шапки для твоего жителя. Открываются победами и испытаниями дня.
+## Фонари и шапки для твоего жителя. Открываются победами, испытаниями и отношениями.
 ## На партию не влияют: Match и боты о них не знают, меняется только картинка.
 
 ## need: {"wins": n} — побед всего, {"daily": n} — пройденных испытаний дня, {"streak": n} — серия дней подряд.
@@ -18,7 +18,7 @@ const HATS: Array[Dictionary] = [
 	{"id": "beret", "need": {"daily": 2}, "head": LookDef.Head.BERET},
 	{"id": "straw", "need": {"wins": 5}, "head": LookDef.Head.STRAW},
 	{"id": "ushanka", "need": {"wins": 7}, "head": LookDef.Head.USHANKA},
-	{"id": "flower", "need": {"streak": 5}, "head": LookDef.Head.FLOWER_CROWN},
+	{"id": "flower", "need": {"bond": 6}, "head": LookDef.Head.FLOWER_CROWN},
 	{"id": "jester", "need": {"wins": 15}, "head": LookDef.Head.JESTER},
 ]
 
@@ -32,12 +32,16 @@ static func item(kind: String, id: String) -> Dictionary:
 
 ## Сколько у игрока того, чем открываются вещи.
 static func progress() -> Dictionary:
-	return {"wins": int(Save.stats.get("wins", 0)), "daily": Save.daily_wins, "streak": Save.daily_best}
+	return {"wins": int(Save.stats.get("wins", 0)), "daily": Save.daily_wins, "streak": Save.daily_best,
+		"bond": Save.total_anchor_bond()}
 
 
 static func is_open(it: Dictionary, prog: Dictionary = {}) -> bool:
 	if prog.is_empty():
 		prog = progress()
+	# Венок, открытый по прежнему условию серии из пяти дней, остаётся доступен.
+	if String(it.id) == "flower" and int(prog.get("streak", 0)) >= 5:
+		return true
 	for k: String in it.need:
 		if int(prog.get(k, 0)) < int(it.need[k]):
 			return false

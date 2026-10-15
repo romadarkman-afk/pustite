@@ -548,6 +548,7 @@ func data() -> Dictionary:
 		"cos.need_wins": "{n} trận thắng",
 		"cos.need_daily": "{n} thử thách hằng ngày",
 		"cos.need_streak": "chuỗi {n} ngày",
+		"cos.need_bond": "{n} điểm gắn bó với những dân làng thân quen",
 		"lantern.classic": "Thường",
 		"lantern.copper": "Đồng",
 		"lantern.green": "Ma trơi",

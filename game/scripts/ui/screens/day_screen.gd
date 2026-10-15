@@ -196,8 +196,14 @@ func _defend() -> void:
 func person_actions(v: Villager) -> void:
 	var ev := director.evidence_text(v) if director != null else ""
 	var head := v.name
+	if v.anchor_id >= 0:
+		head += "\n" + SocialContent.anchor_title(v.anchor_id, v.female)
 	if v.story_id >= 0:
-		head += "\n" + SocialContent.story(v.story_id)
+		head += "\n" + SocialContent.story(v.story_id, v)
+	if v.anchor_id >= 0 and v.relationship >= 1:
+		head += "\n" + SocialContent.anchor_chapter(v.anchor_id, 0, v)
+	if v.anchor_id >= 0 and v.relationship >= 3:
+		head += "\n" + SocialContent.anchor_chapter(v.anchor_id, 1, v)
 	if not ev.is_empty():
 		head += "\n" + ev
 	var opts := PackedStringArray([

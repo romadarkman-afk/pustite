@@ -43,6 +43,14 @@ func build() -> void:
 	if role_l.text.is_empty():
 		role_l.visible = false
 	body.add_child(role_l)
+	var case_card := W.panel(&"Card")
+	case_card.name = "CaseFile"
+	var case_text := W.vbox(4)
+	case_text.add_child(W.label(SocialContent.case_title(m.case_id), &"Body"))
+	case_text.add_child(W.label(SocialContent.case_hook(m.case_id), &"Small"))
+	case_card.add_child(case_text)
+	case_card.modulate.a = 0.0
+	body.add_child(case_card)
 	if m.rule != "":
 		var dl := W.icon_line(MorningScreen.event_glyph(Challenge.night_event(m.rule)) if Challenge.night_event(m.rule) != Match.Event.NONE else "bell",
 			L.t("daily.title") + ": " + Challenge.title(m.rule) + ". " + Challenge.text(m.rule), &"Hint")
@@ -58,7 +66,7 @@ func build() -> void:
 	go.modulate.a = 0.0
 	go.pressed.connect(func() -> void: commit(Intent.CONTINUE))
 	footer.add_child(go)
-	_reveal([role, story, role_l, facts, go])
+	_reveal([role, story, role_l, case_card, facts, go])
 
 
 func _role_text(you: Villager) -> String:

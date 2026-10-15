@@ -594,7 +594,7 @@ func player_question() -> ChatLine:
 	var asker := pool[rng.randi_range(0, pool.size() - 1)]
 	last_questioner = asker.id
 	var topic := _question_topic()
-	var line := ChatLine.say(asker, SocialContent.opening_question(asker.story_id, m.player().name) if topic == "arrival"
+	var line := ChatLine.say(asker, SocialContent.opening_question(asker.story_id, m.player().name, asker) if topic == "arrival"
 		else SocialContent.question(topic, m.player().name, rng))
 	line.asks_player = true
 	line.question_kind = topic
@@ -634,20 +634,40 @@ func answer_player_question(asker: Villager, answer: String, answer_kind: int) -
 	if asker == null or asker.is_player or not brains.has(asker.id):
 		return out
 	var brain: BotBrain = brains[asker.id]
+	var bond_before := asker.relationship
 	match answer_kind:
 		0:
 			brain.private_delta[0] = brain.private_delta.get(0, 0.0) - 0.3
 			_bump(m.player().id, -0.1)
+			if asker.anchor_id == 0:
+				_remember_anchor_answer(asker, 1)
 		1:
 			brain.private_delta[0] = brain.private_delta.get(0, 0.0) - 0.05
 		2:
 			brain.private_delta[0] = brain.private_delta.get(0, 0.0) + 0.35
 			_bump(m.player().id, 0.25)
+			if asker.anchor_id == 1:
+				_remember_anchor_answer(asker, 1)
 		_:
 			if answer.strip_edges().length() >= 18:
 				brain.private_delta[0] = brain.private_delta.get(0, 0.0) - 0.15
-	out.append(ChatLine.say(asker, SocialContent.question_reaction(answer_kind, asker.story_id, rng)))
+				if asker.anchor_id == 2:
+					_remember_anchor_answer(asker, 1)
+	if answer_kind == 1 and asker.anchor_id == 2:
+		_remember_anchor_answer(asker, 1)
+	out.append(ChatLine.say(asker, SocialContent.question_reaction(answer_kind, asker.story_id, rng, asker)))
+	if asker.anchor_id >= 0:
+		if bond_before < 1 and asker.relationship >= 1:
+			out.append(ChatLine.say(asker, SocialContent.anchor_chapter(asker.anchor_id, 0, asker)))
+		elif bond_before < 3 and asker.relationship >= 3:
+			out.append(ChatLine.say(asker, SocialContent.anchor_chapter(asker.anchor_id, 1, asker)))
 	return out
+
+
+func _remember_anchor_answer(asker: Villager, delta: int) -> void:
+	if asker.anchor_id < 0:
+		return
+	asker.relationship = Save.change_anchor_bond(asker.anchor_id, delta)
 
 
 func _pick_accuser(suspect: Villager) -> Villager:

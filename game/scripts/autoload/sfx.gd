@@ -148,12 +148,14 @@ func set_music(n: StringName, fade: float = 1.2) -> void:
 	if not _music.playing:
 		_music.volume_db = -80.0
 		_music.play()
-	_fade(_music, -8.0, fade, false)
+	_fade(_music, _music_target_db(), fade, false)
 
 
 ## Сердцебиение: у двери и в последние секунды.
 func heartbeat(on: bool) -> void:
 	if on == heart_on:
+		if not on:
+			set_heartbeat_pace(1.0)
 		return
 	heart_on = on
 	_note(&"сердце:вкл" if on else &"сердце:выкл")
@@ -162,8 +164,21 @@ func heartbeat(on: bool) -> void:
 			_heart.volume_db = -80.0
 			_heart.play()
 		_fade(_heart, -3.0, 0.8, false)
+		_fade(_music, _music_target_db(), 0.8, false)
 	else:
 		_fade(_heart, -80.0, 0.8, true)
+		set_heartbeat_pace(1.0)
+		_fade(_music, _music_target_db(), 0.8, false)
+
+
+## Несколько ударов подряд немного ускоряют пульс; скорость не зависит от того, кого стучит.
+func set_heartbeat_pace(pace: float) -> void:
+	if _heart != null:
+		_heart.pitch_scale = clampf(pace, 0.85, 1.2)
+
+
+func _music_target_db() -> float:
+	return -13.0 if heart_on else -8.0
 
 
 ## Громкость канала, 0..1. 0 — канал заглушён полностью.

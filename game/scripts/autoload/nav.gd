@@ -512,6 +512,11 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			var ids: Array[int] = []
 			ids.assign(data.ids)
 			Game.admit(ids)
+		Intent.DOOR_INSPECT:
+			if sender is DoorScreen:
+				var tell := Game.inspect_visitor(int(data.id))
+				if tell != &"":
+					(sender as DoorScreen).show_inspection(int(data.id), tell)
 		Intent.PLEA:
 			Game.plea(data.plea)
 		Intent.ELDER:
