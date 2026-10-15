@@ -13,6 +13,14 @@ var send_button: Button
 var _closed := false
 
 
+func _exit_tree() -> void:
+	# Экран может смениться, пока вызывающий код ждёт ответа.
+	# Завершаем ожидание до удаления шторки, чтобы он снял свою паузу.
+	if not _closed:
+		_closed = true
+		done.emit("")
+
+
 static func ask(parent: Control, title: String, quick: PackedStringArray = PackedStringArray(), initial_text: String = "", max_length: int = 120) -> String:
 	var s := TextSheet.new()
 	parent.add_child(s)

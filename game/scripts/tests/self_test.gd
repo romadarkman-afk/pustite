@@ -2225,6 +2225,18 @@ static func night() -> void:
 	await _settle(tree)
 	ok += _expect(fails, v.eyes.visible_pairs() == 0, "днём в темноте видны глаза")
 
+	# Воспроизводим сбой CI: вопрос уже открыт, когда экран дня сменяется ночью.
+	Game._feed_gen += 1
+	var day_screen := Nav.host.current as DayScreen
+	var question := ChatLine.say(Game.m.villagers[1], SocialContent.question("alibi", Game.m.player().name, Game.m.rng))
+	question.asks_player = true
+	question.question_kind = "alibi"
+	if _text_sheet(day_screen) == null:
+		day_screen._question_prompt_open = false
+		day_screen.append_line(question)
+	await _frames(tree, 3)
+	ok += _expect(fails, _text_sheet(day_screen) != null and Game.held_by(&"dialog"), "вопрос перед ночью не открылся или не остановил время")
+
 	# сумерки в живом темпе
 	Juice.instant = false
 	var d0 := v.draws
@@ -2248,6 +2260,7 @@ static func night() -> void:
 		await tree.process_frame
 		eyes_max = maxi(eyes_max, v.eyes.visible_pairs())
 	Juice.instant = true
+	ok += _expect(fails, not Game.held_by(&"dialog"), "после удаления дневного вопроса осталась пауза dialog")
 	print("сумерки: перерисовок %d, в среднем %.1f мс на перерисовку, окон к середине %d из %d, глаз %d пар" % [redraws, avg_us / 1000.0, mid_lit, total, eyes_max])
 	ok += _expect(fails, Nav.host.current is NightScreen and v.night > 0.99, "ночь не наступила полностью (%.2f)" % v.night)
 	ok += _expect(fails, mid_lit >= 1 and mid_lit < total, "окна загорелись не по одному: к середине %d из %d" % [mid_lit, total])
@@ -2300,7 +2313,7 @@ static func night() -> void:
 	while Game.m.phase == Match.Phase.NIGHT and ran < float(Game.m.config.run_seconds) + 2.0:
 		await tree.process_frame
 		ran += maxf(tree.root.get_process_delta_time(), 0.001)
-	ok += _expect(fails, Game.m.phase != Match.Phase.NIGHT and Game.m.player().night_house == 1, "бег не привёл во второй дом (дом %d, фаза %s)" % [Game.m.player().night_house, Match.Phase.keys()[Game.m.phase]])
+	ok += _expect(fails, Game.m.phase != Match.Phase.NIGHT and Game.m.player().night_house == 1, "бег не привёл во второй дом (дом %d, фаза %s, бег %.2f, осталось %.2f, паузы %s)" % [Game.m.player().night_house, Match.Phase.keys()[Game.m.phase], Game.run_t, Game.clock.time_left(), str(Game.clock._holds)])
 	ok += _expect(fails, Game.run_t < float(Game.m.config.run_seconds) - 0.5, "все добежали, а ночь ждала конца звона (%.1f с)" % Game.run_t)
 	await _settle(tree)
 	ok += _expect(fails, not v.show_going and v.selected_house == -1, "после ночи на поле осталась рамка или числа")
