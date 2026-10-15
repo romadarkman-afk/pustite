@@ -17,6 +17,7 @@ var host: ScreenHost
 var _toast: Label
 var _exit_armed := false
 var _started := false
+var _frame_pending := false
 var _walk_gen := 0                 ## каждая новая прогулка игрока отменяет прежнюю цель
 var _spoiled_ji := -1              ## у этого дела только что испортили сделанное: всплывашка уже показана
 
@@ -70,6 +71,7 @@ func _ready() -> void:
 	ui.add_child(frame)
 	host = ScreenHost.new()
 	frame.add_child(host)
+	host.resized.connect(_queue_field_layout)
 
 	_toast = W.label("", &"Small")
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -227,6 +229,19 @@ func _hint_done(sender: Screen, action: StringName) -> void:
 
 
 ## Кадрирование поля под экран. Ждём раскладку, затем плавно ведём камеру.
+func _queue_field_layout() -> void:
+	if _frame_pending:
+		return
+	_frame_pending = true
+	_refresh_field_layout.call_deferred()
+
+
+func _refresh_field_layout() -> void:
+	_frame_pending = false
+	if is_instance_valid(host.current):
+		_frame_field(host.current)
+
+
 func _frame_field(s: Screen) -> void:
 	for i in range(3):
 		await get_tree().process_frame

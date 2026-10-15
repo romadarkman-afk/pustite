@@ -36,6 +36,7 @@ func populate(m: Match) -> void:
 		var f := VillagerFigure.new()
 		var l := book.for_name(v.name, v.is_player)
 		f.setup(v.name, Cosmetics.dress(l, Save.hat) if v.is_player else l, v.is_player)
+		f.set_identity_color(v.id)
 		if v.is_player:
 			f.set_sprite(VillagerFigure.hero_for(l))
 			f.set_hero_hat(Save.hat)
@@ -61,7 +62,7 @@ func populate(m: Match) -> void:
 ## Днём — два ряда. Передний перед колодцем (вы в центре), задний на уровне колодца,
 ## место у самого колодца свободно. Шаг в ряду — по ширине имени, между рядами 76 px:
 ## имя заднего не прячется за спиной переднего.
-const ROW_FRONT := 70.0
+const ROW_FRONT := 98.0
 const ROW_BACK := -50.0
 const WELL_GAP := 66.0
 const GAP := 4.0
@@ -135,17 +136,18 @@ func _any_spot(out: Array[Vector2], widths: Array[float], i: int, w: float, obs:
 
 
 ## Стоял бы за домом или колодцем: ступни внутри картинки предмета, выше точки, где тот стоит.
-func _hidden(p: Vector2) -> bool:
+func _hidden(p: Vector2, check_torso: bool = false) -> bool:
 	if view == null:
 		return false
 	for z: Rect2 in view.hidden_zones():
-		if z.has_point(p):
+		var torso := Rect2(p + Vector2(-16, -VillagerFigure.FIG_TOP * 0.94), Vector2(32, VillagerFigure.FIG_TOP * 0.78))
+		if z.has_point(p) or (check_torso and p.y < z.end.y - 3.0 and torso.intersects(z)):
 			return true
 	return false
 
 
 func _spot_ok(p: Vector2, w: float, obs: Array[Rect2]) -> bool:
-	return _free(fig_rect(p, w), obs) and not _hidden(p)
+	return _free(fig_rect(p, w), obs) and not _hidden(p, true)
 
 
 ## Совместимость: места по числу жителей (без учёта ширины имён).
@@ -172,7 +174,8 @@ func _layout_day(widths: Array[float], wide: bool) -> Array[Vector2]:
 	var r := view.def.square_radii
 	var a_y := c.y + ROW_FRONT
 	var b_y := c.y + ROW_BACK
-	var a_half := r.x * sqrt(1.0 - pow(ROW_FRONT / r.y, 2.0)) - 6.0
+	# Передний ряд расположен перед нижними домами, иначе крыши закрывают плечи.
+	var a_half := maxf(190.0, r.x * sqrt(maxf(0.0, 1.0 - pow(ROW_FRONT / r.y, 2.0))) - 6.0)
 	var b_half := r.x * sqrt(1.0 - pow(ROW_BACK / r.y, 2.0)) - 6.0
 	if wide:
 		a_half = minf(c.x - VillageView.SAFE_X.x, VillageView.SAFE_X.y - c.x)   # передний ряд — на всю безопасную ширину

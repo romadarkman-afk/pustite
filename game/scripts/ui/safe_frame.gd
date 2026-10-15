@@ -8,6 +8,7 @@ const MAX_WIDTH := 760.0
 
 var _kb_was_open := false
 var _last_kb := 0.0
+var _last_geometry := ""
 ## Текущие поля безопасной зоны в пикселях вьюпорта: лево, верх, право, низ.
 var insets := Vector4.ZERO
 ## Для самотестов: имитация выреза камеры и жестовой панели. -1 — брать с устройства.
@@ -38,13 +39,17 @@ func refresh() -> void:
 	var k := vp.y / win.y if win.y > 0.0 else 1.0
 	var inset := Vector4.ZERO
 
-	var safe := DisplayServer.get_display_safe_area()
-	var screen := Vector2(DisplayServer.screen_get_size())
-	if safe.size.x > 0 and safe.size.y > 0 and screen.y > 0.0:
-		inset.x = safe.position.x * k
-		inset.y = safe.position.y * k
-		inset.z = (screen.x - safe.end.x) * k
-		inset.w = (screen.y - safe.end.y) * k
+	if OS.has_feature("android"):
+		# Дисплей и окно Android могут иметь разное разрешение.
+		# Камеру считаем в окне, для жестов остаётся поле BASE.w.
+		inset = cutout_insets(vp, win, DisplayServer.get_display_cutouts())
+	elif OS.has_feature("ios"):
+		var safe := DisplayServer.get_display_safe_area()
+		var screen := Vector2(DisplayServer.screen_get_size())
+		if safe.size.x > 0 and safe.size.y > 0 and screen.y > 0.0:
+			var ratio := vp / screen
+			inset = Vector4(safe.position.x * ratio.x, safe.position.y * ratio.y,
+				(screen.x - safe.end.x) * ratio.x, (screen.y - safe.end.y) * ratio.y)
 
 	if debug_insets.x >= 0.0:
 		inset = debug_insets
@@ -60,7 +65,30 @@ func refresh() -> void:
 		keyboard = debug_keyboard
 	var side := maxf(0.0, (vp.x - MAX_WIDTH) * 0.5)
 
-	add_theme_constant_override("margin_left", int(BASE.x + maxf(inset.x, side)))
-	add_theme_constant_override("margin_top", int(BASE.y + inset.y))
-	add_theme_constant_override("margin_right", int(BASE.z + maxf(inset.z, side)))
-	add_theme_constant_override("margin_bottom", int(BASE.w + maxf(inset.w, keyboard)))
+	var margins := Vector4(BASE.x + maxf(inset.x, side), BASE.y + inset.y,
+		BASE.z + maxf(inset.z, side), BASE.w + maxf(inset.w, keyboard))
+	var names := ["margin_left", "margin_top", "margin_right", "margin_bottom"]
+	for i in range(4):
+		if not has_theme_constant_override(names[i]) or get_theme_constant(names[i]) != int(margins[i]):
+			add_theme_constant_override(names[i], int(margins[i]))
+	var geometry := "%s/%s/%s" % [vp, win, margins]
+	if geometry != _last_geometry:
+		_last_geometry = geometry
+		Diag.step("экран %s, окно %s, поля %s" % [vp, win, margins])
+
+
+static func cutout_insets(viewport: Vector2, window: Vector2, cutouts: Array[Rect2]) -> Vector4:
+	var out := Vector4.ZERO
+	if window.x <= 0.0 or window.y <= 0.0:
+		return out
+	var ratio := viewport / window
+	for cut: Rect2 in cutouts:
+		if cut.position.y <= 3.0 and cut.size.y < window.y * 0.16:
+			out.y = maxf(out.y, maxf(0.0, cut.end.y) * ratio.y)
+		if cut.end.y >= window.y - 3.0 and cut.size.y < window.y * 0.16:
+			out.w = maxf(out.w, maxf(0.0, window.y - cut.position.y) * ratio.y)
+		if cut.position.x <= 3.0 and cut.size.x < window.x * 0.16:
+			out.x = maxf(out.x, maxf(0.0, cut.end.x) * ratio.x)
+		if cut.end.x >= window.x - 3.0 and cut.size.x < window.x * 0.16:
+			out.z = maxf(out.z, maxf(0.0, window.x - cut.position.x) * ratio.x)
+	return out

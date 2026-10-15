@@ -141,6 +141,7 @@ func _build_host() -> void:
 						break
 			if is_instance_valid(on_field):
 				figure.sprite_id = on_field.sprite_id
+				figure.set_identity_color(on_field.identity_id)
 		figure.scale = Vector2.ONE * (2.25 / look.height)
 		figure.position = Vector2(46, 205)
 		figure.modulate = Color(0.72, 0.78, 0.88)

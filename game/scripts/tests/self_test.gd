@@ -368,7 +368,7 @@ static func flow() -> void:
 									var on_field: VillagerFigure = Nav.village.crowd.figures.get(visitor.id)
 									var visual_ok := is_instance_valid(figure) and figure.door_portrait
 									if visual_ok and on_field != null:
-										visual_ok = figure.sprite_id == on_field.sprite_id
+										visual_ok = figure.sprite_id == on_field.sprite_id and figure.identity_color == on_field.identity_color
 									if visual_ok:
 										figure.knock()
 										figure._process(VillagerFigure.KNOCK_LEN * 0.5)
@@ -471,6 +471,14 @@ static func layout() -> void:
 	var tree := Nav.get_tree()
 	var problems: PackedStringArray = []
 	var checks := 0
+	var phone_cutouts: Array[Rect2] = [Rect2(500, 0, 80, 105)]
+	var phone_inset := SafeFrame.cutout_insets(Vector2(720, 1560), Vector2(1080, 2340), phone_cutouts)
+	checks += _expect(problems, absf(phone_inset.y - 70.0) < 0.1 and phone_inset.w == 0.0,
+		"Android: вырез камеры создаёт пустой нижний отступ")
+	var side_cutouts: Array[Rect2] = [Rect2(0, 400, 96, 80)]
+	var side_inset := SafeFrame.cutout_insets(Vector2(1560, 720), Vector2(2340, 1080), side_cutouts)
+	checks += _expect(problems, absf(side_inset.x - 64.0) < 0.1 and side_inset.y == 0.0 and side_inset.w == 0.0,
+		"Android: боковой вырез сжимает интерфейс по высоте")
 	var profiles: Array[Array] = []
 	for sz: Vector2i in LAYOUT_SIZES:
 		profiles.append([sz, Vector4(-1, -1, -1, -1)])
@@ -679,6 +687,10 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 		out.append("%s: область экранов слишком мала: %s" % [w, Nav.host.size])
 	if not _near(s.size, Nav.host.size):
 		out.append("%s: экран %s не растянут на область %s" % [w, s.size, Nav.host.size])
+	if s.footer.get_child_count() > 0 and s.size.y > 0.0:
+		var unused := s.get_global_rect().end.y - s.footer.get_global_rect().end.y
+		if unused > maxf(48.0 * ThemeFactory.text_scale, s.size.y * 0.05):
+			out.append("%s: под нижними кнопками пустует %d px" % [w, int(unused)])
 	if s.scroll.size.y < maxf(56.0, vp.y * s.min_content_ratio()):
 		out.append("%s: под содержимое всего %d px из %d" % [w, int(s.scroll.size.y), int(vp.y)])
 	if s is DayScreen and s.field_rect_local().size.y < Nav.host.size.y * 0.55:
@@ -1202,8 +1214,7 @@ static func field() -> void:
 	var sq := v.def.square_center
 	var inside := true
 	for f: VillagerFigure in cr.figures.values():
-		var d := (f.position - sq) / v.def.square_radii
-		if d.length() > 1.0:
+		if f.position.distance_to(cr.walk_clamp(f.position)) > 1.0:
 			inside = false
 	ok += _expect(fails, inside, "кто-то из жителей стоит за пределами площади")
 
@@ -1216,7 +1227,8 @@ static func field() -> void:
 		await tree.create_timer(0.13).timeout
 		lo_b = minf(lo_b, probe.body_scale().y)
 		hi_b = maxf(hi_b, probe.body_scale().y)
-	ok += _expect(fails, hi_b - lo_b > 0.01, "жители не дышат (размах масштаба тела %.3f)" % (hi_b - lo_b))
+	ok += _expect(fails, hi_b - lo_b > 0.001 and hi_b - lo_b < 0.012,
+		"дыхание отсутствует или слишком сильно растягивает тело (размах %.3f)" % (hi_b - lo_b))
 
 	Juice.instant = false
 	var target := probe.position + Vector2(70, 0)
@@ -1230,7 +1242,7 @@ static func field() -> void:
 		if probe.state == VillagerFigure.State.IDLE and i > 10:
 			break
 	Juice.instant = true
-	ok += _expect(fails, hi > 1.08 and lo < 0.86, "бег без пружины: растяжение %.2f, сжатие %.2f" % [hi, lo])
+	ok += _expect(fails, hi < 1.01 and lo > 0.99, "перемещение растягивает и сжимает корпус (%.2f / %.2f)" % [hi, lo])
 	ok += _expect(fails, probe.position.distance_to(target) < 1.0, "житель не добежал до точки")
 
 	Game.proceed()
@@ -4682,6 +4694,18 @@ static func folk() -> void:
 	var cr := Nav.village.crowd
 	var bot: Villager = m.alive_bots()[0]
 	var f4: VillagerFigure = cr.figures[bot.id]
+	var palettes := {}
+	var readable := true
+	for figure: VillagerFigure in cr.figures.values():
+		palettes[figure.identity_color.to_html()] = true
+		readable = readable and not cr._hidden(figure.position, true)
+	ok += _expect(fails, palettes.size() == cr.figures.size(), "цвета одежды жителей повторяются")
+	ok += _expect(fails, readable, "на дневной стоянке дом закрывает тело жителя")
+	var rear_lamps := 0
+	for prop: VillageProp in Nav.village._props:
+		if prop.z_index < 0:
+			rear_lamps += 1
+	ok += _expect(fails, rear_lamps == Nav.village.def.lamps.size(), "фонари могут перекрыть персонажей")
 	var draws := [0]
 	f4.body.draw.connect(func() -> void: draws[0] += 1)
 	Game.hold(&"test")            # реплики ботов стоят: говорящий шевелит ртом — это честная перерисовка
@@ -4696,8 +4720,27 @@ static func folk() -> void:
 	draws[0] = 0
 	var walk0 := f4._walk
 	f4.walk_to(f4.position + Vector2(160, 0))
-	await tree.create_timer(0.6).timeout
+	var shape_error := 0.0
+	var root_hop := 0.0
+	var feet_motion := 0.0
+	var head_motion := 0.0
+	var movement_until := Time.get_ticks_msec() + 600
+	while Time.get_ticks_msec() < movement_until:
+		await tree.process_frame
+		shape_error = maxf(shape_error, f4.body.scale.abs().distance_to(Vector2.ONE))
+		root_hop = maxf(root_hop, absf(f4.body.position.y))
+		var points: PackedVector2Array = f4._door_rig.polygon
+		for vertex in range(mini(points.size(), f4._door_base.size())):
+			var base: Vector2 = f4._door_base[vertex]
+			var moved := points[vertex].distance_to(base)
+			if base.y > -12.0:
+				feet_motion = maxf(feet_motion, moved)
+			if base.y < -72.0:
+				head_motion = maxf(head_motion, moved)
 	var run_draws: int = draws[0]
+	print("шаг: деформация корпуса %.3f, подскок %.3f, движение стоп %.2f, головы %.2f" % [shape_error, root_hop, feet_motion, head_motion])
+	ok += _expect(fails, shape_error < 0.01 and root_hop < 0.01, "шаг сжимает тело или подбрасывает его (форма %.3f, подскок %.3f)" % [shape_error, root_hop])
+	ok += _expect(fails, feet_motion > 0.5 and head_motion < 0.1, "шагают не ноги (стопы %.2f, голова %.2f)" % [feet_motion, head_motion])
 	ok += _expect(fails, run_draws >= 8 and f4._walk != walk0, "на бегу ноги не двигаются (перерисовок %d)" % run_draws)
 	ok += _expect(fails, idle_draws <= 3, "в покое житель перерисовывается слишком часто (%d за 0,6 с)" % idle_draws)
 	await tree.create_timer(1.0).timeout

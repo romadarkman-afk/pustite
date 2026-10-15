@@ -364,7 +364,7 @@ func _build_props() -> void:
 	for li in range(def.lamps.size()):
 		var lidx := li
 		_add_prop(def.lamps[li], func(ci: CanvasItem) -> void:
-			_draw_lamp_post(ci, def.lamps[lidx], _nq(), _lamp_on(lidx, _nq()) * _lamp_fuel(lidx)))
+			_draw_lamp_post(ci, def.lamps[lidx], _nq(), _lamp_on(lidx, _nq()) * _lamp_fuel(lidx)), -1)
 	for j: JobDef in def.jobs:
 		var jp := j.pos
 		match j.kind:
@@ -374,9 +374,10 @@ func _build_props() -> void:
 				_add_prop(jp + Vector2(-30, 3), func(ci: CanvasItem) -> void: _prop(ci, _tex.barrel, jp + Vector2(-30, 3), 30.0, _nq()))
 
 
-func _add_prop(at: Vector2, paint: Callable) -> void:
+func _add_prop(at: Vector2, paint: Callable, depth: int = 0) -> void:
 	var p := VillageProp.new()
 	p.position = at
+	p.z_index = depth
 	p.paint = paint
 	crowd.add_child(p)
 	_props.append(p)
@@ -736,6 +737,7 @@ func _build_glows() -> void:
 		var s := Sprite2D.new()
 		s.texture = tex
 		s.material = add
+		s.z_index = -1
 		s.position = p - Vector2(-12, 65)
 		s.scale = Vector2(2.1, 2.1)
 		s.modulate = Color(ThemeFactory.LAMP, 0.0)
@@ -746,6 +748,7 @@ func _build_glows() -> void:
 		var s := Sprite2D.new()
 		s.texture = tex
 		s.material = add
+		s.z_index = -1
 		var hr := house_rect(h)
 		s.position = hr.get_center() + Vector2(0, hr.size.y * 0.1)
 		s.scale = Vector2(hr.size.x / 80.0, hr.size.y / 95.0)

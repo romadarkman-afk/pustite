@@ -1,9 +1,7 @@
 class_name VillagerFigure
 extends Node2D
-## Житель на площади. Тело рисует Folk в отдельном узле — его сжимает и растягивает
-## анимация, а имя под ногами остаётся ровным. Дыхание, дрожь и подпрыгивания — через трансформ,
-## без перерисовки. Перерисовка — при смене лица, моргании, повороте головы, а на бегу
-## и за работой — каждый кадр: там двигаются ноги, руки и инструмент.
+## Исходный рисунок на сетке: шаг двигает ноги и рукава, ступни задают глубину.
+## Подписи остаются ровными. Цвет одежды одинаков на поле и у двери.
 
 signal arrived
 
@@ -46,6 +44,17 @@ var turn: float = 0.0       ## куда повёрнута голова: −1 в
 var _walk: float = 0.0
 var _work: float = 0.0
 var _walk_weight: float = 0.0
+var _last_position := Vector2.INF
+var _render_tilt := 0.0
+var _tap_glow := 0.0
+var identity_id := 0
+var identity_color := Color.WHITE
+var _cloth_material: ShaderMaterial
+static var _cloth_shader: Shader
+const IDENTITY_COLORS := [Color("bb7440"), Color("a83e59"), Color("4676b0"), Color("3e8b7c"),
+	Color("ad913e"), Color("8461a6"), Color("c2b190"), Color("527e49"), Color("ae6048"),
+	Color("4c91ab"), Color("936581"), Color("8c984f"), Color("ab8598")]
+const STRIDE_LENGTH := 70.0
 var _turn_t: float = 0.0
 var _knock_t: float = 0.0
 const KNOCK_LEN := 0.24
@@ -90,7 +99,7 @@ var sprite_id: int = 0
 var hero_hat_id: String = "own"
 var tag: Node2D               ## слой подписи над всем посёлком
 
-const WALK_SPEED := 190.0   ## единиц посёлка в секунду
+const WALK_SPEED := 145.0   ## единиц посёлка в секунду
 
 
 func setup(name: String, l: LookDef, player: bool) -> void:
@@ -112,6 +121,7 @@ func setup(name: String, l: LookDef, player: bool) -> void:
 	_door_rig.show_behind_parent = true
 	_door_rig.visible = false
 	body.add_child(_door_rig)
+	set_identity_color(0 if player else absi(name.hash()) % IDENTITY_COLORS.size())
 	# имя, отметки и стрелка «Вы» — поверх домов и колодца: житель у угла дома не теряет подпись
 	tag = Node2D.new()
 	tag.z_index = 2
@@ -127,6 +137,39 @@ func setup(name: String, l: LookDef, player: bool) -> void:
 		lantern_light.energy = 0.0
 		lantern_light.visible = false
 		add_child(lantern_light)
+
+
+func set_identity_color(id: int) -> void:
+	identity_id = posmod(id, IDENTITY_COLORS.size())
+	identity_color = IDENTITY_COLORS[identity_id]
+	if _cloth_shader == null:
+		_cloth_shader = Shader.new()
+		_cloth_shader.code = """shader_type canvas_item;
+render_mode unshaded;
+uniform vec4 coat_tone : source_color = vec4(0.5, 0.3, 0.2, 1.0);
+varying vec4 figure_tint;
+void vertex() { figure_tint = COLOR; }
+void fragment() {
+    vec4 source = texture(TEXTURE, UV);
+    float value = dot(source.rgb, vec3(0.299, 0.587, 0.114));
+    float garment = smoothstep(0.28, 0.35, UV.y) * (1.0 - smoothstep(0.76, 0.88, UV.y));
+    float skin = step(0.43, source.r) * step(source.g * 1.17, source.r) * step(source.b * 1.10, source.g);
+    float hands = (1.0 - smoothstep(0.05, 0.12, abs(UV.y - 0.48))) * skin;
+    float mask = garment * (1.0 - hands) * smoothstep(0.07, 0.20, value);
+    vec3 dyed = coat_tone.rgb * (0.30 + value * 1.85);
+    COLOR = vec4(mix(source.rgb, dyed, mask * 0.88), source.a) * figure_tint;
+}
+"""
+	if _cloth_material == null:
+		_cloth_material = ShaderMaterial.new()
+		_cloth_material.shader = _cloth_shader
+	_cloth_material.set_shader_parameter("coat_tone", identity_color)
+	if _door_rig != null:
+		_door_rig.material = _cloth_material
+	if body != null:
+		body.queue_redraw()
+	if tag != null:
+		tag.queue_redraw()
 
 
 static func folk_tex(id: int) -> Texture2D:
@@ -407,13 +450,14 @@ func set_marks(level: int, b: PackedStringArray, has_pact: bool) -> void:
 			_redraw(), 1.0, 0.0, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
-## Отклик на тап: короткий подскок.
+## Отклик на тап: обводка подписи, тело сохраняет форму.
 func poke() -> void:
 	if state != State.IDLE or Juice.instant:
 		return
 	var t := create_tween()
-	t.tween_property(body, "scale", Vector2(_face * 1.16, 0.84), 0.06)
-	t.tween_property(body, "scale", Vector2(_face, 1.0), 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	t.tween_method(func(value: float) -> void:
+		_tap_glow = value
+		tag.queue_redraw(), 1.0, 0.0, 0.35)
 
 
 func _global_rect(r: Rect2) -> Rect2:
@@ -455,16 +499,13 @@ func run_to(target: Vector2, dur: float = 0.75, delay: float = 0.0) -> void:
 		_settle_idle()
 	else:
 		state = State.RUN
-	_face = -1.0 if target.x < position.x else 1.0
+	if absf(target.x - position.x) > 3.0:
+		_face = -1.0 if target.x < position.x else 1.0
 	_tw = create_tween()
 	if delay > 0.0:
 		_tw.tween_interval(delay)
 		_tw.tween_callback(func() -> void: state = State.RUN)
-	_tw.tween_property(body, "scale", Vector2(_face * 1.2, 0.8), 0.08)
-	_tw.tween_property(body, "scale", Vector2(_face * 0.88, 1.14), 0.1)
-	_tw.parallel().tween_property(self, "position", target, dur).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_tw.tween_property(body, "scale", Vector2(_face * 1.22, 0.78), 0.07)
-	_tw.tween_property(body, "scale", Vector2(_face, 1.0), 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_tw.tween_property(self, "position", target, maxf(0.05, dur)).set_trans(Tween.TRANS_LINEAR)
 	_tw.tween_callback(func() -> void:
 		_settle_idle()
 		arrived.emit())
@@ -551,11 +592,21 @@ func _settle_idle() -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
+	var travelled := position.distance_to(_last_position) if _last_position != Vector2.INF else 0.0
+	_last_position = position
 	if _knock_t > 0.0:
 		_knock_t = maxf(0.0, _knock_t - delta)
 		_anim_step(delta)
-	var walk_target := 1.0 if state == State.RUN else 0.0
+	var walk_target := clampf(travelled / maxf(delta, 0.001) / WALK_SPEED, 0.0, 1.0) if state == State.RUN and not Juice.instant else 0.0
 	_walk_weight = lerpf(_walk_weight, walk_target, 1.0 - exp(-12.0 * delta))
+	if state == State.RUN and travelled < 80.0 and not Juice.instant:
+		_walk = fmod(_walk + travelled / STRIDE_LENGTH, 1.0)
+	var pose: Dictionary = pose_now()[1]
+	var tilt_target := float(pose.get("lean", 0.0)) * 0.45 + float(pose.get("tilt", 0.0)) * 0.25
+	var tilt_before := _render_tilt
+	_render_tilt = lerpf(_render_tilt, tilt_target, 1.0 - exp(-9.0 * delta))
+	if absf(_render_tilt - tilt_before) > 0.0001:
+		body.queue_redraw()
 	if highlight:
 		_redraw()
 	if _emotion_t > 0.0:
@@ -594,21 +645,21 @@ func _process(delta: float) -> void:
 				body.position = Vector2.ZERO
 				return
 			if _walk_weight > 0.01:
-				_walk = fmod(_walk + delta * 2.6, 1.0)
 				_anim_step(delta)
 			var s := sin(_t * 1.7 + _phase)
-			var breath_size := 0.008 if door_portrait else 0.025
-			body.scale = Vector2(_face * (1.0 - 0.015 * s), 1.0 + breath_size * s)
-			var chill_speed := 3.8 if door_portrait else 38.0
-			var chill_size := 0.25 if door_portrait else 0.9
+			var breath_size := 0.004
+			body.scale = Vector2(_face, 1.0 + breath_size * s)
+			var chill_speed := 2.4
+			var chill_size := 0.12
 			body.position = Vector2(sin(_t * chill_speed + _phase) * chill_size if cold else 0.0, 0.0)
 			if door_portrait:
 				body.queue_redraw()
 		State.RUN:
-			_walk = fmod(_walk + delta * 2.6, 1.0)
+			body.scale = Vector2(_face, 1.0)
+			body.position = Vector2.ZERO
 			_anim_step(delta)
 		State.SCARED:
-			body.position.x = sin(_t * 46.0) * 1.5
+			body.position.x = sin(_t * 3.5 + _phase) * 0.25
 
 
 func _fidget_step(delta: float) -> void:
@@ -710,6 +761,8 @@ func _draw_tag() -> void:
 	var lr := label_rect_local()
 	var col := ThemeFactory.LAMP if is_player else Color(1, 1, 1, 0.95 if state != State.DEAD else 0.45)
 	Art.shape(tag, Art.rrect(lr, lr.size.y * 0.5), Color(0.08, 0.06, 0.12, 0.72 if state != State.DEAD else 0.4), Color(col, 0.35), 1.2)
+	if state != State.DEAD:
+		tag.draw_line(Vector2(lr.position.x + 9, lr.end.y - 1.5), Vector2(lr.end.x - 9, lr.end.y - 1.5), Color(identity_color, 0.85 + 0.15 * _tap_glow), 2.2 + _tap_glow)
 	tag.draw_string(_font, Vector2(lr.position.x + 8.0, lr.end.y - 5.0), who, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size(), col)
 
 
@@ -860,8 +913,7 @@ func _draw_body() -> void:
 	_draw_sprite(fp[0], fp[1])
 
 
-## Житель-картинка. Ноги не рисуются отдельно, поэтому шаг — покачивание и подскок, работа — кивки,
-## наклон — поворот вокруг ступней. Фонарь игрока и жест рукой дорисовываются поверх.
+## Сетка исходного рисунка сохраняет лицо, одежду и обводку.
 func _draw_sprite(face: String, pose: Dictionary) -> void:
 	var tex := folk_tex(sprite_id)
 	if is_player and hero_hat_id != "own":
@@ -870,24 +922,12 @@ func _draw_sprite(face: String, pose: Dictionary) -> void:
 			tex = hat_tex
 	var h := FIG_TOP * (look.height if look != null else 1.0) * 0.97
 	var w := h * tex.get_width() / tex.get_height()
-	var ph: float = pose.get("walk", 0.0)
-	var amp: float = pose.get("amp", 0.0)
-	var stride := sin(ph * TAU)
-	var bob := -absf(stride) * 4.0 * amp
-	var rot := stride * 0.06 * amp + float(pose.get("lean", 0.0)) * 0.45 + float(pose.get("tilt", 0.0)) * 0.25
+	var bob := 0.0
+	var rot := _render_tilt
 	var knock_motion: float = pose.get("knock", 0.0)
-	bob -= knock_motion * 1.6
-	rot += knock_motion * 0.07
-	if pose.has("work"):
-		var wk: float = pose.get("work", 0.0)
-		bob -= absf(sin(wk * TAU)) * 3.0
-		rot += sin(wk * TAU) * 0.07
-	if face == "talk":
-		bob -= absf(sin(_t * 9.0)) * 1.2
-	var dx := (sin(_t * 55.0) * 0.9 if pose.get("shiver", false) and not door_portrait else 0.0) + knock_motion * 1.8
-	var sway := stride * 1.5 * amp
-	var squash := absf(stride) * amp
-	var sprite_scale := Vector2(1.0 + 0.012 * squash, 1.0 - 0.018 * squash)
+	var dx := 0.0
+	var sway := 0.0
+	var sprite_scale := Vector2.ONE
 	body.draw_colored_polygon(_ellipse(Vector2(0, 1.5), Vector2(w * 0.42, 4.5)), Color(0, 0, 0, 0.28))
 	body.draw_set_transform(Vector2(dx + sway, bob), rot, sprite_scale)
 	if door_portrait:
@@ -898,9 +938,7 @@ func _draw_sprite(face: String, pose: Dictionary) -> void:
 			body.draw_circle(Vector2(w * 0.15 + 4.0 + puff * 2.0, -h * 0.81 - puff * 1.1),
 				2.2 + puff * 1.0, Color(0.71, 0.79, 0.85, mist * exhale / (puff + 1.0)))
 	else:
-		_door_rig.visible = false
-		_door_shadow.visible = false
-		body.draw_texture_rect(tex, Rect2(-w * 0.5, -h, w, h), false)
+		_draw_field_rig(tex, h, w, pose)
 	if pose.get("lantern", false) and not pose.has("tool") and not HERO_LANTERN.has(sprite_id):
 		Folk._lantern(body, Vector2(w * 0.4, -h * 0.46), S, Art.INK, 2.8 * S, pose.get("lantern_style", {}))
 	if pose.get("point", false):
@@ -915,8 +953,7 @@ func _draw_sprite(face: String, pose: Dictionary) -> void:
 		_emote_mark(face, Vector2(-w * 0.32, -h + 2.0))
 
 
-## Рука и рукав двигаются вместе с исходной текстурой. Лицо и ноги остаются закреплены.
-func _draw_door_rig(tex: Texture2D, h: float, w: float, at: Vector2, rot: float, stretch: Vector2, motion: float) -> void:
+func _build_sprite_rig(tex: Texture2D, h: float, w: float) -> void:
 	if _door_rig.texture != tex or _door_base.is_empty():
 		var uv := PackedVector2Array()
 		var faces: Array = []
@@ -945,6 +982,37 @@ func _draw_door_rig(tex: Texture2D, h: float, w: float, at: Vector2, rot: float,
 			rig.texture = tex
 			rig.uv = uv
 			rig.polygons = faces
+
+
+## Шаг привязан к пройденному расстоянию. Ноги и рукава двигаются раздельно;
+## корпус и голова сохраняют высоту, при остановке движение мягко затухает.
+func _draw_field_rig(tex: Texture2D, h: float, w: float, pose: Dictionary) -> void:
+	_build_sprite_rig(tex, h, w)
+	var points := _door_base.duplicate()
+	var stride := sin(_walk * TAU) * _walk_weight
+	var work_motion := sin(float(pose.get("work", 0.0)) * TAU) if pose.has("work") else 0.0
+	for i in range(points.size()):
+		var base := _door_base[i]
+		var y := 1.0 + base.y / h
+		var x := base.x / w
+		var side := tanh(x * 16.0)
+		var leg := smoothstep(0.58, 0.98, y)
+		points[i].x += stride * side * leg * 3.4
+		points[i].y -= maxf(0.0, stride * side) * leg * 1.35
+		var sleeve := exp(-pow((y - 0.49) / 0.16, 2.0)) * smoothstep(0.12, 0.38, absf(x))
+		points[i].x -= stride * side * sleeve * 1.4
+		points[i].y += work_motion * sleeve * 1.8
+	_door_rig.polygon = points
+	_door_rig.position = Vector2.ZERO
+	_door_rig.rotation = _render_tilt
+	_door_rig.scale = Vector2.ONE
+	_door_rig.visible = true
+	_door_shadow.visible = false
+
+
+## У двери та же сетка и палитра; отдельно двигаются кисть и тень.
+func _draw_door_rig(tex: Texture2D, h: float, w: float, at: Vector2, rot: float, stretch: Vector2, motion: float) -> void:
+	_build_sprite_rig(tex, h, w)
 	var points := _door_base.duplicate()
 	var shadow_points := _door_base.duplicate()
 	var progress := 1.0 - _knock_t / KNOCK_LEN
