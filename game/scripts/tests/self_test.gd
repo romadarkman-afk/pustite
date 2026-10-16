@@ -1622,6 +1622,22 @@ static func marks() -> void:
 			clean = false
 	ok += _expect(fails, clean, "в начале партии у кого-то уже есть глаз или значки")
 
+	# тап по себе открывает пояснение: что значат глаз, значки улик и кольцо уговора
+	var me_fig: VillagerFigure = cr.figures[0]
+	Nav.handle_intent(Intent.FIELD_TAP, {"pos": me_fig.hit_rect_global().get_center()}, day)
+	await _frames(tree, 2)
+	var legend := day.find_children("InfoSheet", "InfoSheet", true, false)
+	var glyph_kinds := {}
+	if not legend.is_empty():
+		for g: Node in legend[0].find_children("*", "Glyph", true, false):
+			glyph_kinds[(g as Glyph).kind] = true
+	ok += _expect(fails, legend.size() == 1 and glyph_kinds.has("mark_eye") and glyph_kinds.has("mark_liar") and glyph_kinds.has("mark_pact") and glyph_kinds.size() >= 8,
+		"тап по себе не объяснил значки (%d шторок, значков %d)" % [legend.size(), glyph_kinds.size()])
+	for sh: Node in legend:
+		sh.queue_free()
+	Game.release(&"info")
+	await _frames(tree, 2)
+
 	# зона касания
 	var small := false
 	for f: VillagerFigure in cr.figures.values():
@@ -1638,6 +1654,9 @@ static func marks() -> void:
 	Nav.handle_intent(Intent.FIELD_TAP, {"pos": cr.figures[0].hit_rect_global().get_center()}, day)
 	await _frames(tree, 2)
 	ok += _expect(fails, _sheet(day) == null, "тап по своей фигурке открыл шторку действий")
+	for info: Node in day.find_children("InfoSheet", "InfoSheet", true, false):
+		info.queue_free()        # тап по себе открывает пояснение значков; закрываем, чтобы часы шли
+	await _frames(tree, 2)
 
 	# тап по жителю → шторка про него → обвинить → глаз изменился, ответил
 	var bots := Game.m.alive_bots()
@@ -5439,6 +5458,29 @@ static func cosmetics() -> void:
 	ok += _expect(fails, me.look.head == LookDef.Head.TOP_HAT and String(style.get("shape", "")) == "paper" and me.brooch_id == "sun", "на поле житель не в своём (шапка %d, фонарь %s)" % [me.look.head, style.get("shape", "")])
 	var other: VillagerFigure = Nav.village.crowd.figures[1]
 	ok += _expect(fails, not other.pose_now()[1].has("lantern_style"), "фонарь игрока достался боту")
+	# фонарь героя меняет цвет стекла на самой картинке (без наклеек поверх), рост с шапкой тот же
+	var base_lantern := Vector2.ZERO
+	var heights_ok := true
+	for hat: String in ["own", "top_hat", "beret", "straw", "ushanka", "flower", "jester"]:
+		me.set_hero_hat(hat)
+		var lp := me._hero_lantern_pos()
+		if hat == "own":
+			base_lantern = lp
+		elif absf(lp.y - base_lantern.y) > 7.0:
+			heights_ok = false
+	ok += _expect(fails, heights_ok, "с шапкой герой другого роста: фонарь в руке съезжает по высоте")
+	me.set_hero_hat("own")
+	me.set_lantern("frost")
+	me.body.queue_redraw()
+	await _frames(tree, 2)
+	var mat := me._door_rig.material as ShaderMaterial
+	var lr := VillagerFigure.lantern_rect(me._hero_texture())
+	ok += _expect(fails, mat != null and float(mat.get_shader_parameter("strength")) > 0.5 and lr.size.x > 0.02 and lr.size.x < 0.5,
+		"ледяной фонарь не перекрасил фонарь на картинке героя (рамка %s)" % lr)
+	me.set_lantern("classic")
+	me.body.queue_redraw()
+	await _frames(tree, 2)
+	ok += _expect(fails, me._door_rig.material == null, "у обычного фонаря остался перекрас")
 	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
 	await _settle(tree)
 	var first_resident := Game.m.alive_bots()[0]

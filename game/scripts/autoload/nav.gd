@@ -593,6 +593,8 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			Sfx.play(&"tap")
 			if v.alive and not v.is_player and sender is DayScreen:
 				(sender as DayScreen).person_actions(v)
+			elif v.is_player and sender is DayScreen:
+				(sender as DayScreen).marks_legend()     # тап по себе: что значат значки рядом с тобой
 
 
 # =============================================================

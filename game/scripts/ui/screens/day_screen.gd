@@ -228,10 +228,15 @@ func person_actions(v: Villager) -> void:
 		opts.append(L.t("day.p_elder", {"who": v}))
 	var personal_index := opts.size()
 	opts.append(SocialContent.narrative_ui("personal"))
+	var legend_index := opts.size()
+	opts.append(L.t("legend.btn"))
 	opts.append(L.t("day.p_gesture"))        # то же, что долгое нажатие на жителя
 	var i: int = await ActionSheet.ask(self, head, opts)
 	if i == opts.size() - 1:
 		gesture_actions(v)
+		return
+	if i == legend_index:
+		marks_legend()
 		return
 	if i == personal_index:
 		_personal_talk(v)
@@ -312,3 +317,16 @@ func ambience() -> StringName:
 
 func music() -> StringName:
 	return &"day"
+
+
+## Что значат значки над жителями. Сверху — что посёлок знает про тебя самого.
+func marks_legend() -> void:
+	var me := m.player()
+	var ev := director.evidence_text(me) if director != null else ""
+	var lines: Array = []
+	lines.append(["info", L.t("legend.mine", {"list": ev}) if not ev.is_empty() else L.t("legend.none")])
+	lines.append(["mark_eye", L.t("legend.eye")])
+	for b: String in ["street", "liar", "death", "fake", "sabotage", "tunnel"]:
+		lines.append(["mark_" + b, L.t("legend." + b)])
+	lines.append(["mark_pact", L.t("legend.pact")])
+	InfoSheet.open(self, lines)

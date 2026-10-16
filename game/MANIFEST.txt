@@ -99,3 +99,4 @@ scripts/village/village_prop.gd
 scripts/village/village_view.gd
 scripts/village/villager_figure.gd
 shaders/atmos.gdshader
+shaders/lantern_tint.gdshader

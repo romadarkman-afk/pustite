@@ -235,6 +235,8 @@ func set_sprite(id: int) -> void:
 
 func set_hero_hat(id: String) -> void:
 	hero_hat_id = id if id == "own" or HERO_HAT_IDS.has(id) else "own"
+	if lantern_light != null:
+		lantern_light.position = _hero_lantern_pos()
 	body.queue_redraw()
 
 
@@ -242,11 +244,80 @@ func set_hero_hat(id: String) -> void:
 func _hero_lantern_pos() -> Vector2:
 	if not HERO_LANTERN.has(sprite_id):
 		return Vector2(25 * S, -28 * S)
-	var tex := folk_tex(sprite_id)
+	var tex := _hero_texture()
 	var h := FIG_TOP * (look.height if look != null else 1.0) * 0.97
+	if tex != folk_tex(sprite_id):
+		h *= float(tex.get_height()) / float(folk_tex(sprite_id).get_height())
 	var w := h * tex.get_width() / tex.get_height()
-	var k: Vector2 = HERO_LANTERN[sprite_id]
-	return Vector2(w * k.x, -h * k.y)
+	var r := lantern_rect(tex)
+	if r.size.x <= 0.0:
+		var k: Vector2 = HERO_LANTERN[sprite_id]
+		return Vector2(w * k.x, -h * k.y)
+	var c := r.get_center()
+	return Vector2((c.x - 0.5) * w, (c.y - 1.0) * h)
+
+
+## Картинка героя, которую сейчас видно: с шапкой или без.
+func _hero_texture() -> Texture2D:
+	if hero_hat_id != "own":
+		var t := hero_hat_texture(sprite_id, hero_hat_id)
+		if t != null:
+			return t
+	return folk_tex(sprite_id)
+
+
+static var _lantern_rects: Dictionary = {}
+
+
+## Где на картинке фонарь, в долях текстуры: самое крупное пятно тёплого огня в правой половине,
+## с запасом на стекло и корпус. Считается один раз на картинку.
+static func lantern_rect(tex: Texture2D) -> Rect2:
+	if tex == null:
+		return Rect2()
+	var key := tex.resource_path if tex.resource_path != "" else str(tex.get_instance_id())
+	if _lantern_rects.has(key):
+		return _lantern_rects[key]
+	var r := Rect2()
+	var img := tex.get_image()
+	if img != null:
+		if img.is_compressed():
+			img.decompress()
+		var lo := Vector2i(img.get_width(), img.get_height())
+		var hi := Vector2i(-1, -1)
+		for y in range(int(img.get_height() * 0.25), int(img.get_height() * 0.85), 2):
+			for x in range(int(img.get_width() * 0.5), img.get_width(), 2):
+				var c := img.get_pixel(x, y)
+				if c.a > 0.5 and c.r > 0.85 and c.g > 0.55 and c.b < 0.6 and c.r - c.b > 0.35:
+					lo = Vector2i(mini(lo.x, x), mini(lo.y, y))
+					hi = Vector2i(maxi(hi.x, x), maxi(hi.y, y))
+		if hi.x >= 0:
+			var w := float(img.get_width())
+			var h := float(img.get_height())
+			r = Rect2(lo.x / w, lo.y / h, (hi.x - lo.x + 1) / w, (hi.y - lo.y + 1) / h).grow(0.035)
+	_lantern_rects[key] = r
+	return r
+
+
+const LANTERN_TINT := preload("res://shaders/lantern_tint.gdshader")
+
+
+## Цвет фонаря героя — шейдером по его стеклу; у обычного фонаря картинка как есть.
+func _apply_lantern_tint(tex: Texture2D) -> void:
+	if _door_rig == null:
+		return
+	if lantern_id == "classic":
+		if _door_rig.material != null:
+			_door_rig.material = null
+		return
+	var mat := _door_rig.material as ShaderMaterial
+	if mat == null or mat.shader != LANTERN_TINT:
+		mat = ShaderMaterial.new()
+		mat.shader = LANTERN_TINT
+		_door_rig.material = mat
+	var r := lantern_rect(tex)
+	mat.set_shader_parameter("lantern_rect", Vector4(r.position.x, r.position.y, r.size.x, r.size.y))
+	mat.set_shader_parameter("glass", Cosmetics.lantern(lantern_id).glass)
+	mat.set_shader_parameter("strength", 0.85 if r.size.x > 0.0 else 0.0)
 
 
 ## Ночью фонарь игрока светит, днём погашен; ночью у всех встревоженные лица.
@@ -809,70 +880,93 @@ func _draw_marks() -> void:
 	drawn_frames.clear()
 	drawn_strokes = 0
 	if pact:
-		var ring := _ellipse(Vector2(0, 2), Vector2(17, 6.5), 22)
-		ring.append(ring[0])
-		tag.draw_polyline(ring, Color(ThemeFactory.LAMP, 0.85), 2.0)
-	var bg := Color(ThemeFactory.NIGHT, 0.8)
+		paint_pact(tag, Vector2(0, 2))
 	if eye_level > 0:
-		var c := Vector2(MARK_X, -66)
-		var s := 1.0 + 0.5 * _eye_pop
-		var col: Color = EYE_COLORS[clampi(eye_level, 0, 4)]
-		tag.draw_circle(c, 11.0 * s, bg)
-		var open := (2.5 + eye_level * 1.1) * s
-		var pts := PackedVector2Array()
-		for i in range(9):
-			var t := float(i) / 8.0
-			pts.append(c + Vector2((t - 0.5) * 18.0 * s, -sin(t * PI) * open))
-		for i in range(7, 0, -1):
-			var t := float(i) / 8.0
-			pts.append(c + Vector2((t - 0.5) * 18.0 * s, sin(t * PI) * open))
-		tag.draw_colored_polygon(pts, Color(col, 0.25))
-		var outline := pts.duplicate()
-		outline.append(pts[0])
-		tag.draw_polyline(outline, col, 1.6)
-		tag.draw_circle(c, minf(open, 2.2 + eye_level * 0.6), col)
-		tag.draw_circle(c, 1.2 * s, Color("0d1214"))
-		# штрихи над глазом: сколько штрихов, столько уровней подозрения — различимо без цвета
-		drawn_strokes = 0
-		for seg: PackedVector2Array in eye_strokes(eye_level, c, s):
-			tag.draw_line(seg[0], seg[1], col, 2.0)
-			drawn_strokes += 1
+		drawn_strokes = paint_eye(tag, Vector2(MARK_X, -66), eye_level, 1.0 + 0.5 * _eye_pop)
 	var y := -46.0
 	for b: String in badges.slice(0, 2):
-		var accent := ThemeFactory.LAMP
-		match b:
-			"liar": accent = Color("e0533f")
-			"death": accent = Color("e0533f")
-			"sabotage": accent = Color("e0533f")
-		# у каждой улики свой силуэт рамки: круг, ромб, щит… — различимы без цвета
-		var frame := badge_outline(b, Vector2(MARK_X, y))
-		drawn_frames.append(frame.size())
-		tag.draw_colored_polygon(frame, Color(ThemeFactory.NIGHT, 0.9))
-		var fo := frame.duplicate()
-		fo.append(frame[0])
-		tag.draw_polyline(fo, Color(accent, 0.9), 1.6)
-		match b:
-			"street":
-				tag.draw_colored_polygon(_ellipse(Vector2(MARK_X - 3.2, y + 2.5), Vector2(2.6, 4.2), 10), ThemeFactory.LAMP)
-				tag.draw_colored_polygon(_ellipse(Vector2(MARK_X + 3.2, y - 3.0), Vector2(2.6, 4.2), 10), ThemeFactory.LAMP)
-			"liar":
-				var hc := ThemeFactory.BONE
-				tag.draw_polyline(PackedVector2Array([Vector2(MARK_X - 5.5, y + 5.5), Vector2(MARK_X - 5.5, y - 1), Vector2(MARK_X, y - 6.5),
-					Vector2(MARK_X + 5.5, y - 1), Vector2(MARK_X + 5.5, y + 5.5), Vector2(MARK_X - 5.5, y + 5.5)]), hc, 1.6)
-				tag.draw_line(Vector2(MARK_X - 7, y + 7), Vector2(MARK_X + 7, y - 7), accent, 2.2)
-			"death":
-				tag.draw_circle(Vector2(MARK_X, y + 2.5), 4.6, accent)
-				tag.draw_colored_polygon(PackedVector2Array([Vector2(MARK_X - 4.2, y + 1), Vector2(MARK_X + 4.2, y + 1), Vector2(MARK_X, y - 7)]), accent)
-			"fake":   # пустое ведро
-				tag.draw_polyline(PackedVector2Array([Vector2(MARK_X - 5, y - 4), Vector2(MARK_X - 3.6, y + 5.5), Vector2(MARK_X + 3.6, y + 5.5), Vector2(MARK_X + 5, y - 4)]), ThemeFactory.BONE, 1.6)
-				tag.draw_arc(Vector2(MARK_X, y - 4), 5.0, PI, TAU, 8, ThemeFactory.BONE, 1.2)
-			"tunnel":   # люк
-				tag.draw_rect(Rect2(MARK_X - 6, y - 3, 12, 8), Color("8a5a3a"))
-				tag.draw_rect(Rect2(MARK_X - 6, y - 3, 12, 8), ThemeFactory.BONE, false, 1.2)
-				tag.draw_circle(Vector2(MARK_X + 3, y + 1), 1.4, ThemeFactory.BONE)
-			"sabotage":   # трещина
-				tag.draw_polyline(PackedVector2Array([Vector2(MARK_X - 1, y - 7), Vector2(MARK_X + 3, y - 2), Vector2(MARK_X - 2.5, y + 1.5), Vector2(MARK_X + 2, y + 7)]), accent, 2.0)
+		drawn_frames.append(paint_badge(tag, b, Vector2(MARK_X, y)))
 		y += 19.0
+
+
+## Отметки рисуются одними и теми же функциями на поле и в пояснении «что значат значки».
+static func paint_pact(ci: CanvasItem, c: Vector2) -> void:
+	var ring := PackedVector2Array()
+	for i in range(23):
+		var a := TAU * i / 22.0
+		ring.append(c + Vector2(cos(a) * 17.0, sin(a) * 6.5))
+	ci.draw_polyline(ring, Color(ThemeFactory.LAMP, 0.85), 2.0)
+
+
+## Глаз подозрения; возвращает число штрихов над ним.
+static func paint_eye(ci: CanvasItem, c: Vector2, level: int, s: float = 1.0) -> int:
+	var bg := Color(ThemeFactory.NIGHT, 0.8)
+	var col: Color = EYE_COLORS[clampi(level, 0, 4)]
+	ci.draw_circle(c, 11.0 * s, bg)
+	var open := (2.5 + level * 1.1) * s
+	var pts := PackedVector2Array()
+	for i in range(9):
+		var t := float(i) / 8.0
+		pts.append(c + Vector2((t - 0.5) * 18.0 * s, -sin(t * PI) * open))
+	for i in range(7, 0, -1):
+		var t := float(i) / 8.0
+		pts.append(c + Vector2((t - 0.5) * 18.0 * s, sin(t * PI) * open))
+	ci.draw_colored_polygon(pts, Color(col, 0.25))
+	var outline := pts.duplicate()
+	outline.append(pts[0])
+	ci.draw_polyline(outline, col, 1.6)
+	ci.draw_circle(c, minf(open, 2.2 + level * 0.6), col)
+	ci.draw_circle(c, 1.2 * s, Color("0d1214"))
+	# штрихи над глазом: сколько штрихов, столько уровней подозрения — различимо без цвета
+	var n := 0
+	for seg: PackedVector2Array in eye_strokes(level, c, s):
+		ci.draw_line(seg[0], seg[1], col, 2.0)
+		n += 1
+	return n
+
+
+## Значок улики в своей рамке; возвращает число вершин рамки (для самотеста силуэтов).
+static func paint_badge(ci: CanvasItem, b: String, c: Vector2) -> int:
+	var x := c.x
+	var y := c.y
+	var accent := ThemeFactory.LAMP
+	match b:
+		"liar", "death", "sabotage": accent = Color("e0533f")
+	# у каждой улики свой силуэт рамки: круг, ромб, щит… — различимы без цвета
+	var frame := badge_outline(b, c)
+	ci.draw_colored_polygon(frame, Color(ThemeFactory.NIGHT, 0.9))
+	var fo := frame.duplicate()
+	fo.append(frame[0])
+	ci.draw_polyline(fo, Color(accent, 0.9), 1.6)
+	match b:
+		"street":
+			ci.draw_colored_polygon(_oval(Vector2(x - 3.2, y + 2.5), Vector2(2.6, 4.2)), ThemeFactory.LAMP)
+			ci.draw_colored_polygon(_oval(Vector2(x + 3.2, y - 3.0), Vector2(2.6, 4.2)), ThemeFactory.LAMP)
+		"liar":
+			ci.draw_polyline(PackedVector2Array([Vector2(x - 5.5, y + 5.5), Vector2(x - 5.5, y - 1), Vector2(x, y - 6.5),
+				Vector2(x + 5.5, y - 1), Vector2(x + 5.5, y + 5.5), Vector2(x - 5.5, y + 5.5)]), ThemeFactory.BONE, 1.6)
+			ci.draw_line(Vector2(x - 7, y + 7), Vector2(x + 7, y - 7), accent, 2.2)
+		"death":
+			ci.draw_circle(Vector2(x, y + 2.5), 4.6, accent)
+			ci.draw_colored_polygon(PackedVector2Array([Vector2(x - 4.2, y + 1), Vector2(x + 4.2, y + 1), Vector2(x, y - 7)]), accent)
+		"fake":   # пустое ведро
+			ci.draw_polyline(PackedVector2Array([Vector2(x - 5, y - 4), Vector2(x - 3.6, y + 5.5), Vector2(x + 3.6, y + 5.5), Vector2(x + 5, y - 4)]), ThemeFactory.BONE, 1.6)
+			ci.draw_arc(Vector2(x, y - 4), 5.0, PI, TAU, 8, ThemeFactory.BONE, 1.2)
+		"tunnel":   # люк
+			ci.draw_rect(Rect2(x - 6, y - 3, 12, 8), Color("8a5a3a"))
+			ci.draw_rect(Rect2(x - 6, y - 3, 12, 8), ThemeFactory.BONE, false, 1.2)
+			ci.draw_circle(Vector2(x + 3, y + 1), 1.4, ThemeFactory.BONE)
+		"sabotage":   # трещина
+			ci.draw_polyline(PackedVector2Array([Vector2(x - 1, y - 7), Vector2(x + 3, y - 2), Vector2(x - 2.5, y + 1.5), Vector2(x + 2, y + 7)]), accent, 2.0)
+	return frame.size()
+
+
+static func _oval(c: Vector2, r: Vector2) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in range(10):
+		var a := TAU * i / 10.0
+		pts.append(c + Vector2(cos(a) * r.x, sin(a) * r.y))
+	return pts
 
 
 ## Палитра из внешности: цвета насыщеннее прежних приглушённых, шапка по типу головы.
@@ -913,6 +1007,10 @@ func _draw_sprite(face: String, pose: Dictionary) -> void:
 		if hat_tex != null:
 			tex = hat_tex
 	var h := FIG_TOP * (look.height if look != null else 1.0) * 0.97
+	if tex != folk_tex(sprite_id):
+		# картинки героя в шапке нарезаны в одном масштабе с героем без шапки:
+		# рост тела тот же, выше становится только шапка
+		h *= float(tex.get_height()) / float(folk_tex(sprite_id).get_height())
 	var w := h * tex.get_width() / tex.get_height()
 	var bob := 0.0
 	var rot := _render_tilt
@@ -935,11 +1033,7 @@ func _draw_sprite(face: String, pose: Dictionary) -> void:
 		_draw_brooch(Vector2(-w * 0.13, -h * 0.68))
 	if pose.get("lantern", false) and not pose.has("tool"):
 		if HERO_LANTERN.has(sprite_id):
-			# На PNG героя нарисован обычный фонарь. Перекрываем его выбранной моделью.
-			if lantern_id != "classic":
-				var center := _hero_lantern_pos()
-				body.draw_colored_polygon(_ellipse(center, Vector2(6.2, 8.5)), Color("242027"))
-				Folk._lantern(body, center - Vector2(0, 10.5), 0.78, Art.INK, 2.1, pose.get("lantern_style", {}))
+			_apply_lantern_tint(tex)    # фонарь нарисован на картинке героя: меняем цвет его стекла
 		else:
 			Folk._lantern(body, Vector2(w * 0.4, -h * 0.46), S, Art.INK, 2.8 * S, pose.get("lantern_style", {}))
 	if pose.get("point", false):
@@ -954,24 +1048,31 @@ func _draw_sprite(face: String, pose: Dictionary) -> void:
 		_emote_mark(face, Vector2(-w * 0.32, -h + 2.0))
 
 
+## Значок на груди героя — маленький, потёртый металл, как всё в посёлке:
+## тёмный край, приглушённый цвет, блик сверху. Яркий кружок на рисованной одежде смотрелся наклейкой.
 func _draw_brooch(at: Vector2) -> void:
 	if brooch_id == "none":
 		return
-	var fill := Color("d5a24d")
-	if brooch_id == "bone": fill = Color("d7d2bc")
-	if brooch_id == "seal": fill = Color("a64b4c")
-	body.draw_circle(at, 4.8, Art.INK)
-	body.draw_circle(at, 3.5, fill)
-	if brooch_id == "sun":
-		for i in range(8):
-			var a := TAU * float(i) / 8.0
-			body.draw_line(at + Vector2.from_angle(a) * 5.2, at + Vector2.from_angle(a) * 7.1, fill, 1.0)
-	elif brooch_id == "bone":
-		body.draw_line(at + Vector2(-2, -2), at + Vector2(2, 2), Art.INK, 1.2)
-		body.draw_line(at + Vector2(-2, 2), at + Vector2(2, -2), Art.INK, 1.2)
-	else:
-		body.draw_circle(at, 1.3, Art.INK)
-
+	var k := 0.72            # мельче: значок, а не медаль
+	var fill := Color("b08a4a")
+	if brooch_id == "bone": fill = Color("bdb7a0")
+	if brooch_id == "seal": fill = Color("8c4446")
+	var edge := Color(0.1, 0.07, 0.06, 0.85)
+	body.draw_circle(at + Vector2(0.4, 0.6) * k, 3.3 * k, Color(0, 0, 0, 0.3))
+	body.draw_circle(at, 3.2 * k, edge)
+	body.draw_circle(at, 2.5 * k, fill.darkened(0.15))
+	body.draw_circle(at + Vector2(-0.3, -0.4) * k, 1.7 * k, fill)
+	match brooch_id:
+		"sun":
+			for i in range(8):
+				var d := Vector2.from_angle(TAU * float(i) / 8.0)
+				body.draw_line(at + d * 3.3 * k, at + d * 4.3 * k, fill.darkened(0.1), 0.8, true)
+		"bone":
+			body.draw_line(at + Vector2(-1.3, -1.3) * k, at + Vector2(1.3, 1.3) * k, edge, 0.8, true)
+			body.draw_line(at + Vector2(-1.3, 1.3) * k, at + Vector2(1.3, -1.3) * k, edge, 0.8, true)
+		_:
+			body.draw_circle(at, 0.8 * k, edge)
+	body.draw_circle(at + Vector2(-0.9, -1.1) * k, 0.6 * k, Color(1, 0.95, 0.85, 0.55))
 
 func _build_sprite_rig(tex: Texture2D, h: float, w: float) -> void:
 	if _door_rig.texture != tex or _door_base.is_empty():
