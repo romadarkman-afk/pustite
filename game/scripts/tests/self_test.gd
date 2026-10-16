@@ -300,6 +300,7 @@ static func flow() -> void:
 	for v: Villager in full_a.alive_bots():
 		if v.partner_id >= 0:
 			full_a.get_villager(v.partner_id).alive = false
+			full_a.get_villager(v.partner_id).exiled = true   # гибель ночью — траур (--recap), изгнание — здесь
 			var grief := narrative_dir.emotional_lines()
 			talk_ok = talk_ok and not grief.is_empty() and grief[0].emotion == "sad"
 			break
@@ -665,7 +666,7 @@ static func _layout_step(tag: String, out: PackedStringArray) -> int:
 			for c: Node in ms.body.get_children():
 				if c.has_meta("entry"):
 					entries += 1
-					if not (c.get_child(0).get_child(0) is Glyph):
+					if not c.has_meta("loss") and not (c.get_child(0).get_child(0) is Glyph):
 						out.append("%s · утро: строка сводки без значка" % tag)
 			if entries == 0:
 				out.append("%s · утро: сводка без карточек" % tag)
@@ -2704,6 +2705,14 @@ static func village() -> void:
 	m.job_left[wood] = m.jobs[wood].portions
 
 	# 8. Бот: пошёл к делу, работал, вернулся; пустая работа запасов не даёт
+	# под нагрузкой (CI) кадры длинные: день успевает дойти до сундука или колокола — здесь они не нужны
+	Game.box_at = -1.0
+	Game.meeting_check_at = -1.0
+	# тап по сделанному делу открывает его карточку; под нагрузкой она успевает открыться позже — закрываем
+	for sh: Node in tree.root.find_children("*", "ActionSheet", true, false):
+		(sh as ActionSheet).close(-1)
+	await _frames(tree, 2)
+	ok += _expect(fails, not Game.held(), "часы дня стоят без открытого окна: %s" % [Game.clock._holds.keys()])
 	var bot: Villager = m.alive_bots()[0]
 	var bf: VillagerFigure = cr.figures[bot.id]
 	var home: Vector2 = cr.ring[bot.id]
@@ -4667,6 +4676,114 @@ static func recap() -> void:
 	ok += _expect(fails, et.contains("Что решило партию") and et.contains("Ты погиб в ночь"), "на финале нет итога партии")
 	ok += _expect(fails, role_holder == null or et.contains("%s — человек, старожил" % role_holder.name), "на финале не видно ролей")
 	ok += _expect(fails, et.contains("Ночь 1") and et.contains("Проверка ленты."), "на финале нет ленты по ночам")
+	# 5. Голоса жителей (51): у каждого свой характер, банк большой, реплики не повторяются
+	ok += _expect(fails, Voices.total() >= 200, "в банке голосов мало строк: %d" % Voices.total())
+	var personas_ok := true
+	var personas: Dictionary = {}
+	for v: Villager in m.alive_bots():
+		if v.persona < 0:
+			personas_ok = false
+		personas[v.persona] = true
+	ok += _expect(fails, personas_ok and personas.size() >= 3, "жителям не назначены характеры: %s" % [personas.keys()])
+	var dv := Director.new()
+	dv.attach(m)
+	var heard: Dictionary = {}
+	var repeats := 0
+	var talker: Villager = m.alive_bots()[0]
+	var bank_size := Phrases.b("FILLER").size() + Voices.lines(talker.persona, "FILLER").size()
+	for _i in range(mini(bank_size, 40)):
+		var t := dv._say(talker, "FILLER").text
+		if heard.has(t):
+			repeats += 1
+		heard[t] = true
+	ok += _expect(fails, repeats == 0, "житель повторил реплику %d раз, пока банк не исчерпан" % repeats)
+	var own_heard := false
+	var own_pool := Voices.lines(talker.persona, "FILLER")
+	for t: String in heard:
+		for o: String in own_pool:
+			if L.fill(o, {"me": talker, "player_name": m.player().name}) == t:
+				own_heard = true
+	ok += _expect(fails, own_heard, "житель ни разу не сказал своим голосом")
+
+	# 6. Горе и месть (53): погибла жена на улице — муж в трауре, винит хозяина двери, не работает
+	var mg := Match.new()
+	mg.start(c, 77)
+	var widow: Villager = null
+	var lost_one: Villager = null
+	for v: Villager in mg.alive_bots():
+		var pv := mg.get_villager(v.partner_id) if v.partner_id >= 0 else null
+		if pv != null and not pv.is_player and not v.is_upyr and widow == null:
+			widow = v
+			lost_one = pv
+	var grief_ok := widow != null
+	var revenge_ok := false
+	var sad_ok := false
+	var idle_ok := false
+	var blamed: Villager = null
+	if widow != null:
+		for v: Villager in mg.alive_bots():
+			if v != widow and v != lost_one and blamed == null:
+				blamed = v
+		var rg := NightReport.new()
+		var eg := rg.add(NightReport.Kind.KILLED_STREET, lost_one, 0)
+		eg.host = blamed
+		lost_one.alive = false
+		mg._apply_grief(rg)
+		mg.report = rg
+		grief_ok = widow.grief_for == lost_one.id and widow.grief_days == Match.GRIEF_DAYS \
+			and widow.blame_id == blamed.id and not lost_one.last_words.is_empty()
+		var dg := Director.new()
+		dg.attach(mg)
+		for line: ChatLine in dg.grief_lines():
+			if line.speaker == widow and line.emotion == "sad" and line.text.contains(lost_one.name.left(maxi(3, lost_one.name.length() - 1))):
+				sad_ok = true
+			if line.speaker == widow and line.about == blamed:
+				revenge_ok = true
+		mg.begin_day()
+		var workers := 0
+		idle_ok = widow.grief_days > 0
+		for jt: Director.JobTask in dg.plan_jobs(90):
+			workers += 1
+			if jt.vid == widow.id:
+				idle_ok = false
+		idle_ok = idle_ok and workers > 0
+	ok += _expect(fails, grief_ok, "после гибели жены муж не в трауре или не винит хозяина двери")
+	ok += _expect(fails, sad_ok, "в трауре житель не говорит о погибшей по имени")
+	ok += _expect(fails, revenge_ok, "в трауре житель не обвиняет того, кто не открыл дверь")
+	ok += _expect(fails, idle_ok, "в трауре житель всё равно идёт работать")
+
+	# 7. Утро с потерей (54): карточка с портретом, последними словами и горем родных
+	var victim: Villager = null
+	for v: Villager in m.alive_bots():
+		var pv := m.get_villager(v.partner_id) if v.partner_id >= 0 else null
+		if pv != null and pv.alive and not pv.is_player:
+			victim = v
+	if victim == null:
+		victim = m.alive_bots()[0]
+	var rl := NightReport.new()
+	var el := rl.add(NightReport.Kind.KILLED_STREET, victim, 0)
+	el.host = m.alive_bots()[-1] if m.alive_bots()[-1] != victim else m.alive_bots()[0]
+	victim.alive = false
+	m.player().alive = true
+	m.player_death = null
+	m._apply_grief(rl)
+	m.report = rl
+	Nav.show(MorningScreen.new())
+	await _settle(tree)
+	var loss: Control = null
+	for n: Node in Nav.host.current.find_children("Loss_*", "", true, false):
+		loss = n as Control
+	var portrait := loss.find_child("Portrait", true, false) as TextureRect if loss != null else null
+	var lt := _all_text(loss) if loss != null else ""
+	ok += _expect(fails, loss != null and loss.get_meta("loss", -1) == victim.id, "утром гибель жителя показана строкой без сцены потери")
+	ok += _expect(fails, portrait != null and portrait.texture != null, "в сцене потери нет портрета")
+	ok += _expect(fails, lt.contains(victim.name) and loss != null and loss.find_child("LastWords", true, false) != null, "в сцене потери нет имени или последних слов")
+	var kin_ok := true
+	for kin: Villager in m.mourners(victim):
+		if loss.find_child("Mourner_%d" % kin.id, true, false) == null:
+			kin_ok = false
+	ok += _expect(fails, kin_ok, "в сцене потери не видно, как горюют близкие")
+	ok += _expect(fails, MorningScreen.LOSS_HOLD >= 1.5, "сцену потери можно пролистнуть сразу")
 	Nav.show_menu()
 	await _settle(tree)
 	_finish(fails, ok, "разбор партии", "почему ты погиб, что решило партию, кто кем был и как всё шло по ночам")
@@ -5074,7 +5191,7 @@ static func loc() -> void:
 						"house": m.houses[0], "from": m.houses[1], "said": m.houses[1], "away": m.houses[1], "to": m.houses[1],
 						"others": [who], "list": [bm, bf, m.player()], "n": n, "p": n, "u": n, "d": n, "s": n, "c": n,
 						"e": "e", "text": "t", "ev": "ev", "job": "Job", "place": "place", "what": "w", "role": "role",
-						"healer": "healer", "title": "T", "rest": "r", "where": "w", "why": "y"}
+						"healer": "healer", "title": "T", "rest": "r", "where": "w", "why": "y", "lost": bf, "kin": bm}
 					for line: String in lines:
 						texts.append(L.fill(line, a))
 		texts.append_array(collect_texts(c, 25))
@@ -5097,6 +5214,16 @@ static func loc() -> void:
 				for chapter in range(3):
 					texts.append(SocialContent.personal_chapter(speaker, chapter))
 		texts.append(SocialContent.village_intro(m))
+		# голоса жителей (русский банк по характерам): все метки подставляются при любом роде
+		if code == "ru":
+			for persona: int in Voices.RU:
+				for bank: String in Voices.RU[persona]:
+					for line: String in Voices.RU[persona][bank]:
+						for sp: Villager in [bm, bf]:
+							for tg: Villager in [bm, bf, m.player()]:
+								var lost_v: Villager = bf if sp == bm else bm
+								texts.append(L.fill(line, {"me": sp, "who": tg if bank != "REVENGE" or not tg.is_player else tg.name,
+									"lost": lost_v, "house": m.houses[0], "player_name": m.player().name}))
 		for key: String in ["cast", "personal", "listen", "doubt", "later", "thanks", "hurt"]:
 			texts.append(L.fill(SocialContent.narrative_ui(key), {"me": bf}))
 		texts.append(SocialContent.door_mimic_title())

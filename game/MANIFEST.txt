@@ -51,6 +51,7 @@ scripts/loc/ru.gd
 scripts/loc/social_content.gd
 scripts/loc/tr.gd
 scripts/loc/vi.gd
+scripts/loc/voices.gd
 scripts/loc/zh.gd
 scripts/tests/self_test.gd
 scripts/ui/action_sheet.gd

@@ -79,6 +79,20 @@ func data() -> Dictionary:
 			"{who}, sao bạn cứ im lặng suốt thế?",
 			"Hôm qua tôi ngồi im và sống sót. Vậy là tôi làm đúng.",
 		],
+		"ph.GRIEF": [
+			"{lost}... Tôi không biết sống tiếp thế nào.",
+			"Hôm qua {lost} còn cười. Hôm nay tôi chỉ còn một mình.",
+			"Để tôi yên. Tôi vẫn chờ {lost} gõ cửa.",
+		],
+		"ph.REVENGE": [
+			"{who}, bạn đã đóng cửa. {lost} đứng ngay bên ngoài.",
+			"Là lỗi của bạn, {who}. {lost} đã van xin được vào.",
+		],
+		"ph.LAST_WORDS": [
+			"Đừng mở cửa khi nghe giọng tôi.",
+			"Hãy nói với gia đình tôi rằng tôi không sợ.",
+			"Lạnh quá... đóng cửa lại.",
+		],
 		"ph.FILLER": [
 			"Chúng ta ngày càng ít đi. Tự đếm đi.",
 			"Quyết nhanh lên, trời tối rồi.",
@@ -491,6 +505,9 @@ func data() -> Dictionary:
 		"vote.gone_you": "Bạn đã bị đuổi",
 		"vote.row": "{who}: {n}",
 		"vote.night": "Màn đêm buông xuống",
+		"grief.partner": "{kin} ngồi bên cửa sổ cả đêm, rạng sáng hỏi khắp mọi người có ai thấy {lost} không.",
+		"grief.parent": "{kin} không khóc. Người ấy đang cọ ngưỡng cửa nơi hôm qua {lost} đứng.",
+		"grief.child": "{kin} ngồi ngoài hiên, không cho ai lại gần. Cứ nói {lost} chỉ về muộn thôi.",
 		"mo.title": "Buổi sáng",
 		"mo.all_alive": "Mọi người đều sống",
 		"mo.one_dead": "Thiếu một người",

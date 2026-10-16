@@ -54,11 +54,7 @@ func _reveal(r: NightReport) -> void:
 	var lines: Array[Array] = []
 	for e: NightReport.Entry in r.entries:
 		if e.is_death():
-			lines.append([_text(e), &"Body", true, _glyph(e)])
-			if e.who != null:
-				for survivor: Villager in m.alive_bots():
-					if survivor.partner_id == e.who.id or survivor.family_id == e.who.id:
-						lines.append([SocialContent.grief_text(survivor, e.who), &"Tale", false, "people"])
+			lines.append([_text(e), &"Body", true, _glyph(e), e.who])
 	for e: NightReport.Entry in r.entries:
 		if not e.is_death():
 			lines.append([_text(e), &"Small", false, _glyph(e)])
@@ -69,12 +65,25 @@ func _reveal(r: NightReport) -> void:
 	for l: Array in lines:
 		if not is_instance_valid(self):
 			return
-		var card := W.panel(&"Card")
+		var lost: Villager = l[4] if l.size() > 4 else null
+		var card: Control
+		if lost != null and not lost.is_player:
+			card = loss_card(lost, l[0])
+		else:
+			card = W.panel(&"Card")
+			card.add_child(W.icon_line(l[3], l[0], l[1], 44, ThemeFactory.BLOOD if l[2] else Color(0, 0, 0, 0)))
 		card.set_meta("entry", true)
-		card.add_child(W.icon_line(l[3], l[0], l[1], 44, ThemeFactory.BLOOD if l[2] else Color(0, 0, 0, 0)))
 		body.add_child(card)
 		Juice.pop_in(card)
-		if l[2]:
+		if lost != null and not lost.is_player:
+			# утрата: тишина вместо музыки, крик, долгая пауза — строку не пролистнуть за полсекунды
+			Juice.haptic(Juice.Haptic.DEATH)
+			Sfx.play(&"death")
+			Sfx.play(&"human_cry", 0.9 + randf() * 0.18, -5.0)
+			death_fx.emit()
+			Juice.shake(self, 8.0, 0.25)
+			await Juice.wait(LOSS_HOLD)
+		elif l[2]:
 			Juice.haptic(Juice.Haptic.DEATH)
 			Sfx.play(&"death")
 			Sfx.play(&"human_cry", 0.9 + randf() * 0.18, -5.0)
@@ -90,6 +99,53 @@ func _reveal(r: NightReport) -> void:
 	footer.add_child(next)
 	Juice.pop_in(next)
 	revealed = true
+
+
+const LOSS_HOLD := 1.6
+
+
+## Сцена утраты: портрет, кем был человек, его последние слова и как горюют близкие.
+func loss_card(lost: Villager, what: String) -> PanelContainer:
+	var card := W.panel(&"Sheet")
+	card.name = "Loss_%d" % lost.id
+	card.set_meta("loss", lost.id)
+	var row := W.hbox(14)
+	card.add_child(row)
+	var portrait := TextureRect.new()
+	var figure: VillagerFigure = Nav.village.crowd.figures.get(lost.id) if Nav.village != null else null
+	if figure != null:
+		portrait.texture = VillagerFigure.folk_tex(figure.sprite_id)
+	portrait.name = "Portrait"
+	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	portrait.custom_minimum_size = Vector2(70, 128)
+	portrait.modulate = Color(0.72, 0.7, 0.76)        # выцветший, как старая карточка
+	row.add_child(portrait)
+	var info := W.vbox(6)
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(info)
+	var name_l := W.label(lost.name, &"Speaker")
+	name_l.add_theme_color_override("font_color", ThemeFactory.BLOOD)
+	info.add_child(name_l)
+	info.add_child(W.label(SocialContent.person_title(lost), &"Small"))
+	info.add_child(W.label(what, &"Body"))
+	if not lost.last_words.is_empty():
+		var words := W.label("«%s»" % lost.last_words, &"Tale")
+		words.name = "LastWords"
+		info.add_child(words)
+	for kin: Villager in m.mourners(lost):
+		var g := W.label(grief_line(kin, lost), &"Hint")
+		g.name = "Mourner_%d" % kin.id
+		info.add_child(g)
+	return card
+
+
+## Как близкий переживает утрату: муж/жена, родитель, ребёнок.
+static func grief_line(kin: Villager, lost: Villager) -> String:
+	var key := "grief.partner"
+	if kin.partner_id != lost.id:
+		key = "grief.parent" if kin.age > lost.age else "grief.child"
+	return L.t(key, {"kin": kin, "lost": lost})
 
 
 ## Значок события ночи: туман, луна, тишина, ливень.

@@ -275,6 +275,7 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 		v.story_id = i if i < anchors.size() else names.find(data)
 		v.age = SocialContent.story_age(v.story_id)
 		v.relationship = Save.anchor_bond(v.anchor_id)
+		v.persona = Voices.persona_for(v.story_id, v.name)
 		villagers.append(v)
 	# Связь симметрична, только между взрослыми, без зависимости от скрытой роли.
 	var lovers: Array[Villager] = []
@@ -876,10 +877,55 @@ func resolve_night() -> NightReport:
 		rec.dead.append(e.who.id)
 	history.append(rec)
 
+	_apply_grief(r)
 	report = r
 	_settle_winner()
 	_set_phase(Phase.MORNING)
 	return r
+
+
+## Траур: у погибшего ночью остаются близкие (муж, жена, мать, сын). Они два дня горюют:
+## не работают, говорят о погибшем и винят хозяина двери, если того не пустили.
+## Последние слова погибшего достаются утренней сцене. Скрытые роли на это не влияют.
+const GRIEF_DAYS := 2
+
+
+func _apply_grief(r: NightReport) -> void:
+	for v: Villager in villagers:
+		if v.grief_days > 0:
+			v.grief_days -= 1
+			if v.grief_days == 0:
+				v.grief_for = -1
+				v.blame_id = -1
+	for e: NightReport.Entry in r.deaths():
+		var lost := e.who
+		if lost == null or lost.is_player:
+			continue
+		var words := Phrases.b("LAST_WORDS")
+		var own := Voices.lines(lost.persona, "LAST_WORDS")
+		var pool_w := own if not own.is_empty() else words
+		if not pool_w.is_empty():
+			lost.last_words = L.fill(pool_w[rng.randi_range(0, pool_w.size() - 1)], {"me": lost})
+		for kin: Villager in villagers:
+			if kin == lost or not kin.alive or kin.is_player:
+				continue
+			if kin.partner_id != lost.id and kin.family_id != lost.id:
+				continue
+			kin.grief_for = lost.id
+			kin.grief_days = GRIEF_DAYS
+			kin.blame_id = -1
+			# не пустили — значит виноват тот, кто держал дверь
+			if e.kind == NightReport.Kind.KILLED_STREET and e.host != null and e.host != kin and e.host.alive:
+				kin.blame_id = e.host.id
+
+
+## Близкие, которые сейчас в трауре по lost.
+func mourners(lost: Villager) -> Array[Villager]:
+	var out: Array[Villager] = []
+	for v: Villager in villagers:
+		if v.alive and v.grief_for == lost.id:
+			out.append(v)
+	return out
 
 
 func end_morning() -> void:

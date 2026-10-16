@@ -81,6 +81,20 @@ func data() -> Dictionary:
 			"{who}, why are you so quiet all the time?",
 			"I kept my head down yesterday and lived. So I did it right.",
 		],
+		"ph.GRIEF": [
+			"{lost}... I don't know how to go on.",
+			"Yesterday {lost} was still laughing. Today I'm alone.",
+			"Leave me be. I keep waiting for {lost} to knock.",
+		],
+		"ph.REVENGE": [
+			"{who}, you kept your door shut. {lost} was standing right outside.",
+			"This is on you, {who}. {lost} begged to come in.",
+		],
+		"ph.LAST_WORDS": [
+			"Don't open for my voice.",
+			"Tell my family I wasn't afraid.",
+			"It's cold... close the door.",
+		],
 		"ph.FILLER": [
 			"There are fewer of us every day. Count.",
 			"Let's decide faster, it's getting dark.",
@@ -497,6 +511,9 @@ func data() -> Dictionary:
 		"vote.gone_you": "You were banished",
 		"vote.row": "{who}: {n}",
 		"vote.night": "Night falls",
+		"grief.partner": "{kin} sat by the window all night and at dawn asked everyone if they had seen {lost}.",
+		"grief.parent": "{kin} is not crying. {kin:He|She} is scrubbing the doorstep where {lost} stood yesterday.",
+		"grief.child": "{kin} sits on the porch and lets no one near. Says {lost} is just running late.",
 		"mo.title": "Morning",
 		"mo.all_alive": "Everyone made it",
 		"mo.one_dead": "One is missing",

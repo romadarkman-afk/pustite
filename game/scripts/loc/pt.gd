@@ -79,6 +79,20 @@ func data() -> Dictionary:
 			"{who}, por que você fica calad{who:o|a} o tempo todo?",
 			"Ontem fiquei quiet[o|a] e sobrevivi. Então fiz tudo certo.",
 		],
+		"ph.GRIEF": [
+			"{lost}... Não sei como seguir.",
+			"Ontem {lost} ainda ria. Hoje estou sozinho.",
+			"Deixem-me. Ainda espero que {lost} bata.",
+		],
+		"ph.REVENGE": [
+			"{who}, você manteve a porta fechada. {lost} estava bem lá fora.",
+			"A culpa é sua, {who}. {lost} implorou para entrar.",
+		],
+		"ph.LAST_WORDS": [
+			"Não abra para a minha voz.",
+			"Diga aos meus que eu não tive medo.",
+			"Está frio... feche a porta.",
+		],
 		"ph.FILLER": [
 			"A gente tá cada vez menos. Contem aí.",
 			"Vamos decidir logo, tá escurecendo.",
@@ -491,6 +505,9 @@ func data() -> Dictionary:
 		"vote.gone_you": "Você foi expulso",
 		"vote.row": "{who}: {n}",
 		"vote.night": "A noite cai",
+		"grief.partner": "{kin} passou a noite na janela e, ao amanhecer, perguntou a todos se tinham visto {lost}.",
+		"grief.parent": "{kin} não chora. Está esfregando a soleira onde {lost} estava ontem.",
+		"grief.child": "{kin} fica na varanda e não deixa ninguém chegar perto. Diz que {lost} só se atrasou.",
 		"mo.title": "Manhã",
 		"mo.all_alive": "Todo mundo sobreviveu",
 		"mo.one_dead": "Falta um",

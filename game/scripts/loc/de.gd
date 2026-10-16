@@ -82,6 +82,20 @@ func data() -> Dictionary:
 			"{who}, warum schweigst du die ganze Zeit?",
 			"Ich war gestern still und habe überlebt. Also habe ich alles richtig gemacht.",
 		],
+		"ph.GRIEF": [
+			"{lost}... Ich weiß nicht, wie es weitergehen soll.",
+			"Gestern hat {lost} noch gelacht. Heute bin ich allein.",
+			"Lasst mich. Ich warte immer noch, dass {lost} klopft.",
+		],
+		"ph.REVENGE": [
+			"{who}, du hast die Tür zugelassen. {lost} stand direkt davor.",
+			"Das ist deine Schuld, {who}. {lost} hat um Einlass gebettelt.",
+		],
+		"ph.LAST_WORDS": [
+			"Öffne nicht für meine Stimme.",
+			"Sag meiner Familie, ich hatte keine Angst.",
+			"Es ist kalt... mach die Tür zu.",
+		],
 		"ph.FILLER": [
 			"Wir werden immer weniger. Zählt selbst.",
 			"Entscheiden wir schneller, es wird dunkel.",
@@ -498,6 +512,9 @@ func data() -> Dictionary:
 		"vote.gone_you": "Du wurdest verbannt",
 		"vote.row": "{who}: {n}",
 		"vote.night": "Die Nacht bricht an",
+		"grief.partner": "{kin} saß die ganze Nacht am Fenster und fragte im Morgengrauen alle, ob sie {lost} gesehen hätten.",
+		"grief.parent": "{kin} weint nicht. {kin:Er|Sie} schrubbt die Schwelle, auf der {lost} gestern stand.",
+		"grief.child": "{kin} sitzt auf der Treppe und lässt niemanden heran. Sagt, {lost} habe sich nur verspätet.",
 		"mo.title": "Morgen",
 		"mo.all_alive": "Alle haben überlebt",
 		"mo.one_dead": "Einer fehlt",

@@ -67,6 +67,9 @@ var pending_lines: Array[ChatLine] = []          ## что скажут перв
 var fake_elder_done := false
 var gestured: Dictionary = {}   ## «жест:id:день» — какие жесты уже засчитаны
 var last_question_topic := ""
+var said: Dictionary = {}      ## шаблоны, уже прозвучавшие в этой партии: второй раз — только если других нет
+const OWN_VOICE_P := 0.75      ## как часто житель говорит строкой своего характера, а не общей
+const W_REVENGE := 0.8         ## утро после гибели близкого: тот, кто не открыл ему дверь, под подозрением
 var last_questioner := -1
 ## Подстройка под игрока (задача 49): −1 — игрок проиграл несколько раз подряд, боты слабее;
 ## +1 — игрок часто выигрывает, боты собраннее. Ступень сложности не меняется.
@@ -85,6 +88,7 @@ func attach(match_ref: Match) -> void:
 	evidence.clear()
 	last_question_topic = ""
 	last_questioner = -1
+	said.clear()
 	for v: Villager in m.villagers:
 		public_susp[v.id] = 0.0
 		if not v.is_player:
@@ -161,7 +165,9 @@ func plan_jobs(day_sec: float) -> Array[JobTask]:
 	var planned := 0
 	for bot: Villager in m.alive_bots():
 		var n := 0
-		if bot.is_upyr:
+		if bot.grief_days > 0 and not bot.is_upyr:
+			n = 0                     # в трауре: не до вёдер и дров
+		elif bot.is_upyr:
 			n = 1 if rng.randf() < 0.75 else 0
 		elif rng.randf() < 0.8:
 			n = 2 if rng.randf() < 0.35 else 1
@@ -386,6 +392,28 @@ func _others(of: Villager) -> Array[Villager]:
 
 ## Реплика с согласованием: род говорящего, род и падеж того, о ком речь.
 ## Если речь об игроке — нейтральный банк AT_PLAYER (пол игрока неизвестен).
+## Строка для говорящего: чаще своим голосом (Voices), реже общая; уже сказанное за партию
+## берётся, только когда всё остальное в банке исчерпано.
+func _pick_line(who: Villager, bank: String) -> String:
+	var own := Voices.lines(who.persona if who != null else -1, bank)
+	var common := Phrases.b(bank)
+	var first := own if not own.is_empty() and rng.randf() < OWN_VOICE_P else common
+	var second := common if first == own else own
+	for pool: PackedStringArray in [first, second]:
+		var fresh: Array[String] = []
+		for t: String in pool:
+			if not said.has(t):
+				fresh.append(t)
+		if not fresh.is_empty():
+			var t2: String = fresh[rng.randi_range(0, fresh.size() - 1)]
+			said[t2] = true
+			return t2
+	var all := first if not first.is_empty() else common
+	if all.is_empty():
+		return ""
+	return all[rng.randi_range(0, all.size() - 1)]
+
+
 func _say(who: Villager, bank: String, target: Villager = null, extra: Dictionary = {}) -> ChatLine:
 	var vars := extra.duplicate()
 	vars["me"] = who
@@ -394,14 +422,13 @@ func _say(who: Villager, bank: String, target: Villager = null, extra: Dictionar
 		if target == null:
 			vars["who"] = L.raw("someone")
 		elif target.is_player:
-			if bank in ["ACCUSE_DEATH", "ACCUSE_FAKE", "ACCUSE_SABOTAGE", "ACCUSE_TUNNEL"]:
+			if bank in ["ACCUSE_DEATH", "ACCUSE_FAKE", "ACCUSE_SABOTAGE", "ACCUSE_TUNNEL", "REVENGE"]:
 				vars["who"] = target.name
 			else:
 				bank = "AT_PLAYER"
 		else:
 			vars["who"] = target
-	var lines := Phrases.b(bank)
-	var tpl := lines[rng.randi_range(0, lines.size() - 1)]
+	var tpl := _pick_line(who, bank)
 	var text := L.fill(tpl, vars)
 	if bank == "AT_PLAYER" and not Save.player_name.is_empty():
 		text = "%s, %s" % [m.player().name, text.left(1).to_lower() + text.substr(1)]
@@ -539,6 +566,7 @@ func opening_lines() -> Array[ChatLine]:
 		return out
 	out.append_array(pending_lines)
 	pending_lines.clear()
+	out.append_array(grief_lines())
 	out.append_array(emotional_lines())
 
 	if m.day > 1:
@@ -582,6 +610,32 @@ func opening_lines() -> Array[ChatLine]:
 	return out
 
 
+## Утро после гибели близкого: горе вслух и, если погибшего не пустили, обвинение хозяину той двери.
+## Обвинение настоящее: подозрение к виноватому растёт, даже если он человек.
+func grief_lines() -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	for v: Villager in m.alive_bots():
+		if v.grief_days <= 0 or v.grief_for < 0:
+			continue
+		var lost := m.get_villager(v.grief_for)
+		if lost == null:
+			continue
+		var fresh_loss := v.grief_days == Match.GRIEF_DAYS
+		var g := _say(v, "GRIEF", null, {"lost": lost})
+		g.emotion = "sad"
+		out.append(g)
+		var blamed := m.get_villager(v.blame_id)
+		if fresh_loss and blamed != null and blamed.alive:
+			var r := _say(v, "REVENGE", blamed, {"lost": lost})
+			r.emotion = "angry"
+			r.about = blamed
+			out.append(r)
+			_bump(blamed.id, W_REVENGE)
+			if brains.has(v.id):
+				brains[v.id].grudge[blamed.id] = brains[v.id].grudge.get(blamed.id, 0.0) + 1.0
+	return out
+
+
 func emotional_lines() -> Array[ChatLine]:
 	var out: Array[ChatLine] = []
 	for v: Villager in m.alive_bots():
@@ -590,6 +644,8 @@ func emotional_lines() -> Array[ChatLine]:
 			continue
 		var text := ""
 		var feeling := "happy"
+		if not partner.alive and not partner.exiled:
+			continue                  # гибель близкого — в grief_lines, своим голосом
 		if not partner.alive:
 			feeling = "sad"
 			if partner.exiled:

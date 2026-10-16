@@ -11,7 +11,7 @@ extends RefCounted
 const ACCUSING: PackedStringArray = ["ACCUSE_STRONG", "ACCUSE_STREET", "ACCUSE_LIAR", "UPYR_DEFLECT",
 	"AGREE_ACCUSE", "REPLY_TO_ACCUSED_HUMAN", "AT_PLAYER", "JOB_FAKE", "JOB_FAKE_AT_PLAYER",
 	"SABOTAGE_SEEN", "SABOTAGE_SEEN_AT_PLAYER", "ELDER_UPYR", "MEETING_CALL",
-	"ACCUSE_DEATH", "ACCUSE_FAKE", "ACCUSE_SABOTAGE", "ACCUSE_TUNNEL"]
+	"ACCUSE_DEATH", "ACCUSE_FAKE", "ACCUSE_SABOTAGE", "ACCUSE_TUNNEL", "REVENGE"]
 
 ## Мольбы игрока у чужой двери: id и вес в глазах хозяина (Director._plea_weight).
 const PLEA_IDS: PackedStringArray = ["shared", "promise", "name", "beg"]

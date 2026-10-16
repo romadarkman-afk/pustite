@@ -123,6 +123,20 @@ func data() -> Dictionary:
 			"{who}, neden hep susuyorsun?",
 			"Dün sessiz durdum ve hayatta kaldım. Demek ki doğru yaptım.",
 		],
+		"ph.GRIEF": [
+			"{lost}... Nasıl devam edeceğimi bilmiyorum.",
+			"Dün {lost} hâlâ gülüyordu. Bugün yalnızım.",
+			"Bırakın beni. Hâlâ {lost} kapıyı çalsın diye bekliyorum.",
+		],
+		"ph.REVENGE": [
+			"{who}, kapını kapalı tuttun. {lost} hemen dışarıdaydı.",
+			"Bu senin suçun, {who}. {lost} içeri girmek için yalvardı.",
+		],
+		"ph.LAST_WORDS": [
+			"Benim sesime açma.",
+			"Aileme korkmadığımı söyle.",
+			"Soğuk... kapıyı kapat.",
+		],
 		"ph.FILLER": [
 			"Gittikçe azalıyoruz. Sayın bakın.",
 			"Hızlı karar verelim, hava kararıyor.",
@@ -535,6 +549,9 @@ func data() -> Dictionary:
 		"vote.gone_you": "Sürüldün",
 		"vote.row": "{who}: {n}",
 		"vote.night": "Gece çöküyor",
+		"grief.partner": "{kin} bütün gece pencerenin önünde oturdu, şafakta herkese {lost} görüp görmediklerini sordu.",
+		"grief.parent": "{kin} ağlamıyor. Dün {lost} durduğu eşiği ovuyor.",
+		"grief.child": "{kin} verandada oturuyor, kimseyi yanına yaklaştırmıyor. {lost} sadece gecikti, diyor.",
 		"mo.title": "Sabah",
 		"mo.all_alive": "Herkes sağ",
 		"mo.one_dead": "Biri eksik",

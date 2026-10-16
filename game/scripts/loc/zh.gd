@@ -88,6 +88,20 @@ func data() -> Dictionary:
 			"{who}，你怎么一直不说话？",
 			"我昨天一声没吭，活下来了。说明我做得对。",
 		],
+		"ph.GRIEF": [
+			"{lost}……我不知道以后怎么活。",
+			"昨天{lost}还在笑。今天只剩我一个人。",
+			"别管我。我还在等{lost}敲门。",
+		],
+		"ph.REVENGE": [
+			"{who}，你关着门不开。{lost}就站在门外。",
+			"都怪你，{who}。{lost}求着要进去。",
+		],
+		"ph.LAST_WORDS": [
+			"别为我的声音开门。",
+			"告诉我的家人，我没有害怕。",
+			"好冷……把门关上。",
+		],
 		"ph.FILLER": [
 			"我们越来越少了。自己数数。",
 			"快点决定吧，天黑了。",
@@ -501,6 +515,9 @@ func data() -> Dictionary:
 		"vote.gone_you": "你被赶走了",
 		"vote.row": "{who}：{n}",
 		"vote.night": "夜幕降临",
+		"grief.partner": "{kin}在窗边坐了一整夜，天亮时挨个问有没有人见过{lost}。",
+		"grief.parent": "{kin}没有哭，只是一遍遍擦着昨天{lost}站过的门槛。",
+		"grief.child": "{kin}坐在门廊上，不让任何人靠近，只说{lost}只是回来晚了。",
 		"mo.title": "早晨",
 		"mo.all_alive": "大家都活着",
 		"mo.one_dead": "少了一个人",

@@ -92,6 +92,20 @@ func data() -> Dictionary:
 			"{who}, pourquoi tu ne dis jamais rien ?",
 			"Hier, je me suis fait[|e] discret[|e] et j'ai survécu. Donc j'ai bien fait.",
 		],
+		"ph.GRIEF": [
+			"{lost}... Je ne sais pas comment continuer.",
+			"Hier encore, {lost} riait. Aujourd'hui je suis seul.",
+			"Laissez-moi. J'attends encore que {lost} frappe.",
+		],
+		"ph.REVENGE": [
+			"{who}, tu as gardé ta porte fermée. {lost} était juste derrière.",
+			"C'est ta faute, {who}. {lost} suppliait d'entrer.",
+		],
+		"ph.LAST_WORDS": [
+			"N'ouvre pas à ma voix.",
+			"Dis aux miens que je n'ai pas eu peur.",
+			"Il fait froid... ferme la porte.",
+		],
 		"ph.FILLER": [
 			"On est de moins en moins nombreux. Comptez.",
 			"Décidons plus vite, il fait nuit.",
@@ -508,6 +522,9 @@ func data() -> Dictionary:
 		"vote.gone_you": "Tu as été banni",
 		"vote.row": "{who} : {n}",
 		"vote.night": "La nuit tombe",
+		"grief.partner": "{kin} a passé la nuit à la fenêtre et, à l'aube, a demandé à tous s'ils avaient vu {lost}.",
+		"grief.parent": "{kin} ne pleure pas. {kin:Il|Elle} frotte le seuil où {lost} se tenait hier.",
+		"grief.child": "{kin} reste sur le perron et ne laisse personne approcher. Dit que {lost} est juste en retard.",
 		"mo.title": "Matin",
 		"mo.all_alive": "Tout le monde a survécu",
 		"mo.one_dead": "Il en manque un",
