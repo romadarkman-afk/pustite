@@ -1421,6 +1421,12 @@ static func field() -> void:
 		if not (v._tex.get(f) is Texture2D):
 			missing.append(f)
 	ok += _expect(fails, missing.is_empty(), "нет картинок посёлка: %s" % ", ".join(missing))
+	var map_missing := PackedStringArray()
+	for f: String in VillageView.MAP_FILES:
+		if not (v._tex.get(f.get_basename()) is Texture2D):
+			map_missing.append(f)
+	ok += _expect(fails, map_missing.is_empty(), "нет неба, леса, тумана или дыма: %s" % ", ".join(map_missing))
+	ok += _expect(fails, v.smoke_count() >= 2, "из труб не идёт дым: труб с дымом %d" % v.smoke_count())
 	var door_closed := load("res://assets/ui/door_closed.png") as Texture2D
 	var door_open := load("res://assets/ui/door_open.png") as Texture2D
 	ok += _expect(fails, door_closed != null and door_open != null

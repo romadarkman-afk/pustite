@@ -39,6 +39,11 @@ var _art_locale: String = ""             ## страна для регионал
 var _props: Array[VillageProp] = []        ## дома, колодец, фонари и реквизит — в слое толпы
 var _labels: Node2D                        ## таблички убежищ — над толпой
 var _occluders: Array[LightOccluder2D] = []
+var _backdrop: Backdrop                    ## небо и лес за посёлком: сдвигаются медленнее камеры
+var _branches: Branches                    ## ветки по верхним углам поля — поверх посёлка
+var _fog_bands: Array[Sprite2D] = []       ## полосы тумана над землёй, ползут вбок
+var _smoke: Node2D                         ## дым из труб
+var _field := Rect2()                      ## где поле на экране (для веток)
 
 ## Камера. Днём приближена и следует за игроком по горизонтали; в остальных фазах
 ## показывает посёлок целиком. Двигается только узел: посёлок от этого не перерисовывается.
@@ -59,6 +64,10 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	titles = names
 	_font = ThemeFactory.font_bold()
 	_load_art(L.code)
+	_backdrop = Backdrop.new()
+	_backdrop.view = self
+	add_child(_backdrop)
+	_build_fog_bands()
 	_build_particles()
 	_build_thresholds()
 	_build_lights()
@@ -69,10 +78,16 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	crowd.book = L.looks()
 	add_child(crowd)
 	_build_props()
+	_smoke = Node2D.new()
+	_smoke.name = "Smoke"
+	add_child(_smoke)
 	_labels = Node2D.new()
 	_labels.name = "Plaques"
 	_labels.draw.connect(_draw_plaques)
 	add_child(_labels)
+	_branches = Branches.new()
+	_branches.view = self
+	add_child(_branches)
 	jobs_layer = JobLayer.new()
 	jobs_layer.view = self
 	jobs_layer.visible = false
@@ -103,6 +118,7 @@ func set_village(village: VillageDef, open: int, names: PackedStringArray) -> vo
 func set_open_count(n: int) -> void:
 	open_count = clampi(n, 1, def.shelters.size())
 	_build_glows()
+	_build_smoke()
 	_refresh()
 
 
@@ -119,6 +135,13 @@ func set_night(v: float) -> void:
 	if _fog != null:
 		_fog.modulate.a = 0.35 + 0.65 * night
 		_dust.modulate.a = 0.12 + 0.88 * (1.0 - night)
+	for i in range(_fog_bands.size()):
+		_fog_bands[i].modulate = Color(0.8, 0.86, 0.9).lerp(Color(0.62, 0.7, 0.86), night)
+		_fog_bands[i].modulate.a = (0.24 + 0.4 * night) * (1.0 if i == 0 else 0.75)
+	if _smoke != null:
+		_smoke.modulate = Color(0.92, 0.92, 0.9, 0.85).lerp(Color(0.5, 0.55, 0.7, 0.4), night)
+	if _branches != null:
+		_branches.modulate = Color(0.85, 0.9, 0.9).lerp(Color(0.42, 0.46, 0.62), night)
 	if crowd != null:
 		crowd.set_night(night)
 	if eyes != null:
@@ -144,6 +167,9 @@ func set_mood(v: float, dur: float) -> void:
 ## Кадрировать поле в прямоугольник экрана rect. zoom > 1 — приблизить посёлок
 ## (по высоте он всё равно поместится в поле), камера встаёт на focus_x.
 func frame_to(rect: Rect2, vp_w: float, dur: float, zoom: float = 1.0, focus_x: float = -1.0) -> void:
+	_field = rect
+	if _branches != null:
+		_branches.queue_redraw()
 	var base := minf(vp_w / (LOGICAL.x * SIDE_VISIBLE), rect.size.y / BAND.size.y)
 	var s := minf(base * zoom, rect.size.y / BAND.size.y)
 	s = maxf(s, 0.5)
@@ -153,6 +179,7 @@ func frame_to(rect: Rect2, vp_w: float, dur: float, zoom: float = 1.0, focus_x: 
 	elif zoom <= 1.0:
 		cam_x = LOGICAL.x * 0.5
 	cam_x = _clamp_cam(cam_x, s)
+	_backdrop.position.x = (cam_x - LOGICAL.x * 0.5) * Backdrop.PARALLAX
 	# поле выше полосы с домами: лишнее место уходит в основном в небо (3/4 сверху),
 	# а не в пустую траву под толпой
 	var extra := maxf(0.0, rect.size.y - BAND.size.y * s)
@@ -190,6 +217,7 @@ func _follow_step(delta: float) -> void:
 		return
 	cam_x = want if Juice.instant else lerpf(cam_x, want, 1.0 - exp(-5.0 * delta))
 	position.x = _vp_w * 0.5 - cam_x * scale.x
+	_backdrop.position.x = (cam_x - LOGICAL.x * 0.5) * Backdrop.PARALLAX
 
 
 var tunnel: Vector2i = Vector2i(-1, -1)   ## туннель между двумя убежищами: у обоих домов люк
@@ -277,6 +305,9 @@ func band_global_rect() -> Rect2:
 func _process(delta: float) -> void:
 	_follow_step(delta)
 	_t += delta
+	for i in range(_fog_bands.size()):
+		var b := _fog_bands[i]
+		b.region_rect.position.x = fposmod(b.region_rect.position.x + delta * (9.0 if i == 0 else -6.0) / b.scale.x, 4096.0)
 	for i in range(_lamp_lights.size()):
 		var on_l := _lamp_on(i, night) * _lamp_fuel(i)
 		_lamp_lights[i].visible = on_l > 0.01
@@ -319,36 +350,20 @@ func _draw() -> void:
 	var n := _q if _q >= 0.0 else night
 	var k := Art.ink(n)
 
-	# небо над лесом: днём пасмурное, ночью лиловое со звёздами и луной
-	var sky_top := Color("4a5560").lerp(Color("0b0a24"), n)
-	draw_rect(Rect2(-2000, -2400, 4720, 2000), sky_top)
-	Art.vgrad(self, Rect2(-2000, -400, 4720, 600), sky_top, Color("9aa29a").lerp(Color("2a2448"), n))
-	if n > 0.05:
-		var rng := RandomNumberGenerator.new()
-		rng.seed = 5
-		for i in range(70):
-			var sp := Vector2(rng.randf_range(-200, 920), rng.randf_range(-380, 150))
-			draw_circle(sp, rng.randf_range(0.7, 1.8), Color(1, 1, 1, rng.randf_range(0.4, 0.95) * n))
-		var mc := Vector2(560, -70)
-		Art.glow(self, mc, 130, Color(0.75, 0.75, 1.0, 0.7 * n))
-		draw_circle(mc, 34, Color(0.95, 0.93, 0.82, n))
-		for cr: Vector3 in [Vector3(-10, -7, 6), Vector3(9, 11, 4.5), Vector3(12, -13, 3.5)]:
-			draw_circle(mc + Vector2(cr.x, cr.y), cr.z, Color(0.87, 0.84, 0.72, n))
-	for cl: Vector3 in [Vector3(130, -150, 0.85), Vector3(420, -260, 0.7), Vector3(560, 40, 0.55), Vector3(170, 70, 0.5)]:
-		var cc := Color(0.78, 0.8, 0.8, 0.85).lerp(Color(0.16, 0.13, 0.3, 0.85), n)
-		for b: Vector3 in [Vector3(0, 0, 34), Vector3(40, 7, 26), Vector3(-36, 9, 24), Vector3(74, 14, 18), Vector3(8, -22, 24)]:
-			draw_circle(Vector2(cl.x + b.x * cl.z, cl.y + b.y * cl.z), b.z * cl.z, cc)
-	# земля — картинка: площадь, тропы, река слева, лес по верхнему краю. Ночью её сменяет ночная
-	# картинка того же места. Выше картинки лес темнеет и уходит в небо, края закрыты цветом земли.
+	# небо и дальний лес рисует Backdrop (он за посёлком и сдвигается медленнее камеры).
+	# Земля — картинка: площадь, тропы, река, лес по верхнему краю; ночью её сменяет ночная
+	# картинка того же места. Верх земли тонет в нижнем крае дальнего леса.
 	var gr := def.ground_rect
-	var forest := Color("1e2620").lerp(Color("0e1420"), n)
+	var forest := Backdrop.FOREST_DAY.lerp(Backdrop.FOREST_NIGHT, n)
 	draw_rect(Rect2(-2000, gr.position.y + 40.0, 4720, 3000), Color("4a4636").lerp(Color("1c2430"), n))
-	Art.vgrad(self, Rect2(-2000, gr.position.y - 70.0, 4720, 80.0), Color(forest, 0.0), forest)
-	draw_rect(Rect2(-2000, gr.position.y + 9.0, 4720, 40.0), forest)
 	draw_texture_rect(_tex.ground_day, gr, false)
 	if n > 0.0:
 		draw_texture_rect(_tex.ground_night, gr, false, Color(1, 1, 1, n))
-	Art.vgrad(self, Rect2(gr.position.x, gr.position.y, gr.size.x, 46.0), forest, Color(forest, 0.0))
+	Art.vgrad(self, Rect2(gr.position.x, gr.position.y, gr.size.x, 40.0), Color(forest, 0.75), Color(forest, 0.0))
+	# шов между дальним лесом и землёй прячет полоса дымки
+	var mist := Color8(118, 128, 140).lerp(Color8(44, 54, 76), n)
+	Art.vgrad(self, Rect2(-2000, gr.position.y - 34.0, 4720, 36.0), Color(mist, 0.0), Color(mist, 0.6))
+	Art.vgrad(self, Rect2(-2000, gr.position.y + 2.0, 4720, 48.0), Color(mist, 0.6), Color(mist, 0.0))
 
 	# дома, колодец, фонари, поленница и бочка — предметы в слое толпы (VillageProp):
 	# кто стоит за домом, того дом закрывает. Здесь только то, что лежит на земле.
@@ -361,6 +376,8 @@ func _draw() -> void:
 ## Перерисовать посёлок вместе с предметами и табличками.
 func _refresh() -> void:
 	queue_redraw()
+	if _backdrop != null:
+		_backdrop.queue_redraw()
 	for p: VillageProp in _props:
 		p.queue_redraw()
 	if _labels != null:
@@ -457,7 +474,12 @@ const GROUND_FILES: PackedStringArray = ["ground_day", "ground_night"]
 const GROUND_RECT := Rect2(-88.8, 31.6, 816.0, 609.3)   ## деревня; у другой карты — VillageDef.ground_rect
 const ART_FILES: PackedStringArray = ["house_day", "house_night", "barn_day", "barn_night", "church_day", "church_night",
 	"cellar_day", "cellar_night", "garage_day", "garage_night", "shed_day", "shed_night", "lamp_day", "lamp_night",
-	"well", "woodpile", "barrel", "talisman"]
+	"well", "woodpile", "barrel", "talisman", "boards"]
+## Небо, дальний лес, ветки, туман и дым — общие для всех карт и стран.
+const MAP_FILES: PackedStringArray = ["sky_day.jpg", "sky_dusk.jpg", "sky_night.jpg", "treeline_day.png", "treeline_night.png",
+	"branches.png", "fog.png", "smoke.png"]
+## Где у дома труба на картинке (доли ширины и высоты, дом не отражён). Нет в списке — дом без трубы.
+const CHIMNEY := {HouseDef.Kind.HOME: Vector2(0.62, 0.05), HouseDef.Kind.CHURCH: Vector2(0.76, 0.39), HouseDef.Kind.GARAGE: Vector2(0.72, 0.04)}
 
 
 ## Немецкий и французский наборы хранятся отдельно. Отсутствующий ресурс
@@ -476,6 +498,8 @@ func _load_art(locale_code: String) -> void:
 		_tex[f] = _load_art_texture(regional_dir, f, ".png")
 	for g: String in GROUND_FILES:
 		_tex[g] = _load_art_texture(regional_dir, g.replace("ground", def.ground if def != null else "ground"), ".jpg")
+	for f: String in MAP_FILES:
+		_tex[f.get_basename()] = load(ART_DIR + f) as Texture2D
 
 
 func _regional_art_dir(locale_code: String) -> String:
@@ -565,14 +589,24 @@ func _draw_house(ci: CanvasItem, h: HouseDef, state: int, n: float, lit: float, 
 	var dr := door_rect(h)
 	if state == 1:
 		_draw_talisman(ci, dr, flip, n, tal)
+	elif state == 2:
+		_draw_boards(ci, dr, flip, n)
+
+
+## Заколоченная дверь: две доски крест-накрест поверх двери.
+func _draw_boards(ci: CanvasItem, dr: Rect2, flip: bool, n: float) -> void:
+	var w := clampf(maxf(dr.size.x * 1.35, dr.size.y * 0.85), 22.0, 60.0)
+	var hh: float = w * _tex.boards.get_height() / _tex.boards.get_width()
+	var c := dr.get_center()
+	_blit(ci, _tex.boards, Rect2(c.x - w * 0.5, c.y - hh * 0.5, w, hh), flip, _night_mod(n).darkened(0.1))
 
 
 ## Оберег на стене у двери, со стороны от площади. tal: 2 целый, 1 треснул, 0 расколот.
 func _draw_talisman(ci: CanvasItem, dr: Rect2, flip: bool, n: float, tal: int) -> void:
-	var w := clampf(dr.size.x * 0.6, 18.0, 24.0)
+	var w := clampf(dr.size.x * 0.75, 20.0, 26.0)
 	var hh: float = w * _tex.talisman.get_height() / _tex.talisman.get_width()
 	var cx := dr.position.x - w * 0.62 if not flip else dr.end.x + w * 0.62
-	var r := Rect2(cx - w * 0.5, dr.position.y + dr.size.y * 0.18, w, hh)
+	var r := Rect2(cx - w * 0.5, dr.position.y + dr.size.y * 0.05, w, hh)
 	var mod := _night_mod(n * 0.6)
 	if tal <= 0:
 		mod = mod * Color(0.62, 0.42, 0.42)
@@ -580,11 +614,11 @@ func _draw_talisman(ci: CanvasItem, dr: Rect2, flip: bool, n: float, tal: int) -
 		mod = mod.darkened(0.12)
 	_blit(ci, _tex.talisman, r, false, mod)
 	if tal < 2:
-		var c := r.get_center() + Vector2(0, hh * 0.12)
+		var c := r.position + Vector2(w * 0.5, w * 0.62)
 		var crack := PackedVector2Array([c + Vector2(3, -w * 0.42), c + Vector2(-1, -2), c + Vector2(2, 3), c + Vector2(-2, w * 0.42)])
-		ci.draw_polyline(crack, Color(0.08, 0.05, 0.06), 2.6, true)
+		ci.draw_polyline(crack, Color(0.08, 0.05, 0.06), 2.0, true)
 		if tal <= 0:
-			ci.draw_polyline(crack, ThemeFactory.BLOOD, 1.2, true)
+			ci.draw_polyline(crack, ThemeFactory.BLOOD, 0.9, true)
 
 
 func _title(i: int) -> String:
@@ -782,6 +816,76 @@ func _build_glows() -> void:
 		_house_glows.append(s)
 
 
+## Туман полосами: две ленты из картинки fog.png ползут в разные стороны над землёй, за людьми.
+func _build_fog_bands() -> void:
+	var tex: Texture2D = _tex.fog
+	var half := tex.get_height() * 0.5
+	for i in range(2):
+		var b := Sprite2D.new()
+		b.name = "FogBand%d" % i
+		b.texture = tex
+		b.texture_repeat = CanvasItem.TEXTURE_REPEAT_MIRROR
+		b.region_enabled = true
+		var sc := 0.42 if i == 0 else 0.6
+		b.scale = Vector2(sc, sc)
+		b.region_rect = Rect2(i * 700.0, i * half, 3600.0 / sc, half)
+		b.position = Vector2(360, 196.0 if i == 0 else 470.0)
+		add_child(b)
+		_fog_bands.append(b)
+
+
+## Дым из труб: из жилых домов, у заколоченных убежищ печь не топят.
+func _build_smoke() -> void:
+	if _smoke == null:
+		return
+	for c in _smoke.get_children():
+		c.queue_free()
+	var homes: Array[HouseDef] = []
+	for i in range(mini(open_count, def.shelters.size())):
+		homes.append(def.shelters[i])
+	homes.append_array(def.decor)
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1, 1, 1, 0.0))
+	ramp.add_point(0.15, Color(1, 1, 1, 0.75))
+	ramp.add_point(0.6, Color(1, 1, 1, 0.4))
+	ramp.set_color(ramp.get_point_count() - 1, Color(1, 1, 1, 0.0))
+	var grow := Curve.new()
+	grow.add_point(Vector2(0, 0.35))
+	grow.add_point(Vector2(1, 1.0))
+	var k := 0
+	for h: HouseDef in homes:
+		if not CHIMNEY.has(h.kind):
+			continue
+		var r := house_rect(h)
+		var f: Vector2 = CHIMNEY[h.kind]
+		var p := CPUParticles2D.new()
+		p.texture = _tex.smoke
+		p.position = Vector2(r.position.x + r.size.x * (1.0 - f.x if _flip(h) else f.x), r.position.y + r.size.y * f.y - 6.0)
+		p.amount = 5
+		p.lifetime = 7.0
+		p.preprocess = 7.0
+		p.randomness = 0.4
+		p.direction = Vector2(0.25, -1)
+		p.spread = 10.0
+		p.gravity = Vector2(1.8, -1.0)
+		p.initial_velocity_min = 7.0
+		p.initial_velocity_max = 11.0
+		p.angle_min = -12.0
+		p.angle_max = 12.0
+		p.scale_amount_min = 0.2
+		p.scale_amount_max = 0.26
+		p.scale_amount_curve = grow
+		p.color_ramp = ramp
+		p.seed = 31 + k
+		p.use_fixed_seed = true
+		_smoke.add_child(p)
+		k += 1
+
+
+func smoke_count() -> int:
+	return _smoke.get_child_count() if _smoke != null else 0
+
+
 func _build_particles() -> void:
 	var tex := _soft_texture()
 	_fog = CPUParticles2D.new()
@@ -943,3 +1047,83 @@ class Eyes extends Node2D:
 			for dx in [-3.6, 3.6]:
 				draw_circle(p + Vector2(dx, 0), 6.0, Color(1.0, 0.3, 0.15, 0.12 * a))
 				draw_circle(p + Vector2(dx, 0), 2.2, Color(1.0, 0.42, 0.22, 0.95 * a))
+
+
+
+## Небо и дальний лес за посёлком: три неба (день, сумерки, ночь) и две полосы леса.
+## Картинки повторяются зеркально по горизонтали: на широком планшете края не видны.
+## Сдвигается за камерой с долей PARALLAX — так лес выглядит дальше домов.
+class Backdrop extends Node2D:
+	const PARALLAX := 0.35
+	const SKY_W := 1150.0
+	const TREE_W := 780.0
+	const SKY_TOP := {"sky_day": Color8(84, 95, 90), "sky_dusk": Color8(53, 60, 83), "sky_night": Color8(16, 23, 41)}
+	const FOREST_DAY := Color8(14, 17, 25)
+	const FOREST_NIGHT := Color8(10, 12, 23)
+	var view: VillageView
+
+	func _ready() -> void:
+		show_behind_parent = true
+
+	func _draw() -> void:
+		if view == null or view.def == null:
+			return
+		var n := view._nq()
+		var gy := view.def.ground_rect.position.y
+		var bottom := gy + 10.0
+		# сумерки: день → сумерки к середине, сумерки → ночь ко второй половине
+		var layers := [["sky_day", 1.0], ["sky_dusk", clampf(n * 2.2, 0.0, 1.0)], ["sky_night", clampf((n - 0.5) * 2.2, 0.0, 1.0)]]
+		for l: Array in layers:
+			var a: float = l[1]
+			if a <= 0.0:
+				continue
+			var tex: Texture2D = view._tex[l[0]]
+			var h := SKY_W * tex.get_height() / tex.get_width()
+			draw_rect(Rect2(-3000, bottom - h - 3000, 6720, 3002), Color(SKY_TOP[l[0]], a))
+			_strip(tex, bottom - h, SKY_W, h, Color(1, 1, 1, a))
+		# дальний лес: низ картинки уходит под верх земли
+		for i in range(2):
+			var a := clampf(1.0 - (n - 0.3) * 1.6, 0.0, 1.0) if i == 0 else clampf(n * 1.6, 0.0, 1.0)
+			if a <= 0.0:
+				continue
+			var tex: Texture2D = view._tex["treeline_day" if i == 0 else "treeline_night"]
+			var h := TREE_W * tex.get_height() / tex.get_width()
+			_strip(tex, gy + h * 0.34 - h, TREE_W, h, Color(1, 1, 1, a))
+		var forest := FOREST_DAY.lerp(FOREST_NIGHT, n)
+		draw_rect(Rect2(-3000, gy + 50.0, 6720, 60.0), forest)
+
+	## Полоса картинки по всей ширине, копии через одну отражены — шов не виден.
+	func _strip(tex: Texture2D, y: float, w: float, h: float, mod: Color) -> void:
+		var x0 := VillageView.LOGICAL.x * 0.5 - w * 0.5
+		for k in range(-3, 4):
+			var r := Rect2(x0 + k * w, y, w, h)
+			if k % 2 != 0:
+				draw_set_transform(Vector2(r.end.x, y), 0.0, Vector2(-1, 1))
+				draw_texture_rect(tex, Rect2(Vector2.ZERO, r.size), false, mod)
+				draw_set_transform(Vector2.ZERO)
+			else:
+				draw_texture_rect(tex, r, false, mod)
+
+
+## Еловые ветки по верхним углам поля: рамка кадра, поверх посёлка. Стоят на экране, а не в посёлке:
+## камера под ними двигается. Не ловят касания.
+class Branches extends Node2D:
+	var view: VillageView
+
+	func _ready() -> void:
+		top_level = true
+		z_index = 1
+
+	func _draw() -> void:
+		if view == null or view._field.size.x <= 0.0:
+			return
+		var tex: Texture2D = view._tex.branches
+		var f := view._field
+		var w := clampf(f.size.x * 0.24, 90.0, 260.0)
+		var h := w * tex.get_height() / tex.get_width()
+		draw_texture_rect(tex, Rect2(f.position.x - w * 0.08, f.position.y - h * 0.3, w, h), false)
+		var w2 := w * 0.8
+		var h2 := w2 * tex.get_height() / tex.get_width()
+		draw_set_transform(Vector2(f.end.x + w2 * 0.1, f.position.y - h2 * 0.38), 0.0, Vector2(-1, 1))
+		draw_texture_rect(tex, Rect2(0, 0, w2, h2), false)
+		draw_set_transform(Vector2.ZERO)
