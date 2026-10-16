@@ -29,6 +29,7 @@ scripts/autoload/nav.gd
 scripts/autoload/save.gd
 scripts/autoload/sfx.gd
 scripts/boot.gd
+scripts/core/campaign.gd
 scripts/core/challenge.gd
 scripts/core/chat_line.gd
 scripts/core/cosmetics.gd
@@ -69,6 +70,7 @@ scripts/ui/phase_clock.gd
 scripts/ui/safe_frame.gd
 scripts/ui/screen.gd
 scripts/ui/screen_host.gd
+scripts/ui/screens/campaign_screen.gd
 scripts/ui/screens/crash_screen.gd
 scripts/ui/screens/day_screen.gd
 scripts/ui/screens/door_screen.gd

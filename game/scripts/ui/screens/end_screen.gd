@@ -35,6 +35,8 @@ func build() -> void:
 		Sfx.play(&"upyr_cry", 0.9, -7.0)
 	else:
 		Sfx.play(&"growl", 0.9, -9.0)
+	if not Game.chapter_result.is_empty():
+		body.add_child(chapter_card(Game.chapter_result))
 	body.add_child(_verdict_card())
 	var reveal := reveal_cards()
 	if reveal != null:
@@ -81,7 +83,7 @@ func build() -> void:
 		nb.add_child(wear)
 		nc.add_child(nb)
 		body.add_child(nc)
-	if offer != "" and m.rule == "":
+	if offer != "" and m.rule == "" and Game.chapter.is_empty():
 		body.add_child(_offer_card())
 	var known := W.vbox(8)
 	for resident: Villager in m.villagers:
@@ -120,12 +122,67 @@ func build() -> void:
 		for line: String in sec.lines:
 			body.add_child(W.label(line, &"Small"))
 
+	if not Game.chapter_result.is_empty():
+		_chapter_buttons(Game.chapter_result)
+		return
 	var again := W.button(L.t("end.again"))
 	again.pressed.connect(func() -> void: commit(Intent.AGAIN))
 	footer.add_child(again)
 	var opts := W.button(L.t("settings.difficulty"), &"Ghost")
 	opts.pressed.connect(func() -> void: commit(Intent.OPEN_SETTINGS))
 	footer.add_child(opts)
+
+
+## Итог главы: пройдена или нет, звёзды, цели, концовка акта.
+func chapter_card(res: Dictionary) -> PanelContainer:
+	var card := W.panel(&"Sheet")
+	card.name = "ChapterResult"
+	var box := W.vbox(8)
+	card.add_child(box)
+	var id := String(res.id)
+	var head := W.label(L.t("camp.passed" if bool(res.passed) else "camp.failed", {"title": L.t("camp.%s.title" % id)}), &"Speaker")
+	head.add_theme_color_override("font_color", ThemeFactory.LAMP if bool(res.passed) else ThemeFactory.BLOOD)
+	box.add_child(head)
+	if bool(res.passed):
+		var st := W.label(Campaign.stars_text(int(res.stars)), &"Title")
+		st.name = "Stars"
+		st.add_theme_color_override("font_color", ThemeFactory.LAMP)
+		box.add_child(st)
+	box.add_child(PrologueScreen.goals_card(m, Game.chapter, res))
+	var lost: Array = res.get("lost", [])
+	if bool(res.passed) and not lost.is_empty():
+		var names: Array[Villager] = []
+		for v: Villager in m.villagers:
+			if lost.has(v.story_id):
+				names.append(v)
+		box.add_child(W.label(L.t("camp.lost_for_good", {"list": names}), &"Hint"))
+	elif not bool(res.passed):
+		box.add_child(W.label(L.t("camp.retry_note"), &"Hint"))
+	if bool(res.passed) and Campaign.next_of(id).is_empty():
+		var end := W.label(Campaign.act_ending(int(Game.chapter.get("act", 1))), &"Tale")
+		end.name = "ActEnd"
+		box.add_child(end)
+	return card
+
+
+func _chapter_buttons(res: Dictionary) -> void:
+	var id := String(res.id)
+	var next := Campaign.next_of(id)
+	var main: Button
+	if bool(res.passed) and not next.is_empty():
+		main = W.button(L.t("camp.next", {"title": L.t("camp.%s.title" % next)}))
+		main.pressed.connect(func() -> void: commit(Intent.PLAY_CHAPTER, {"id": next}))
+	elif bool(res.passed):
+		main = W.button(L.t("camp.to_chapters"))
+		main.pressed.connect(func() -> void: commit(Intent.OPEN_CAMPAIGN))
+	else:
+		main = W.button(L.t("camp.retry"))
+		main.pressed.connect(func() -> void: commit(Intent.PLAY_CHAPTER, {"id": id}))
+	main.name = "ChapterNext"
+	footer.add_child(main)
+	var chapters := W.button(L.t("camp.chapters"), &"Ghost")
+	chapters.pressed.connect(func() -> void: commit(Intent.OPEN_CAMPAIGN))
+	footer.add_child(chapters)
 
 
 ## Конец главы (Task 55): картинка исхода, если она есть, заголовок и кто дожил до утра.

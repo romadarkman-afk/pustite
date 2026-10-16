@@ -31,6 +31,8 @@ var _feed_gen: int = 0
 
 ## Дела дня. Время дня идёт вместе с часами фазы: пауза — стоят и дела.
 var tasks: Array[Director.JobTask] = []
+var chapter: Dictionary = {}        ## глава кампании (Campaign.chapter) или {} — обычная партия
+var chapter_result: Dictionary = {} ## итог главы: пройдена, звёзды, цели
 var dilemma: Dictionary = {}       ## дилемма у двери этой ночи (Match.door_dilemma) — экран двери её показывает
 var skipping := false              ## идёт skip_to_end: экраны фаз не показываются
 var day_t: float = 0.0
@@ -71,8 +73,10 @@ func active() -> bool:
 
 
 ## daily — дата испытания дня ("" — обычная партия): правило и зерно берутся по ней.
-func start(cfg: GameConfig, daily_date: String = "") -> void:
+func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = {}) -> void:
 	abandon()
+	chapter = chapter_data
+	chapter_result = {}
 	Dread.reset()
 	dilemma = {}
 	first_contact = false
@@ -82,13 +86,21 @@ func start(cfg: GameConfig, daily_date: String = "") -> void:
 	daily = daily_date
 	if daily != "":
 		m.rule = Challenge.rule_for(daily)
+	if not chapter.is_empty():
+		Save.campaign_begin()
+		m.cast = Campaign.cast(String(chapter.id))
 	m.start(cfg, Challenge.seed_for(daily) if daily != "" else 0)
+	if String(chapter.get("event", "")) == "fog":
+		m.force_event = Match.Event.FOG
 	director.tune = 0.0 if daily != "" else Save.tune()   # испытание дня у всех одинаковое
 	director.attach(m)
 	_keep_screen(true)
 	m.phase_changed.connect(_on_phase)
 	m.chat_posted.connect(func(l: ChatLine) -> void: chat_line.emit(l))
-	_on_phase(m.phase)
+	if bool(chapter.get("cold_open", false)):
+		m.cold_open(director.night_choices())    # первая глава: сразу стук в дверь
+	else:
+		_on_phase(m.phase)
 	marks_changed.emit()
 
 
@@ -362,7 +374,9 @@ func _on_phase(p: Match.Phase) -> void:
 			var you := m.player()
 			var won := (m.winner == Match.Team.PEOPLE) != you.is_upyr
 			var before := Cosmetics.open_ids()
-			Save.record_result(won, you.is_upyr, daily == "")
+			Save.record_result(won, you.is_upyr, daily == "" and chapter.is_empty())
+			if not chapter.is_empty():
+				chapter_result = Campaign.finish(m, chapter)
 			if daily != "":
 				Save.record_daily(daily, won)
 			new_items.clear()
@@ -438,7 +452,8 @@ func _prepare_door() -> void:
 		_finish_night()
 		return
 	host_pleas.clear()
-	dilemma = m.door_dilemma(mine) if role == Match.DoorRole.HOST else {}
+	var first_lesson := bool(chapter.get("cold_open", false)) and m.day == 1   # первая дверь новичка — без дилеммы
+	dilemma = m.door_dilemma(mine) if role == Match.DoorRole.HOST and not first_lesson else {}
 	if role == Match.DoorRole.HOST:
 		for g: Villager in mine.knockers():
 			host_pleas[g.id] = director.mimic_plea(g) if g == mine.mimic else director.plea_for(g)

@@ -557,6 +557,19 @@ static func layout() -> void:
 		Nav.show_wardrobe()
 		await _settle(tree)
 		checks += _check(tag, problems)
+		# экран глав: и пустой, и с пройденным актом, погибшими и концовкой — самый длинный вариант
+		var keep_stars := Save.campaign_stars.duplicate()
+		var keep_dead := Save.campaign_dead.duplicate()
+		Nav.show_campaign()
+		await _settle(tree)
+		checks += _check(tag + " · главы", problems)
+		Save.campaign_stars.assign({"a1c1": 3, "a1c2": 2, "a1c3": 1})
+		Save.campaign_dead.assign([1, 4])
+		Nav.show_campaign()
+		await _settle(tree)
+		checks += _check(tag + " · главы, акт пройден", problems)
+		Save.campaign_stars.assign(keep_stars)
+		Save.campaign_dead.assign(keep_dead)
 		Nav.show_howto(false)
 		await _settle(tree)
 		for pg in range(HowToScreen.PAGES.size()):
@@ -871,6 +884,96 @@ static func _check_sheet(sheet: ActionSheet, tag: String, out: PackedStringArray
 	if r.size.y < MIN_TOUCH * 3.0:
 		out.append("%s: шторка схлопнута (%d px)" % [w, int(r.size.y)])
 	return 1
+
+
+## Кампания (Task 58, 59, 63): главы, состав и погибшие насовсем, цели и звёзды, старт новичка со стука.
+static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
+	var ok := 0
+	var games_before := int(Save.stats["games"])
+	Save.campaign_reset()
+	# состав: первые трое — постоянные жители, погибшие в пройденной главе не приходят
+	var c1 := Campaign.cast("a1c1")
+	ok += _expect(fails, c1.size() == 4 and c1.has(0) and c1.has(1) and c1.has(2), "в первой главе не те жители: %s" % [c1])
+	var cfg2 := Campaign.config("a1c2")
+	ok += _expect(fails, cfg2.players == 7 and cfg2.monsters == 1 and cfg2.player_always_human, "условия второй главы не применились")
+	ok += _expect(fails, Campaign.unlocked("a1c1") and not Campaign.unlocked("a1c2"), "вторая глава открыта раньше первой")
+
+	# новичок: «Играть» — сразу первая глава, и через несколько секунд стучат в дверь
+	Save.stats["games"] = 0
+	Nav.show_menu()
+	await _settle(tree)
+	var t0 := Time.get_ticks_msec()
+	Nav.handle_intent(Intent.START, {}, Nav.host.current)
+	await _settle(tree)
+	var ds := Nav.host.current as DoorScreen
+	var knock_ok := ds != null and ds.role == Match.DoorRole.HOST and not ds.seat.knockers().is_empty()
+	if knock_ok:
+		for v: Villager in ds.seat.knockers():
+			knock_ok = knock_ok and not v.is_upyr
+	ok += _expect(fails, knock_ok and String(Game.chapter.get("id", "")) == "a1c1", "новичок после «Играть» не у двери со стуком (%s)" % [Nav.host.current])
+	ok += _expect(fails, Time.get_ticks_msec() - t0 < 10000, "до стука дольше 10 секунд")
+	ok += _expect(fails, Nav.village.crowd.figures.size() == Game.m.villagers.size(), "глава со стука началась без жителей на поле")
+	if ds != null:
+		var first: Array[int] = [ds.seat.knockers()[0].id]
+		ds._finish_host(first)
+		await _settle(tree)
+	var mo := Nav.host.current
+	ok += _expect(fails, mo is MorningScreen and mo.find_child("Goals", true, false) != null, "после первой ночи не видно целей главы")
+	ok += _expect(fails, Campaign.goal_done(Game.m, "admit_night1"), "впустил в первую ночь, а цель не засчитана")
+
+	# итог главы: пройдена — звёзды, погибшие насовсем, следующая открыта
+	var m := Game.m
+	var lost_bot: Villager = m.alive_bots()[0]
+	lost_bot.alive = false
+	m.winner = Match.Team.PEOPLE
+	var res := Campaign.finish(m, Game.chapter)
+	ok += _expect(fails, bool(res.passed) and int(res.stars) >= 2 and Save.campaign_stars.has("a1c1") and Save.campaign_dead.has(lost_bot.story_id),
+		"пройденная глава не записалась: %s" % [res])
+	ok += _expect(fails, Campaign.unlocked("a1c2") and not Campaign.cast("a1c2").has(lost_bot.story_id), "погибший пришёл в следующую главу")
+	Game.chapter_result = res
+	m.phase = Match.Phase.OVER
+	Nav.show(EndScreen.new())
+	await _settle(tree)
+	var nxt := Nav.host.current.find_child("ChapterNext", true, false) as Button
+	ok += _expect(fails, Nav.host.current.find_child("ChapterResult", true, false) != null and nxt != null and nxt.text.contains(L.t("camp.a1c2.title")),
+		"в конце главы нет итога или кнопки следующей главы")
+	# не пройдена — «Ещё раз», погибшие не записываются
+	var dead_before := Save.campaign_dead.size()
+	m.winner = Match.Team.UPYRI
+	var fail_res := Campaign.finish(m, Campaign.chapter("a1c3"))
+	ok += _expect(fails, not bool(fail_res.passed) and Save.campaign_dead.size() == dead_before and not Save.campaign_stars.has("a1c3"),
+		"проваленная глава записала погибших или звёзды")
+
+	# вторая глава: сцена главы с текстом главы и целями
+	if nxt != null:
+		nxt.pressed.emit()
+		await _settle(tree)
+	var ps := Nav.host.current as PrologueScreen
+	ok += _expect(fails, ps != null and ps._beat_text.text in [L.t("camp.a1c2.beat1"), L.t("camp.a1c2.beat2")] and ps._cast.find_child("Goals", true, false) != null,
+		"вторая глава началась без своей сцены и целей")
+	ok += _expect(fails, Game.m.force_event == Match.Event.FOG and Game.m.villagers.size() == 7, "во второй главе нет тумана или не тот состав")
+
+	# экран глав: открытая и закрытая глава, акты «скоро», память о погибших, концовка акта
+	Nav.show_campaign()
+	await _settle(tree)
+	var cs := Nav.host.current
+	var b1 := cs.find_child("Chapter_a1c1", true, false) as Button
+	var b3 := cs.find_child("Chapter_a1c3", true, false) as Button
+	ok += _expect(fails, b1 != null and not b1.disabled and b3 != null and b3.disabled and cs.find_child("Soon_2", true, false) != null
+		and cs.find_child("Fallen", true, false) != null, "экран глав: не видно открытых, закрытых, будущих актов или погибших")
+	var none_lost: Array[int] = []
+	Save.record_chapter("a1c2", 3, none_lost)
+	Save.record_chapter("a1c3", 1, none_lost)
+	Nav.show_campaign()
+	await _settle(tree)
+	var act_end := Nav.host.current.find_child("ActEnd_1", true, false)
+	ok += _expect(fails, act_end != null and not _all_text(act_end).contains("{") and not _all_text(act_end).is_empty(), "после третьей главы нет концовки акта")
+	ok += _expect(fails, not _all_text(Nav.host.current).contains("{"), "на экране глав метка подстановки")
+
+	Save.campaign_reset()
+	Save.stats["games"] = games_before
+	Save.flush()
+	return ok
 
 
 ## Весь текст подписей, даже вне дерева сцены (карточка ещё не показана).
@@ -2228,6 +2331,8 @@ static func howto() -> void:
 	await _frames(tree, 3)
 	Nav.frame.refresh()
 	Save.howto_seen = false
+	# совсем новый игрок с «Играть» попадает в первую главу кампании (--recap); здесь — тот, кто уже играл
+	Save.stats["games"] = maxi(1, int(Save.stats["games"]))
 
 	Nav.show_menu()
 	await _settle(tree)
@@ -5014,6 +5119,8 @@ static func recap() -> void:
 	end_s.close_slides()
 	await _frames(tree, 3)
 	ok += _expect(fails, end_s.slides == null and not is_instance_valid(sl), "заставка финала не закрывается")
+
+	ok += await _campaign_checks(tree, fails)
 
 	Nav.show_menu()
 	await _settle(tree)

@@ -35,6 +35,10 @@ func build() -> void:
 	name_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	name_button.pressed.connect(func() -> void: emit_intent(Intent.SET_PLAYER_NAME))
 	body.add_child(name_button)
+	# кампания — рядом с «Играть», под пальцем; глава и звёзды — на экране глав
+	var camp := W.button(L.t("menu.campaign"), &"RowOn")
+	camp.name = "Campaign"
+	camp.pressed.connect(func() -> void: emit_intent(Intent.OPEN_CAMPAIGN))
 	var dbs: Array[Button] = []
 	var custom_b: Button = null
 	for d: String in ["easy", "normal", "hard", "custom"]:
@@ -68,7 +72,7 @@ func build() -> void:
 	# «Играть» — самая нижняя, под большим пальцем; строка о партии — над ступенями сложности
 	var start := W.button(L.t("menu.play"))
 	start.pressed.connect(func() -> void: emit_intent(Intent.START))
-	footer.add_child(start)
+	footer.add_child(W.fit_row([camp, start] as Array[Button]))
 	_diff_note = W.label("", &"Small")
 	body.add_child(_diff_note)          # над кнопкой «Играть»: при крупном тексте подвал не съедает экран
 	refresh(difficulty, cfg)

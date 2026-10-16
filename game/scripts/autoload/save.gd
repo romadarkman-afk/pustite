@@ -29,6 +29,9 @@ var hat: String = "own"                ## шапка (Cosmetics.HATS)
 var brooch: String = "none"           ## значок на одежде игрока
 var player_name: String = ""            ## имя игрока, пусто — локализованное обращение по умолчанию
 var anchor_bonds: Dictionary[String, int] = {} ## отношения с тремя постоянными жителями
+var campaign_stars: Dictionary[String, int] = {}  ## кампания: пройденные главы -> звёзды (1–3)
+var campaign_dead: Array[int] = []              ## кампания: номера имён погибших насовсем
+var campaign_seed: int = 0                      ## кампания: порядок новых лиц, задаётся один раз
 var hints_seen: Dictionary = {}       ## id подсказки -> true: больше не показывать
 var stats: Dictionary[String, int] = {
 	"games": 0, "wins": 0, "as_upyr": 0, "upyr_wins": 0,
@@ -77,6 +80,16 @@ func load_all() -> void:
 	hat = String(cf.get_value("look", "hat", "own")) if has else "own"
 	brooch = String(cf.get_value("look", "brooch", "none")) if has else "none"
 	player_name = String(cf.get_value("profile", "name", "")).strip_edges().left(20) if has else ""
+	campaign_stars.clear()
+	campaign_dead.clear()
+	campaign_seed = int(cf.get_value("campaign", "seed", 0)) if has else 0
+	if has:
+		for part: String in String(cf.get_value("campaign", "stars", "")).split(",", false):
+			var kv := part.split(":")
+			if kv.size() == 2:
+				campaign_stars[kv[0]] = clampi(int(kv[1]), 1, 3)
+		for part: String in String(cf.get_value("campaign", "dead", "")).split(",", false):
+			campaign_dead.append(int(part))
 	anchor_bonds.clear()
 	for i in range(3):
 		anchor_bonds[str(i)] = clampi(int(cf.get_value("relationships", str(i), 0)), -3, 3) if has else 0
@@ -307,7 +320,36 @@ func flush() -> void:
 	for i in range(3):
 		cf.set_value("relationships", str(i), anchor_bond(i))
 	cf.set_value("hints", "seen", ",".join(PackedStringArray(hints_seen.keys())))
+	var st := PackedStringArray()
+	for k: String in campaign_stars:
+		st.append("%s:%d" % [k, campaign_stars[k]])
+	cf.set_value("campaign", "stars", ",".join(st))
+	cf.set_value("campaign", "dead", ",".join(PackedStringArray(campaign_dead.map(func(x: int) -> String: return str(x)))))
+	cf.set_value("campaign", "seed", campaign_seed)
 	cf.save(SETTINGS_PATH)
+
+
+## Глава пройдена: звёзды — лучший результат, погибшие больше не придут.
+func record_chapter(id: String, stars: int, lost: Array[int]) -> void:
+	campaign_stars[id] = maxi(int(campaign_stars.get(id, 0)), clampi(stars, 1, 3))
+	for idx: int in lost:
+		if not campaign_dead.has(idx):
+			campaign_dead.append(idx)
+	flush()
+
+
+func campaign_begin() -> void:
+	if campaign_seed == 0:
+		campaign_seed = randi_range(1, 1 << 30)
+		flush()
+
+
+## Начать кампанию заново: звёзды, погибшие и порядок новых лиц стираются.
+func campaign_reset() -> void:
+	campaign_stars.clear()
+	campaign_dead.clear()
+	campaign_seed = 0
+	flush()
 
 
 func mark_howto() -> void:

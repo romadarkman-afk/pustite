@@ -158,6 +158,23 @@ func start_match() -> void:
 	Game.start(Save.config)
 
 
+## Глава кампании. Пустой id — продолжить с первой непройденной.
+func start_chapter(id: String = "") -> void:
+	if id.is_empty():
+		id = Campaign.current()
+	if not Campaign.unlocked(id):
+		toast(L.t("camp.locked"))
+		return
+	Save.mark_howto()                      # правила новичку объясняются по ходу главы
+	Game.start(Campaign.config(id), "", Campaign.chapter(id))
+
+
+func show_campaign() -> void:
+	Game.abandon()
+	village.crowd.clear()
+	show(CampaignScreen.new())
+
+
 ## Испытание дня: одна попытка в сутки. Уже сыграно — сказать, когда следующее.
 func start_daily() -> bool:
 	var date := Challenge.today()
@@ -283,8 +300,12 @@ func _tween_to(obj: Object, prop: String, value: float, dur: float) -> void:
 # =============================================================
 # Game → экраны
 # =============================================================
+var _populated_for: Match = null
+
+
 func _on_phase(phase: Match.Phase) -> void:
-	if phase == Match.Phase.PROLOGUE:
+	if phase == Match.Phase.PROLOGUE or _populated_for != Game.m:   # глава со стука начинается без пролога
+		_populated_for = Game.m
 		village.crowd.populate(Game.m)
 		village.crowd.update_marks(Game.director, Game.m)
 	village.crowd.day_jobs = Game.m.jobs
@@ -436,7 +457,9 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 	match action:
 		Intent.START:
 			_apply_settings(data)
-			if not Save.howto_seen:
+			if Campaign.is_new() and int(Save.stats["games"]) == 0:
+				start_chapter("a1c1")     # новичок: сразу первая глава, стук через несколько секунд
+			elif not Save.howto_seen:
 				show_howto(true)          # первая партия: сначала «Как играть»
 			else:
 				start_match()
@@ -457,6 +480,10 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 		Intent.BACK:
 			_apply_settings(data)
 			show_menu()
+		Intent.OPEN_CAMPAIGN:
+			show_campaign()
+		Intent.PLAY_CHAPTER:
+			start_chapter(String(data.get("id", "")))
 		Intent.SKIP_TO_END:
 			Game.skip_to_end()
 		Intent.AGAIN:
@@ -794,7 +821,7 @@ func _on_back() -> void:
 		var ss := s as SettingsScreen
 		_apply_settings({"cfg": ss.cfg, "haptics": ss.haptics, "reset_hints": ss.reset_hints, "difficulty": ss.difficulty})
 		show_menu()
-	elif s is EndScreen or s is WardrobeScreen:
+	elif s is EndScreen or s is WardrobeScreen or s is CampaignScreen:
 		show_menu()
 	elif s is HowToScreen:
 		Save.mark_howto()

@@ -141,6 +141,7 @@ const DILEMMA_OIL_P := 0.3
 var refused_player: Array[Dictionary] = []   ## {"day", "by": Villager} — кто не открыл игроку
 var accused_player: Dictionary[int, int] = {} ## кто обвинял игрока: id -> день
 var owes_player: Dictionary[int, bool] = {}  ## игрок впустил того, кто ему не открыл: долг платежом красен
+var cast: Array[int] = []                   ## кампания: номера имён жителей (L.names); пусто — обычная жеребьёвка
 var forest_call_day: int = -1                ## ночью после изгнания из леса зовут игрока по имени
 const FOREST_CALL_HUMAN := 0.8
 const FOREST_CALL_UPYR := 0.35               ## упырь тоже умеет звать — по зову роль не понять
@@ -283,10 +284,14 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	villagers.append(Villager.new(0, Save.player_display_name(), true))
 	for i in range(config.players - 1):
 		var data: Array = anchors[i] if i < anchors.size() else pool[i - anchors.size()]
+		var idx := i if i < anchors.size() else names.find(data)
+		if i < cast.size() and cast[i] < names.size():
+			idx = cast[i]                  # кампания: те же люди из главы в главу
+			data = names[idx]
 		var v := Villager.new(i + 1, String(data[0]), false)
 		v.female = bool(data[1])
-		v.anchor_id = i if i < anchors.size() else -1
-		v.story_id = i if i < anchors.size() else names.find(data)
+		v.anchor_id = idx if idx < 3 else -1
+		v.story_id = idx
 		v.age = SocialContent.story_age(v.story_id)
 		v.relationship = Save.anchor_bond(v.anchor_id)
 		v.persona = Voices.persona_for(v.story_id, v.name)
@@ -647,6 +652,29 @@ func seat_night(choices: Dictionary[int, int], arrival: Dictionary[int, float] =
 		seats.append(s)
 	_place_mimic()
 	_set_phase(Phase.DOOR)
+
+
+## Глава начинается сразу со стука (Task 63): колокола не было, игрок уже в доме, в дверь стучат
+## двое людей. Остальные — по другим домам. Дальше партия идёт как обычно.
+func cold_open(choices: Dictionary[int, int]) -> void:
+	assert(phase == Phase.PROLOGUE)
+	phase = Phase.NIGHT                    # без сигнала: экрана колокола не будет
+	var arrival: Dictionary[int, float] = {0: 0.0}
+	choices[0] = 0
+	var knock: Array[Villager] = []
+	for v: Villager in alive_bots():
+		if not v.is_upyr and knock.size() < 2:
+			knock.append(v)
+	for v: Villager in alive_bots():
+		if v.is_upyr:
+			v.fed = true                   # первая ночь новичка: упырь ещё сыт, учиться можно без резни в доме
+		if knock.has(v):
+			choices[v.id] = 0
+			arrival[v.id] = 1.0 + knock.find(v)
+		elif int(choices.get(v.id, 0)) == 0:
+			choices[v.id] = 1 % maxi(1, houses.size())
+		v.announced_house = int(choices[v.id])
+	seat_night(choices, arrival)
 
 
 ## Подражатель выбирает дверь и голос: житель не из этого дома — живой в другом месте или погибший.

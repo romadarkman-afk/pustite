@@ -84,6 +84,8 @@ func build() -> void:
 		"s": m.config.shelters, "c": m.config.capacity, "n": m.config.nights}), &"Small")
 	facts.modulate.a = 0.0
 	_cast.add_child(facts)
+	if not Game.chapter.is_empty():
+		_cast.add_child(goals_card(m, Game.chapter, {}))
 	_cast.add_child(people_strip())
 	_cast.add_child(W.label(SocialContent.narrative_ui("cast"), &"Speaker"))
 	for v: Villager in m.villagers:
@@ -119,10 +121,53 @@ func build() -> void:
 
 
 func _show_beat() -> void:
-	var beats := SocialContent.opening_beats(m)
+	if not Game.chapter.is_empty() and _beat == 0:
+		var tex := Campaign.art(String(Game.chapter.id))
+		if tex != null and _beat_card.get_node_or_null("Art") == null:
+			var art := TextureRect.new()
+			art.name = "Art"
+			art.texture = tex
+			art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			art.custom_minimum_size = Vector2(0, 320)
+			(_beat_card.get_child(0) as Control).add_child(art)
+			(_beat_card.get_child(0) as Control).move_child(art, 0)
+	var beats := SocialContent.opening_beats(m) if Game.chapter.is_empty() else chapter_beats(String(Game.chapter.id))
 	_beat_title.text = String(beats[_beat][0])
 	_beat_text.text = String(beats[_beat][1])
 	Juice.pop_in(_beat_card, 0.06)
+
+
+## Сцена главы: две страницы текста и картинка главы, если она есть.
+static func chapter_beats(id: String) -> Array:
+	return [[L.t("camp.%s.beat1_title" % id), L.t("camp.%s.beat1" % id)],
+		[L.t("camp.%s.beat2_title" % id), L.t("camp.%s.beat2" % id)]]
+
+
+## Цели главы: основная и две за звёзды. result — итог (Campaign.finish), до партии пусто.
+static func goals_card(mm: Match, ch: Dictionary, result: Dictionary) -> PanelContainer:
+	var card := W.panel(&"Card")
+	card.name = "Goals"
+	var box := W.vbox(6)
+	card.add_child(box)
+	box.add_child(W.label(L.t("camp.goals"), &"Speaker"))
+	var list: Array = result.get("goals", [])
+	if list.is_empty():
+		var keys: Array = [String(ch.get("goal", ""))]
+		keys.append_array(ch.get("extra", []))
+		for k: String in keys:
+			list.append({"key": k, "done": false})
+	var i := 0
+	for g: Dictionary in list:
+		var mark := ""
+		if not result.is_empty():
+			mark = ("✓ " if bool(g.done) else "✗ ")
+		var line := W.icon_line("street_ok" if i == 0 else "info", mark + L.t("goal." + String(g.key)) + ("" if i == 0 else " ★"),
+			&"Body" if i == 0 else &"Small")
+		line.name = "Goal_" + String(g.key)
+		box.add_child(line)
+		i += 1
+	return card
 
 
 func _advance() -> void:

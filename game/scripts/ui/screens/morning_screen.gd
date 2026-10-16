@@ -37,6 +37,9 @@ func build() -> void:
 	head.add_theme_font_size_override("font_size", ThemeFactory.fs(44))
 	body.add_child(head)
 	# тебя не стало этой ночью — сразу видно почему: кто был рядом, кто открыл дверь
+	# первая глава началась со стука: цели главы — после первой ночи, когда игрок уже понял, что тут происходит
+	if bool(Game.chapter.get("cold_open", false)) and m.day == 1:
+		body.add_child(PrologueScreen.goals_card(m, Game.chapter, {}))
 	if you_died():
 		body.add_child(you_dead_card(r))
 		Sfx.set_music(&"", 0.3)
