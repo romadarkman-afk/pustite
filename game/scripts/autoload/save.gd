@@ -26,6 +26,7 @@ var daily_wins: int = 0
 var daily_best: int = 0                ## лучшая серия дней подряд
 var lantern: String = "classic"        ## фонарь твоего жителя (Cosmetics.LANTERNS)
 var hat: String = "own"                ## шапка (Cosmetics.HATS)
+var brooch: String = "none"           ## значок на одежде игрока
 var player_name: String = ""            ## имя игрока, пусто — локализованное обращение по умолчанию
 var anchor_bonds: Dictionary[String, int] = {} ## отношения с тремя постоянными жителями
 var hints_seen: Dictionary = {}       ## id подсказки -> true: больше не показывать
@@ -74,6 +75,7 @@ func load_all() -> void:
 	daily_best = int(cf.get_value("daily", "best", 0)) if has else 0
 	lantern = String(cf.get_value("look", "lantern", "classic")) if has else "classic"
 	hat = String(cf.get_value("look", "hat", "own")) if has else "own"
+	brooch = String(cf.get_value("look", "brooch", "none")) if has else "none"
 	player_name = String(cf.get_value("profile", "name", "")).strip_edges().left(20) if has else ""
 	anchor_bonds.clear()
 	for i in range(3):
@@ -81,6 +83,7 @@ func load_all() -> void:
 	if DisplayServer.get_name() == "headless":
 		lantern = "classic"   # самотесты видят жителя без косметики; --cosmetics надевает сам
 		hat = "own"
+		brooch = "none"
 	if has:
 		haptics = bool(cf.get_value("ui", "haptics", true))
 		for k: String in stats.keys():
@@ -140,8 +143,12 @@ func wear(kind: String, id: String) -> bool:
 		return false
 	if kind == "lantern":
 		lantern = id
-	else:
+	elif kind == "hat":
 		hat = id
+	elif kind == "brooch":
+		brooch = id
+	else:
+		return false
 	flush()
 	return true
 
@@ -295,6 +302,7 @@ func flush() -> void:
 	cf.set_value("daily", "best", daily_best)
 	cf.set_value("look", "lantern", lantern)
 	cf.set_value("look", "hat", hat)
+	cf.set_value("look", "brooch", brooch)
 	cf.set_value("profile", "name", player_name)
 	for i in range(3):
 		cf.set_value("relationships", str(i), anchor_bond(i))

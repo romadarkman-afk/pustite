@@ -14,6 +14,8 @@ const SOUNDS := {
 	&"bell": "res://assets/sfx/bell.ogg",
 	&"tick": "res://assets/sfx/tick.ogg",
 	&"death": "res://assets/sfx/death.ogg",
+	&"human_cry": "res://assets/sfx/human_cry.wav",
+	&"upyr_cry": "res://assets/sfx/upyr_cry.wav",
 	&"exile": "res://assets/sfx/exile.ogg",
 	&"win": "res://assets/sfx/win.ogg",
 	&"lose": "res://assets/sfx/lose.ogg",

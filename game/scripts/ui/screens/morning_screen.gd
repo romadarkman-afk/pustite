@@ -55,6 +55,10 @@ func _reveal(r: NightReport) -> void:
 	for e: NightReport.Entry in r.entries:
 		if e.is_death():
 			lines.append([_text(e), &"Body", true, _glyph(e)])
+			if e.who != null:
+				for survivor: Villager in m.alive_bots():
+					if survivor.partner_id == e.who.id or survivor.family_id == e.who.id:
+						lines.append([SocialContent.grief_text(survivor, e.who), &"Tale", false, "people"])
 	for e: NightReport.Entry in r.entries:
 		if not e.is_death():
 			lines.append([_text(e), &"Small", false, _glyph(e)])
@@ -73,6 +77,7 @@ func _reveal(r: NightReport) -> void:
 		if l[2]:
 			Juice.haptic(Juice.Haptic.DEATH)
 			Sfx.play(&"death")
+			Sfx.play(&"human_cry", 0.9 + randf() * 0.18, -5.0)
 			death_fx.emit()
 			Juice.shake(self, 8.0, 0.25)
 			await Juice.wait(0.7)

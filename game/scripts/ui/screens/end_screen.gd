@@ -30,6 +30,8 @@ func build() -> void:
 	body.add_child(W.label(L.t("end.won" if won else "end.lost"), &"Tale"))
 	Juice.haptic(Juice.Haptic.SUCCESS if won else Juice.Haptic.DEATH)
 	Sfx.play(&"win" if won else &"lose")
+	if people_won:
+		Sfx.play(&"upyr_cry", 0.9, -7.0)
 	body.add_child(_verdict_card())
 	var case_card := W.panel(&"Card")
 	case_card.name = "CaseRecap"
@@ -65,6 +67,20 @@ func build() -> void:
 		body.add_child(nc)
 	if offer != "" and m.rule == "":
 		body.add_child(_offer_card())
+	var known := W.vbox(8)
+	for resident: Villager in m.villagers:
+		var ending := SocialContent.epilogue(resident) if not resident.is_player else ""
+		if not ending.is_empty():
+			known.add_child(W.label(ending, &"Small"))
+	if known.get_child_count() > 0:
+		var chapter := W.panel(&"Card")
+		var chapter_box := W.vbox(8)
+		chapter_box.add_child(W.label("После последней ночи" if L.code == "ru" else "After the last night", &"Speaker"))
+		chapter_box.add_child(known)
+		chapter.add_child(chapter_box)
+		body.add_child(chapter)
+	else:
+		known.queue_free()
 
 	body.add_child(W.label(L.t("end.who"), &"Hint"))
 	var flow := HFlowContainer.new()

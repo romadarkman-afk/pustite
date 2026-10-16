@@ -50,6 +50,7 @@ func populate(m: Match) -> void:
 		add_child(f)
 		if v.is_player:
 			f.set_lantern(Save.lantern)
+			f.set_brooch(Save.brooch)
 		figures[v.id] = f
 		figs.append(f)
 	var widths: Array[float] = []

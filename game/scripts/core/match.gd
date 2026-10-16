@@ -290,6 +290,16 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 				break
 		if a.partner_id >= 0:
 			break
+	# Семейные связи зависят от биографии, а не от скрытой роли.
+	for pair: Array in [[2, 3], [4, 6]]:
+		var parent: Villager = null
+		var child: Villager = null
+		for resident: Villager in villagers:
+			if resident.story_id == pair[0]: parent = resident
+			if resident.story_id == pair[1]: child = resident
+		if parent != null and child != null:
+			parent.family_id = child.id
+			child.family_id = parent.id
 
 	var order: Array = range(villagers.size())
 	if config.player_always_human:
@@ -676,7 +686,7 @@ func door_sign_for(visitor: Villager, seat: Seat) -> StringName:
 
 
 ## Личные наблюдения хозяина. Два осмотра за ночь; повтор не тратит второй осмотр.
-func inspect_visitor(seat: Seat, vid: int) -> StringName:
+func inspect_visitor(seat: Seat, vid: int, limit: int = 2) -> StringName:
 	if phase != Phase.DOOR or seat == null or seat.host == null or seat.decided or not seat.host.is_player:
 		return &""
 	var used := 0
@@ -686,7 +696,7 @@ func inspect_visitor(seat: Seat, vid: int) -> StringName:
 		used += 1
 		if int(record.villager) == vid:
 			return &""
-	if used >= 2:
+	if used >= limit:
 		return &""
 	for visitor: Villager in seat.knockers():
 		if visitor.id == vid:

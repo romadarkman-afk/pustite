@@ -2,6 +2,13 @@ class_name PrologueScreen
 extends Screen
 
 var revealed := false
+var _beat := 0
+var _beat_title: Label
+var _beat_text: Label
+var _beat_card: Control
+var _cast: VBoxContainer
+var _go: Button
+var _reveal_nodes: Array = []
 
 
 func screen_id() -> String:
@@ -25,28 +32,41 @@ func mood() -> Vector2:
 
 
 func build() -> void:
+	_beat = 0
+	_beat_card = W.panel(&"Sheet")
+	var beat_box := W.vbox(16)
+	_beat_title = W.label("", &"Title")
+	_beat_text = W.label("", &"Tale")
+	beat_box.add_child(_beat_title)
+	beat_box.add_child(_beat_text)
+	_beat_card.add_child(beat_box)
+	body.add_child(_beat_card)
+	_cast = W.vbox(12)
+	_cast.visible = false
+	body.add_child(_cast)
+	_show_beat()
 	var you := m.player()
 	var pre := W.label(L.t("prologue.pre"), &"Small")
-	body.add_child(pre)
+	_cast.add_child(pre)
 	var arrival := W.panel(&"Card")
 	arrival.name = "ArrivalStory"
 	arrival.add_child(W.label(SocialContent.village_intro(m), &"Small"))
-	body.add_child(arrival)
+	_cast.add_child(arrival)
 	var role := W.label(L.t("prologue.upyr" if you.is_upyr else "prologue.human"), &"Title")
 	if you.is_upyr:
 		role.add_theme_color_override("font_color", ThemeFactory.BLOOD)
 	role.modulate.a = 0.0
-	body.add_child(role)
+	_cast.add_child(role)
 	var story := W.label(
 		L.t("prologue.upyr_text" if you.is_upyr else "prologue.human_text"),
 		&"Tale")
 	story.modulate.a = 0.0
-	body.add_child(story)
+	_cast.add_child(story)
 	var role_l := W.label(_role_text(you), &"Hint")
 	role_l.modulate.a = 0.0
 	if role_l.text.is_empty():
 		role_l.visible = false
-	body.add_child(role_l)
+	_cast.add_child(role_l)
 	var case_card := W.panel(&"Card")
 	case_card.name = "CaseFile"
 	var case_text := W.vbox(4)
@@ -54,18 +74,18 @@ func build() -> void:
 	case_text.add_child(W.label(SocialContent.case_hook(m.case_id), &"Small"))
 	case_card.add_child(case_text)
 	case_card.modulate.a = 0.0
-	body.add_child(case_card)
+	_cast.add_child(case_card)
 	if m.rule != "":
 		var dl := W.icon_line(MorningScreen.event_glyph(Challenge.night_event(m.rule)) if Challenge.night_event(m.rule) != Match.Event.NONE else "bell",
 			L.t("daily.title") + ": " + Challenge.title(m.rule) + ". " + Challenge.text(m.rule), &"Hint")
 		dl.name = "Daily"
-		body.add_child(dl)
+		_cast.add_child(dl)
 	var facts := W.label(L.t("prologue.facts", {"p": m.config.players, "u": m.config.monsters,
 		"s": m.config.shelters, "c": m.config.capacity, "n": m.config.nights}), &"Small")
 	facts.modulate.a = 0.0
-	body.add_child(facts)
-	body.add_child(people_strip())
-	body.add_child(W.label(SocialContent.narrative_ui("cast"), &"Speaker"))
+	_cast.add_child(facts)
+	_cast.add_child(people_strip())
+	_cast.add_child(W.label(SocialContent.narrative_ui("cast"), &"Speaker"))
 	for v: Villager in m.villagers:
 		if v.is_player:
 			continue
@@ -90,13 +110,36 @@ func build() -> void:
 			info.add_child(W.label(bond, &"Hint"))
 		row.add_child(info)
 		card.add_child(row)
-		body.add_child(card)
+		_cast.add_child(card)
 
-	var go := W.button(L.t("prologue.go"))
-	go.modulate.a = 0.0
-	go.pressed.connect(func() -> void: commit(Intent.CONTINUE))
-	footer.add_child(go)
-	_reveal([role, story, role_l, case_card, facts, go])
+	_go = W.button("Дальше" if L.code == "ru" else "Continue")
+	_go.pressed.connect(_advance)
+	footer.add_child(_go)
+	_reveal_nodes = [role, story, role_l, case_card, facts]
+
+
+func _show_beat() -> void:
+	var beats := SocialContent.opening_beats(m)
+	_beat_title.text = String(beats[_beat][0])
+	_beat_text.text = String(beats[_beat][1])
+	Juice.pop_in(_beat_card, 0.06)
+
+
+func _advance() -> void:
+	if _beat == 0:
+		_beat = 1
+		Sfx.play(&"knock")
+		Juice.haptic(Juice.Haptic.NIGHT)
+		_show_beat()
+	elif _beat == 1:
+		_beat = 2
+		_beat_card.visible = false
+		_cast.visible = true
+		_go.text = L.t("prologue.go")
+		_go.disabled = true
+		_reveal(_reveal_nodes)
+	elif revealed:
+		commit(Intent.CONTINUE)
 
 
 func _role_text(you: Villager) -> String:
@@ -123,6 +166,8 @@ func _reveal(nodes: Array) -> void:
 			Juice.tween().tween_property(n, "modulate:a", 1.0, 0.45)
 		await Juice.wait(0.35)
 	revealed = true
+	if is_instance_valid(_go):
+		_go.disabled = false
 
 
 func ambience() -> StringName:

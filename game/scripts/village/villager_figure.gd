@@ -77,6 +77,7 @@ var _lean := 0.0               ## отшатнулся (обвинили) или
 var _lean_t := 0.0
 
 var lantern_id := "classic"     ## фонарь игрока (Cosmetics.LANTERNS) — только картинка и цвет света
+var brooch_id := "none"
 
 ## Тело — картинка из листов жителей (assets/folk/f1..f16): первый лист — старуха, мужик с бородой,
 ## девушка в кокошнике, парень, старик с клюкой, девочка, кузнец, охотник; второй — четыре женщины,
@@ -90,7 +91,7 @@ const HERO_M := 101
 const HERO_F := 102
 const HERO_HAT_IDS: PackedStringArray = ["top_hat", "beret", "straw", "ushanka", "flower", "jester"]
 ## Где фонарь на картинке героя: доля ширины от середины и доля высоты от земли.
-const HERO_LANTERN := {HERO_M: Vector2(0.41, 0.56), HERO_F: Vector2(0.30, 0.52)}
+const HERO_LANTERN := {HERO_M: Vector2(0.41, 0.66), HERO_F: Vector2(0.40, 0.66)}
 static var _folk_tex: Dictionary = {}
 static var _hero_hat_tex: Dictionary = {}
 var sprite_id: int = 0
@@ -898,6 +899,8 @@ func _draw_body() -> void:
 	var missing_hero_hat := is_player and hero_hat_id != "own" and hero_hat_texture(sprite_id, hero_hat_id) == null
 	if sprite_id <= 0 or missing_hero_hat:
 		Folk.figure(body, Vector2.ZERO, S, look, fp[0], fp[1], Folk.palette(look))
+		if is_player:
+			_draw_brooch(Vector2(-4, -FIG_TOP * 0.63))
 		return
 	_draw_sprite(fp[0], fp[1])
 
@@ -928,8 +931,17 @@ func _draw_sprite(face: String, pose: Dictionary) -> void:
 				2.2 + puff * 1.0, Color(0.71, 0.79, 0.85, mist * exhale / (puff + 1.0)))
 	else:
 		_draw_field_rig(tex, h, w, pose)
-	if pose.get("lantern", false) and not pose.has("tool") and not HERO_LANTERN.has(sprite_id):
-		Folk._lantern(body, Vector2(w * 0.4, -h * 0.46), S, Art.INK, 2.8 * S, pose.get("lantern_style", {}))
+	if is_player:
+		_draw_brooch(Vector2(-w * 0.13, -h * 0.68))
+	if pose.get("lantern", false) and not pose.has("tool"):
+		if HERO_LANTERN.has(sprite_id):
+			# На PNG героя нарисован обычный фонарь. Перекрываем его выбранной моделью.
+			if lantern_id != "classic":
+				var center := _hero_lantern_pos()
+				body.draw_colored_polygon(_ellipse(center, Vector2(6.2, 8.5)), Color("242027"))
+				Folk._lantern(body, center - Vector2(0, 10.5), 0.78, Art.INK, 2.1, pose.get("lantern_style", {}))
+		else:
+			Folk._lantern(body, Vector2(w * 0.4, -h * 0.46), S, Art.INK, 2.8 * S, pose.get("lantern_style", {}))
 	if pose.get("point", false):
 		# рука-указатель: от плеча вперёд, в сторону взгляда
 		var a := Vector2(w * 0.28, -h * 0.68)
@@ -940,6 +952,25 @@ func _draw_sprite(face: String, pose: Dictionary) -> void:
 	body.draw_set_transform(Vector2.ZERO)
 	if pose.get("emote", false):
 		_emote_mark(face, Vector2(-w * 0.32, -h + 2.0))
+
+
+func _draw_brooch(at: Vector2) -> void:
+	if brooch_id == "none":
+		return
+	var fill := Color("d5a24d")
+	if brooch_id == "bone": fill = Color("d7d2bc")
+	if brooch_id == "seal": fill = Color("a64b4c")
+	body.draw_circle(at, 4.8, Art.INK)
+	body.draw_circle(at, 3.5, fill)
+	if brooch_id == "sun":
+		for i in range(8):
+			var a := TAU * float(i) / 8.0
+			body.draw_line(at + Vector2.from_angle(a) * 5.2, at + Vector2.from_angle(a) * 7.1, fill, 1.0)
+	elif brooch_id == "bone":
+		body.draw_line(at + Vector2(-2, -2), at + Vector2(2, 2), Art.INK, 1.2)
+		body.draw_line(at + Vector2(-2, 2), at + Vector2(2, -2), Art.INK, 1.2)
+	else:
+		body.draw_circle(at, 1.3, Art.INK)
 
 
 func _build_sprite_rig(tex: Texture2D, h: float, w: float) -> void:
@@ -1085,6 +1116,11 @@ func set_lantern(id: String) -> void:
 	lantern_id = id
 	if lantern_light != null:
 		lantern_light.color = Cosmetics.lantern(id).light
+	body.queue_redraw()
+
+
+func set_brooch(id: String) -> void:
+	brooch_id = id
 	body.queue_redraw()
 
 

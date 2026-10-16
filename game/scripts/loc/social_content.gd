@@ -685,6 +685,14 @@ static func personal_chapter(v: Villager, step: int) -> String:
 
 
 static func bond_text(v: Villager, m: Match) -> String:
+	var family := m.get_villager(v.family_id)
+	if family != null:
+		var parent := v.age > family.age
+		if L.code == "ru":
+			return ("Мой сын %s оставил дома письмо. Я обещала прочитать его только после нашего отъезда." % family.name if parent else
+				"Моя мать %s хранит моё письмо. Я надеюсь забрать его, когда мы выберемся." % family.name) if family.alive else grief_text(v, family)
+		return ("My son %s left a letter at home. I promised to read it after we leave." % family.name if parent else
+			"My mother %s keeps my letter. I hope to take it when we leave.") if family.alive else grief_text(v, family)
 	var partner := m.get_villager(v.partner_id)
 	if partner == null:
 		return ""
@@ -696,15 +704,72 @@ static func bond_text(v: Villager, m: Match) -> String:
 	return "Loves %s. They planned to leave together." % partner.name
 
 
+static func grief_text(survivor: Villager, lost: Villager) -> String:
+	if L.code != "ru":
+		return "%s is gone. %s still keeps a place for them at the table." % [lost.name, survivor.name]
+	var fate := "выгнали" if lost.exiled else ("погибла" if lost.female else "погиб")
+	if survivor.family_id == lost.id:
+		if survivor.age > lost.age:
+			return "%s %s. Мать всё ещё держит его письмо запечатанным." % [lost.name, fate]
+		return "%s %s. Сын ставит для неё миску за общим столом." % [lost.name, fate]
+	if survivor.partner_id == lost.id:
+		return "%s больше не вернётся. %s держит их дорожную сумку у двери." % [lost.name, survivor.name]
+	return ""
+
+
+static func epilogue(v: Villager) -> String:
+	if v.story_step == 0:
+		return ""
+	if L.code != "ru":
+		return "%s kept the story you heard alive." % v.name if v.alive else "The story %s told you ended here." % v.name
+	if not v.alive:
+		return "%s так и не [успел|успела] рассказать тебе конец своей истории.".replace("[успел|успела]", "успела" if v.female else "успел") % v.name
+	var endings := [
+		"На причале {who} находит красную ленту и впервые оставляет её там, где её нашли.",
+		"{who} снимает с могилы отца один гвоздь: теперь он может закрыть её по своей воле.",
+		"{who} открывает школу. На первой парте лежит новая тетрадь, старая убрана в ящик.",
+		"{who} забирает деньги из-под моста и оставляет брату записку на случай возвращения.",
+		"{who} снова перевязывает раны. Обещаний спасти всех больше не даёт.",
+		"{who} возвращается на мост. Там снова слышен голос матери, но пост остаётся занятым.",
+		"{who} вешает над трактиром вывеску. С реки её видно ещё до сумерек.",
+		"{who} чинит башенные часы. Первый удар колокола слушает рядом с тем, кого ждал.",
+		"{who} показывает соседям вторую дорожку следов. Искать теперь будут вместе.",
+		"{who} разряжает ружьё сына. Впервые за много дней руки не дрожат.",
+		"{who} собирает яблоки. Одну корзину оставляет у окна сестры.",
+		"{who} переплавляет последний нож в новые засовы для общего дома.",
+	]
+	return String(endings[posmod(v.story_id, endings.size())]).replace("{who}", v.name)
+
+
 static func village_intro(m: Match) -> String:
 	if L.code == "ru":
 		return "Перед сумерками дорога вывела тебя к реке. На другом берегу кто-то звал по имени. У причала тебя остановили: «На голос с того берега не отвечай».\n\nЗдесь живут люди, которым есть кого ждать. Ночью к их дверям приходят знакомые лица. Иногда под ними уже кто-то другой.\n\nСегодня обереги сохранились в %d домах. Остальные дома заперты: ночевать там опасно. До колокола нужно познакомиться с соседями и решить, чьему голосу поверить." % m.houses.size()
 	return "The road ends at a river. A familiar voice calls from the far bank. The ferry keeper asks you not to answer.\n\nThese people have someone to wait for. At night familiar faces knock on their doors. Some have changed.\n\nOnly %d houses still have protective charms. Meet your neighbours before the bell and decide whose voice to trust." % m.houses.size()
 
 
+static func opening_beats(m: Match) -> Array:
+	var couple_ru := "У двоих жителей одна дорожная сумка на двоих. Они собирались уехать вместе."
+	var couple_en := "Two residents have one travel bag between them. They planned to leave together."
+	for resident: Villager in m.villagers:
+		if resident.partner_id >= 0:
+			var other := m.get_villager(resident.partner_id)
+			couple_ru = "%s и %s собирались уехать вместе. У них одна дорожная сумка на двоих." % [resident.name, other.name]
+			couple_en = "%s and %s planned to leave together. They have one travel bag between them." % [resident.name, other.name]
+			break
+	if L.code == "ru":
+		return [
+			["На другом берегу", "Ты слышишь своё имя из темноты. Голос знакомый, хотя здесь тебя никто не знает. Перевозчик гасит фонарь и шепчет: «Не отвечай. Оно запоминает голоса»."],
+			["До первого колокола", couple_ru + " В посёлке есть и другие обещания, которые ночь может оборвать. Поговори с людьми, пока они рядом."],
+		]
+	return [
+		["Across the river", "A familiar voice calls your name from the dark. Nobody here should know it. The ferryman puts out his lantern: 'Do not answer. It remembers voices.'"],
+		["Before the first bell", couple_en + " Others here made promises too. Talk to them while you can."],
+	]
+
+
 static func narrative_ui(key: String) -> String:
-	var ru := {"cast": "Те, с кем встретишь ночь", "personal": "Поговорить о прошлом", "listen": "Я рядом. Расскажи ещё.", "doubt": "Что ты скрываешь от остальных?", "later": "Давай продолжим завтра.", "thanks": "Спасибо. Обычно меня прерывают раньше.", "hurt": "Я [рассказал|рассказала] то, о чём молчу годами. Теперь ты мне не веришь?", "prompt": "{who}, расскажи, что с тобой случилось."}
-	var en := {"cast": "The people you will face the night with", "personal": "Ask about their past", "listen": "I'm here. Tell me more.", "doubt": "What are you hiding from the others?", "later": "Let's continue tomorrow.", "thanks": "Thank you for listening. People usually interrupt me.", "hurt": "I told you something I have kept to myself for years. Does that make me suspicious?", "prompt": "{who}, tell me what happened to you."}
+	var ru := {"cast": "Те, с кем встретишь ночь", "personal": "Поговорить о прошлом", "listen": "Я рядом. Расскажи ещё.", "doubt": "Что ты скрываешь от остальных?", "later": "Давай продолжим завтра.", "thanks": "Спасибо. Обычно меня прерывают раньше.", "hurt": "Я [рассказал|рассказала] то, о чём молчу годами. Теперь ты мне не веришь?", "prompt": "{who}, расскажи, что с тобой случилось.", "first_goal": "До колокола узнай историю хотя бы одного жителя. Первый разговор даст дополнительный осмотр у двери.", "bonus_earned": "Житель доверился тебе. Сегодня у двери доступен третий осмотр."}
+	var en := {"cast": "The people you will face the night with", "personal": "Ask about their past", "listen": "I'm here. Tell me more.", "doubt": "What are you hiding from the others?", "later": "Let's continue tomorrow.", "thanks": "Thank you for listening. People usually interrupt me.", "hurt": "I told you something I have kept to myself for years. Does that make me suspicious?", "prompt": "{who}, tell me what happened to you.", "first_goal": "Hear one resident's story before the bell. Your first talk grants an extra door inspection.", "bonus_earned": "A resident trusted you. You have a third inspection at the door tonight."}
 	return String((ru if L.code == "ru" else en).get(key, key))
 
 

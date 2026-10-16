@@ -21,13 +21,20 @@ const HATS: Array[Dictionary] = [
 	{"id": "flower", "need": {"bond": 6}, "head": LookDef.Head.FLOWER_CROWN},
 	{"id": "jester", "need": {"wins": 15}, "head": LookDef.Head.JESTER},
 ]
+const BROOCHES: Array[Dictionary] = [
+	{"id": "none", "need": {}},
+	{"id": "sun", "need": {}},
+	{"id": "bone", "need": {}},
+	{"id": "seal", "need": {}},
+]
 
 
 static func item(kind: String, id: String) -> Dictionary:
-	for it: Dictionary in (LANTERNS if kind == "lantern" else HATS):
+	var items: Array[Dictionary] = LANTERNS if kind == "lantern" else (HATS if kind == "hat" else BROOCHES)
+	for it: Dictionary in items:
 		if it.id == id:
 			return it
-	return LANTERNS[0] if kind == "lantern" else HATS[0]
+	return items[0]
 
 
 ## Сколько у игрока того, чем открываются вещи.
@@ -56,6 +63,11 @@ static func need_text(it: Dictionary) -> String:
 
 
 static func title(kind: String, id: String) -> String:
+	if kind == "brooch":
+		var titles := {"none": ["Без значка", "No brooch"], "sun": ["Солнце", "Sun"],
+			"bone": ["Кость", "Bone"], "seal": ["Печать", "Seal"]}
+		var pair: Array = titles.get(id, titles.none)
+		return pair[0] if L.code == "ru" else pair[1]
 	return L.t("%s.%s" % [kind, id])
 
 
@@ -68,6 +80,9 @@ static func open_ids(prog: Dictionary = {}) -> PackedStringArray:
 	for it: Dictionary in HATS:
 		if is_open(it, prog):
 			out.append("hat:" + String(it.id))
+	for it: Dictionary in BROOCHES:
+		if is_open(it, prog):
+			out.append("brooch:" + String(it.id))
 	return out
 
 

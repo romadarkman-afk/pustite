@@ -22,6 +22,8 @@ var m: Match
 var director: Director
 var daily: String = ""             ## дата испытания дня, если идёт оно; "" — обычная партия
 var new_items: PackedStringArray = []   ## что открылось за эту партию: «lantern:copper»
+var first_contact := false       ## первый личный разговор в партии
+var inspection_bonus := 0       ## награда за знакомство: один осмотр у двери
 var host_pleas: Dictionary[int, String] = {}
 var clock: PhaseClock
 var screen_kept_on: bool = false
@@ -69,6 +71,8 @@ func active() -> bool:
 ## daily — дата испытания дня ("" — обычная партия): правило и зерно берутся по ней.
 func start(cfg: GameConfig, daily_date: String = "") -> void:
 	abandon()
+	first_contact = false
+	inspection_bonus = 0
 	m = Match.new()
 	director = Director.new()
 	daily = daily_date
@@ -442,7 +446,14 @@ func ask(vid: int) -> void:
 func personal_talk(vid: int, choice: int) -> void:
 	if m == null or m.phase != Match.Phase.DAY or not m.player().alive or choice < 0 or choice > 1:
 		return
-	_post_all(director.personal_talk(vid, choice))
+	var lines := director.personal_talk(vid, choice)
+	if lines.is_empty():
+		return
+	if not first_contact:
+		first_contact = true
+		inspection_bonus = 1
+		m.post(ChatLine.system(SocialContent.narrative_ui("bonus_earned")))
+	_post_all(lines)
 
 
 func answer_question(vid: int, answer: String, answer_kind: int) -> void:
@@ -631,7 +642,7 @@ func admit(ids: Array[int]) -> void:
 func inspect_visitor(vid: int) -> StringName:
 	if m == null or m.phase != Match.Phase.DOOR:
 		return &""
-	return m.inspect_visitor(m.player_seat(), vid)
+	return m.inspect_visitor(m.player_seat(), vid, 2 + inspection_bonus)
 
 
 func plea(plea_id: String) -> void:

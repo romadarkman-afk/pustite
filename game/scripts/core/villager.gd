@@ -12,6 +12,7 @@ var is_upyr: bool = false
 var female: bool = false            ## для согласования реплик: «был» / «была»
 var age: int = 34                  ## возраст связан с биографией и выбранным портретом
 var partner_id: int = -1           ## отношения существуют до приезда игрока; роли их не определяют
+var family_id: int = -1            ## родитель или ребёнок из постоянного состава
 var story_step: int = 0
 var personal_day: int = 0
 var alive: bool = true

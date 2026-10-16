@@ -32,6 +32,7 @@ func build() -> void:
 	preview.set_sprite(VillagerFigure.hero_for(preview.look))
 	preview.set_hero_hat(Save.hat)
 	preview.set_lantern(Save.lantern)
+	preview.set_brooch(Save.brooch)
 	preview.scale = Vector2(2.4, 2.4)
 	_art.add_child(preview)
 	_art.resized.connect(func() -> void: preview.position = Vector2(_art.size.x * 0.5, _art.size.y - 24.0))
@@ -41,6 +42,8 @@ func build() -> void:
 	body.add_child(_grid("lantern", Cosmetics.LANTERNS, Save.lantern))
 	body.add_child(W.label(L.t("cos.hats"), &"Hint"))
 	body.add_child(_grid("hat", Cosmetics.HATS, Save.hat))
+	body.add_child(W.label("Значок" if L.code == "ru" else "Brooch", &"Hint"))
+	body.add_child(_grid("brooch", Cosmetics.BROOCHES, Save.brooch))
 	body.add_child(W.label(L.t("cos.note"), &"Small"))
 
 	var back := W.button(L.t("ui.back"), &"Ghost")

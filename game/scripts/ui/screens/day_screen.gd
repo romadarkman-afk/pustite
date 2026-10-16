@@ -8,6 +8,7 @@ var journal_button: Button
 var supplies: SuppliesBadge
 var journal_preview: Label
 var _question_prompt_open := false
+var _contact_hint: Label
 
 
 func screen_id() -> String:
@@ -68,6 +69,9 @@ func build() -> void:
 	jr.add_child(journal_preview)
 	body.add_child(jr)
 	_update_journal()
+	if Save.stats.get("games", 0) == 0 and m.day == 1 and not Game.first_contact:
+		_contact_hint = W.label(SocialContent.narrative_ui("first_goal"), &"Hint")
+		body.add_child(_contact_hint)
 
 	if not m.player().alive:
 		body.add_child(W.label(L.t("day.dead"), &"Small"))
@@ -97,10 +101,24 @@ func build() -> void:
 		bell.pressed.connect(_meeting_flow)
 		rb.append(bell)
 	var ready_btn := W.button(L.t("day.ready"), &"Ghost")
-	ready_btn.pressed.connect(func() -> void: commit(Intent.END_DAY))
+	ready_btn.pressed.connect(_ready_flow)
 	rb.append(ready_btn)
 	var row := W.fit_row(rb)
 	footer.add_child(row)
+
+
+func _ready_flow() -> void:
+	if Save.stats.get("games", 0) == 0 and m.day == 1 and not Game.first_contact:
+		var residents := m.alive_bots()
+		if not residents.is_empty():
+			_personal_talk(residents[0])
+			return
+	commit(Intent.END_DAY)
+
+
+func contact_done() -> void:
+	if is_instance_valid(_contact_hint):
+		_contact_hint.text = SocialContent.narrative_ui("bonus_earned")
 
 
 

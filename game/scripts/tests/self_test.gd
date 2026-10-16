@@ -274,6 +274,10 @@ static func flow() -> void:
 		if v.partner_id >= 0:
 			var partner := full_a.get_villager(v.partner_id)
 			identity_ok = identity_ok and partner != null and partner.partner_id == v.id and partner.female != v.female
+		if v.family_id >= 0:
+			var relative := full_a.get_villager(v.family_id)
+			identity_ok = identity_ok and relative != null and relative.family_id == v.id
+			identity_ok = identity_ok and not SocialContent.bond_text(v, full_a).is_empty()
 	var spouse := Villager.new(90, "Нина", false)
 	spouse.female = true
 	identity_ok = identity_ok and SocialContent.story(8, spouse).contains("муж") and not SocialContent.story(8, spouse).contains("Моя жена")
@@ -338,6 +342,7 @@ static func flow() -> void:
 	var inspection_rules_ok := cast_a.inspect_visitor(test_seat, test_seat.queue[0].id) != &""
 	inspection_rules_ok = inspection_rules_ok and cast_a.inspect_visitor(test_seat, test_seat.queue[0].id) == &"" and cast_a.door_inspections.size() == 1
 	inspection_rules_ok = inspection_rules_ok and cast_a.inspect_visitor(test_seat, test_seat.queue[1].id) != &"" and cast_a.inspect_visitor(test_seat, test_seat.queue[2].id) == &"" and cast_a.door_inspections.size() == 2
+	inspection_rules_ok = inspection_rules_ok and cast_a.inspect_visitor(test_seat, test_seat.queue[2].id, 3) != &"" and cast_a.door_inspections.size() == 3
 	var human_anomalies := 0
 	var upyr_anomalies := 0
 	test_seat.queue[0].is_upyr = false
@@ -2467,6 +2472,11 @@ static func sound() -> void:
 		await _settle(tree)
 		await _frames(tree, 4)
 		if attempt == 0:
+			var opener := Nav.host.current as PrologueScreen
+			if opener != null:
+				opener._advance()
+				opener._advance()
+			await _settle(tree)
 			ok += _expect(fails, Sfx.played.has(&"reveal") and Sfx.ambience_name == &"amb_night", "пролог без звука раскрытия роли")
 		Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
 		await _settle(tree)
@@ -5374,10 +5384,11 @@ static func cosmetics() -> void:
 	Save.anchor_bonds = {"0": 0, "1": 0, "2": 0}
 	Save.lantern = "classic"
 	Save.hat = "own"
+	Save.brooch = "none"
 
 	# 1. С нуля открыто только своё; закрытое не надевается
 	var open0 := Cosmetics.open_ids()
-	ok += _expect(fails, open0.size() == 2 and open0.has("lantern:classic") and open0.has("hat:own"), "с нуля открыто лишнее: %s" % ", ".join(open0))
+	ok += _expect(fails, open0.size() == 6 and open0.has("lantern:classic") and open0.has("hat:own") and open0.has("brooch:seal"), "с нуля неверный набор: %s" % ", ".join(open0))
 	ok += _expect(fails, not Save.wear("lantern", "copper") and Save.lantern == "classic", "закрытый фонарь надевается")
 	ok += _expect(fails, not Cosmetics.is_open(Cosmetics.item("hat", "flower")) and Cosmetics.is_open(Cosmetics.item("hat", "flower"), {"bond": 6}), "венок не открывается доверием к постоянным жителям")
 	ok += _expect(fails, Cosmetics.is_open(Cosmetics.item("hat", "flower"), {"streak": 5}) and not Cosmetics.is_open(Cosmetics.item("hat", "flower"), {"streak": 4}), "венок, открытый прежней серией из пяти дней, потерян")
@@ -5399,7 +5410,8 @@ static func cosmetics() -> void:
 	var ws := Nav.host.current as WardrobeScreen
 	var lg := ws.find_child("Grid_lantern", true, false) as GridContainer
 	var hg := ws.find_child("Grid_hat", true, false) as GridContainer
-	ok += _expect(fails, lg != null and hg != null and lg.get_child_count() == Cosmetics.LANTERNS.size() and hg.get_child_count() == Cosmetics.HATS.size(), "в шкафу не все вещи")
+	var bg := ws.find_child("Grid_brooch", true, false) as GridContainer
+	ok += _expect(fails, lg != null and hg != null and bg != null and lg.get_child_count() == Cosmetics.LANTERNS.size() and hg.get_child_count() == Cosmetics.HATS.size() and bg.get_child_count() == Cosmetics.BROOCHES.size(), "в шкафу не все вещи")
 	var frost := ws.find_child("lantern_frost", true, false) as Button
 	ok += _expect(fails, frost != null and frost.disabled and frost.text.contains(Cosmetics.need_text(Cosmetics.item("lantern", "frost"))), "закрытый фонарь без условия или нажимается")
 	(ws.find_child("lantern_paper", true, false) as Button).pressed.emit()
@@ -5408,21 +5420,31 @@ static func cosmetics() -> void:
 	(ws.find_child("hat_top_hat", true, false) as Button).pressed.emit()
 	await _settle(tree)
 	ws = Nav.host.current as WardrobeScreen
-	ok += _expect(fails, Save.lantern == "paper" and Save.hat == "top_hat", "вещи не надеваются (%s, %s)" % [Save.lantern, Save.hat])
+	(ws.find_child("brooch_sun", true, false) as Button).pressed.emit()
+	await _settle(tree)
+	ws = Nav.host.current as WardrobeScreen
+	ok += _expect(fails, Save.lantern == "paper" and Save.hat == "top_hat" and Save.brooch == "sun", "вещи не надеваются (%s, %s, %s)" % [Save.lantern, Save.hat, Save.brooch])
 	ok += _expect(fails, ws.preview.look.head == LookDef.Head.TOP_HAT and ws.preview.lantern_id == "paper", "в примерке не видно надетого")
 	ok += _expect(fails, (ws.find_child("hat_top_hat", true, false) as Button).theme_type_variation == &"RowOn", "надетая шапка не подсвечена")
 	var cf := ConfigFile.new()
 	cf.load(Save.SETTINGS_PATH)
-	ok += _expect(fails, String(cf.get_value("look", "lantern", "")) == "paper" and String(cf.get_value("look", "hat", "")) == "top_hat", "выбор не сохранился")
+	ok += _expect(fails, String(cf.get_value("look", "lantern", "")) == "paper" and String(cf.get_value("look", "hat", "")) == "top_hat" and String(cf.get_value("look", "brooch", "")) == "sun", "выбор не сохранился")
 
 	# 4. В партии твой житель в цилиндре и с бумажным фонарём; у других всё как было
 	Nav.start_match()
 	await _settle(tree)
 	var me: VillagerFigure = Nav.village.crowd.figures[0]
 	var style: Dictionary = me.pose_now()[1].get("lantern_style", {})
-	ok += _expect(fails, me.look.head == LookDef.Head.TOP_HAT and String(style.get("shape", "")) == "paper", "на поле житель не в своём (шапка %d, фонарь %s)" % [me.look.head, style.get("shape", "")])
+	ok += _expect(fails, me.look.head == LookDef.Head.TOP_HAT and String(style.get("shape", "")) == "paper" and me.brooch_id == "sun", "на поле житель не в своём (шапка %d, фонарь %s)" % [me.look.head, style.get("shape", "")])
 	var other: VillagerFigure = Nav.village.crowd.figures[1]
 	ok += _expect(fails, not other.pose_now()[1].has("lantern_style"), "фонарь игрока достался боту")
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	await _settle(tree)
+	var first_resident := Game.m.alive_bots()[0]
+	Game.personal_talk(first_resident.id, 0)
+	ok += _expect(fails, Game.first_contact and Game.inspection_bonus == 1, "первый разговор не дал третий осмотр")
+	Game.personal_talk(first_resident.id, 0)
+	ok += _expect(fails, Game.inspection_bonus == 1, "повторный разговор начислил лишний осмотр")
 
 	# 5. На партию не влияет: игра и боты не знают о вещах, итоги прогона те же
 	var clean := true
@@ -5435,6 +5457,7 @@ static func cosmetics() -> void:
 	var r1 := balance(cfg, 60)
 	Save.lantern = "classic"
 	Save.hat = "own"
+	Save.brooch = "none"
 	var r2 := balance(cfg, 60)
 	ok += _expect(fails, r1.people_win == r2.people_win and r1.avg_nights == r2.avg_nights, "косметика меняет исход партий")
 

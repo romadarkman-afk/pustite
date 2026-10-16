@@ -97,6 +97,7 @@ func build() -> void:
 
 # ---------------------------------------------------------------
 func _build_host() -> void:
+	_inspection_left = 2 + Game.inspection_bonus
 	Sfx.set_heartbeat_pace(1.0 + 0.04 * float(mini(seat.knockers().size() - 1, 3)))
 	# до первого решения — одна строка и значки; пояснения под «Подробнее»
 	var head := W.icon_line("knock", L.t("door.host_short"), &"Tale", 52)
