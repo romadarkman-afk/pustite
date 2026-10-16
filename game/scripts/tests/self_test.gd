@@ -1624,7 +1624,12 @@ static func marks() -> void:
 
 	# тап по себе открывает пояснение: что значат глаз, значки улик и кольцо уговора
 	var me_fig: VillagerFigure = cr.figures[0]
-	Nav.handle_intent(Intent.FIELD_TAP, {"pos": me_fig.hit_rect_global().get_center()}, day)
+	# палец у ног — это шаг, пояснение не открывается и часы не стоят
+	Nav.handle_intent(Intent.FIELD_TAP, {"pos": me_fig.get_global_transform_with_canvas() * Vector2(0, -6)}, day)
+	await _frames(tree, 2)
+	ok += _expect(fails, day.find_children("InfoSheet", "InfoSheet", true, false).is_empty() and not Game.held(),
+		"палец у ног своей фигуры открыл пояснение или остановил время")
+	Nav.handle_intent(Intent.FIELD_TAP, {"pos": me_fig.head_global() + Vector2(0, 6)}, day)
 	await _frames(tree, 2)
 	var legend := day.find_children("InfoSheet", "InfoSheet", true, false)
 	var glyph_kinds := {}
@@ -2674,6 +2679,7 @@ static func village() -> void:
 	Nav.handle_intent(Intent.FIELD_TAP, {"pos": v.jobs_layer.icon_rect_global(wood).get_center()}, day)
 	await _frames(tree, 3)
 	ok += _expect(fails, Game.player_job == wood, "к дровам не встал")
+	(v.crowd.figures[0] as VillagerFigure).position = Vector2(360, 470)   # палец ровно на своей фигуре: это шаг, а не пояснение
 	Nav.handle_intent(Intent.FIELD_TAP, {"pos": v.to_global(Vector2(360, 470))}, day)
 	await _frames(tree, 3)
 	await tree.create_timer(0.4).timeout

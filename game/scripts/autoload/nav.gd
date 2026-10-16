@@ -593,8 +593,10 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			Sfx.play(&"tap")
 			if v.alive and not v.is_player and sender is DayScreen:
 				(sender as DayScreen).person_actions(v)
-			elif v.is_player and sender is DayScreen:
-				(sender as DayScreen).marks_legend()     # тап по себе: что значат значки рядом с тобой
+			elif v.is_player and sender is DayScreen and village.crowd.figures[vid].over_marks(data.pos):
+				(sender as DayScreen).marks_legend()     # тап по своей голове и значкам: что они значат
+			elif v.is_player and sender is DayScreen and Game.m.phase == Match.Phase.DAY:
+				walk_player(data.pos)                    # палец у ног — это шаг, а не вопрос
 
 
 # =============================================================

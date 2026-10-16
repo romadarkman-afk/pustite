@@ -534,6 +534,13 @@ func head_global() -> Vector2:
 	return get_global_transform_with_canvas() * Vector2(0, -FIG_TOP * h)
 
 
+## Палец на голове или на значках справа от неё (выше плеч), а не у ног.
+func over_marks(global_pos: Vector2) -> bool:
+	var h := look.height if look != null else 1.0
+	var shoulders := (get_global_transform_with_canvas() * Vector2(0, -FIG_TOP * h * 0.62)).y
+	return global_pos.y < shoulders
+
+
 func label_rect_global() -> Rect2:
 	return _global_rect(label_rect_local())
 
