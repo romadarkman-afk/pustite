@@ -15,6 +15,7 @@ config/looks_tr.tres
 config/looks_vi.tres
 config/looks_zh.tres
 config/village_default.tres
+config/village_mill.tres
 export_presets.cfg
 project.godot
 scenes/boot.tscn
@@ -36,8 +37,10 @@ scripts/core/cosmetics.gd
 scripts/core/difficulty.gd
 scripts/core/dread.gd
 scripts/core/game_config.gd
+scripts/core/guests.gd
 scripts/core/match.gd
 scripts/core/night_report.gd
+scripts/core/progress.gd
 scripts/core/recap.gd
 scripts/core/ru.gd
 scripts/core/villager.gd
@@ -70,6 +73,7 @@ scripts/ui/phase_clock.gd
 scripts/ui/safe_frame.gd
 scripts/ui/screen.gd
 scripts/ui/screen_host.gd
+scripts/ui/screens/book_screen.gd
 scripts/ui/screens/campaign_screen.gd
 scripts/ui/screens/crash_screen.gd
 scripts/ui/screens/day_screen.gd

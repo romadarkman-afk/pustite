@@ -137,6 +137,9 @@ func _reveal(r: NightReport) -> void:
 		else:
 			await Juice.wait(0.32)
 
+	for c: Dictionary in Guests.morning_clues(m):
+		body.add_child(guest_card(c))
+		await Juice.wait(0.4)
 	body.add_child(people_strip())
 	var dead := you_died() and m.phase == Match.Phase.MORNING and m.winner == Match.Team.NONE
 	var next := W.button(L.t("mo.watch") if dead else L.t("ui.next"))
@@ -178,6 +181,28 @@ func loss_card(lost: Villager, what: String) -> PanelContainer:
 		var g := W.label(grief_line(kin, lost), &"Hint")
 		g.name = "Mourner_%d" % kin.id
 		info.add_child(g)
+	return card
+
+
+## Что узнали о госте этим утром: улика или разгадка тайны (Task 60).
+func guest_card(c: Dictionary) -> PanelContainer:
+	var v: Villager = c.who
+	var card := W.panel(&"Card")
+	card.name = "Guest_" + v.guest_id
+	card.set_meta("entry", true)
+	card.set_meta("loss", true)              # своя раскладка с портретом — не строка сводки
+	var row := W.hbox(14)
+	card.add_child(row)
+	row.add_child(W.portrait(v, Vector2(56, 102)))
+	var box := W.vbox(4)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(box)
+	var head := W.label(L.t("mo.guest_reveal" if bool(c.reveal) else "mo.guest", {"who": v}), &"Speaker")
+	if bool(c.reveal):
+		head.add_theme_color_override("font_color", ThemeFactory.LAMP)
+	box.add_child(head)
+	box.add_child(W.label(String(c.text), &"Small"))
+	Juice.pop_in(card)
 	return card
 
 

@@ -38,6 +38,7 @@ var _tex: Dictionary = {}                  ## имя картинки -> Texture
 var _art_locale: String = ""             ## страна для региональных спрайтов
 var _props: Array[VillageProp] = []        ## дома, колодец, фонари и реквизит — в слое толпы
 var _labels: Node2D                        ## таблички убежищ — над толпой
+var _occluders: Array[LightOccluder2D] = []
 
 ## Камера. Днём приближена и следует за игроком по горизонтали; в остальных фазах
 ## показывает посёлок целиком. Двигается только узел: посёлок от этого не перерисовывается.
@@ -76,6 +77,26 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	jobs_layer.view = self
 	jobs_layer.visible = false
 	add_child(jobs_layer)
+	set_open_count(open)
+
+
+## Другая карта (акт II — мельница): земля, дома, фонари, тени и предметы строятся заново.
+func set_village(village: VillageDef, open: int, names: PackedStringArray) -> void:
+	titles = names
+	if village == def:
+		set_open_count(open)
+		return
+	def = village
+	_load_art(_art_locale)
+	for l: PointLight2D in _lamp_lights:
+		l.queue_free()
+	_lamp_lights.clear()
+	for o: LightOccluder2D in _occluders:
+		o.queue_free()
+	_occluders.clear()
+	_build_thresholds()
+	_build_lights()
+	_build_props()
 	set_open_count(open)
 
 
@@ -319,7 +340,7 @@ func _draw() -> void:
 			draw_circle(Vector2(cl.x + b.x * cl.z, cl.y + b.y * cl.z), b.z * cl.z, cc)
 	# земля — картинка: площадь, тропы, река слева, лес по верхнему краю. Ночью её сменяет ночная
 	# картинка того же места. Выше картинки лес темнеет и уходит в небо, края закрыты цветом земли.
-	var gr := GROUND_RECT
+	var gr := def.ground_rect
 	var forest := Color("1e2620").lerp(Color("0e1420"), n)
 	draw_rect(Rect2(-2000, gr.position.y + 40.0, 4720, 3000), Color("4a4636").lerp(Color("1c2430"), n))
 	Art.vgrad(self, Rect2(-2000, gr.position.y - 70.0, 4720, 80.0), Color(forest, 0.0), forest)
@@ -360,7 +381,8 @@ func _build_props() -> void:
 	for hd: HouseDef in def.decor:
 		var h := hd
 		_add_prop(h.pos, func(ci: CanvasItem) -> void: _draw_house(ci, h, 0, _nq(), _lit(h, _nq()), 2))
-	_add_prop(def.well, func(ci: CanvasItem) -> void: _draw_well(ci, _nq()))
+	if def.well_sprite:
+		_add_prop(def.well, func(ci: CanvasItem) -> void: _draw_well(ci, _nq()))
 	for li in range(def.lamps.size()):
 		var lidx := li
 		_add_prop(def.lamps[li], func(ci: CanvasItem) -> void:
@@ -432,7 +454,7 @@ const HOUSE_ART := {
 ## Земля посёлка — одна картинка днём и одна ночью (Nano Banana, 2400×1792, уменьшены).
 ## Площадь на картинке (центр 1320×1060 px, полуоси 660×340) совпадает с площадью посёлка.
 const GROUND_FILES: PackedStringArray = ["ground_day", "ground_night"]
-const GROUND_RECT := Rect2(-88.8, 31.6, 816.0, 609.3)
+const GROUND_RECT := Rect2(-88.8, 31.6, 816.0, 609.3)   ## деревня; у другой карты — VillageDef.ground_rect
 const ART_FILES: PackedStringArray = ["house_day", "house_night", "barn_day", "barn_night", "church_day", "church_night",
 	"cellar_day", "cellar_night", "garage_day", "garage_night", "shed_day", "shed_night", "lamp_day", "lamp_night",
 	"well", "woodpile", "barrel", "talisman"]
@@ -453,7 +475,7 @@ func _load_art(locale_code: String) -> void:
 	for f: String in ART_FILES:
 		_tex[f] = _load_art_texture(regional_dir, f, ".png")
 	for g: String in GROUND_FILES:
-		_tex[g] = _load_art_texture(regional_dir, g, ".jpg")
+		_tex[g] = _load_art_texture(regional_dir, g.replace("ground", def.ground if def != null else "ground"), ".jpg")
 
 
 func _regional_art_dir(locale_code: String) -> String:
@@ -613,10 +635,11 @@ func _draw_fish(n: float, k: Color) -> void:
 		match j.kind:
 			JobDef.Kind.FISH:
 				var b2 := j.pos + Vector2(-30, 6)
-				var plank := Art.dn(Color("c8925e"), n)
-				Art.shape(self, Art.rrect(Rect2(b2.x - 40, b2.y - 8, 52, 12), 4), plank, k, 2.2)
-				for px in [-34.0, 2.0]:
-					draw_line(b2 + Vector2(px, 4), b2 + Vector2(px, 16), k, 4.0, true)
+				if def.fish_planks:
+					var plank := Art.dn(Color("c8925e"), n)
+					Art.shape(self, Art.rrect(Rect2(b2.x - 40, b2.y - 8, 52, 12), 4), plank, k, 2.2)
+					for px in [-34.0, 2.0]:
+						draw_line(b2 + Vector2(px, 4), b2 + Vector2(px, 16), k, 4.0, true)
 				# ведро с рыбой
 				var bk := j.pos + Vector2(22, 0)
 				Art.shape(self, PackedVector2Array([bk + Vector2(-9, -16), bk + Vector2(9, -16), bk + Vector2(7, 0), bk + Vector2(-7, 0)]), Art.dn(Color("9aa6b2"), n), k, 2.2)
@@ -647,7 +670,7 @@ func _draw_lamp_post(ci: CanvasItem, p: Vector2, n: float, on: float = -1.0) -> 
 
 func _draw_fences(n: float, k: Color) -> void:
 	var wood := Art.dn(Color("9a7652"), n)
-	for row: Vector2 in [Vector2(14, 560), Vector2(604, 560)]:
+	for row: Vector2 in def.fences:
 		for i in range(6):
 			Art.shape(self, Art.rrect(Rect2(row.x + i * 17, row.y - 32, 11, 34), 4), wood, k, 2.4)
 		draw_line(Vector2(row.x - 3, row.y - 19), Vector2(row.x + 6 * 17, row.y - 19), k, 3.6, true)
@@ -694,6 +717,7 @@ func _build_lights() -> void:
 			Vector2(hr.end.x, h.pos.y - 2), Vector2(hr.position.x, h.pos.y - 2)])
 		occ.occluder = poly
 		add_child(occ)
+		_occluders.append(occ)
 
 
 func lamp_lights() -> Array[PointLight2D]:

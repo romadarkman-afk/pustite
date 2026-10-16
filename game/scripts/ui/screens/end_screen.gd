@@ -37,6 +37,8 @@ func build() -> void:
 		Sfx.play(&"growl", 0.9, -9.0)
 	if not Game.chapter_result.is_empty():
 		body.add_child(chapter_card(Game.chapter_result))
+	if not Game.progress_result.is_empty():
+		body.add_child(progress_card(Game.progress_result))
 	body.add_child(_verdict_card())
 	var reveal := reveal_cards()
 	if reveal != null:
@@ -133,6 +135,54 @@ func build() -> void:
 	footer.add_child(opts)
 
 
+## Опыт за партию, уровень посёлка и новые достижения (Task 62).
+static func progress_card(p: Dictionary) -> PanelContainer:
+	var card := W.panel(&"Card")
+	card.name = "Progress"
+	var box := W.vbox(6)
+	card.add_child(box)
+	var head := W.label(L.t("end.xp", {"n": int(p.gained)}), &"Speaker")
+	head.add_theme_color_override("font_color", ThemeFactory.LAMP)
+	box.add_child(head)
+	var parts := PackedStringArray()
+	for l: Array in p.lines:
+		parts.append(L.t(String(l[0]), {"n": int(l[2])}) + " +" + str(int(l[1])))
+	box.add_child(W.label(" · ".join(parts), &"Small"))
+	var lv := int(p.level_after)
+	box.add_child(level_bar(int(p.after)))
+	if lv > int(p.level_before):
+		var up := W.label(L.t("end.level_up", {"n": lv, "title": Progress.title(lv)}), &"Body")
+		up.name = "LevelUp"
+		up.add_theme_color_override("font_color", ThemeFactory.LAMP)
+		box.add_child(up)
+	for a: String in p.new_ach:
+		var al := W.icon_line("street_ok", L.t("end.new_ach", {"name": L.t("ach.%s.name" % a)}), &"Small", 32, ThemeFactory.LAMP)
+		al.name = "Ach_" + a
+		box.add_child(al)
+	return card
+
+
+## Уровень посёлка полоской: «Уровень 3 · Сосед» и сколько до следующего.
+static func level_bar(xp: int) -> Control:
+	var lv := Progress.level_of(xp)
+	var span := Progress.level_span(xp)
+	var col := W.vbox(4)
+	col.name = "LevelBar"
+	col.add_child(W.label(L.t("end.level", {"n": lv, "title": Progress.title(lv), "a": span.x, "b": span.y}), &"Small"))
+	var track := ColorRect.new()
+	track.color = ThemeFactory.EDGE
+	track.custom_minimum_size = Vector2(0, 8)
+	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fill := ColorRect.new()
+	fill.color = ThemeFactory.LAMP
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	track.add_child(fill)
+	var frac := clampf(float(span.x) / maxf(1.0, float(span.y)), 0.0, 1.0)
+	track.resized.connect(func() -> void: fill.size = Vector2(track.size.x * frac, track.size.y))
+	col.add_child(track)
+	return col
+
+
 ## Итог главы: пройдена или нет, звёзды, цели, концовка акта.
 func chapter_card(res: Dictionary) -> PanelContainer:
 	var card := W.panel(&"Sheet")
@@ -150,15 +200,16 @@ func chapter_card(res: Dictionary) -> PanelContainer:
 		box.add_child(st)
 	box.add_child(PrologueScreen.goals_card(m, Game.chapter, res))
 	var lost: Array = res.get("lost", [])
-	if bool(res.passed) and not lost.is_empty():
+	if bool(res.passed) and (not lost.is_empty() or not (res.get("lost_guests", PackedStringArray()) as PackedStringArray).is_empty()):
 		var names: Array[Villager] = []
 		for v: Villager in m.villagers:
-			if lost.has(v.story_id):
+			var lg: PackedStringArray = res.get("lost_guests", PackedStringArray())
+			if (v.guest_id.is_empty() and lost.has(v.story_id)) or (not v.guest_id.is_empty() and lg.has(v.guest_id)):
 				names.append(v)
 		box.add_child(W.label(L.t("camp.lost_for_good", {"list": names}), &"Hint"))
 	elif not bool(res.passed):
 		box.add_child(W.label(L.t("camp.retry_note"), &"Hint"))
-	if bool(res.passed) and Campaign.next_of(id).is_empty():
+	if bool(res.passed) and Campaign.last_of_act(id):
 		var end := W.label(Campaign.act_ending(int(Game.chapter.get("act", 1))), &"Tale")
 		end.name = "ActEnd"
 		box.add_child(end)

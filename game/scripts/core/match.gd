@@ -140,8 +140,12 @@ const DILEMMA_MAX := 2
 const DILEMMA_OIL_P := 0.3
 var refused_player: Array[Dictionary] = []   ## {"day", "by": Villager} — кто не открыл игроку
 var accused_player: Dictionary[int, int] = {} ## кто обвинял игрока: id -> день
-var owes_player: Dictionary[int, bool] = {}  ## игрок впустил того, кто ему не открыл: долг платежом красен
-var cast: Array[int] = []                   ## кампания: номера имён жителей (L.names); пусто — обычная жеребьёвка
+var owes_player: Dictionary[int, bool] = {}
+var player_refused_all: int = 0             ## сколько раз игрок-хозяин не открыл никому (Книга посёлка)
+var griefs: int = 0                         ## сколько раз за партию у погибшего остались близкие  ## игрок впустил того, кто ему не открыл: долг платежом красен
+var cast: Array[int] = []
+var guests: PackedStringArray = []          ## кто приезжает гостем (Guests.IDS); ставится до start()
+var guest_roles_fixed := false              ## кампания: роль гостя задана сюжетом                   ## кампания: номера имён жителей (L.names); пусто — обычная жеребьёвка
 var forest_call_day: int = -1                ## ночью после изгнания из леса зовут игрока по имени
 const FOREST_CALL_HUMAN := 0.8
 const FOREST_CALL_UPYR := 0.35               ## упырь тоже умеет звать — по зову роль не понять
@@ -328,7 +332,10 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	for k in range(mini(config.monsters, order.size())):
 		villagers[int(order[k])].is_upyr = true
 
-	houses = L.houses().slice(0, config.shelters)
+	_seat_guests()
+	if village == null:
+		village = load(DEFAULT_VILLAGE) as VillageDef
+	houses = L.houses(village.houses_key).slice(0, config.shelters)
 	_deal_roles()
 	tunnel = Vector2i(-1, -1)
 	if houses.size() >= 2:
@@ -654,6 +661,23 @@ func seat_night(choices: Dictionary[int, int], arrival: Dictionary[int, float] =
 	_set_phase(Phase.DOOR)
 
 
+## Гости занимают места приезжих с конца списка: постоянные жители и игрок остаются собой.
+func _seat_guests() -> void:
+	var slot := villagers.size() - 1
+	for id: String in guests:
+		if not Guests.LIST.has(id):
+			continue
+		while slot > 0 and (villagers[slot].anchor_id >= 0 or not villagers[slot].guest_id.is_empty()):
+			slot -= 1
+		if slot <= 0:
+			return
+		var v := villagers[slot]
+		Guests.apply(self, v, id)
+		if guest_roles_fixed:
+			Guests.force_role(self, v, bool(Guests.LIST[id].upyr_in_campaign))
+		slot -= 1
+
+
 ## Глава начинается сразу со стука (Task 63): колокола не было, игрок уже в доме, в дверь стучат
 ## двое людей. Остальные — по другим домам. Дальше партия идёт как обычно.
 func cold_open(choices: Dictionary[int, int]) -> void:
@@ -708,6 +732,8 @@ func admit(seat: Seat, ids: Array[int]) -> void:
 			if seat.host.is_player:
 				player_admits.append({"day": day, "who": v, "mimic": v == seat.mimic})
 	seat.decided = true
+	if seat.host.is_player and seat.admitted.is_empty() and not seat.mimic_in and not seat.knockers().is_empty():
+		player_refused_all += 1
 	if not seat.host.is_player and seat.queue.has(player()) and not seat.admitted.has(player()):
 		refused_player.append({"day": day, "by": seat.host})
 	if seat.host.is_player and not today_dilemma.is_empty():
@@ -1054,6 +1080,7 @@ func _apply_grief(r: NightReport) -> void:
 				continue
 			kin.grief_for = lost.id
 			kin.grief_days = GRIEF_DAYS
+			griefs += 1
 			kin.blame_id = -1
 			# не пустили — значит виноват тот, кто держал дверь
 			if e.kind == NightReport.Kind.KILLED_STREET and e.host != null and e.host != kin and e.host.alive:

@@ -924,7 +924,7 @@ func plea_for(bot: Villager) -> String:
 		return Phrases.pick("PLEA_AFTER_STREET", rng, g)
 	if susp(bot.id) > 2.0:
 		return Phrases.pick("PLEA_SUSPECT", rng, g)
-	return Phrases.pick("PLEA_NORMAL", rng, g)
+	return L.fill(_pick_line(bot, "PLEA_NORMAL"), g)     # свой голос и у двери
 
 
 ## Бот-хозяин двери решает, кого впустить. player_plea — id мольбы игрока, если он в очереди.
@@ -1032,6 +1032,10 @@ func after_door(seats: Array[Match.Seat]) -> void:
 
 
 func read_report(r: NightReport) -> void:
+	# тайна гостя раскрылась этим утром: посёлок по-новому смотрит на него
+	for v: Villager in m.alive_bots():
+		if not v.guest_id.is_empty() and m.day == Guests.REVEAL_DAY:
+			_bump(v.id, Guests.W_REVEAL_UPYR if v.is_upyr else Guests.W_REVEAL_HUMAN)
 	street_last_night.clear()
 	liar_last_night.clear()
 	for e: NightReport.Entry in r.entries:

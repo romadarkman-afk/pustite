@@ -65,7 +65,11 @@ func build() -> void:
 	wardrobe.name = "Wardrobe"
 	wardrobe.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	wardrobe.pressed.connect(func() -> void: emit_intent(Intent.OPEN_WARDROBE))
-	body.add_child(W.fit_row([how, lb, custom_b, wardrobe] as Array[Button]))
+	var book := W.button(L.t("menu.book"), &"Row")
+	book.name = "Book"
+	book.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	book.pressed.connect(func() -> void: emit_intent(Intent.OPEN_BOOK))
+	body.add_child(W.fit_row([how, lb, custom_b, wardrobe, book] as Array[Button]))
 
 	footer.add_child(daily_button())        # испытание дня — на виду, рядом с «Играть»
 	footer.add_child(W.fit_row(dbs))

@@ -45,7 +45,8 @@ func _ready() -> void:
 	village_layer.add_child(field_layer)
 	field_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	village = VillageView.new()
-	village.setup(load("res://config/village_default.tres") as VillageDef, Save.config.shelters, L.houses())
+	default_village = load("res://config/village_default.tres") as VillageDef
+	village.setup(default_village, Save.config.shelters, L.houses())
 	village.modulate.a = 0.0
 	field_layer.add_child(village)
 
@@ -131,7 +132,7 @@ func start() -> void:
 # =============================================================
 func show_menu() -> void:
 	Game.abandon()
-	village.crowd.clear()
+	_home_village()
 	var s := MenuScreen.new()
 	s.difficulty = Save.difficulty
 	s.cfg = Save.config
@@ -140,7 +141,7 @@ func show_menu() -> void:
 
 func show_settings() -> void:
 	Game.abandon()
-	village.crowd.clear()
+	_home_village()
 	var s := SettingsScreen.new()
 	s.cfg = Save.config.duplicate() as GameConfig
 	s.haptics = Save.haptics
@@ -150,7 +151,7 @@ func show_settings() -> void:
 
 func show_wardrobe() -> void:
 	Game.abandon()
-	village.crowd.clear()
+	_home_village()
 	show(WardrobeScreen.new())
 
 
@@ -169,9 +170,15 @@ func start_chapter(id: String = "") -> void:
 	Game.start(Campaign.config(id), "", Campaign.chapter(id))
 
 
+func show_book() -> void:
+	Game.abandon()
+	_home_village()
+	show(BookScreen.new())
+
+
 func show_campaign() -> void:
 	Game.abandon()
-	village.crowd.clear()
+	_home_village()
 	show(CampaignScreen.new())
 
 
@@ -187,7 +194,7 @@ func start_daily() -> bool:
 
 func show_howto(then_play: bool) -> void:
 	Game.abandon()
-	village.crowd.clear()
+	_home_village()
 	var s := HowToScreen.new()
 	s.then_play = then_play
 	show(s)
@@ -301,11 +308,20 @@ func _tween_to(obj: Object, prop: String, value: float, dur: float) -> void:
 # Game → экраны
 # =============================================================
 var _populated_for: Match = null
+var default_village: VillageDef            ## деревня меню и быстрой партии; у глав акта II — своя карта
+
+
+## Меню и экраны вне партии: поле пустое, на нём родная деревня.
+func _home_village() -> void:
+	village.crowd.clear()
+	_populated_for = null
+	village.set_village(default_village, Save.config.shelters, L.houses())
 
 
 func _on_phase(phase: Match.Phase) -> void:
 	if phase == Match.Phase.PROLOGUE or _populated_for != Game.m:   # глава со стука начинается без пролога
 		_populated_for = Game.m
+		village.set_village(Game.m.village, Game.m.config.shelters, L.houses(Game.m.village.houses_key))
 		village.crowd.populate(Game.m)
 		village.crowd.update_marks(Game.director, Game.m)
 	village.crowd.day_jobs = Game.m.jobs
@@ -482,6 +498,8 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			show_menu()
 		Intent.OPEN_CAMPAIGN:
 			show_campaign()
+		Intent.OPEN_BOOK:
+			show_book()
 		Intent.PLAY_CHAPTER:
 			start_chapter(String(data.get("id", "")))
 		Intent.SKIP_TO_END:
@@ -821,7 +839,7 @@ func _on_back() -> void:
 		var ss := s as SettingsScreen
 		_apply_settings({"cfg": ss.cfg, "haptics": ss.haptics, "reset_hints": ss.reset_hints, "difficulty": ss.difficulty})
 		show_menu()
-	elif s is EndScreen or s is WardrobeScreen or s is CampaignScreen:
+	elif s is EndScreen or s is WardrobeScreen or s is CampaignScreen or s is BookScreen:
 		show_menu()
 	elif s is HowToScreen:
 		Save.mark_howto()
@@ -836,10 +854,10 @@ func _on_back() -> void:
 
 ## Язык сменился: посёлок берёт названия домов и жителей своей страны, тема — шрифты под письменность.
 func relocalize() -> void:
-	village.titles = L.houses()
+	village.titles = L.houses(village.def.houses_key)
 	village.crowd.book = L.looks()
 	village.set_art_locale(L.code)
-	village.crowd.clear()
+	_home_village()
 	village.queue_redraw()
 	ThemeFactory.refresh_fonts()
 	ui.theme = ThemeFactory.build()

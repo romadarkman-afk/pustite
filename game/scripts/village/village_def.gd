@@ -11,6 +11,13 @@ extends Resource
 @export var square_center: Vector2 = Vector2(360, 380)
 @export var square_radii: Vector2 = Vector2(235, 92)
 @export var river: bool = true
+## Земля: картинки assets/village/<ground>_day.jpg и _night.jpg и куда они ложатся на поле.
+@export var ground: String = "ground"
+@export var ground_rect: Rect2 = Rect2(-88.8, 31.6, 816.0, 609.3)
+@export var well_sprite: bool = true          ## колодец картинкой поверх земли; false — он уже нарисован на земле
+@export var houses_key: String = "houses"     ## названия убежищ в файле языка
+@export var fences: PackedVector2Array = PackedVector2Array([Vector2(14, 560), Vector2(604, 560)])
+@export var fish_planks: bool = true          ## мостки у дела «рыба»; false — мостки уже на земле
 ## Дела по посёлку на день. Порядок — порядок значков на поле.
 @export var jobs: Array[JobDef] = []
 ## Где может появиться ящик: края площади, в стороне от дел и табличек.

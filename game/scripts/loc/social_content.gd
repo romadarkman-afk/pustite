@@ -592,6 +592,8 @@ static func question_answers() -> PackedStringArray:
 
 
 static func story(id: int, speaker: Villager = null) -> String:
+	if speaker != null and not speaker.guest_id.is_empty():
+		return Guests.story(speaker)
 	var stories: Array = _data().stories
 	if L.code == "ru":
 		return L.fill(String(PEOPLE_RU[posmod(id, PEOPLE_RU.size())][1]), {"me": speaker})
@@ -670,6 +672,8 @@ static func story_age(id: int) -> int:
 
 
 static func person_title(v: Villager) -> String:
+	if not v.guest_id.is_empty():
+		return Guests.title(v)
 	var young := v.age < 28
 	if L.code == "ru":
 		var gender := ("Девушка" if v.female else "Юноша") if young else ("Женщина" if v.female else "Мужчина")
@@ -679,6 +683,8 @@ static func person_title(v: Villager) -> String:
 
 
 static func personal_chapter(v: Villager, step: int) -> String:
+	if not v.guest_id.is_empty():
+		return Guests.clue(v, clampi(step, 1, Guests.REVEAL_DAY - 1))   # разговор наедине — улика раньше, чем узнают все
 	if L.code == "ru":
 		return L.fill(String(PEOPLE_RU[posmod(v.story_id, 12)][clampi(step + 1, 1, 3)]), {"me": v})
 	return story(v.story_id, v) if step == 0 else anchor_chapter(posmod(v.story_id, 3), mini(step - 1, 1), v)
@@ -718,6 +724,8 @@ static func grief_text(survivor: Villager, lost: Villager) -> String:
 
 
 static func epilogue(v: Villager) -> String:
+	if not v.guest_id.is_empty():
+		return ""
 	if v.story_step == 0:
 		return ""
 	if L.code != "ru":

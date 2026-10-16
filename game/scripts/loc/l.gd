@@ -89,10 +89,14 @@ static func pick(key: String, rng: RandomNumberGenerator, args: Dictionary = {})
 	return fill(a[rng.randi_range(0, a.size() - 1)], args)
 
 
+## Наборы убежищ: деревня (акт I и быстрая партия) и мельница (акт II).
+const HOUSE_KEYS: PackedStringArray = ["houses", "houses_mill"]
+
+
 ## Убежища партии: названия в именительном.
-static func houses() -> PackedStringArray:
+static func houses(key: String = "houses") -> PackedStringArray:
 	var out := PackedStringArray()
-	for h: Variant in raw("houses"):
+	for h: Variant in raw(key):
 		out.append(String((h as Dictionary).get("nom", "")))
 	return out
 
@@ -136,9 +140,10 @@ static func _gender(v: Variant) -> int:
 		return 1 if v else 0
 	if v is String:
 		# название убежища: род берётся из таблицы домов ("f": true — женский)
-		for h: Variant in raw("houses"):
-			if String((h as Dictionary).get("nom", "")) == v:
-				return 1 if bool((h as Dictionary).get("f", false)) else 0
+		for key: String in HOUSE_KEYS:
+			for h: Variant in raw(key):
+				if String((h as Dictionary).get("nom", "")) == v:
+					return 1 if bool((h as Dictionary).get("f", false)) else 0
 	return 0
 
 
@@ -159,10 +164,11 @@ static func render(v: Variant, case: String) -> String:
 		var dd := v as Dictionary
 		return String(dd.get(case, dd.get("nom", ""))) if case != "" else String(dd.get("nom", ""))
 	if v is String and case != "":
-		# название убежища строкой: ищем в таблице домов
-		for h: Variant in raw("houses"):
-			if String((h as Dictionary).get("nom", "")) == v:
-				return String((h as Dictionary).get(case, v))
+		# название убежища строкой: ищем в таблицах домов
+		for key: String in HOUSE_KEYS:
+			for h: Variant in raw(key):
+				if String((h as Dictionary).get("nom", "")) == v:
+					return String((h as Dictionary).get(case, v))
 		return String(v)
 	return str(v)
 

@@ -38,6 +38,7 @@ const ELDER := &"elder"          ## старожил смотрит рисунк
 const HEAL := &"heal"            ## знахарь берёт травы на ночь
 const MEETING := &"meeting"      ## удар в колокол днём: экстренный сбор
 const TUNNEL := &"tunnel"        ## не пустили — лезть туннелем
+const OPEN_BOOK := &"open_book"           ## Книга посёлка
 const OPEN_CAMPAIGN := &"open_campaign"   ## экран глав кампании
 const PLAY_CHAPTER := &"play_chapter"     ## начать главу: {"id"}; пусто — продолжить
 const SKIP_TO_END := &"skip_to_end"  ## тебя не стало: доиграть без тебя и сразу к итогу

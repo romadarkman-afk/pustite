@@ -8,7 +8,7 @@ extends RefCounted
 
 const ACTS := [
 	{"id": 1, "chapters": ["a1c1", "a1c2", "a1c3"]},
-	{"id": 2, "chapters": []},       ## «Мельница у реки» — скоро
+	{"id": 2, "chapters": ["a2c1", "a2c2", "a2c3"]},   ## «Мельница у реки»: своя карта (config/village_mill.tres)
 	{"id": 3, "chapters": []},       ## «Монастырь» — скоро
 	{"id": 4, "chapters": []},       ## «Станция» — скоро
 ]
@@ -18,11 +18,19 @@ const CHAPTERS := {
 	"a1c1": {"act": 1, "players": 5, "monsters": 1, "shelters": 2, "capacity": 2, "nights": 3,
 		"cold_open": true, "goal": "people_win", "extra": ["admit_night1", "inspect"]},
 	"a1c2": {"act": 1, "players": 7, "monsters": 1, "shelters": 3, "capacity": 2, "nights": 3,
-		"event": "fog", "goal": "exile_upyr_by_3", "extra": ["no_wrong_exile", "survive"]},
+		"event": "fog", "goal": "exile_upyr_by_3", "extra": ["no_wrong_exile", "survive"], "guests": ["soldier", "widow"]},
 	"a1c3": {"act": 1, "players": 8, "monsters": 2, "shelters": 3, "capacity": 3, "nights": 4,
-		"goal": "people_win", "extra": ["keep_couple", "no_wrong_exile"]},
+		"goal": "people_win", "extra": ["keep_couple", "no_wrong_exile"], "guests": ["soldier", "widow", "merchant"]},
+	"a2c1": {"act": 2, "map": "mill", "players": 7, "monsters": 1, "shelters": 3, "capacity": 2, "nights": 3,
+		"event": "rain", "goal": "people_win", "extra": ["survive", "inspect"]},
+	"a2c2": {"act": 2, "map": "mill", "players": 8, "monsters": 2, "shelters": 3, "capacity": 2, "nights": 4,
+		"goal": "exile_upyr_by_3", "extra": ["no_wrong_exile", "guest_secret"], "guests": ["soldier", "widow", "merchant"],
+		"guest_roles": "random"},
+	"a2c3": {"act": 2, "map": "mill", "players": 9, "monsters": 2, "shelters": 3, "capacity": 3, "nights": 4,
+		"event": "moon", "goal": "people_win", "extra": ["keep_couple", "no_wrong_exile"]},
 }
-const ORDER: PackedStringArray = ["a1c1", "a1c2", "a1c3"]
+const ORDER: PackedStringArray = ["a1c1", "a1c2", "a1c3", "a2c1", "a2c2", "a2c3"]
+const MAPS := {"mill": "res://config/village_mill.tres"}
 const ART := "res://assets/scenes/%s.jpg"     ## картинка главы, если есть: a1c1.jpg …
 
 
@@ -80,6 +88,15 @@ static func cast(id: String) -> Array[int]:
 static func _same_as_player(idx: int) -> bool:
 	var names := L.names()
 	return not Save.player_name.is_empty() and idx < names.size() and String(names[idx][0]).to_lower() == Save.player_name.to_lower()
+
+
+## Гости главы: кто приехал и ещё жив по ходу кампании.
+static func guests(id: String) -> PackedStringArray:
+	var out := PackedStringArray()
+	for g: String in chapter(id).get("guests", []):
+		if not Save.campaign_dead_guests.has(g):
+			out.append(g)
+	return out
 
 
 ## Открыта ли глава: первая — всегда, остальные — после прохождения предыдущей.
@@ -140,6 +157,13 @@ static func goal_done(m: Match, key: String) -> bool:
 			return false
 		"inspect":
 			return not m.door_inspections.is_empty()
+		"guest_secret":
+			if m.day < Guests.REVEAL_DAY:
+				return false
+			for v: Villager in m.villagers:
+				if not v.guest_id.is_empty():
+					return true
+			return false
 		"keep_couple":
 			for v: Villager in m.villagers:
 				var p := m.get_villager(v.partner_id)
@@ -158,17 +182,28 @@ static func finish(m: Match, ch: Dictionary) -> Dictionary:
 		if bool(x.done):
 			stars += 1
 	var lost: Array[int] = []
+	var lost_guests := PackedStringArray()
 	for v: Villager in m.villagers:
-		if not v.is_player and not v.alive and v.story_id >= 0:
+		if v.is_player or v.alive:
+			continue
+		if not v.guest_id.is_empty():
+			lost_guests.append(v.guest_id)
+		elif v.story_id >= 0:
 			lost.append(v.story_id)
 	if passed:
-		Save.record_chapter(String(ch.id), stars, lost)
-	return {"passed": passed, "stars": stars, "goals": g, "lost": lost, "id": String(ch.id)}
+		Save.record_chapter(String(ch.id), stars, lost, lost_guests)
+	return {"passed": passed, "stars": stars, "goals": g, "lost": lost, "lost_guests": lost_guests, "id": String(ch.id)}
 
 
 ## Концовка акта I: сколько из первых жителей деревни дожили до ухода к мельнице.
 static func act_ending(act: int) -> String:
-	if act != 1:
+	var id := act_ending_id(act)
+	return L.t("camp.act%d.end_%s" % [act, id.get_slice("_", 1)]) if not id.is_empty() else ""
+
+
+## Какая концовка акта вышла: act1_all, act1_some или act1_none.
+static func act_ending_id(act: int) -> String:
+	if act < 1 or act > 2:
 		return ""
 	var first := 0
 	var alive := 0
@@ -176,9 +211,17 @@ static func act_ending(act: int) -> String:
 		first += 1
 		if not Save.campaign_dead.has(i):
 			alive += 1
+	var pre := "act%d_" % act
 	if alive >= first:
-		return L.t("camp.act1.end_all")
-	return L.t("camp.act1.end_some") if alive > 0 else L.t("camp.act1.end_none")
+		return pre + "all"
+	return pre + ("some" if alive > 0 else "none")
+
+
+## Последняя ли это глава своего акта.
+static func last_of_act(id: String) -> bool:
+	var act := int(chapter(id).get("act", 0))
+	var nxt := next_of(id)
+	return nxt.is_empty() or int(chapter(nxt).get("act", 0)) != act
 
 
 static func stars_text(n: int) -> String:
@@ -192,6 +235,9 @@ static func fallen() -> Array:
 	for idx: int in Save.campaign_dead:
 		if idx < names.size():
 			out.append({"nom": String(names[idx][0]), "f": bool(names[idx][1])})
+	for g: String in Save.campaign_dead_guests:
+		if Guests.LIST.has(g):
+			out.append({"nom": Guests.name_of(g), "f": bool(Guests.LIST[g].f)})
 	return out
 
 

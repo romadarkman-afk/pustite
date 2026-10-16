@@ -570,6 +570,22 @@ static func layout() -> void:
 		checks += _check(tag + " · главы, акт пройден", problems)
 		Save.campaign_stars.assign(keep_stars)
 		Save.campaign_dead.assign(keep_dead)
+		var keep_ach := Save.achievements.duplicate()
+		Nav.show_book()
+		await _settle(tree)
+		checks += _check(tag + " · книга", problems)
+		Save.achievements = Progress.ACHIEVEMENTS.duplicate()
+		Nav.show_book()
+		await _settle(tree)
+		checks += _check(tag + " · книга полная", problems)
+		Save.achievements = keep_ach
+		# карта мельницы (акт II): пролог главы на другой земле
+		var keep_st := Save.campaign_stars.duplicate()
+		Save.campaign_stars.assign({"a1c1": 1, "a1c2": 1, "a1c3": 1})
+		Nav.start_chapter("a2c1")
+		await _settle(tree)
+		checks += _check(tag + " · мельница", problems)
+		Save.campaign_stars.assign(keep_st)
 		Nav.show_howto(false)
 		await _settle(tree)
 		for pg in range(HowToScreen.PAGES.size()):
@@ -959,7 +975,7 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 	var cs := Nav.host.current
 	var b1 := cs.find_child("Chapter_a1c1", true, false) as Button
 	var b3 := cs.find_child("Chapter_a1c3", true, false) as Button
-	ok += _expect(fails, b1 != null and not b1.disabled and b3 != null and b3.disabled and cs.find_child("Soon_2", true, false) != null
+	ok += _expect(fails, b1 != null and not b1.disabled and b3 != null and b3.disabled and cs.find_child("Soon_3", true, false) != null and cs.find_child("Chapter_a2c1", true, false) != null
 		and cs.find_child("Fallen", true, false) != null, "экран глав: не видно открытых, закрытых, будущих актов или погибших")
 	var none_lost: Array[int] = []
 	Save.record_chapter("a1c2", 3, none_lost)
@@ -970,9 +986,137 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 	ok += _expect(fails, act_end != null and not _all_text(act_end).contains("{") and not _all_text(act_end).is_empty(), "после третьей главы нет концовки акта")
 	ok += _expect(fails, not _all_text(Nav.host.current).contains("{"), "на экране глав метка подстановки")
 
+	# акт II: своя карта мельницы, свои названия убежищ с падежами, дождь; после главы — снова деревня
+	ok += _expect(fails, Campaign.unlocked("a2c1") and Campaign.act_ending(2) != "", "акт II не открылся после акта I")
+	Nav.start_chapter("a2c1")
+	await _settle(tree)
+	var mm := Game.m
+	var mill_names := L.houses("houses_mill")
+	ok += _expect(fails, mm.village.ground == "ground_mill" and Nav.village.def == mm.village and mm.houses[0] == mill_names[0]
+		and Nav.village.titles[0] == mill_names[0] and mm.force_event == Match.Event.RAIN,
+		"глава акта II не на карте мельницы")
+	ok += _expect(fails, L.fill("{h.in}", {"h": mill_names[1]}) == "Мельничном дворе" and L.fill("{h.of}", {"h": mill_names[2]}) == "Скита",
+		"у убежищ мельницы нет падежей")
+	Nav.show_menu()
+	await _settle(tree)
+	ok += _expect(fails, Nav.village.def == Nav.default_village and Nav.village.titles[0] == L.houses()[0], "после главы на мельнице меню осталось на чужой карте")
+	ok += _expect(fails, not Campaign.chapter("a2c2").get("guest_roles", "story") == "story" and Campaign.last_of_act("a1c3") and Campaign.last_of_act("a2c3")
+		and not Campaign.last_of_act("a2c1"), "акты разбиты неверно")
+
 	Save.campaign_reset()
 	Save.stats["games"] = games_before
 	Save.flush()
+	return ok
+
+
+## Гости (Task 60), объём реплик (Task 52), опыт и Книга посёлка (Task 62).
+static func _guests_progress_checks(tree: SceneTree, fails: PackedStringArray) -> int:
+	var ok := 0
+	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
+	# 52: реплик по-русски не меньше 600 вместе с общим банком; у каждого характера свой голос в 16 ситуациях
+	var common := 0
+	for k: String in L.gram().d():
+		if k.begins_with("ph."):
+			common += L.arr(k).size()
+	ok += _expect(fails, Voices.total() + common >= 600, "реплик меньше 600: %d" % (Voices.total() + common))
+	# гость по сюжету кампании: торговец — упырь, упырей столько же, сколько задано; родни у гостя нет
+	var mg := Match.new()
+	mg.guests = PackedStringArray(["merchant", "soldier"])
+	mg.guest_roles_fixed = true
+	mg.start(c, 4242)
+	var merchant: Villager = null
+	var soldier: Villager = null
+	var upyri := 0
+	for v: Villager in mg.villagers:
+		if v.guest_id == "merchant": merchant = v
+		if v.guest_id == "soldier": soldier = v
+		if v.is_upyr: upyri += 1
+	ok += _expect(fails, merchant != null and merchant.is_upyr and soldier != null and not soldier.is_upyr and upyri == c.monsters
+		and merchant.name == L.t("guest.merchant.name") and merchant.partner_id < 0 and merchant.family_id < 0,
+		"гости кампании: роль, имя или число упырей не те")
+	ok += _expect(fails, not SocialContent.person_title(merchant).contains("{") and SocialContent.story(merchant.story_id, merchant) == Guests.story(merchant),
+		"у гостя чужая биография")
+	var clues_ok := true
+	for d in range(1, Guests.REVEAL_DAY + 1):
+		mg.day = d
+		var cl := Guests.morning_clues(mg)
+		clues_ok = clues_ok and cl.size() == 2
+		for x: Dictionary in cl:
+			clues_ok = clues_ok and not String(x.text).contains("{") and bool(x.reveal) == (d == Guests.REVEAL_DAY)
+	mg.day = Guests.REVEAL_DAY
+	clues_ok = clues_ok and Guests.clue(merchant, 3) == L.t("guest.merchant.reveal_u", {"who": merchant}) \
+		and Guests.clue(soldier, 3) == L.t("guest.soldier.reveal_h", {"who": soldier})
+	ok += _expect(fails, clues_ok, "улики гостей по утрам или разгадка не те")
+	var dg := Director.new()
+	dg.attach(mg)
+	var before := dg.susp(merchant.id)
+	dg.read_report(NightReport.new())
+	ok += _expect(fails, dg.susp(merchant.id) > before, "разгадка упыря-гостя не подняла подозрение")
+	ok += _expect(fails, SocialContent.personal_chapter(merchant, 1) == Guests.clue(merchant, 1), "разговор наедине с гостем не даёт улику")
+	# утро: карточка гостя
+	Nav.start_match()
+	await _settle(tree)
+	var gm := Game.m
+	var gv: Villager = gm.alive_bots()[gm.alive_bots().size() - 1]
+	Guests.apply(gm, gv, "widow")
+	gm.day = 1
+	gm.phase = Match.Phase.MORNING
+	gm.report = NightReport.new()
+	Nav.show(MorningScreen.new())
+	await _settle(tree)
+	ok += _expect(fails, Nav.host.current.find_child("Guest_widow", true, false) != null, "утром нет карточки о госте")
+	# кампания: гости главы и погибшие гости
+	Save.campaign_reset()
+	ok += _expect(fails, Array(Campaign.guests("a1c2")) == ["soldier", "widow"], "во второй главе не те гости")
+	var none: Array[int] = []
+	Save.record_chapter("a1c2", 1, none, PackedStringArray(["widow"]))
+	ok += _expect(fails, not Campaign.guests("a1c3").has("widow") and Campaign.fallen().size() == 1, "погибший гость вернулся")
+	Save.campaign_reset()
+
+	# 62: опыт, уровень, книга, концовки, достижения
+	var keep := [Save.xp, Save.achievements.duplicate(), Save.book.duplicate(), Save.endings.duplicate()]
+	Save.xp = 0
+	Save.achievements.clear()
+	Save.book.clear()
+	Save.endings.clear()
+	ok += _expect(fails, Progress.level_of(0) == 1 and Progress.level_of(99) == 1 and Progress.level_of(100) == 2 and not Progress.title(5).is_empty(),
+		"уровни посёлка считаются неверно")
+	var mp := Match.new()
+	mp.start(c, 777)
+	mp.day = 3
+	mp.winner = Match.Team.PEOPLE
+	mp.player().is_upyr = false
+	var dead_bot: Villager = mp.alive_bots()[0]
+	dead_bot.alive = false
+	var pr := Progress.record(mp, {})
+	var keys := PackedStringArray()
+	for l: Array in pr.lines:
+		keys.append(String(l[0]))
+	ok += _expect(fails, keys.has("xp.game") and keys.has("xp.nights") and keys.has("xp.win") and int(pr.gained) > 0 and Save.xp == int(pr.gained),
+		"опыт за партию не начислен: %s" % [keys])
+	ok += _expect(fails, Progress.book_entry("n%d" % dead_bot.story_id)[0] == 1 and Progress.book_entry("n%d" % dead_bot.story_id)[1] == 1
+		and Save.endings.has("people") and Save.achievements.has("night1") and (pr.new_ach as PackedStringArray).has("night1"),
+		"книга, концовки или достижения не записались")
+	Game.progress_result = pr
+	gm.phase = Match.Phase.OVER
+	gm.winner = Match.Team.PEOPLE
+	Nav.show(EndScreen.new())
+	await _settle(tree)
+	ok += _expect(fails, Nav.host.current.find_child("Progress", true, false) != null and Nav.host.current.find_child("Ach_night1", true, false) != null,
+		"в итоге партии нет опыта или нового достижения")
+	Nav.show_book()
+	await _settle(tree)
+	var bk := Nav.host.current
+	var person := bk.find_child("Person_n%d" % dead_bot.story_id, true, false)
+	ok += _expect(fails, bk is BookScreen and person != null and _all_text(person).contains(dead_bot.name)
+		and bk.find_child("Ending_people", true, false) != null and bk.find_child("Ach_night1", true, false) != null
+		and not _all_text(bk).contains("{"), "Книга посёлка: нет жителей, концовок или достижений")
+	Save.xp = int(keep[0])
+	Save.achievements = keep[1]
+	Save.book.assign(keep[2])
+	Save.endings = keep[3]
+	Save.flush()
+	Game.progress_result = {}
 	return ok
 
 
@@ -5121,6 +5265,7 @@ static func recap() -> void:
 	ok += _expect(fails, end_s.slides == null and not is_instance_valid(sl), "заставка финала не закрывается")
 
 	ok += await _campaign_checks(tree, fails)
+	ok += await _guests_progress_checks(tree, fails)
 
 	Nav.show_menu()
 	await _settle(tree)
@@ -5464,7 +5609,7 @@ static func loc() -> void:
 			if not d.has(key):
 				miss.append(key)
 				continue
-			if key in ["houses", "names", "looks", "you", "someone"]:
+			if key in ["houses", "houses_mill", "names", "looks", "you", "someone"]:
 				continue
 			if (ru_d[key] is Array) != (d[key] is Array):
 				bad_vars.append("%s: строка вместо банка или наоборот" % key)
@@ -5520,7 +5665,7 @@ static func loc() -> void:
 			elif not v.female and bm == null:
 				bm = v
 		for key: String in d:
-			if key in ["houses", "names", "looks", "you", "someone"] or key.begins_with("intent."):
+			if key in ["houses", "houses_mill", "names", "looks", "you", "someone"] or key.begins_with("intent."):
 				continue
 			var lines: PackedStringArray = L.arr(key)
 			for who: Villager in [bm, bf, m.player()]:
@@ -5529,7 +5674,7 @@ static func loc() -> void:
 						"house": m.houses[0], "from": m.houses[1], "said": m.houses[1], "away": m.houses[1], "to": m.houses[1],
 						"others": [who], "list": [bm, bf, m.player()], "n": n, "p": n, "u": n, "d": n, "s": n, "c": n,
 						"e": "e", "text": "t", "ev": "ev", "job": "Job", "place": "place", "what": "w", "role": "role",
-						"healer": "healer", "title": "T", "rest": "r", "where": "w", "why": "y", "lost": bf, "kin": bm, "player_name": "Name", "other": bm, "name": "Name", "choice": "c", "fate": "f"}
+						"healer": "healer", "title": "T", "rest": "r", "where": "w", "why": "y", "lost": bf, "kin": bm, "player_name": "Name", "other": bm, "name": "Name", "choice": "c", "fate": "f", "m": n, "of": n}
 					for line: String in lines:
 						texts.append(L.fill(line, a))
 		texts.append_array(collect_texts(c, 25))
@@ -6170,7 +6315,7 @@ static func gestures() -> void:
 	Game.release(&"test")
 	var replied := false
 	var pointed: Array = []      # реплики с подставленным родом: «[сделал|сделала]» → как сказал бы этот житель
-	for tpl: String in Phrases.b("GEST_POINTED"):
+	for tpl: String in Phrases.b("GEST_POINTED") + Voices.lines(target.persona, "GEST_POINTED"):   # общий банк и свой голос
 		pointed.append(L.fill(tpl, {"me": target}))
 	var wait_until := Time.get_ticks_msec() + 12000   # по часам, а не по кадрам: под нагрузкой кадры идут иначе
 	while Time.get_ticks_msec() < wait_until:

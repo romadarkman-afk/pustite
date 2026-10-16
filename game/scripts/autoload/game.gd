@@ -32,7 +32,8 @@ var _feed_gen: int = 0
 ## Дела дня. Время дня идёт вместе с часами фазы: пауза — стоят и дела.
 var tasks: Array[Director.JobTask] = []
 var chapter: Dictionary = {}        ## глава кампании (Campaign.chapter) или {} — обычная партия
-var chapter_result: Dictionary = {} ## итог главы: пройдена, звёзды, цели
+var chapter_result: Dictionary = {}
+var progress_result: Dictionary = {} ## опыт и достижения этой партии (Progress.record) ## итог главы: пройдена, звёзды, цели
 var dilemma: Dictionary = {}       ## дилемма у двери этой ночи (Match.door_dilemma) — экран двери её показывает
 var skipping := false              ## идёт skip_to_end: экраны фаз не показываются
 var day_t: float = 0.0
@@ -77,6 +78,7 @@ func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = 
 	abandon()
 	chapter = chapter_data
 	chapter_result = {}
+	progress_result = {}
 	Dread.reset()
 	dilemma = {}
 	first_contact = false
@@ -89,9 +91,17 @@ func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = 
 	if not chapter.is_empty():
 		Save.campaign_begin()
 		m.cast = Campaign.cast(String(chapter.id))
+		m.guests = Campaign.guests(String(chapter.id))
+		m.guest_roles_fixed = String(chapter.get("guest_roles", "story")) == "story"
+		if Campaign.MAPS.has(String(chapter.get("map", ""))):
+			m.village = load(Campaign.MAPS[String(chapter.map)]) as VillageDef
+	elif daily_date == "" and randf() < Guests.QUICK_P:
+		m.guests = PackedStringArray([Guests.IDS[randi() % Guests.IDS.size()]])
 	m.start(cfg, Challenge.seed_for(daily) if daily != "" else 0)
-	if String(chapter.get("event", "")) == "fog":
-		m.force_event = Match.Event.FOG
+	match String(chapter.get("event", "")):
+		"fog": m.force_event = Match.Event.FOG
+		"rain": m.force_event = Match.Event.RAIN
+		"moon": m.force_event = Match.Event.MOON
 	director.tune = 0.0 if daily != "" else Save.tune()   # испытание дня у всех одинаковое
 	director.attach(m)
 	_keep_screen(true)
@@ -377,6 +387,7 @@ func _on_phase(p: Match.Phase) -> void:
 			Save.record_result(won, you.is_upyr, daily == "" and chapter.is_empty())
 			if not chapter.is_empty():
 				chapter_result = Campaign.finish(m, chapter)
+			progress_result = Progress.record(m, chapter_result)
 			if daily != "":
 				Save.record_daily(daily, won)
 			new_items.clear()

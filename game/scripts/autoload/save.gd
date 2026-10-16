@@ -31,7 +31,12 @@ var player_name: String = ""            ## имя игрока, пусто — �
 var anchor_bonds: Dictionary[String, int] = {} ## отношения с тремя постоянными жителями
 var campaign_stars: Dictionary[String, int] = {}  ## кампания: пройденные главы -> звёзды (1–3)
 var campaign_dead: Array[int] = []              ## кампания: номера имён погибших насовсем
-var campaign_seed: int = 0                      ## кампания: порядок новых лиц, задаётся один раз
+var campaign_seed: int = 0
+var campaign_dead_guests: PackedStringArray = []  ## кампания: гости, погибшие насовсем                      ## кампания: порядок новых лиц, задаётся один раз
+var xp: int = 0                                   ## опыт за все партии (Progress)
+var achievements: PackedStringArray = []          ## полученные достижения
+var book: Dictionary[String, String] = {}         ## Книга посёлка: житель -> "встречали,погиб,упырь"
+var endings: PackedStringArray = []               ## найденные концовки (Progress.ENDINGS)
 var hints_seen: Dictionary = {}       ## id подсказки -> true: больше не показывать
 var stats: Dictionary[String, int] = {
 	"games": 0, "wins": 0, "as_upyr": 0, "upyr_wins": 0,
@@ -82,6 +87,7 @@ func load_all() -> void:
 	player_name = String(cf.get_value("profile", "name", "")).strip_edges().left(20) if has else ""
 	campaign_stars.clear()
 	campaign_dead.clear()
+	campaign_dead_guests = String(cf.get_value("campaign", "dead_guests", "")).split(",", false) if has else PackedStringArray()
 	campaign_seed = int(cf.get_value("campaign", "seed", 0)) if has else 0
 	if has:
 		for part: String in String(cf.get_value("campaign", "stars", "")).split(",", false):
@@ -90,6 +96,15 @@ func load_all() -> void:
 				campaign_stars[kv[0]] = clampi(int(kv[1]), 1, 3)
 		for part: String in String(cf.get_value("campaign", "dead", "")).split(",", false):
 			campaign_dead.append(int(part))
+	xp = int(cf.get_value("progress", "xp", 0)) if has else 0
+	achievements = String(cf.get_value("progress", "achievements", "")).split(",", false) if has else PackedStringArray()
+	endings = String(cf.get_value("progress", "endings", "")).split(",", false) if has else PackedStringArray()
+	book.clear()
+	if has:
+		for part: String in String(cf.get_value("progress", "book", "")).split(";", false):
+			var kv := part.split("=")
+			if kv.size() == 2:
+				book[kv[0]] = kv[1]
 	anchor_bonds.clear()
 	for i in range(3):
 		anchor_bonds[str(i)] = clampi(int(cf.get_value("relationships", str(i), 0)), -3, 3) if has else 0
@@ -326,15 +341,44 @@ func flush() -> void:
 	cf.set_value("campaign", "stars", ",".join(st))
 	cf.set_value("campaign", "dead", ",".join(PackedStringArray(campaign_dead.map(func(x: int) -> String: return str(x)))))
 	cf.set_value("campaign", "seed", campaign_seed)
+	cf.set_value("campaign", "dead_guests", ",".join(campaign_dead_guests))
+	cf.set_value("progress", "xp", xp)
+	cf.set_value("progress", "achievements", ",".join(achievements))
+	cf.set_value("progress", "endings", ",".join(endings))
+	var bk := PackedStringArray()
+	for k: String in book:
+		bk.append("%s=%s" % [k, book[k]])
+	cf.set_value("progress", "book", ";".join(bk))
 	cf.save(SETTINGS_PATH)
 
 
 ## Глава пройдена: звёзды — лучший результат, погибшие больше не придут.
-func record_chapter(id: String, stars: int, lost: Array[int]) -> void:
+func record_chapter(id: String, stars: int, lost: Array[int], lost_guests: PackedStringArray = PackedStringArray()) -> void:
 	campaign_stars[id] = maxi(int(campaign_stars.get(id, 0)), clampi(stars, 1, 3))
 	for idx: int in lost:
 		if not campaign_dead.has(idx):
 			campaign_dead.append(idx)
+	for g: String in lost_guests:
+		if not campaign_dead_guests.has(g):
+			campaign_dead_guests.append(g)
+	flush()
+
+
+## Итог партии в Книгу посёлка: опыт, судьбы жителей [ключ, погиб, упырь], концовки, достижения.
+func record_progress(gained: int, fates: Array, ends: PackedStringArray, new_ach: PackedStringArray) -> void:
+	xp += maxi(0, gained)
+	for f: Array in fates:
+		var e := Progress.book_entry(String(f[0]))
+		e[0] += 1
+		e[1] += 1 if bool(f[1]) else 0
+		e[2] += 1 if bool(f[2]) else 0
+		book[String(f[0])] = "%d,%d,%d" % [e[0], e[1], e[2]]
+	for e2: String in ends:
+		if not endings.has(e2):
+			endings.append(e2)
+	for a: String in new_ach:
+		if not achievements.has(a):
+			achievements.append(a)
 	flush()
 
 
@@ -348,6 +392,7 @@ func campaign_begin() -> void:
 func campaign_reset() -> void:
 	campaign_stars.clear()
 	campaign_dead.clear()
+	campaign_dead_guests.clear()
 	campaign_seed = 0
 	flush()
 
