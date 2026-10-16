@@ -1367,6 +1367,12 @@ static func field() -> void:
 ## Дождаться, пока экран разложится и поле под него откадрируется.
 static func _settle(tree: SceneTree) -> void:
 	await _frames(tree, 3)
+	# Автотесты проходят интерактивное вступление, прежде чем ждать раскрытия роли.
+	if Nav.host.current is PrologueScreen:
+		var intro := Nav.host.current as PrologueScreen
+		if intro._beat == 0:
+			intro._advance()
+			intro._advance()
 	for i in range(30):
 		if Nav.field_screen == Nav.host.current:
 			break
@@ -2472,11 +2478,6 @@ static func sound() -> void:
 		await _settle(tree)
 		await _frames(tree, 4)
 		if attempt == 0:
-			var opener := Nav.host.current as PrologueScreen
-			if opener != null:
-				opener._advance()
-				opener._advance()
-			await _settle(tree)
 			ok += _expect(fails, Sfx.played.has(&"reveal") and Sfx.ambience_name == &"amb_night", "пролог без звука раскрытия роли")
 		Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
 		await _settle(tree)
