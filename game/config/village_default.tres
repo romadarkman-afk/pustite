@@ -117,6 +117,7 @@ shelters = Array[ExtResource("2_house")]([SubResource("house_0"), SubResource("h
 decor = Array[ExtResource("2_house")]([SubResource("house_5"), SubResource("house_6"), SubResource("house_7"), SubResource("house_8")])
 lamps = PackedVector2Array(258, 312, 462, 312, 360, 468)
 well = Vector2(360, 384)
+props = Array[Dictionary]([{"id": "prop_cart", "pos": Vector2(282, 542), "w": 84.0}, {"id": "prop_haystack", "pos": Vector2(472, 548), "w": 62.0}, {"id": "prop_scarecrow", "pos": Vector2(686, 522), "w": 52.0}, {"id": "prop_graves", "pos": Vector2(688, 470), "w": 62.0}, {"id": "prop_bench", "pos": Vector2(56, 350), "w": 54.0}])
 square_center = Vector2(360, 392)
 square_radii = Vector2(270, 100)
 river = true

@@ -44,6 +44,9 @@ var _branches: Branches                    ## ветки по верхним у�
 var _fog_bands: Array[Sprite2D] = []       ## полосы тумана над землёй, ползут вбок
 var _smoke: Node2D                         ## дым из труб
 var _field := Rect2()                      ## где поле на экране (для веток)
+var blood_spots := PackedVector2Array()    ## утром: где ночью погибли (до следующей ночи)
+var trail_doors := PackedVector2Array()    ## утром: к каким дверям из леса ведут следы
+var rain := false                          ## лужи после дождливой ночи
 
 ## Камера. Днём приближена и следует за игроком по горизонтали; в остальных фазах
 ## показывает посёлок целиком. Двигается только узел: посёлок от этого не перерисовывается.
@@ -235,6 +238,31 @@ func hatch_pos(i: int) -> Vector2:
 	return h.pos + Vector2(h.size.x * 0.5 + 6.0, 16.0)
 
 
+## Следы ночи на земле: кровь там, где погибли, и следы когтистых ног к дверям, куда входил упырь.
+func set_traces(blood: PackedVector2Array, trails: PackedVector2Array) -> void:
+	if blood != blood_spots or trails != trail_doors:
+		blood_spots = blood
+		trail_doors = trails
+		_refresh()
+
+
+func set_rain(on: bool) -> void:
+	if on != rain:
+		rain = on
+		_refresh()
+
+
+## Порог дома: туда ведут следы и там остаётся кровь.
+func door_point(i: int) -> Vector2:
+	return def.shelters[i].pos + Vector2(0, 12) if i >= 0 and i < def.shelters.size() else def.square_center
+
+
+## Где на улице лежит погибший: на краю площади, своё место у каждого.
+func street_point(id: int) -> Vector2:
+	var a := 0.6 + float(id) * 2.399
+	return def.square_center + Vector2(cos(a) * def.square_radii.x * 0.8, sin(a) * def.square_radii.y * 0.8 + 18.0)
+
+
 func set_talismans(t: PackedInt32Array) -> void:
 	if t != talismans:
 		talismans = t.duplicate()
@@ -367,6 +395,7 @@ func _draw() -> void:
 
 	# дома, колодец, фонари, поленница и бочка — предметы в слое толпы (VillageProp):
 	# кто стоит за домом, того дом закрывает. Здесь только то, что лежит на земле.
+	_draw_traces(n)
 	_draw_hatches(n, k)
 	_draw_fish(n, k)
 	_draw_fences(n, k)
@@ -405,6 +434,14 @@ func _build_props() -> void:
 		_add_prop(def.lamps[li], func(ci: CanvasItem) -> void:
 			_draw_lamp_post(ci, def.lamps[lidx], _nq(), _lamp_on(lidx, _nq()) * _lamp_fuel(lidx)))
 		_props.back().set_meta("street_lamp", true)
+	for pr: Dictionary in def.props:
+		var id := String(pr.id)
+		if not _tex.has(id):
+			_tex[id] = load(ART_DIR + id + ".png") as Texture2D
+		var at: Vector2 = pr.pos
+		var pw := float(pr.get("w", 60.0))
+		var fl := bool(pr.get("flip", false))
+		_add_prop(at, func(ci: CanvasItem) -> void: _decor_prop(ci, id, at, pw, fl, _nq()))
 	for j: JobDef in def.jobs:
 		var jp := j.pos
 		match j.kind:
@@ -440,6 +477,10 @@ func hidden_zones() -> Array[Rect2]:
 		var r := house_rect(h)
 		out.append(Rect2(r.position.x + r.size.x * 0.08, r.position.y, r.size.x * 0.84, h.pos.y - r.position.y))
 	out.append(Rect2(def.well.x - 30.0, def.well.y - 70.0, 60.0, 70.0))
+	for pr: Dictionary in def.props:
+		var w := float(pr.get("w", 60.0))
+		var at: Vector2 = pr.pos
+		out.append(Rect2(at.x - w * 0.4, at.y - w * 0.8, w * 0.8, w * 0.8 + 4.0))
 	return out
 
 
@@ -474,10 +515,10 @@ const GROUND_FILES: PackedStringArray = ["ground_day", "ground_night"]
 const GROUND_RECT := Rect2(-88.8, 31.6, 816.0, 609.3)   ## деревня; у другой карты — VillageDef.ground_rect
 const ART_FILES: PackedStringArray = ["house_day", "house_night", "barn_day", "barn_night", "church_day", "church_night",
 	"cellar_day", "cellar_night", "garage_day", "garage_night", "shed_day", "shed_night", "lamp_day", "lamp_night",
-	"well", "woodpile", "barrel", "talisman", "boards"]
+	"well", "woodpile", "barrel", "talisman", "talisman_cracked", "talisman_broken", "boards"]
 ## Небо, дальний лес, ветки, туман и дым — общие для всех карт и стран.
 const MAP_FILES: PackedStringArray = ["sky_day.jpg", "sky_dusk.jpg", "sky_night.jpg", "treeline_day.png", "treeline_night.png",
-	"branches.png", "fog.png", "smoke.png"]
+	"branches.png", "fog.png", "smoke.png", "puddles.png", "footprints.png", "blood_mud.png"]
 ## Где у дома труба на картинке (доли ширины и высоты, дом не отражён). Нет в списке — дом без трубы.
 const CHIMNEY := {HouseDef.Kind.HOME: Vector2(0.62, 0.05), HouseDef.Kind.CHURCH: Vector2(0.76, 0.39), HouseDef.Kind.GARAGE: Vector2(0.72, 0.04)}
 
@@ -564,6 +605,16 @@ func _blit(ci: CanvasItem, tex: Texture2D, r: Rect2, flip: bool, mod: Color = Co
 		ci.draw_texture_rect(tex, r, false, mod)
 
 
+## Реквизит для вида (телега, стог, пугало…): низ по центру в точке p, ширина w.
+func _decor_prop(ci: CanvasItem, id: String, p: Vector2, w: float, flip: bool, n: float) -> void:
+	var tex: Texture2D = _tex.get(id)
+	if tex == null:
+		return
+	var h := w * tex.get_height() / tex.get_width()
+	ci.draw_colored_polygon(Art.ellipse(p + Vector2(0, -4), Vector2(w * 0.44, 6)), Color(0, 0, 0, 0.2))
+	_blit(ci, tex, Rect2(p.x - w * 0.5, p.y - h, w, h), flip, _night_mod(n).darkened(0.06))
+
+
 ## Реквизит: низ по центру в точке p, ширина w.
 func _prop(ci: CanvasItem, tex: Texture2D, p: Vector2, w: float, n: float) -> void:
 	var h := w * tex.get_height() / tex.get_width()
@@ -607,18 +658,8 @@ func _draw_talisman(ci: CanvasItem, dr: Rect2, flip: bool, n: float, tal: int) -
 	var hh: float = w * _tex.talisman.get_height() / _tex.talisman.get_width()
 	var cx := dr.position.x - w * 0.62 if not flip else dr.end.x + w * 0.62
 	var r := Rect2(cx - w * 0.5, dr.position.y + dr.size.y * 0.05, w, hh)
-	var mod := _night_mod(n * 0.6)
-	if tal <= 0:
-		mod = mod * Color(0.62, 0.42, 0.42)
-	elif tal == 1:
-		mod = mod.darkened(0.12)
-	_blit(ci, _tex.talisman, r, false, mod)
-	if tal < 2:
-		var c := r.position + Vector2(w * 0.5, w * 0.62)
-		var crack := PackedVector2Array([c + Vector2(3, -w * 0.42), c + Vector2(-1, -2), c + Vector2(2, 3), c + Vector2(-2, w * 0.42)])
-		ci.draw_polyline(crack, Color(0.08, 0.05, 0.06), 2.0, true)
-		if tal <= 0:
-			ci.draw_polyline(crack, ThemeFactory.BLOOD, 0.9, true)
+	var tex: Texture2D = _tex.talisman if tal >= 2 else (_tex.talisman_cracked if tal == 1 else _tex.talisman_broken)
+	_blit(ci, tex, r, false, _night_mod(n * 0.6))
 
 
 func _title(i: int) -> String:
@@ -645,6 +686,32 @@ func shelter_label_rect_local(i: int) -> Rect2:
 func shelter_label_rect_global(i: int) -> Rect2:
 	var r := shelter_label_rect_local(i)
 	return Rect2(to_global(r.position), r.size * scale)
+
+
+## Лужи, кровь и следы — плоские картинки на земле, под людьми.
+func _draw_traces(n: float) -> void:
+	var mod := _night_mod(n)
+	if rain:
+		var pt: Texture2D = _tex.puddles
+		for i in range(def.puddle_spots.size()):
+			var sp := def.puddle_spots[i]
+			var h := sp.z * pt.get_height() / pt.get_width()
+			_blit(self, pt, Rect2(sp.x - sp.z * 0.5, sp.y - h * 0.5, sp.z, h), i % 2 == 1, Color(mod, 0.92))
+	var ft: Texture2D = _tex.footprints
+	for d: Vector2 in trail_doors:
+		var from_left := d.x < def.square_center.x
+		var w := 118.0
+		var h := w * ft.get_height() / ft.get_width()
+		# цепочка подходит к порогу сбоку, с края посёлка
+		var c := d + Vector2(-w * 0.55 if from_left else w * 0.55, 6.0)
+		draw_set_transform(c, 0.0, Vector2(1 if from_left else -1, 1))
+		draw_texture_rect(ft, Rect2(-w * 0.5, -h * 0.5, w, h), false, mod.lightened(0.15))
+		draw_set_transform(Vector2.ZERO)
+	var bt: Texture2D = _tex.blood_mud
+	for b: Vector2 in blood_spots:
+		var w := 78.0
+		var h := w * bt.get_height() / bt.get_width()
+		draw_texture_rect(bt, Rect2(b.x - w * 0.5, b.y - h * 0.5, w, h), false, mod.lightened(0.1))
 
 
 ## Реквизит дел: поленница и мостки с ведром у реки. Остальные дела — у колодца,

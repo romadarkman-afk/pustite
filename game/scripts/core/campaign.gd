@@ -9,7 +9,7 @@ extends RefCounted
 const ACTS := [
 	{"id": 1, "chapters": ["a1c1", "a1c2", "a1c3"]},
 	{"id": 2, "chapters": ["a2c1", "a2c2", "a2c3"]},   ## «Мельница у реки»: своя карта (config/village_mill.tres)
-	{"id": 3, "chapters": []},       ## «Монастырь» — скоро
+	{"id": 3, "chapters": ["a3c1", "a3c2", "a3c3"]},   ## «Монастырь»: config/village_monastery.tres
 	{"id": 4, "chapters": []},       ## «Станция» — скоро
 ]
 
@@ -28,9 +28,17 @@ const CHAPTERS := {
 		"guest_roles": "random"},
 	"a2c3": {"act": 2, "map": "mill", "players": 9, "monsters": 2, "shelters": 3, "capacity": 3, "nights": 4,
 		"event": "moon", "goal": "people_win", "extra": ["keep_couple", "no_wrong_exile"]},
+	"a3c1": {"act": 3, "map": "monastery", "players": 8, "monsters": 2, "shelters": 3, "capacity": 2, "nights": 4,
+		"event": "fog", "goal": "people_win", "extra": ["inspect", "no_wrong_exile"], "guests": ["widow"]},
+	"a3c2": {"act": 3, "map": "monastery", "players": 9, "monsters": 2, "shelters": 3, "capacity": 3, "nights": 4,
+		"event": "quiet", "goal": "exile_upyr_by_3", "extra": ["survive", "keep_couple"]},
+	"a3c3": {"act": 3, "map": "monastery", "players": 10, "monsters": 3, "shelters": 4, "capacity": 3, "nights": 5,
+		"event": "moon", "goal": "people_win", "extra": ["no_wrong_exile", "guest_secret"], "guests": ["soldier", "merchant"],
+		"guest_roles": "random"},
 }
-const ORDER: PackedStringArray = ["a1c1", "a1c2", "a1c3", "a2c1", "a2c2", "a2c3"]
-const MAPS := {"mill": "res://config/village_mill.tres"}
+const ORDER: PackedStringArray = ["a1c1", "a1c2", "a1c3", "a2c1", "a2c2", "a2c3", "a3c1", "a3c2", "a3c3"]
+const MAPS := {"mill": "res://config/village_mill.tres", "monastery": "res://config/village_monastery.tres"}
+const ENDING_ACTS := 3        ## у скольких актов уже есть концовка
 const ART := "res://assets/scenes/%s.jpg"     ## картинка главы, если есть: a1c1.jpg …
 
 
@@ -195,15 +203,15 @@ static func finish(m: Match, ch: Dictionary) -> Dictionary:
 	return {"passed": passed, "stars": stars, "goals": g, "lost": lost, "lost_guests": lost_guests, "id": String(ch.id)}
 
 
-## Концовка акта I: сколько из первых жителей деревни дожили до ухода к мельнице.
+## Концовка акта: сколько из первых жителей деревни дожили до конца акта.
 static func act_ending(act: int) -> String:
 	var id := act_ending_id(act)
 	return L.t("camp.act%d.end_%s" % [act, id.get_slice("_", 1)]) if not id.is_empty() else ""
 
 
-## Какая концовка акта вышла: act1_all, act1_some или act1_none.
+## Какая концовка акта вышла: act1_all, act1_some или act1_none (и так же для следующих актов).
 static func act_ending_id(act: int) -> String:
-	if act < 1 or act > 2:
+	if act < 1 or act > ENDING_ACTS:
 		return ""
 	var first := 0
 	var alive := 0

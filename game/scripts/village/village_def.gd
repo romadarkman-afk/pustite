@@ -20,6 +20,11 @@ extends Resource
 @export var fish_planks: bool = true          ## мостки у дела «рыба»; false — мостки уже на земле
 ## Дела по посёлку на день. Порядок — порядок значков на поле.
 @export var jobs: Array[JobDef] = []
+## Реквизит для вида: {"id": "prop_cart", "pos": где стоит на земле, "w": ширина, "flip": зеркально}.
+## Картинка — assets/village/<id>.png. Жители за предмет не встают.
+@export var props: Array[Dictionary] = []
+## Куда ложатся лужи в дождливую ночь (центр, ширина картинки на поле).
+@export var puddle_spots: PackedVector3Array = PackedVector3Array([Vector3(250, 452, 150), Vector3(492, 470, 130)])
 ## Где может появиться ящик: края площади, в стороне от дел и табличек.
 @export var box_spots: PackedVector2Array = PackedVector2Array([Vector2(190, 420), Vector2(530, 432), Vector2(292, 492), Vector2(446, 500)])
 

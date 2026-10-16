@@ -102,6 +102,7 @@ func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = 
 		"fog": m.force_event = Match.Event.FOG
 		"rain": m.force_event = Match.Event.RAIN
 		"moon": m.force_event = Match.Event.MOON
+		"quiet": m.force_event = Match.Event.QUIET
 	director.tune = 0.0 if daily != "" else Save.tune()   # испытание дня у всех одинаковое
 	director.attach(m)
 	_keep_screen(true)

@@ -19,7 +19,8 @@ const XP_STAR := 15
 
 const ACHIEVEMENTS: PackedStringArray = ["night1", "open_door", "closed_door", "instinct", "mistake", "mourning",
 	"last_one", "debtor", "oil", "forest_call", "guest_secret", "three_stars", "act1", "act2", "dark_side", "whole_family"]
-const ENDINGS: PackedStringArray = ["people", "upyri", "act1_all", "act1_some", "act1_none", "act2_all", "act2_some", "act2_none"]
+const ENDINGS: PackedStringArray = ["people", "upyri", "act1_all", "act1_some", "act1_none", "act2_all", "act2_some", "act2_none",
+	"act3_all", "act3_some", "act3_none"]
 
 
 static func level_of(xp: int) -> int:

@@ -975,7 +975,7 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 	var cs := Nav.host.current
 	var b1 := cs.find_child("Chapter_a1c1", true, false) as Button
 	var b3 := cs.find_child("Chapter_a1c3", true, false) as Button
-	ok += _expect(fails, b1 != null and not b1.disabled and b3 != null and b3.disabled and cs.find_child("Soon_3", true, false) != null and cs.find_child("Chapter_a2c1", true, false) != null
+	ok += _expect(fails, b1 != null and not b1.disabled and b3 != null and b3.disabled and cs.find_child("Soon_4", true, false) != null and cs.find_child("Chapter_a2c1", true, false) != null
 		and cs.find_child("Fallen", true, false) != null, "экран глав: не видно открытых, закрытых, будущих актов или погибших")
 	var none_lost: Array[int] = []
 	Save.record_chapter("a1c2", 3, none_lost)
@@ -1002,6 +1002,22 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 	ok += _expect(fails, Nav.village.def == Nav.default_village and Nav.village.titles[0] == L.houses()[0], "после главы на мельнице меню осталось на чужой карте")
 	ok += _expect(fails, not Campaign.chapter("a2c2").get("guest_roles", "story") == "story" and Campaign.last_of_act("a1c3") and Campaign.last_of_act("a2c3")
 		and not Campaign.last_of_act("a2c1"), "акты разбиты неверно")
+
+	# акт III: монастырь со своими убежищами и падежами, туман в первой главе, концовка акта
+	var no_lost: Array[int] = []
+	for cid: String in ["a2c1", "a2c2", "a2c3"]:
+		Save.record_chapter(cid, 1, no_lost)
+	ok += _expect(fails, Campaign.unlocked("a3c1") and not Campaign.unlocked("a3c2"), "акт III не открылся после акта II")
+	Nav.start_chapter("a3c1")
+	await _settle(tree)
+	var mon := L.houses("houses_monastery")
+	ok += _expect(fails, Game.m.village.houses_key == "houses_monastery" and Nav.village.titles[0] == mon[0] and Game.m.houses[0] == mon[0]
+		and Game.m.force_event == Match.Event.FOG, "глава акта III не в монастыре")
+	ok += _expect(fails, L.fill("{h.in}", {"h": mon[3]}) == "Крипте" and String(Campaign.chapter("a3c2").get("event", "")) == "quiet"
+		and Campaign.last_of_act("a3c3") and not Campaign.last_of_act("a3c1") and Campaign.act_ending_id(3).begins_with("act3_")
+		and Campaign.act_ending(3) != "", "акт III собран неверно")
+	Nav.show_menu()
+	await _settle(tree)
 
 	Save.campaign_reset()
 	Save.stats["games"] = games_before
@@ -1427,6 +1443,18 @@ static func field() -> void:
 			map_missing.append(f)
 	ok += _expect(fails, map_missing.is_empty(), "нет неба, леса, тумана или дыма: %s" % ", ".join(map_missing))
 	ok += _expect(fails, v.smoke_count() >= 2, "из труб не идёт дым: труб с дымом %d" % v.smoke_count())
+	var no_prop := PackedStringArray()
+	for pr: Dictionary in v.def.props:
+		if not (v._tex.get(String(pr.id)) is Texture2D):
+			no_prop.append(String(pr.id))
+	ok += _expect(fails, v.def.props.size() >= 4 and no_prop.is_empty(), "реквизит посёлка: %d предметов, без картинки: %s" % [v.def.props.size(), ", ".join(no_prop)])
+	var hz := v.hidden_zones().size()
+	ok += _expect(fails, hz >= v.def.shelters.size() + v.def.decor.size() + 1 + v.def.props.size(), "жители могут встать за телегу или стог: зон %d" % hz)
+	v.set_traces(PackedVector2Array([v.door_point(0)]), PackedVector2Array([v.door_point(0)]))
+	v.set_rain(true)
+	ok += _expect(fails, v.blood_spots.size() == 1 and v.trail_doors.size() == 1 and v.rain, "кровь, следы и лужи не ложатся на землю")
+	v.set_traces(PackedVector2Array(), PackedVector2Array())
+	v.set_rain(false)
 	var door_closed := load("res://assets/ui/door_closed.png") as Texture2D
 	var door_open := load("res://assets/ui/door_open.png") as Texture2D
 	ok += _expect(fails, door_closed != null and door_open != null
@@ -5615,7 +5643,7 @@ static func loc() -> void:
 			if not d.has(key):
 				miss.append(key)
 				continue
-			if key in ["houses", "houses_mill", "names", "looks", "you", "someone"]:
+			if key in ["houses", "houses_mill", "houses_monastery", "names", "looks", "you", "someone"]:
 				continue
 			if (ru_d[key] is Array) != (d[key] is Array):
 				bad_vars.append("%s: строка вместо банка или наоборот" % key)
@@ -5671,7 +5699,7 @@ static func loc() -> void:
 			elif not v.female and bm == null:
 				bm = v
 		for key: String in d:
-			if key in ["houses", "houses_mill", "names", "looks", "you", "someone"] or key.begins_with("intent."):
+			if key in ["houses", "houses_mill", "houses_monastery", "names", "looks", "you", "someone"] or key.begins_with("intent."):
 				continue
 			var lines: PackedStringArray = L.arr(key)
 			for who: Villager in [bm, bf, m.player()]:

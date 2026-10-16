@@ -297,6 +297,25 @@ func _frame_field(s: Screen) -> void:
 	field_screen = s
 
 
+## Следы прошедшей ночи на земле: кровь и следы к дверям лежат с утра до следующей ночи,
+## лужи — от дождливой ночи до следующей.
+func _sync_traces(phase: Match.Phase) -> void:
+	var blood := PackedVector2Array()
+	var trails := PackedVector2Array()
+	var after_night := phase == Match.Phase.MORNING or phase == Match.Phase.DAY or phase == Match.Phase.VOTE or phase == Match.Phase.OVER
+	if after_night and Game.m.report != null:
+		for e: NightReport.Entry in Game.m.report.deaths():
+			if e.house >= 0 and e.house < village.def.shelters.size():
+				var d := village.door_point(e.house)
+				blood.append(d + Vector2(0, 4))
+				if not trails.has(d):
+					trails.append(d)
+			elif e.who != null:
+				blood.append(village.street_point(e.who.id))
+	village.set_traces(blood, trails)
+	village.set_rain(Game.m.night_event == Match.Event.RAIN and phase != Match.Phase.PROLOGUE and phase != Match.Phase.IDLE)
+
+
 func _tween_to(obj: Object, prop: String, value: float, dur: float) -> void:
 	if dur <= 0.0:
 		obj.set_indexed(prop, value)
@@ -316,6 +335,8 @@ func _home_village() -> void:
 	village.crowd.clear()
 	_populated_for = null
 	village.set_village(default_village, Save.config.shelters, L.houses())
+	village.set_traces(PackedVector2Array(), PackedVector2Array())
+	village.set_rain(false)
 
 
 func _on_phase(phase: Match.Phase) -> void:
@@ -332,6 +353,7 @@ func _on_phase(phase: Match.Phase) -> void:
 	var night_phase := phase == Match.Phase.NIGHT or phase == Match.Phase.DOOR
 	var fueled := 0 if Game.m.night_event == Match.Event.RAIN else roundi(Game.m.supplies() * village.def.lamps.size())
 	village.set_lamps_fueled(fueled if night_phase else 99)
+	_sync_traces(phase)
 	# метка «Вы»: в первых трёх партиях всегда, потом — только в прологе
 	village.crowd.set_player_highlight(phase == Match.Phase.PROLOGUE or int(Save.stats["games"]) < 3)
 	match phase:
