@@ -76,6 +76,8 @@ func show_result(tally: Dictionary[int, int], exiled: Villager) -> void:
 	body.add_child(head)
 	Juice.haptic(Juice.Haptic.DEATH)
 	Sfx.play(&"exile")
+	if exiled != null:
+		body.add_child(exile_card(exiled))
 
 	var total := 0
 	for k: int in tally:
@@ -101,11 +103,46 @@ func show_result(tally: Dictionary[int, int], exiled: Villager) -> void:
 		await Juice.wait(0.12)
 
 	body.add_child(people_strip())
-	var next := W.button(L.t("vote.night"))
+	var gone := exiled != null and exiled.is_player
+	var next := W.button(L.t("mo.watch") if gone else L.t("vote.night"))
 	next.pressed.connect(func() -> void: commit(Intent.CONTINUE))
 	footer.add_child(next)
+	if gone and m.humans_alive() > 0 and m.upyri_alive() > 0:
+		var stop := W.button(L.t("mo.finish"), &"Ghost")
+		stop.name = "SkipToEnd"
+		stop.pressed.connect(func() -> void: commit(Intent.SKIP_TO_END))
+		footer.add_child(stop)
 	_locked = false
 	result_shown = true
+
+
+## Изгнание (Task 55): человек уходит в лес. Кем он был — посёлок узнает только в конце.
+func exile_card(v: Villager) -> PanelContainer:
+	var card := W.panel(&"Sheet")
+	var row := W.hbox(14)
+	card.add_child(row)
+	var box := W.vbox(6)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if v.is_player:
+		card.name = "YouExiled"
+		row.add_child(W.portrait(v, Vector2(70, 128), Color(0.55, 0.58, 0.66)))
+		var t := W.label(L.t("vote.you_exiled"), &"Speaker")
+		t.add_theme_color_override("font_color", ThemeFactory.BLOOD)
+		box.add_child(t)
+		box.add_child(W.label(L.t("vote.you_exiled_text"), &"Small"))
+		box.add_child(W.label(L.t("mo.without_you", {"n": m.alive().size(), "u": m.upyri_alive()}), &"Hint"))
+	else:
+		card.name = "ExileFate"
+		row.add_child(W.portrait(v, Vector2(70, 128), Color(0.62, 0.68, 0.78)))
+		box.add_child(W.label(v.name, &"Speaker"))
+		box.add_child(W.label(L.t("vote.exile_walk", {"who": v}), &"Small"))
+		if not v.last_words.is_empty():
+			var w := W.label("«%s»" % v.last_words, &"Tale")
+			w.name = "LastWords"
+			box.add_child(w)
+		box.add_child(W.label(L.t("vote.exile_unknown", {"who": v}), &"Hint"))
+	row.add_child(box)
+	return card
 
 
 func ambience() -> StringName:

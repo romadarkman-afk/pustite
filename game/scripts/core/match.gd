@@ -132,6 +132,18 @@ var player_votes: Array[Dictionary] = []     ## {"day", "who": Villager} — з�
 var vote_log: Array[Dictionary] = []         ## {"day", "votes": {id: id}, "exiled": Villager}
 var player_death: NightReport.Entry = null   ## как погиб игрок (если ночью)
 var player_kills: int = 0                    ## игрок-упырь: скольких забрал
+## Ночные дилеммы у двери игрока-хозяина (Task 56): не больше двух за партию, одна за ночь.
+## {"day", "kind", "who": id, "other": id или -1, "admitted": bool, "fate": "" | "alive" | "street" | "inside" | "other"}
+var dilemmas: Array[Dictionary] = []
+var today_dilemma: Dictionary = {}
+const DILEMMA_MAX := 2
+const DILEMMA_OIL_P := 0.3
+var refused_player: Array[Dictionary] = []   ## {"day", "by": Villager} — кто не открыл игроку
+var accused_player: Dictionary[int, int] = {} ## кто обвинял игрока: id -> день
+var owes_player: Dictionary[int, bool] = {}  ## игрок впустил того, кто ему не открыл: долг платежом красен
+var forest_call_day: int = -1                ## ночью после изгнания из леса зовут игрока по имени
+const FOREST_CALL_HUMAN := 0.8
+const FOREST_CALL_UPYR := 0.35               ## упырь тоже умеет звать — по зову роль не понять
 
 ## Ящик (со второго дня): днём на краю площади появляется ящик. Кто первым откроет,
 ## тому достаётся находка: записка (один из двоих — упырь), масло (+2 к запасам) или мел (чинит оберег).
@@ -238,6 +250,8 @@ func player_door_role() -> DoorRole:
 # Чат
 # =============================================================
 func post(line: ChatLine) -> void:
+	if line.about != null and line.about.is_player and line.speaker != null and not line.speaker.is_player:
+		accused_player[line.speaker.id] = day
 	chat.append(line)
 	chat_posted.emit(line)
 
@@ -577,6 +591,10 @@ func apply_vote(tally: Dictionary[int, int], votes: Dictionary = {}) -> Villager
 		last_exiled.alive = false
 		last_exiled.exiled = true
 		last_exiled.exiled_day = day
+		if not last_exiled.is_player:
+			var words := Phrases.b("EXILE_WORDS")
+			if not words.is_empty():
+				last_exiled.last_words = L.fill(words[rng.randi_range(0, words.size() - 1)], {"me": last_exiled})
 		_log("day", "log.exiled", {"who": last_exiled})
 	vote_log.append({"day": day, "votes": votes.duplicate(), "exiled": last_exiled})
 	return last_exiled
@@ -584,6 +602,9 @@ func apply_vote(tally: Dictionary[int, int], votes: Dictionary = {}) -> Villager
 
 func after_vote() -> void:
 	assert(phase == Phase.VOTE)
+	if last_exiled != null and not last_exiled.is_player and last_exiled.exiled_day == day \
+			and rng.randf() < (FOREST_CALL_UPYR if last_exiled.is_upyr else FOREST_CALL_HUMAN):
+		forest_call_day = day
 	if _settle_winner():
 		_set_phase(Phase.OVER)
 	else:
@@ -659,6 +680,10 @@ func admit(seat: Seat, ids: Array[int]) -> void:
 			if seat.host.is_player:
 				player_admits.append({"day": day, "who": v, "mimic": v == seat.mimic})
 	seat.decided = true
+	if not seat.host.is_player and seat.queue.has(player()) and not seat.admitted.has(player()):
+		refused_player.append({"day": day, "by": seat.host})
+	if seat.host.is_player and not today_dilemma.is_empty():
+		_settle_dilemma(seat)
 
 
 func record_door_inspection(v: Villager, tell: StringName, house: int = -1, mimic: bool = false) -> void:
@@ -877,11 +902,99 @@ func resolve_night() -> NightReport:
 		rec.dead.append(e.who.id)
 	history.append(rec)
 
+	_dilemma_fate(r)
 	_apply_grief(r)
 	report = r
 	_settle_winner()
 	_set_phase(Phase.MORNING)
 	return r
+
+
+## Дилемма у двери игрока: кто стучит и чем грозит выбор. Пусто — обычная ночь.
+## Виды: пара на одно место, тот, кто не открыл тебе, тот, против кого ты голосовал,
+## тот, кто тебя обвинял, горюющий, толпа на одно место, принёсший масло. Из подходящих — случайный вид.
+func door_dilemma(seat: Seat) -> Dictionary:
+	today_dilemma = {}
+	if seat == null or not seat.host.is_player or dilemmas.size() >= DILEMMA_MAX:
+		return today_dilemma
+	for d: Dictionary in dilemmas:
+		if int(d.day) == day:
+			return today_dilemma
+	var knock := seat.queue
+	if knock.is_empty():
+		return today_dilemma
+	var cap := config.capacity - 1
+	var options: Array[Dictionary] = []
+	if knock.size() > cap:
+		for a: Villager in knock:
+			for b: Villager in knock:
+				if a.id < b.id and (a.partner_id == b.id or a.family_id == b.id):
+					options.append({"kind": "couple", "who": a.id, "other": b.id})
+	for rec: Dictionary in refused_player:
+		var by: Villager = rec.by
+		if int(rec.day) < day and knock.has(by):
+			options.append({"kind": "refuser", "who": by.id, "other": -1})
+	for rec: Dictionary in player_votes:
+		var target: Villager = rec.who
+		if int(rec.day) == day and target != null and knock.has(target):
+			options.append({"kind": "voted", "who": target.id, "other": -1})
+	for v: Villager in knock:
+		if accused_player.get(v.id, -1) == day:
+			options.append({"kind": "accuser", "who": v.id, "other": -1})
+		if v.grief_days > 0 and v.grief_for >= 0:
+			options.append({"kind": "grieving", "who": v.id, "other": v.grief_for})
+	if knock.size() >= cap + 2:
+		options.append({"kind": "crowd", "who": knock[0].id, "other": -1})
+	if seat.house < talisman.size() and talisman[seat.house] < TALISMAN_MAX and rng.randf() < DILEMMA_OIL_P:
+		options.append({"kind": "oil", "who": knock[rng.randi_range(0, knock.size() - 1)].id, "other": -1})
+	# одинаковые виды не должны вытеснять редкие: сначала вид, потом случай этого вида
+	var by_kind: Dictionary = {}
+	for o: Dictionary in options:
+		if not by_kind.has(o.kind):
+			by_kind[o.kind] = []
+		(by_kind[o.kind] as Array).append(o)
+	var found := {}
+	if not by_kind.is_empty():
+		var ks: Array = by_kind.keys()
+		var pool: Array = by_kind[ks[rng.randi_range(0, ks.size() - 1)]]
+		found = (pool[rng.randi_range(0, pool.size() - 1)] as Dictionary).duplicate()
+	if not found.is_empty():
+		found["day"] = day
+		found["house"] = seat.house
+		today_dilemma = found
+	return today_dilemma
+
+
+## Игрок решил: запомнить выбор и сразу применить цену, которая видна до утра.
+func _settle_dilemma(seat: Seat) -> void:
+	var d := today_dilemma
+	today_dilemma = {}
+	var who := get_villager(int(d.who))
+	if who == null:
+		return
+	d["admitted"] = seat.admitted.has(who)
+	d["other_admitted"] = int(d.other) >= 0 and seat.admitted.has(get_villager(int(d.other)))
+	d["fate"] = ""
+	match String(d.kind):
+		"oil":
+			if bool(d.admitted):
+				talisman[seat.house] = mini(TALISMAN_MAX, talisman[seat.house] + 1)
+				_log("night", "log.oil", {"who": who, "house": house_name(seat.house)})
+		"refuser":
+			if bool(d.admitted):
+				owes_player[who.id] = true
+	dilemmas.append(d)
+
+
+## Утро после дилеммы: что стало с тем, из-за кого был выбор.
+func _dilemma_fate(r: NightReport) -> void:
+	for d: Dictionary in dilemmas:
+		if int(d.day) != day or String(d.get("fate", "x")) != "":
+			continue
+		d.fate = "alive"
+		for e: NightReport.Entry in r.deaths():
+			if e.who != null and e.who.id == int(d.who):
+				d.fate = "street" if e.kind == NightReport.Kind.KILLED_STREET else ("inside" if e.house == int(d.house) else "other")
 
 
 ## Траур: у погибшего ночью остаются близкие (муж, жена, мать, сын). Они два дня горюют:

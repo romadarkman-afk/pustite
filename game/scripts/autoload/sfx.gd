@@ -23,6 +23,17 @@ const SOUNDS := {
 	&"dawn": "res://assets/sfx/dawn.ogg",
 	&"job_done": "res://assets/sfx/job_done.ogg",
 	&"job_fail": "res://assets/sfx/job_fail.ogg",
+	# звуки страха (Dread, tools/make_dread.py)
+	&"scratch": "res://assets/sfx/scratch.ogg",
+	&"whisper": "res://assets/sfx/whisper.ogg",
+	&"roof_steps": "res://assets/sfx/roof_steps.ogg",
+	&"creak": "res://assets/sfx/creak.ogg",
+	&"cry_far": "res://assets/sfx/cry_far.ogg",
+	&"growl": "res://assets/sfx/growl.ogg",
+	&"gasp": "res://assets/sfx/gasp.ogg",
+	&"call_far": "res://assets/sfx/call_far.ogg",
+	&"scare": "res://assets/sfx/scare.ogg",
+	&"weep": "res://assets/sfx/weep.ogg",
 }
 const LOOPS := {
 	&"amb_day": "res://assets/sfx/amb_day.ogg",
@@ -31,6 +42,8 @@ const LOOPS := {
 	&"menu": "res://assets/music/menu.ogg",
 	&"day": "res://assets/music/day.ogg",
 	&"night": "res://assets/music/night.ogg",
+	&"end_dawn": "res://assets/music/end_dawn.ogg",     # итог: люди дожили (tools/make_end_music.py)
+	&"end_dark": "res://assets/music/end_dark.ogg",     # итог: посёлок пал
 }
 const BUSES := [&"Music", &"Sfx", &"Ambience"]
 const POOL := 8

@@ -33,6 +33,7 @@ scripts/core/challenge.gd
 scripts/core/chat_line.gd
 scripts/core/cosmetics.gd
 scripts/core/difficulty.gd
+scripts/core/dread.gd
 scripts/core/game_config.gd
 scripts/core/match.gd
 scripts/core/night_report.gd

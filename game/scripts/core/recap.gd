@@ -123,3 +123,28 @@ static func timeline(m: Match) -> Array[Dictionary]:
 		lines.append(L.gram().cap(String(part.text)))
 		sec.lines = lines      # PackedStringArray копируется по значению — кладём обратно
 	return out
+
+
+## Дилеммы у двери: что ты выбрал и к чему это привело. Роль раскрыта — показывается в конце.
+static func dilemma_lines(m: Match) -> PackedStringArray:
+	var out := PackedStringArray()
+	for d: Dictionary in m.dilemmas:
+		var who := m.get_villager(int(d.who))
+		if who == null:
+			continue
+		var args := DoorScreen.dilemma_args(m, d)
+		args["d"] = int(d.day)
+		var choice := L.t("dil.res_in" if bool(d.get("admitted", false)) else "dil.res_out", args)
+		var fate := String(d.get("fate", ""))
+		var tail := ""
+		if fate == "street":
+			tail = L.t("dil.fate_street", args)
+		elif fate == "inside" or fate == "other":
+			tail = L.t("dil.fate_dead", args)
+		elif fate == "alive":
+			tail = L.t("dil.fate_alive", args)
+		if who.is_upyr:
+			tail += " " + L.t("dil.fate_upyr", args)
+		out.append(L.t("dil.res_line", {"d": int(d.day), "what": L.t("dil." + String(d.kind) + "_short", args), "choice": choice, "fate": tail.strip_edges()}))
+	return out
+

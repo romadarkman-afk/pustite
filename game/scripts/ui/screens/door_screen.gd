@@ -12,6 +12,7 @@ signal open_fx(amount: float)
 var role: Match.DoorRole
 var seat: Match.Seat
 var pleas: Dictionary[int, String] = {}
+var dilemma: Dictionary = {}      ## Match.door_dilemma: выбор с ценой этой ночью
 var result_shown := false
 var _selected: Array[int] = []
 var _rows: Dictionary[int, Button] = {}
@@ -93,6 +94,7 @@ func build() -> void:
 		Match.DoorRole.HOST: _build_host()
 		Match.DoorRole.GUEST: _build_guest()
 		_: _build_alone()
+	Dread.door(self)
 
 
 # ---------------------------------------------------------------
@@ -112,6 +114,8 @@ func _build_host() -> void:
 		_seats.add_child(W.gap(10))
 		_seats.add_child(Glyph.make("fang", 40, ThemeFactory.BLOOD))
 	_box.add_child(_seats)
+	if not dilemma.is_empty():
+		_box.add_child(dilemma_card(m, dilemma))
 
 	for g: Villager in seat.knockers():
 		var card := W.panel(&"Card")
@@ -194,6 +198,34 @@ func _build_host() -> void:
 	refuse.pressed.connect(func() -> void: _finish_host([]))
 	footer.add_child(refuse)
 	_knock_sequence(seat.knockers().size())
+
+
+## Дилемма: что за выбор и чем он грозит. Текст на всех языках — ключи dil.<вид> и dil.<вид>_cost.
+const DILEMMA_ICON := {"couple": "pact", "refuser": "lock", "voted": "people", "accuser": "liar",
+	"grieving": "skull", "crowd": "seat", "oil": "talisman"}
+
+
+static func dilemma_card(mm: Match, d: Dictionary) -> PanelContainer:
+	var card := W.panel(&"Sheet")
+	card.name = "Dilemma"
+	card.set_meta("dilemma", String(d.kind))
+	var box := W.vbox(6)
+	card.add_child(box)
+	var args := dilemma_args(mm, d)
+	var icon: String = DILEMMA_ICON.get(String(d.kind), "info")
+	box.add_child(W.icon_line(icon, L.t("dil." + String(d.kind), args), &"Body", 40, ThemeFactory.LAMP))
+	box.add_child(W.label(L.t("dil." + String(d.kind) + "_cost", args), &"Hint"))
+	return card
+
+
+static func dilemma_args(mm: Match, d: Dictionary) -> Dictionary:
+	var who := mm.get_villager(int(d.who))
+	var other: Villager = mm.get_villager(int(d.other)) if int(d.get("other", -1)) >= 0 else null
+	var args := {"who": who, "house": mm.house_name(int(d.get("house", 0))), "n": mm.config.capacity - 1}
+	if other != null:
+		args["other"] = other
+		args["lost"] = other
+	return args
 
 
 ## «Подробнее» у хозяина: чей дом, сколько мест, кто у других дверей, чем грозит отказ.
@@ -287,6 +319,8 @@ func _finish_host(ids: Array[int]) -> void:
 		Juice.haptic(Juice.Haptic.REFUSE)
 		Sfx.play(&"door_shut")
 		Juice.shake(self, 10.0)
+		if not seat.knockers().is_empty():
+			Dread.refused(self)
 	else:
 		open_fx.emit(0.38)
 		Juice.haptic(Juice.Haptic.SUCCESS)

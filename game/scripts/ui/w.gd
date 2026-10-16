@@ -137,3 +137,20 @@ static func wrap(b: Button) -> Button:
 	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	return b
+
+
+## Портрет жителя с поля: та же картинка, что на площади (у героя — с шапкой). name = "Portrait".
+static func portrait(v: Villager, sz: Vector2 = Vector2(70, 128), tint: Color = Color(1, 1, 1)) -> TextureRect:
+	var p := TextureRect.new()
+	p.name = "Portrait"
+	var figure: VillagerFigure = null
+	if v != null and Nav.village != null and Nav.village.crowd != null:
+		figure = Nav.village.crowd.figures.get(v.id)
+	if figure != null:
+		p.texture = figure._hero_texture() if v.is_player else VillagerFigure.folk_tex(figure.sprite_id)
+	p.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	p.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	p.custom_minimum_size = sz
+	p.modulate = tint
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return p

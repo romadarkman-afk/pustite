@@ -311,6 +311,7 @@ func _on_phase(phase: Match.Phase) -> void:
 			d.role = Game.door_role()
 			d.seat = Game.door_seat()
 			d.pleas = Game.host_pleas.duplicate()
+			d.dilemma = Game.dilemma.duplicate()
 			show(d)
 		Match.Phase.MORNING:
 			show(MorningScreen.new())
@@ -456,6 +457,8 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 		Intent.BACK:
 			_apply_settings(data)
 			show_menu()
+		Intent.SKIP_TO_END:
+			Game.skip_to_end()
 		Intent.AGAIN:
 			if data.has("difficulty"):
 				Save.set_difficulty(data.difficulty)

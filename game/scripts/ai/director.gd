@@ -938,6 +938,8 @@ func host_decide(seat: Match.Seat, player_plea: String = "") -> Array[int]:
 			s += 3.0
 		if g.is_player:
 			s += _plea_weight(host, player_plea)
+			if m.owes_player.get(host.id, false):
+				s += 4.0                    # ты впустил его, когда он тебе не открыл: теперь он откроет
 			if not host.is_upyr:
 				s += 0.35 * give()          # при поддавках хозяин-человек охотнее верит игроку
 		else:

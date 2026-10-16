@@ -42,6 +42,7 @@ func build() -> void:
 	if not m.player().alive:
 		body.add_child(W.label(L.t("night.dusk"), &"Tale"))
 		_event_label()
+		_forest_label()
 		body.add_child(W.label(L.t("night.dead"), &"Small"))
 		var go_dead := W.button(L.t("ui.next"))
 		go_dead.pressed.connect(func() -> void: commit(Intent.CHOOSE_HOUSE, {"house": -1}))
@@ -53,6 +54,8 @@ func build() -> void:
 	head.add_child(W.more(self, _info))
 	body.add_child(head)
 	_event_label()
+	_forest_label()
+	Dread.run(self)
 	var me := m.player()
 	var list := W.vbox(10)
 	for i in range(m.houses.size()):
@@ -91,6 +94,22 @@ func _event_label() -> void:
 		var l := W.icon_line(MorningScreen.event_glyph(m.night_event), Match.event_title(m.night_event), &"Hint")
 		l.name = "Event"
 		body.add_child(l)
+
+
+## После изгнания из леса зовут тебя по имени. Изгнанный человек зовёт почти всегда, упырь — иногда.
+func _forest_label() -> void:
+	if m.forest_call_day != m.day or m.last_exiled == null:
+		return
+	var l := W.icon_line("street", L.t("night.forest_call", {"who": m.last_exiled, "name": m.player().name}), &"Hint")
+	l.name = "ForestCall"
+	body.add_child(l)
+	_call_later()
+
+
+func _call_later() -> void:
+	await Juice.wait(1.4)
+	if is_instance_valid(self) and is_inside_tree():
+		Sfx.play(&"call_far", 1.0, -6.0)
 
 
 func _info() -> Array:

@@ -31,6 +31,8 @@ var _feed_gen: int = 0
 
 ## Дела дня. Время дня идёт вместе с часами фазы: пауза — стоят и дела.
 var tasks: Array[Director.JobTask] = []
+var dilemma: Dictionary = {}       ## дилемма у двери этой ночи (Match.door_dilemma) — экран двери её показывает
+var skipping := false              ## идёт skip_to_end: экраны фаз не показываются
 var day_t: float = 0.0
 var player_job: int = -1
 var player_job_left: float = 0.0
@@ -71,6 +73,8 @@ func active() -> bool:
 ## daily — дата испытания дня ("" — обычная партия): правило и зерно берутся по ней.
 func start(cfg: GameConfig, daily_date: String = "") -> void:
 	abandon()
+	Dread.reset()
+	dilemma = {}
 	first_contact = false
 	inspection_bonus = 0
 	m = Match.new()
@@ -316,6 +320,8 @@ func busy_job(vid: int) -> int:
 # Фазы
 # =============================================================
 func _on_phase(p: Match.Phase) -> void:
+	if skipping:
+		return                     # «Закончить партию»: фазы пролистываются без экранов
 	clock.stop()
 	if p != Match.Phase.DAY:
 		tasks.clear()
@@ -368,6 +374,45 @@ func _on_phase(p: Match.Phase) -> void:
 			phase_entered.emit(p)
 
 
+## Тебя не стало, смотреть дальше не хочется: боты доигрывают без экранов, сразу итог партии.
+func skip_to_end() -> void:
+	if m == null or m.player().alive or m.phase == Match.Phase.OVER:
+		return
+	skipping = true
+	clock.stop()
+	tasks.clear()
+	var guard := 0
+	while m.phase != Match.Phase.OVER and guard < 400:
+		guard += 1
+		match m.phase:
+			Match.Phase.DAY:
+				director.plan_day()
+				director.run_jobs_instant(director.plan_jobs(m.config.day_seconds))
+				m.end_day()
+			Match.Phase.VOTE:
+				if m.vote_log.is_empty() or int(m.vote_log[-1].day) != m.day:   # итог уже показан — голосовать снова не надо
+					var tally: Dictionary[int, int] = {}
+					var bv := director.votes()
+					for voter: int in bv:
+						tally[bv[voter]] = tally.get(bv[voter], 0) + m.vote_weight(voter)
+					m.apply_vote(tally, bv.duplicate())
+				m.after_vote()
+			Match.Phase.NIGHT:
+				m.seat_night(director.night_choices())
+			Match.Phase.DOOR:
+				for st: Match.Seat in m.seats:
+					m.admit(st, director.host_decide(st))
+				m.tunnel_pass(false)
+				director.after_door(m.seats)
+				director.read_report(m.resolve_night())
+			Match.Phase.MORNING:
+				m.end_morning()
+			_:
+				break
+	skipping = false
+	_on_phase(m.phase)
+
+
 func door_role() -> Match.DoorRole:
 	return m.player_door_role()
 
@@ -393,6 +438,7 @@ func _prepare_door() -> void:
 		_finish_night()
 		return
 	host_pleas.clear()
+	dilemma = m.door_dilemma(mine) if role == Match.DoorRole.HOST else {}
 	if role == Match.DoorRole.HOST:
 		for g: Villager in mine.knockers():
 			host_pleas[g.id] = director.mimic_plea(g) if g == mine.mimic else director.plea_for(g)

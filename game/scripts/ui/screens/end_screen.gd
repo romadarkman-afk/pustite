@@ -26,13 +26,29 @@ func build() -> void:
 	var you := m.player()
 	var people_won := m.winner == Match.Team.PEOPLE
 	var won := people_won != you.is_upyr
-	body.add_child(W.label(L.t("end.people" if people_won else "end.upyri"), &"Title"))
-	body.add_child(W.label(L.t("end.won" if won else "end.lost"), &"Tale"))
+	body.add_child(ending_card(people_won, won))
+	if not Juice.instant:
+		open_slides.call_deferred()
 	Juice.haptic(Juice.Haptic.SUCCESS if won else Juice.Haptic.DEATH)
 	Sfx.play(&"win" if won else &"lose")
 	if people_won:
 		Sfx.play(&"upyr_cry", 0.9, -7.0)
+	else:
+		Sfx.play(&"growl", 0.9, -9.0)
 	body.add_child(_verdict_card())
+	var reveal := reveal_cards()
+	if reveal != null:
+		body.add_child(reveal)
+	var dl := Recap.dilemma_lines(m)
+	if not dl.is_empty():
+		var dc := W.panel(&"Card")
+		dc.name = "Dilemmas"
+		var db := W.vbox(6)
+		db.add_child(W.label(L.t("end.dilemmas"), &"Speaker"))
+		for l: String in dl:
+			db.add_child(W.label(l, &"Small"))
+		dc.add_child(db)
+		body.add_child(dc)
 	var case_card := W.panel(&"Card")
 	case_card.name = "CaseRecap"
 	var case_box := W.vbox(8)
@@ -110,6 +126,222 @@ func build() -> void:
 	var opts := W.button(L.t("settings.difficulty"), &"Ghost")
 	opts.pressed.connect(func() -> void: commit(Intent.OPEN_SETTINGS))
 	footer.add_child(opts)
+
+
+## Конец главы (Task 55): картинка исхода, если она есть, заголовок и кто дожил до утра.
+## Картинки: assets/scenes/end_people.png (люди выстояли), assets/scenes/end_upyri.png (посёлок пал).
+const END_ART := {true: "res://assets/scenes/end_people.jpg", false: "res://assets/scenes/end_upyri.jpg"}
+const SLIDE_SEC := 6.0          ## сколько держится каждый слайд финала
+var slides: Control             ## заставка финала поверх экрана; null — закрыта
+
+
+func ending_card(people_won: bool, won: bool) -> PanelContainer:
+	var card := W.panel(&"Sheet")
+	card.name = "Ending"
+	card.set_meta("people_won", people_won)
+	var box := W.vbox(10)
+	card.add_child(box)
+	var art_path: String = END_ART[people_won]
+	if ResourceLoader.exists(art_path):
+		var art := TextureRect.new()
+		art.name = "EndArt"
+		art.texture = load(art_path)
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		art.custom_minimum_size = Vector2(0, 300)
+		box.add_child(art)
+	var title := W.label(L.t("end.people" if people_won else "end.upyri"), &"Title")
+	title.add_theme_color_override("font_color", ThemeFactory.LAMP if people_won else ThemeFactory.BLOOD)
+	box.add_child(title)
+	box.add_child(W.label(L.t("end.won" if won else "end.lost"), &"Tale"))
+	var alive: Array[Villager] = m.alive()
+	var survivors := W.label(L.t("end.survivors", {"list": alive}) if not alive.is_empty() else L.t("end.nobody"), &"Small")
+	survivors.name = "Survivors"
+	box.add_child(survivors)
+	return card
+
+
+## Заставка финала: картинка исхода медленно проплывает, два слайда с текстом, своя музыка.
+## Тап — пропустить. Через два слайда закрывается сама.
+func open_slides() -> Control:
+	var people_won := m.winner == Match.Team.PEOPLE
+	var path: String = END_ART[people_won]
+	if slides != null or not ResourceLoader.exists(path) or not is_inside_tree():
+		return slides
+	var vp := get_viewport_rect().size
+	slides = Control.new()
+	slides.name = "Slides"
+	slides.top_level = true
+	slides.z_index = 100
+	slides.position = Vector2.ZERO
+	slides.size = vp
+	slides.mouse_filter = Control.MOUSE_FILTER_STOP
+	slides.gui_input.connect(func(e: InputEvent) -> void:
+		if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
+			close_slides())
+	add_child(slides)
+	var bg := ColorRect.new()
+	bg.color = Color(0.02, 0.025, 0.035)
+	bg.size = vp
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slides.add_child(bg)
+	# картинка: по высоте 62% экрана, по ширине шире экрана — её проводит слева направо
+	var frame := Control.new()
+	frame.name = "Frame"
+	frame.clip_contents = true
+	frame.size = Vector2(vp.x, vp.y * 0.62)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slides.add_child(frame)
+	var tex: Texture2D = load(path)
+	var art := TextureRect.new()
+	art.name = "Art"
+	art.texture = tex
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_SCALE
+	var h := frame.size.y * 1.06
+	var w := maxf(h * tex.get_width() / float(tex.get_height()), vp.x * 1.2)
+	art.size = Vector2(w, h)
+	art.position = Vector2(0.0, -frame.size.y * 0.03)
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(art)
+	var fade := TextureRect.new()
+	var g := Gradient.new()
+	g.set_color(0, Color(0.02, 0.025, 0.035, 0.0))
+	g.set_color(1, Color(0.02, 0.025, 0.035, 1.0))
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.fill_from = Vector2(0, 0)
+	gt.fill_to = Vector2(0, 1)
+	fade.texture = gt
+	fade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	fade.position = Vector2(0, frame.size.y * 0.7)
+	fade.size = Vector2(vp.x, frame.size.y * 0.3 + 2)
+	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slides.add_child(fade)
+	var col := VBoxContainer.new()
+	col.name = "Captions"
+	col.position = Vector2(vp.x * 0.08, vp.y * 0.6)
+	col.size = Vector2(vp.x * 0.84, vp.y * 0.32)
+	col.add_theme_constant_override("separation", 18)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slides.add_child(col)
+	var title := W.label(L.t("end.people" if people_won else "end.upyri"), &"Title")
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_color_override("font_color", ThemeFactory.LAMP if people_won else ThemeFactory.BLOOD)
+	col.add_child(title)
+	var cap := W.label(slide_text(0), &"Tale")
+	cap.name = "Caption"
+	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(cap)
+	var skip := W.label(L.t("end.slide_skip"), &"Hint")
+	skip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	skip.position = Vector2(0, vp.y * 0.93)
+	skip.size = Vector2(vp.x, 40)
+	slides.add_child(skip)
+	Sfx.set_music(music(), 0.4)
+	_run_slides(art, cap, w - vp.x)
+	return slides
+
+
+## Текст слайда: 0 — что стало с посёлком, 1 — кто дожил (или кто смотрит из леса).
+func slide_text(i: int) -> String:
+	var people_won := m.winner == Match.Team.PEOPLE
+	if i == 0:
+		return L.t("end.slide_people_1" if people_won else "end.slide_upyri_1")
+	if people_won:
+		var alive: Array[Villager] = m.alive()
+		return L.t("end.slide_people_2", {"list": alive}) if not alive.is_empty() else L.t("end.nobody")
+	var upyri: Array[Villager] = []
+	for v: Villager in m.villagers:
+		if v.is_upyr:
+			upyri.append(v)
+	return L.t("end.slide_upyri_2", {"list": upyri})
+
+
+func _run_slides(art: TextureRect, cap: Label, travel: float) -> void:
+	slides.modulate.a = 0.0
+	var tw := Juice.tween()
+	tw.tween_property(slides, "modulate:a", 1.0, 0.8)
+	var pan := Juice.tween()
+	pan.tween_property(art, "position:x", -travel, SLIDE_SEC * 2.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	await Juice.wait(SLIDE_SEC)
+	if slides == null or not is_instance_valid(cap):
+		return
+	var out := Juice.tween()
+	out.tween_property(cap, "modulate:a", 0.0, 0.5)
+	await out.finished
+	if slides == null or not is_instance_valid(cap):
+		return
+	cap.text = slide_text(1)
+	Juice.tween().tween_property(cap, "modulate:a", 1.0, 0.6)
+	await Juice.wait(SLIDE_SEC)
+	close_slides()
+
+
+func close_slides() -> void:
+	if slides == null:
+		return
+	var s := slides
+	slides = null
+	if not is_instance_valid(s):
+		return
+	if Juice.instant:
+		s.queue_free()
+		return
+	var tw := Juice.tween()
+	tw.tween_property(s, "modulate:a", 0.0, 0.6)
+	tw.tween_callback(s.queue_free)
+
+
+func music() -> StringName:
+	return &"end_dawn" if m != null and m.winner == Match.Team.PEOPLE else &"end_dark"
+
+
+## Разоблачение упырей: портрет наливается кровью, упырь говорит последнее слово.
+func reveal_cards() -> Control:
+	var upyri: Array[Villager] = []
+	for v: Villager in m.villagers:
+		if v.is_upyr and not v.is_player:
+			upyri.append(v)
+	if upyri.is_empty():
+		return null
+	var col := W.vbox(10)
+	col.name = "Reveal"
+	col.add_child(W.label(L.t("end.reveal"), &"Speaker"))
+	var words := Phrases.b("UPYR_REVEAL")
+	var k := 0
+	for v: Villager in upyri:
+		var card := W.panel(&"Card")
+		card.name = "Reveal_%d" % v.id
+		var row := W.hbox(14)
+		var p := W.portrait(v, Vector2(64, 116))
+		row.add_child(p)
+		var box := W.vbox(4)
+		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var nm := W.label(L.t("end.was_upyr", {"who": v}), &"Body")
+		nm.add_theme_color_override("font_color", ThemeFactory.BLOOD)
+		box.add_child(nm)
+		var fate := "end.fate_exiled" if v.exiled else ("end.fate_dead" if not v.alive else "end.fate_alive")
+		box.add_child(W.label(L.t(fate, {"who": v}), &"Small"))
+		if not words.is_empty():
+			box.add_child(W.label("«%s»" % L.fill(words[(v.id + k) % words.size()], {"me": v, "player_name": m.player().name}), &"Tale"))
+		row.add_child(box)
+		card.add_child(row)
+		col.add_child(card)
+		_bleed(p, 0.6 + 0.5 * k)
+		k += 1
+	return col
+
+
+## Лицо медленно наливается красным: был человеком — оказался упырём.
+func _bleed(p: TextureRect, delay: float) -> void:
+	if Juice.instant:
+		p.modulate = Color(1.0, 0.45, 0.42)
+		return
+	await Juice.wait(delay)
+	if is_instance_valid(p):
+		Juice.tween().tween_property(p, "modulate", Color(1.0, 0.45, 0.42), 0.9)
 
 
 ## Главное в разборе: что решило твою партию — и, если тебя не стало, почему.

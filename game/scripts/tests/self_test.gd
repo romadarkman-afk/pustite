@@ -873,6 +873,14 @@ static func _check_sheet(sheet: ActionSheet, tag: String, out: PackedStringArray
 	return 1
 
 
+## Весь текст подписей, даже вне дерева сцены (карточка ещё не показана).
+static func _all_text_raw(root: Node) -> String:
+	var out := PackedStringArray()
+	for n: Node in root.find_children("*", "Label", true, false):
+		out.append((n as Label).text)
+	return "\n".join(out)
+
+
 static func _controls(root: Node) -> Array[Control]:
 	var out: Array[Control] = []
 	for c: Node in root.get_children():
@@ -2564,6 +2572,44 @@ static func sound() -> void:
 	Sfx.played.clear()
 	await _finish_match(tree, false)
 	ok += _expect(fails, Sfx.played.has(&"lose"), "поражение без звука поражения")
+
+	# 6б. Звуки страха (57): все на месте, резкий удар не чаще раза за ночь и не в первую ночь
+	var dread_missing := PackedStringArray()
+	for k: StringName in Dread.SOUNDS:
+		if not Sfx.SOUNDS.has(k) or not Sfx.has_sound(k):
+			dread_missing.append(String(k))
+	ok += _expect(fails, dread_missing.is_empty() and Dread.SOUNDS.size() >= 10, "нет звуков страха: %s" % ", ".join(dread_missing))
+	Dread.reset()
+	Sfx.played.clear()
+	var first_night := Dread.scare(1)
+	var a1 := Dread.scare(2)
+	var a2 := Dread.scare(2)
+	var a3 := Dread.scare(3)
+	ok += _expect(fails, not first_night and a1 and not a2 and a3 and Dread.scares == 2 and Sfx.played.count(&"scare") == 2,
+		"резкий удар звучит чаще раза за ночь или в первую ночь")
+	var kinds_ok := true
+	for kind: NightReport.Kind in [NightReport.Kind.KILLED_STREET, NightReport.Kind.KILLED_INSIDE, NightReport.Kind.KILLED_CREATURE,
+			NightReport.Kind.KILLED_MIMIC, NightReport.Kind.KILLED_ALONE]:
+		kinds_ok = kinds_ok and Dread.SOUNDS.has(Dread.death_sound(kind))
+	ok += _expect(fails, kinds_ok and Dread.death_sound(NightReport.Kind.KILLED_INSIDE) != Dread.death_sound(NightReport.Kind.KILLED_STREET),
+		"утром смерть звучит одинаково, как бы ни погиб человек")
+	# один в доме: шаги по крыше и скрип половиц
+	Nav.start_match()
+	await _settle(tree)
+	var gm := Game.m
+	gm.phase = Match.Phase.DOOR
+	var lone := Match.Seat.new()
+	lone.host = gm.player()
+	lone.house = 0
+	var ds_alone := DoorScreen.new()
+	ds_alone.role = Match.DoorRole.ALONE
+	ds_alone.seat = lone
+	Sfx.played.clear()
+	Nav.show(ds_alone)
+	await _frames(tree, 12)
+	ok += _expect(fails, Sfx.played.has(&"roof_steps") and Sfx.played.has(&"creak"), "один в доме: не слышно шагов по крыше и скрипа (%s)" % [Sfx.played])
+	Nav.show_menu()
+	await _settle(tree)
 
 	# 7. Настройки: три ползунка
 	Nav.show_settings()
@@ -4784,6 +4830,191 @@ static func recap() -> void:
 			kin_ok = false
 	ok += _expect(fails, kin_ok, "в сцене потери не видно, как горюют близкие")
 	ok += _expect(fails, MorningScreen.LOSS_HOLD >= 1.5, "сцену потери можно пролистнуть сразу")
+	# 8. Дилеммы у двери (56): семь видов, цена выбора, итог в разборе
+	var kinds_seen: Dictionary = {}
+	var dl_ok := true
+	for kind: String in ["couple", "refuser", "voted", "accuser", "grieving", "crowd", "oil"]:
+		var md := Match.new()
+		md.start(c, 900 + kinds_seen.size())
+		md.day = 2
+		md.phase = Match.Phase.DOOR
+		var bots := md.alive_bots()
+		var pair_a: Villager = null
+		var pair_b: Villager = null
+		for v: Villager in bots:
+			if v.partner_id >= 0 and pair_a == null:
+				pair_a = v
+				pair_b = md.get_villager(v.partner_id)
+		var loners: Array[Villager] = []
+		for v: Villager in bots:
+			if v.partner_id < 0 and v.family_id < 0:
+				loners.append(v)
+		var st := Match.Seat.new()
+		st.host = md.player()
+		st.house = 0
+		var x: Villager = loners[0]
+		match kind:
+			"couple":
+				st.queue.assign([pair_a, pair_b, loners[0]])
+				md.config.capacity = 3
+			"refuser":
+				md.refused_player.append({"day": 1, "by": x})
+				st.queue.assign([x])
+			"voted":
+				md.player_votes.append({"day": 2, "who": x})
+				st.queue.assign([x])
+			"accuser":
+				md.accused_player[x.id] = 2
+				st.queue.assign([x])
+			"grieving":
+				x.grief_days = 1
+				x.grief_for = loners[1].id
+				st.queue.assign([x])
+			"crowd":
+				md.config.capacity = 2
+				st.queue.assign([loners[0], loners[1], loners[2]])
+			"oil":
+				md.talisman[0] = 0
+				st.queue.assign([x])
+		var d := md.door_dilemma(st)
+		for _try in range(80):
+			if not d.is_empty() and String(d.kind) == kind:
+				break
+			d = md.door_dilemma(st)
+		if d.is_empty() or String(d.kind) != kind:
+			dl_ok = false
+			print("дилемма: ждали %s, вышло %s" % [kind, d])
+			continue
+		kinds_seen[kind] = true
+		var card := DoorScreen.dilemma_card(md, d)
+		var ctext := _all_text_raw(card)
+		card.free()
+		if (kind != "crowd" and not ctext.contains(md.get_villager(int(d.who)).name.left(3))) or ctext.contains("{"):
+			dl_ok = false
+			print("карточка дилеммы %s: %s" % [kind, ctext])
+		var ids: Array[int] = [int(d.who)]
+		var tal_before := md.talisman[0]
+		md.admit(st, ids)
+		var rec: Dictionary = md.dilemmas[-1] if not md.dilemmas.is_empty() else {}
+		if rec.is_empty() or not bool(rec.admitted):
+			dl_ok = false
+		if kind == "oil" and md.talisman[0] != tal_before + 1:
+			dl_ok = false
+			print("масло не укрепило оберег")
+		if kind == "refuser":
+			# долг платежом красен: теперь он хозяин, игрок стучит — откроет
+			var dd := Director.new()
+			dd.attach(md)
+			var back := Match.Seat.new()
+			back.host = x
+			back.house = 1
+			back.queue.assign([md.player()])
+			md.phase = Match.Phase.DOOR
+			if not dd.host_decide(back, "beg").has(md.player().id):
+				dl_ok = false
+				print("должник не открыл игроку")
+		var rr := NightReport.new()
+		rr.add(NightReport.Kind.KILLED_STREET, md.get_villager(int(d.who)), 1)
+		md._dilemma_fate(rr)
+		var lines := Recap.dilemma_lines(md)
+		if lines.is_empty() or "".join(lines).contains("{"):
+			dl_ok = false
+			print("разбор дилеммы: %s" % [lines])
+		# одна дилемма за ночь: вторая в ту же ночь не появляется
+		if not md.door_dilemma(st).is_empty():
+			dl_ok = false
+			print("вторая дилемма в ту же ночь")
+	ok += _expect(fails, dl_ok and kinds_seen.size() == 7, "дилеммы у двери: видов %d из 7" % kinds_seen.size())
+
+	# 9. Изгнание (55): уходит в лес с последними словами; изгнали тебя — смотреть или закончить; ночью зов
+	var npc: Villager = m.alive_bots()[0]
+	m.phase = Match.Phase.VOTE
+	var tally: Dictionary[int, int] = {npc.id: 3}
+	var ex := m.apply_vote(tally)
+	var vs := VoteScreen.new()
+	Nav.show(vs)
+	await _settle(tree)
+	vs.show_result(tally, ex)
+	await _settle(tree)
+	var fate_card := vs.find_child("ExileFate", true, false)
+	ok += _expect(fails, fate_card != null and fate_card.find_child("LastWords", true, false) != null
+		and fate_card.find_child("Portrait", true, false) != null, "изгнанный уходит без сцены: нет портрета или последних слов")
+	m.forest_call_day = m.day
+	m.last_exiled = npc
+	m.phase = Match.Phase.NIGHT
+	Nav.show(NightScreen.new())
+	await _settle(tree)
+	var call := Nav.host.current.find_child("ForestCall", true, false)
+	ok += _expect(fails, call != null and _all_text(call).contains(m.player().name), "ночью после изгнания из леса не зовут игрока по имени")
+	m.phase = Match.Phase.VOTE
+	npc.alive = true
+	npc.exiled = false
+	var ptally: Dictionary[int, int] = {m.player().id: 5}
+	var pex := m.apply_vote(ptally)
+	var vs2 := VoteScreen.new()
+	Nav.show(vs2)
+	await _settle(tree)
+	vs2.show_result(ptally, pex)
+	await _settle(tree)
+	ok += _expect(fails, vs2.find_child("YouExiled", true, false) != null and (m.upyri_alive() == 0 or vs2.find_child("SkipToEnd", true, false) != null),
+		"тебя изгнали, а экрана изгнания и кнопки «Закончить партию» нет")
+
+	# 10. Твоя смерть (55): портрет, что слышал последним, посёлок без тебя; «Закончить» доигрывает партию
+	m.player().alive = true
+	m.player().exiled = false
+	m.vote_log.clear()
+	m.winner = Match.Team.NONE
+	m.phase = Match.Phase.MORNING
+	var rd := NightReport.new()
+	var ed := rd.add(NightReport.Kind.KILLED_STREET, m.player(), 0)
+	ed.host = m.alive_bots()[0]
+	m.player().alive = false
+	m.player_death = ed
+	m.report = rd
+	Nav.show(MorningScreen.new())
+	await _settle(tree)
+	var why := Nav.host.current.find_child("WhyDead", true, false)
+	var skip := Nav.host.current.find_child("SkipToEnd", true, false) as Button
+	ok += _expect(fails, why != null and why.find_child("LastHeard", true, false) != null and why.find_child("WithoutYou", true, false) != null
+		and why.find_child("Portrait", true, false) != null, "экран твоей смерти без портрета, последнего звука или того, что будет дальше")
+	ok += _expect(fails, skip != null, "после твоей смерти нельзя закончить партию сразу")
+	if skip != null:
+		skip.pressed.emit()
+		await _settle(tree)
+	ok += _expect(fails, m.phase == Match.Phase.OVER and Nav.host.current is EndScreen, "«Закончить партию» не довело до итога (фаза %s)" % Match.Phase.keys()[m.phase])
+
+	# 11. Конец главы (55): исход, кто дожил, разоблачение каждого упыря, решения у двери
+	m.dilemmas.append({"day": 1, "kind": "voted", "who": m.alive_bots()[0].id if not m.alive_bots().is_empty() else npc.id, "other": -1,
+		"house": 0, "admitted": true, "fate": "alive"})
+	Nav.show(EndScreen.new())
+	await _settle(tree)
+	var es := Nav.host.current
+	var bot_upyri := 0
+	var reveal_ok := true
+	for v: Villager in m.villagers:
+		if v.is_upyr and not v.is_player:
+			bot_upyri += 1
+			var rc := es.find_child("Reveal_%d" % v.id, true, false)
+			if rc == null or not _all_text(rc).contains(v.name):
+				reveal_ok = false
+	ok += _expect(fails, es.find_child("Ending", true, false) != null and es.find_child("Survivors", true, false) != null, "в конце главы нет исхода и списка выживших")
+	ok += _expect(fails, reveal_ok and bot_upyri > 0, "в конце не разоблачены упыри (%d)" % bot_upyri)
+	ok += _expect(fails, es.find_child("Dilemmas", true, false) != null, "в конце нет решений у двери")
+	ok += _expect(fails, not _all_text(es).contains("{"), "в конце главы осталась метка подстановки")
+	var end_s := es as EndScreen
+	var sl := end_s.open_slides()
+	await _frames(tree, 2)
+	var art := sl.find_child("Art", true, false) as TextureRect if sl != null else null
+	ok += _expect(fails, art != null and art.texture != null and art.size.x > end_s.get_viewport_rect().size.x,
+		"нет заставки финала с картинкой, которая проплывает по экрану")
+	ok += _expect(fails, not end_s.slide_text(0).contains("{") and not end_s.slide_text(1).contains("{") and not end_s.slide_text(1).is_empty(),
+		"в слайдах финала метка подстановки")
+	ok += _expect(fails, end_s.music() == (&"end_dawn" if m.winner == Match.Team.PEOPLE else &"end_dark") and Sfx.has_sound(end_s.music()),
+		"у финала нет своей музыки")
+	end_s.close_slides()
+	await _frames(tree, 3)
+	ok += _expect(fails, end_s.slides == null and not is_instance_valid(sl), "заставка финала не закрывается")
+
 	Nav.show_menu()
 	await _settle(tree)
 	_finish(fails, ok, "разбор партии", "почему ты погиб, что решило партию, кто кем был и как всё шло по ночам")
@@ -5191,7 +5422,7 @@ static func loc() -> void:
 						"house": m.houses[0], "from": m.houses[1], "said": m.houses[1], "away": m.houses[1], "to": m.houses[1],
 						"others": [who], "list": [bm, bf, m.player()], "n": n, "p": n, "u": n, "d": n, "s": n, "c": n,
 						"e": "e", "text": "t", "ev": "ev", "job": "Job", "place": "place", "what": "w", "role": "role",
-						"healer": "healer", "title": "T", "rest": "r", "where": "w", "why": "y", "lost": bf, "kin": bm}
+						"healer": "healer", "title": "T", "rest": "r", "where": "w", "why": "y", "lost": bf, "kin": bm, "player_name": "Name", "other": bm, "name": "Name", "choice": "c", "fate": "f"}
 					for line: String in lines:
 						texts.append(L.fill(line, a))
 		texts.append_array(collect_texts(c, 25))

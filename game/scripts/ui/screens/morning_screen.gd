@@ -37,16 +37,56 @@ func build() -> void:
 	head.add_theme_font_size_override("font_size", ThemeFactory.fs(44))
 	body.add_child(head)
 	# тебя не стало этой ночью — сразу видно почему: кто был рядом, кто открыл дверь
-	if m.player_death != null and r.entries.has(m.player_death):
-		var card := W.panel(&"Sheet")
-		card.name = "WhyDead"
-		var box := W.vbox(6)
-		card.add_child(box)
-		box.add_child(W.label(L.t("mo.why"), &"Speaker"))
-		for l: String in Recap.death_lines(m, m.player_death, r):
-			box.add_child(W.label(l, &"Small"))
-		body.add_child(card)
+	if you_died():
+		body.add_child(you_dead_card(r))
+		Sfx.set_music(&"", 0.3)
+		Sfx.play(Dread.death_sound(m.player_death.kind), 1.0, -4.0)
 	_reveal(r)
+
+
+func you_died() -> bool:
+	return m.player_death != null and m.report != null and m.report.entries.has(m.player_death)
+
+
+## Экран твоей смерти (Task 55): портрет, кто не открыл, что ты слышал последним, что будет без тебя.
+func you_dead_card(r: NightReport) -> PanelContainer:
+	var e := m.player_death
+	var card := W.panel(&"Sheet")
+	card.name = "WhyDead"
+	var row := W.hbox(14)
+	card.add_child(row)
+	row.add_child(W.portrait(m.player(), Vector2(74, 136), Color(0.55, 0.5, 0.56)))
+	var box := W.vbox(6)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(box)
+	var t := W.label(L.t("mo.you_dead"), &"Speaker")
+	t.add_theme_color_override("font_color", ThemeFactory.BLOOD)
+	box.add_child(t)
+	box.add_child(W.label(L.t("mo.why"), &"Small"))
+	for l: String in Recap.death_lines(m, e, r):
+		box.add_child(W.label(l, &"Small"))
+	var heard := W.label(last_heard(m, e), &"Tale")
+	heard.name = "LastHeard"
+	box.add_child(heard)
+	var left := W.label(L.t("mo.without_you", {"n": m.alive().size(), "u": m.upyri_alive()}), &"Hint")
+	left.name = "WithoutYou"
+	box.add_child(left)
+	return card
+
+
+## Что игрок слышал последним — по тому, как погиб.
+static func last_heard(mm: Match, e: NightReport.Entry) -> String:
+	var args := {"house": mm.house_name(e.house) if e.house >= 0 else "", "who": e.killer if e.killer != null else e.host}
+	match e.kind:
+		NightReport.Kind.KILLED_STREET:
+			return L.t("mo.heard_street", args)
+		NightReport.Kind.KILLED_INSIDE:
+			return L.t("mo.heard_inside", args) if e.killer != null else L.t("mo.heard_alone", args)
+		NightReport.Kind.KILLED_CREATURE:
+			return L.t("mo.heard_creature", args)
+		NightReport.Kind.KILLED_MIMIC:
+			return L.t("mo.heard_mimic", {"who": e.voice if e.voice != null else e.host})
+	return L.t("mo.heard_alone", args)
 
 
 func _reveal(r: NightReport) -> void:
@@ -54,7 +94,7 @@ func _reveal(r: NightReport) -> void:
 	var lines: Array[Array] = []
 	for e: NightReport.Entry in r.entries:
 		if e.is_death():
-			lines.append([_text(e), &"Body", true, _glyph(e), e.who])
+			lines.append([_text(e), &"Body", true, _glyph(e), e.who, e.kind])
 	for e: NightReport.Entry in r.entries:
 		if not e.is_death():
 			lines.append([_text(e), &"Small", false, _glyph(e)])
@@ -80,6 +120,7 @@ func _reveal(r: NightReport) -> void:
 			Juice.haptic(Juice.Haptic.DEATH)
 			Sfx.play(&"death")
 			Sfx.play(&"human_cry", 0.9 + randf() * 0.18, -5.0)
+			Sfx.play(Dread.death_sound(l[5]), 1.0, -9.0)
 			death_fx.emit()
 			Juice.shake(self, 8.0, 0.25)
 			await Juice.wait(LOSS_HOLD)
@@ -94,10 +135,16 @@ func _reveal(r: NightReport) -> void:
 			await Juice.wait(0.32)
 
 	body.add_child(people_strip())
-	var next := W.button(L.t("ui.next"))
+	var dead := you_died() and m.phase == Match.Phase.MORNING and m.winner == Match.Team.NONE
+	var next := W.button(L.t("mo.watch") if dead else L.t("ui.next"))
 	next.pressed.connect(func() -> void: commit(Intent.CONTINUE))
 	footer.add_child(next)
 	Juice.pop_in(next)
+	if dead:
+		var stop := W.button(L.t("mo.finish"), &"Ghost")
+		stop.name = "SkipToEnd"
+		stop.pressed.connect(func() -> void: commit(Intent.SKIP_TO_END))
+		footer.add_child(stop)
 	revealed = true
 
 
@@ -111,16 +158,7 @@ func loss_card(lost: Villager, what: String) -> PanelContainer:
 	card.set_meta("loss", lost.id)
 	var row := W.hbox(14)
 	card.add_child(row)
-	var portrait := TextureRect.new()
-	var figure: VillagerFigure = Nav.village.crowd.figures.get(lost.id) if Nav.village != null else null
-	if figure != null:
-		portrait.texture = VillagerFigure.folk_tex(figure.sprite_id)
-	portrait.name = "Portrait"
-	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	portrait.custom_minimum_size = Vector2(70, 128)
-	portrait.modulate = Color(0.72, 0.7, 0.76)        # выцветший, как старая карточка
-	row.add_child(portrait)
+	row.add_child(W.portrait(lost, Vector2(70, 128), Color(0.72, 0.7, 0.76)))   # выцветший, как старая карточка
 	var info := W.vbox(6)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(info)
