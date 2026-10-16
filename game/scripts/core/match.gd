@@ -267,16 +267,29 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	_shuffle(pool)
 	villagers.clear()
 	villagers.append(Villager.new(0, Save.player_display_name(), true))
-	var stories: Array = [3, 4, 5, 6, 7, 8, 9, 10, 11]
-	_shuffle(stories)
 	for i in range(config.players - 1):
 		var data: Array = anchors[i] if i < anchors.size() else pool[i - anchors.size()]
 		var v := Villager.new(i + 1, String(data[0]), false)
 		v.female = bool(data[1])
 		v.anchor_id = i if i < anchors.size() else -1
-		v.story_id = i if i < anchors.size() else int(stories[(i - anchors.size()) % stories.size()])
+		v.story_id = i if i < anchors.size() else names.find(data)
+		v.age = SocialContent.story_age(v.story_id)
 		v.relationship = Save.anchor_bond(v.anchor_id)
 		villagers.append(v)
+	# Связь симметрична, только между взрослыми, без зависимости от скрытой роли.
+	var lovers: Array[Villager] = []
+	for v: Villager in villagers:
+		if not v.is_player and v.age < 55 and v.story_id != 8:
+			lovers.append(v)
+	lovers.sort_custom(func(a: Villager, b: Villager) -> bool: return a.story_id < b.story_id)
+	for a: Villager in lovers:
+		for b: Villager in lovers:
+			if a != b and a.female != b.female and a.partner_id < 0 and b.partner_id < 0:
+				a.partner_id = b.id
+				b.partner_id = a.id
+				break
+		if a.partner_id >= 0:
+			break
 
 	var order: Array = range(villagers.size())
 	if config.player_always_human:

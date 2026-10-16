@@ -364,7 +364,8 @@ func _build_props() -> void:
 	for li in range(def.lamps.size()):
 		var lidx := li
 		_add_prop(def.lamps[li], func(ci: CanvasItem) -> void:
-			_draw_lamp_post(ci, def.lamps[lidx], _nq(), _lamp_on(lidx, _nq()) * _lamp_fuel(lidx)), -1)
+			_draw_lamp_post(ci, def.lamps[lidx], _nq(), _lamp_on(lidx, _nq()) * _lamp_fuel(lidx)))
+		_props.back().set_meta("street_lamp", true)
 	for j: JobDef in def.jobs:
 		var jp := j.pos
 		match j.kind:
@@ -540,9 +541,7 @@ func _draw_house(ci: CanvasItem, h: HouseDef, state: int, n: float, lit: float, 
 	if state != 2 and lit > 0.0:
 		_blit(ci, _tex[a[0] + "_night"], r, flip, Color(1, 1, 1, lit * (1.0 if state == 1 else 0.85)))
 	var dr := door_rect(h)
-	if state == 2:
-		Art._planks(ci, dr.grow(2.0), n, Art.ink(n))
-	elif state == 1:
+	if state == 1:
 		_draw_talisman(ci, dr, flip, n, tal)
 
 
@@ -737,23 +736,25 @@ func _build_glows() -> void:
 		var s := Sprite2D.new()
 		s.texture = tex
 		s.material = add
-		s.z_index = -1
+		s.z_index = 0
 		s.position = p - Vector2(-12, 65)
 		s.scale = Vector2(2.1, 2.1)
 		s.modulate = Color(ThemeFactory.LAMP, 0.0)
 		add_child(s)
+		move_child(s, crowd.get_index())
 		_lamp_glows.append(s)
 	for i in range(open_count):
 		var h: HouseDef = def.shelters[i]
 		var s := Sprite2D.new()
 		s.texture = tex
 		s.material = add
-		s.z_index = -1
+		s.z_index = 0
 		var hr := house_rect(h)
 		s.position = hr.get_center() + Vector2(0, hr.size.y * 0.1)
 		s.scale = Vector2(hr.size.x / 80.0, hr.size.y / 95.0)
 		s.modulate = Color(ThemeFactory.LAMP, 0.0)
 		add_child(s)
+		move_child(s, crowd.get_index())
 		_house_glows.append(s)
 
 

@@ -120,6 +120,7 @@ func _on_field_tap_input(e: InputEvent) -> void:
 	elif e is InputEventMouseMotion and _field_press != Vector2.INF:
 		if (e as InputEventMouseMotion).position.distance_to(_field_press) >= 24.0:
 			_hold_gen += 1        # повёл пальцем — это не долгое нажатие
+			_field_press = Vector2.INF  # отпускание после перетаскивания не открывает меню
 
 
 func _wait_hold(gen: int, at: Vector2) -> void:

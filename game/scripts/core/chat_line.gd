@@ -9,6 +9,7 @@ var text: String
 var about: Villager = null   ## кого обвиняет реплика: толпа поворачивается к нему
 var asks_player: bool = false
 var question_kind: String = ""
+var emotion: String = ""    ## эмоция известна из сцены, а не угадывается по случайной фразе
 
 
 static func say(who: Villager, t: String) -> ChatLine:

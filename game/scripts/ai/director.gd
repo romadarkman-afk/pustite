@@ -19,7 +19,7 @@ const UPYR_REAL := 0.6    ## упырь доделывает дело по-на�
 const NOTICE_P := 0.25      ## шанс, что каждый отдельный сосед заметит пустую работу
 const DONE_LINE_P := 0.25  ## шанс, что житель похвастается сделанным
 const LIE_P := 0.2         ## шанс, что упырь оболжёт честного работника: «работал впустую»
-const RUN_SPEED := 190.0                  ## как шаг фигурки на поле, единиц посёлка в секунду
+const RUN_SPEED := 145.0                  ## соответствует ходьбе фигурки
 const RUN_REACT := Vector2(2.0, 5.0)      ## через сколько секунд бот срывается с места: дослушать, оглядеться, решиться
 const RUN_REACT_FAST := Vector2(0.5, 1.5) ## а этот был наготове и рванул сразу
 const RUN_FAST_P := 0.25                  ## доля таких шустрых: замешкался на пару секунд — у двери уже кто-то есть
@@ -539,6 +539,7 @@ func opening_lines() -> Array[ChatLine]:
 		return out
 	out.append_array(pending_lines)
 	pending_lines.clear()
+	out.append_array(emotional_lines())
 
 	if m.day > 1:
 		for suspect: Villager in _by_susp(m.alive(), false).slice(0, 2):
@@ -578,6 +579,60 @@ func opening_lines() -> Array[ChatLine]:
 	var question := player_question()
 	if question != null:
 		out.append(question)
+	return out
+
+
+func emotional_lines() -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	for v: Villager in m.alive_bots():
+		var partner := m.get_villager(v.partner_id)
+		if partner == null or (partner.alive and v.id > partner.id):
+			continue
+		var text := ""
+		var feeling := "happy"
+		if not partner.alive:
+			feeling = "sad"
+			if partner.exiled:
+				text = L.fill("{other} {other:обещал|обещала} вернуться. Теперь я даже не знаю, куда нести тёплые вещи.", {"other": partner}) if L.code == "ru" else "%s promised to come back. Where do I take these warm clothes now?" % partner.name
+			else:
+				text = "Всю ночь [держал|держала] для тебя место, {name}. Утром даже стул убрать не могу.".replace("{name}", partner.name) if L.code == "ru" else "I kept a place for you all night, %s. I cannot even put the chair away." % partner.name
+		elif m.day == 1:
+			text = "Мы с {other} собирались уехать после свадьбы. Теперь я прошу только об одном: оставьте нам два места рядом.".replace("{other}", L.gram().name_case(partner.name, "ins", partner.female)) if L.code == "ru" else "We meant to leave after our wedding, %s and I. Now I just want two places together." % partner.name
+		elif v.night_house >= 0 and v.night_house == partner.night_house:
+			text = "Утром [проснулся|проснулась] раньше и [слушал|слушала], как ты дышишь, {name}. Так страшно ещё никогда не было.".replace("{name}", partner.name) if L.code == "ru" else "I woke first and listened to you breathing, %s. I have never been so afraid." % partner.name
+		else:
+			feeling = "sad"
+			text = "{name}, я всю ночь [ждал|ждала] твоего стука. Понимаю, что ты {other:пошёл|пошла} в другой дом. Простить пока не получается.".replace("{name}", partner.name) if L.code == "ru" else "I waited for your knock all night, %s. I know why we were apart. It still hurts." % partner.name
+		var line := ChatLine.say(v, L.fill(text, {"me": v, "other": partner}))
+		line.emotion = feeling
+		out.append(line)
+		if partner.alive and m.day == 1:
+			var answer := ChatLine.say(partner, L.fill("Я рядом, {name}. Только если ночью услышу твой голос, всё равно спрошу про нашу первую встречу.".replace("{name}", v.name)) if L.code == "ru" else "I'm here, %s. But if you knock tonight, I will still ask where we first met." % v.name)
+			answer.emotion = "sad"
+			out.append(answer)
+		break
+	return out
+
+
+func personal_talk(vid: int, choice: int) -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	var v := m.get_villager(vid)
+	if v == null or v.is_player or not v.alive or not brains.has(vid) or v.personal_day == m.day or choice < 0 or choice > 1:
+		return out
+	v.personal_day = m.day
+	v.story_step = mini(v.story_step + 1, 2)
+	var brain: BotBrain = brains[vid]
+	brain.private_delta[0] = brain.private_delta.get(0, 0.0) + (-0.2 if choice == 0 else 0.25)
+	if v.anchor_id >= 0:
+		_remember_anchor_answer(v, 1 if choice == 0 else -1)
+	out.append(ChatLine.say(m.player(), L.fill(SocialContent.narrative_ui("prompt"), {"who": v.name})))
+	var confession := ChatLine.say(v, SocialContent.personal_chapter(v, v.story_step))
+	confession.emotion = "sad"
+	out.append(confession)
+	out.append(ChatLine.say(m.player(), SocialContent.narrative_ui("listen" if choice == 0 else "doubt")))
+	var reply := ChatLine.say(v, L.fill(SocialContent.narrative_ui("thanks" if choice == 0 else "hurt"), {"me": v}))
+	reply.emotion = "relieved" if choice == 0 else "angry"
+	out.append(reply)
 	return out
 
 

@@ -129,9 +129,11 @@ func _build_host() -> void:
 			portrait.draw_line(Vector2(100, 0), Vector2(100, portrait.size.y), Color("93704c"), 1.4))
 		var figure := VillagerFigure.new()
 		var looks := L.looks()
-		var look := looks.for_name(g.name, false)
+		var look := looks.for_name(g.name, false).duplicate() as LookDef
+		look.female = g.female
+		look.age = 0 if g.age < 28 else (2 if g.age >= 55 else 1)
 		figure.setup(g.name, look, false)
-		figure.sprite_id = VillagerFigure.pick_sprite(look, _portrait_used)
+		figure.sprite_id = VillagerFigure.pick_cast_sprite(g, _portrait_used)
 		if Nav.village != null and Nav.village.crowd != null:
 			var on_field: VillagerFigure = Nav.village.crowd.figures.get(g.id)
 			if on_field == null:

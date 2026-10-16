@@ -196,14 +196,7 @@ func _defend() -> void:
 func person_actions(v: Villager) -> void:
 	var ev := director.evidence_text(v) if director != null else ""
 	var head := v.name
-	if v.anchor_id >= 0:
-		head += "\n" + SocialContent.anchor_title(v.anchor_id, v.female)
-	if v.story_id >= 0:
-		head += "\n" + SocialContent.story(v.story_id, v)
-	if v.anchor_id >= 0 and v.relationship >= 1:
-		head += "\n" + SocialContent.anchor_chapter(v.anchor_id, 0, v)
-	if v.anchor_id >= 0 and v.relationship >= 3:
-		head += "\n" + SocialContent.anchor_chapter(v.anchor_id, 1, v)
+	head += "\n" + SocialContent.person_title(v)
 	if not ev.is_empty():
 		head += "\n" + ev
 	var opts := PackedStringArray([
@@ -215,16 +208,36 @@ func person_actions(v: Villager) -> void:
 	var elder := me.role == Match.Role.ELDER and not me.role_used
 	if elder:
 		opts.append(L.t("day.p_elder", {"who": v}))
+	var personal_index := opts.size()
+	opts.append(SocialContent.narrative_ui("personal"))
 	opts.append(L.t("day.p_gesture"))        # то же, что долгое нажатие на жителя
 	var i: int = await ActionSheet.ask(self, head, opts)
 	if i == opts.size() - 1:
 		gesture_actions(v)
+		return
+	if i == personal_index:
+		_personal_talk(v)
 		return
 	match i:
 		0: emit_intent(Intent.ACCUSE, {"id": v.id})
 		1: _pick_house_for(v)
 		2: emit_intent(Intent.ASK, {"id": v.id})
 		3: emit_intent(Intent.ELDER, {"id": v.id})
+
+
+func _personal_talk(v: Villager) -> void:
+	var text := v.name + "\n" + SocialContent.person_title(v) + "\n\n"
+	if v.personal_day == m.day:
+		text += SocialContent.narrative_ui("later")
+		await ActionSheet.ask(self, text, PackedStringArray())
+		return
+	text += SocialContent.personal_chapter(v, mini(v.story_step + 1, 2))
+	var bond := SocialContent.bond_text(v, m)
+	if not bond.is_empty():
+		text += "\n\n" + bond
+	var choice: int = await ActionSheet.ask(self, text, PackedStringArray([SocialContent.narrative_ui("listen"), SocialContent.narrative_ui("doubt")]))
+	if choice >= 0:
+		emit_intent(Intent.PERSONAL_TALK, {"id": v.id, "choice": choice})
 
 
 ## Долгое нажатие на жителя: жест без слов — показать пальцем, «верю», «не верю».

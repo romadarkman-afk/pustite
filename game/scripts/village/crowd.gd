@@ -34,16 +34,18 @@ func populate(m: Match) -> void:
 	var used := {}          # картинки жителей: повтор, только когда подходящие кончились
 	for v: Villager in m.villagers:
 		var f := VillagerFigure.new()
-		var l := book.for_name(v.name, v.is_player)
+		var l := book.for_name(v.name, v.is_player).duplicate() as LookDef
+		if not v.is_player:
+			l.female = v.female
+			l.age = 0 if v.age < 28 else (2 if v.age >= 55 else 1)
+			l.height = clampf(l.height, 0.96, 1.06)
 		f.setup(v.name, Cosmetics.dress(l, Save.hat) if v.is_player else l, v.is_player)
 		f.set_identity_color(v.id)
 		if v.is_player:
 			f.set_sprite(VillagerFigure.hero_for(l))
 			f.set_hero_hat(Save.hat)
-			if not l.female:
-				used[4] = true        # парень в картузе на листе — тот же герой, у ботов его не будет
 		else:
-			f.sprite_id = VillagerFigure.pick_sprite(l, used)
+			f.sprite_id = VillagerFigure.pick_cast_sprite(v, used)
 		f.modulate = night_tint
 		add_child(f)
 		if v.is_player:
@@ -139,6 +141,11 @@ func _any_spot(out: Array[Vector2], widths: Array[float], i: int, w: float, obs:
 func _hidden(p: Vector2, check_torso: bool = false) -> bool:
 	if view == null:
 		return false
+	if check_torso:
+		var body_area := Rect2(p + Vector2(-16, -82), Vector2(32, 70))
+		for lamp: Vector2 in view.def.lamps:
+			if p.y < lamp.y and body_area.intersects(Rect2(lamp - Vector2(9, 82), Vector2(35, 83))):
+				return true
 	for z: Rect2 in view.hidden_zones():
 		var torso := Rect2(p + Vector2(-16, -VillagerFigure.FIG_TOP * 0.94), Vector2(32, VillagerFigure.FIG_TOP * 0.78))
 		if z.has_point(p) or (check_torso and p.y < z.end.y - 3.0 and torso.intersects(z)):

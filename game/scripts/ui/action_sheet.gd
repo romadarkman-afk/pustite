@@ -6,6 +6,7 @@ extends Control
 signal chosen(index: int)
 
 var _done := false
+var _pause_key: StringName
 
 
 static func ask(parent: Control, title: String, options: PackedStringArray) -> int:
@@ -17,6 +18,8 @@ static func ask(parent: Control, title: String, options: PackedStringArray) -> i
 
 
 func _build(title: String, options: PackedStringArray) -> void:
+	_pause_key = StringName("action_sheet_%d" % get_instance_id())
+	Game.hold(_pause_key)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
@@ -36,12 +39,19 @@ func _build(title: String, options: PackedStringArray) -> void:
 
 	var box := W.vbox(10)
 	sheet.add_child(box)
-	box.add_child(W.label(title, &"Hint"))
+	var sc := ScrollContainer.new()
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.custom_minimum_size.y = minf((get_parent() as Control).size.y * 0.56, 500.0 * ThemeFactory.text_scale)
+	var content := W.vbox(10)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(content)
+	box.add_child(sc)
+	content.add_child(W.label(title, &"Hint"))
 	for i in range(options.size()):
 		var b := W.button(options[i], &"Row")
 		var idx := i
 		b.pressed.connect(func() -> void: close(idx))
-		box.add_child(b)
+		content.add_child(b)
 	var cancel := W.button(L.t("ui.cancel"), &"Ghost")
 	cancel.pressed.connect(func() -> void: close(-1))
 	box.add_child(cancel)
@@ -58,8 +68,16 @@ func close(idx: int) -> void:
 	if _done:
 		return
 	_done = true
+	Game.release(_pause_key)
 	chosen.emit(idx)
 	queue_free()
+
+
+func _exit_tree() -> void:
+	if not _done:
+		_done = true
+		Game.release(_pause_key)
+		chosen.emit(-1)
 
 
 

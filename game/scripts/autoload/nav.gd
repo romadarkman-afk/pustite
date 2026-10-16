@@ -417,6 +417,8 @@ func _on_chat(line: ChatLine) -> void:
 			village.crowd.turn_to(f.position.x, [line.speaker.id] as Array[int], 260.0, 2.2)
 			var b := bubbles.say(line.speaker.name, line.text, f.head_global(), line.speaker.is_player, f)
 			f.talk(b.life if b != null else 2.5)
+			if not line.emotion.is_empty():
+				f.set_emotion(line.emotion, b.life if b != null else 4.0)
 			Sfx.voice(line.speaker.id, line.speaker.female, line.text.length())
 			_react_to_accusation(line)
 
@@ -512,6 +514,9 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			Game.invite(data.id, data.house)
 		Intent.ASK:
 			Game.ask(data.id)
+		Intent.PERSONAL_TALK:
+			if sender is DayScreen:
+				Game.personal_talk(int(data.id), int(data.choice))
 		Intent.QUESTION_REPLY:
 			if sender is DayScreen:
 				Game.answer_question(int(data.id), String(data.answer), int(data.answer_kind))

@@ -28,6 +28,10 @@ func build() -> void:
 	var you := m.player()
 	var pre := W.label(L.t("prologue.pre"), &"Small")
 	body.add_child(pre)
+	var arrival := W.panel(&"Card")
+	arrival.name = "ArrivalStory"
+	arrival.add_child(W.label(SocialContent.village_intro(m), &"Small"))
+	body.add_child(arrival)
 	var role := W.label(L.t("prologue.upyr" if you.is_upyr else "prologue.human"), &"Title")
 	if you.is_upyr:
 		role.add_theme_color_override("font_color", ThemeFactory.BLOOD)
@@ -61,6 +65,32 @@ func build() -> void:
 	facts.modulate.a = 0.0
 	body.add_child(facts)
 	body.add_child(people_strip())
+	body.add_child(W.label(SocialContent.narrative_ui("cast"), &"Speaker"))
+	for v: Villager in m.villagers:
+		if v.is_player:
+			continue
+		var card := W.panel(&"Card")
+		card.name = "Cast_%d" % v.id
+		var row := W.hbox(14)
+		var portrait := TextureRect.new()
+		var figure: VillagerFigure = Nav.village.crowd.figures.get(v.id) if Nav.village != null else null
+		if figure != null:
+			portrait.texture = VillagerFigure.folk_tex(figure.sprite_id)
+		portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		portrait.custom_minimum_size = Vector2(76, 140)
+		row.add_child(portrait)
+		var info := W.vbox(5)
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		info.add_child(W.label(v.name, &"Speaker"))
+		info.add_child(W.label(SocialContent.person_title(v), &"Small"))
+		info.add_child(W.label(SocialContent.story(v.story_id, v), &"Small"))
+		var bond := SocialContent.bond_text(v, m)
+		if not bond.is_empty():
+			info.add_child(W.label(bond, &"Hint"))
+		row.add_child(info)
+		card.add_child(row)
+		body.add_child(card)
 
 	var go := W.button(L.t("prologue.go"))
 	go.modulate.a = 0.0

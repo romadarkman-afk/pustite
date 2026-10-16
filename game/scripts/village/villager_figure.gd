@@ -49,8 +49,6 @@ var _render_tilt := 0.0
 var _tap_glow := 0.0
 var identity_id := 0
 var identity_color := Color.WHITE
-var _cloth_material: ShaderMaterial
-static var _cloth_shader: Shader
 const IDENTITY_COLORS := [Color("bb7440"), Color("a83e59"), Color("4676b0"), Color("3e8b7c"),
 	Color("ad913e"), Color("8461a6"), Color("c2b190"), Color("527e49"), Color("ae6048"),
 	Color("4c91ab"), Color("936581"), Color("8c984f"), Color("ab8598")]
@@ -142,34 +140,25 @@ func setup(name: String, l: LookDef, player: bool) -> void:
 func set_identity_color(id: int) -> void:
 	identity_id = posmod(id, IDENTITY_COLORS.size())
 	identity_color = IDENTITY_COLORS[identity_id]
-	if _cloth_shader == null:
-		_cloth_shader = Shader.new()
-		_cloth_shader.code = """shader_type canvas_item;
-render_mode unshaded;
-uniform vec4 coat_tone : source_color = vec4(0.5, 0.3, 0.2, 1.0);
-varying vec4 figure_tint;
-void vertex() { figure_tint = COLOR; }
-void fragment() {
-    vec4 source = texture(TEXTURE, UV);
-    float value = dot(source.rgb, vec3(0.299, 0.587, 0.114));
-    float garment = smoothstep(0.28, 0.35, UV.y) * (1.0 - smoothstep(0.76, 0.88, UV.y));
-    float skin = step(0.43, source.r) * step(source.g * 1.17, source.r) * step(source.b * 1.10, source.g);
-    float hands = (1.0 - smoothstep(0.05, 0.12, abs(UV.y - 0.48))) * skin;
-    float mask = garment * (1.0 - hands) * smoothstep(0.07, 0.20, value);
-    vec3 dyed = coat_tone.rgb * (0.30 + value * 1.85);
-    COLOR = vec4(mix(source.rgb, dyed, mask * 0.88), source.a) * figure_tint;
-}
-"""
-	if _cloth_material == null:
-		_cloth_material = ShaderMaterial.new()
-		_cloth_material.shader = _cloth_shader
-	_cloth_material.set_shader_parameter("coat_tone", identity_color)
 	if _door_rig != null:
-		_door_rig.material = _cloth_material
+		_door_rig.material = null
 	if body != null:
 		body.queue_redraw()
 	if tag != null:
 		tag.queue_redraw()
+
+
+static func pick_cast_sprite(v: Villager, used: Dictionary) -> int:
+	var candidates: PackedInt32Array
+	if v.female:
+		candidates = PackedInt32Array([9, 3, 10]) if v.age < 28 else (PackedInt32Array([11, 12, 1]) if v.age >= 55 else PackedInt32Array([10, 3, 9]))
+	else:
+		candidates = PackedInt32Array([4, 14, 8, 7, 2, 13]) if v.age < 28 else (PackedInt32Array([5, 16, 8, 2]) if v.age >= 55 else PackedInt32Array([13, 7, 8, 2, 14]))
+	for id: int in candidates:
+		if not used.has(id):
+			used[id] = true
+			return id
+	return candidates[posmod(v.story_id, candidates.size())]
 
 
 static func folk_tex(id: int) -> Texture2D:
@@ -1076,6 +1065,10 @@ func pose_now() -> Array:
 			f = ff
 	if _lean != 0.0:
 		pose["lean"] = _lean * _face
+	if f == "sad":
+		pose["lean"] = float(pose.get("lean", 0.0)) + 0.07
+	elif f == "happy" or f == "relieved":
+		pose["tilt"] = -0.03
 	if _knock_t > 0.0:
 		var hit := sin((1.0 - _knock_t / KNOCK_LEN) * PI)
 		pose["knock"] = hit

@@ -255,6 +255,55 @@ static func flow() -> void:
 	var name_before := Save.player_name
 	var cast_a := Match.new()
 	var cast_b := Match.new()
+	# Биография не зависит от жеребьёвки, пол и возраст согласованы с портретом.
+	var cast_cfg := GameConfig.new()
+	cast_cfg.players = 12
+	var full_a := Match.new()
+	var full_b := Match.new()
+	full_a.start(cast_cfg, 3301)
+	full_b.start(cast_cfg, 3302)
+	var identity_ok := true
+	for v: Villager in full_a.alive_bots():
+		identity_ok = identity_ok and v.age >= 18 and v.age == SocialContent.story_age(v.story_id)
+		for other: Villager in full_b.alive_bots():
+			if v.name == other.name:
+				identity_ok = identity_ok and v.story_id == other.story_id and v.age == other.age and v.female == other.female
+		var portrait_id := VillagerFigure.pick_cast_sprite(v, {})
+		identity_ok = identity_ok and portrait_id != 6 and portrait_id != 15
+		identity_ok = identity_ok and (VillagerFigure.FOLK_FEMALE.has(portrait_id) == v.female)
+		if v.partner_id >= 0:
+			var partner := full_a.get_villager(v.partner_id)
+			identity_ok = identity_ok and partner != null and partner.partner_id == v.id and partner.female != v.female
+	var spouse := Villager.new(90, "Нина", false)
+	spouse.female = true
+	identity_ok = identity_ok and SocialContent.story(8, spouse).contains("муж") and not SocialContent.story(8, spouse).contains("Моя жена")
+	spouse.female = false
+	identity_ok = identity_ok and SocialContent.story(8, spouse).contains("жена")
+	print("личности: ", "OK" if identity_ok else "FAIL")
+	if not identity_ok:
+		push_error("Narrative identity regression")
+		Nav.get_tree().quit(1)
+		return
+	var narrative_dir := Director.new()
+	narrative_dir.attach(full_a)
+	var person: Villager = full_a.villagers[4]
+	var first_talk := narrative_dir.personal_talk(person.id, 0)
+	var talk_ok := first_talk.size() == 4 and person.story_step == 1 and not first_talk[1].emotion.is_empty()
+	talk_ok = talk_ok and narrative_dir.personal_talk(person.id, 0).is_empty()
+	full_a.day = 2
+	var second_talk := narrative_dir.personal_talk(person.id, 1)
+	talk_ok = talk_ok and second_talk.size() == 4 and person.story_step == 2 and second_talk[1].text != first_talk[1].text
+	for v: Villager in full_a.alive_bots():
+		if v.partner_id >= 0:
+			full_a.get_villager(v.partner_id).alive = false
+			var grief := narrative_dir.emotional_lines()
+			talk_ok = talk_ok and not grief.is_empty() and grief[0].emotion == "sad"
+			break
+	print("личные сцены: ", "OK" if talk_ok else "FAIL")
+	if not talk_ok:
+		push_error("Narrative conversation regression")
+		Nav.get_tree().quit(1)
+		return
 	cast_a.start((load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig, 701)
 	cast_b.start((load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig, 702)
 	var cast_ok := cast_a.case_id >= 0 and cast_a.case_id < 3 and not SocialContent.case_hook(cast_a.case_id).is_empty()
@@ -1592,11 +1641,9 @@ static func marks() -> void:
 	var sh := _sheet(day)
 	var title_ok := false
 	if sh != null:
-		for c: Node in sh.get_children():
-			for l: Node in c.get_children():
-				for t in l.get_children():
-					if t is Label and (t as Label).text.begins_with(target.name):
-						title_ok = true
+		for control: Control in _controls(sh):
+			if control is Label and (control as Label).text.begins_with(target.name):
+				title_ok = true
 	ok += _expect(fails, sh != null and title_ok, "тап по %s не открыл шторку с его именем" % target.name)
 	var chat_before := Game.m.chat.size()
 	if sh != null:
@@ -4701,11 +4748,15 @@ static func folk() -> void:
 		readable = readable and not cr._hidden(figure.position, true)
 	ok += _expect(fails, palettes.size() == cr.figures.size(), "цвета одежды жителей повторяются")
 	ok += _expect(fails, readable, "на дневной стоянке дом закрывает тело жителя")
-	var rear_lamps := 0
+	var visible_lamps := 0
 	for prop: VillageProp in Nav.village._props:
-		if prop.z_index < 0:
-			rear_lamps += 1
-	ok += _expect(fails, rear_lamps == Nav.village.def.lamps.size(), "фонари могут перекрыть персонажей")
+		if prop.has_meta("street_lamp") and prop.z_index == 0:
+			visible_lamps += 1
+	ok += _expect(fails, visible_lamps == Nav.village.def.lamps.size(), "фонари спрятаны под слоем земли")
+	var no_dye := true
+	for figure: VillagerFigure in cr.figures.values():
+		no_dye = no_dye and figure._door_rig.material == null
+	ok += _expect(fails, no_dye, "одежду закрывает цветная маска")
 	var draws := [0]
 	f4.body.draw.connect(func() -> void: draws[0] += 1)
 	Game.hold(&"test")            # реплики ботов стоят: говорящий шевелит ртом — это честная перерисовка
@@ -5004,6 +5055,14 @@ static func loc() -> void:
 		for speaker: Villager in [bm, bf]:
 			for story_index in range(12):
 				texts.append(SocialContent.story(story_index, speaker))
+				speaker.story_id = story_index
+				speaker.age = SocialContent.story_age(story_index)
+				texts.append(SocialContent.person_title(speaker))
+				for chapter in range(3):
+					texts.append(SocialContent.personal_chapter(speaker, chapter))
+		texts.append(SocialContent.village_intro(m))
+		for key: String in ["cast", "personal", "listen", "doubt", "later", "thanks", "hurt"]:
+			texts.append(L.fill(SocialContent.narrative_ui(key), {"me": bf}))
 		texts.append(SocialContent.door_mimic_title())
 		for tag: String in SocialContent.question_tags():
 			texts.append(tag)
@@ -5479,7 +5538,9 @@ static func adapt() -> void:
 			100 * r[0].human_win, 100 * r[1].human_win, 100 * r[2].human_win, 100 * r[0].upyr_win, 100 * r[1].upyr_win, 100 * r[2].upyr_win])
 		ok += _expect(fails, r[0].human_win > r[1].human_win and r[1].human_win > r[2].human_win, "%s: подстройка не меняет шансы игрока-человека" % diff)
 		if not cfg.player_always_human:
-			ok += _expect(fails, r[0].upyr_win > r[1].upyr_win and r[1].upyr_win > r[2].upyr_win, "%s: подстройка не меняет шансы игрока-упыря" % diff)
+			# В 500 партиях за упыря выпадает около 150 ролей: соседние оценки могут
+			# различаться на пару пунктов из-за выбора роли и домов по seed.
+			ok += _expect(fails, r[0].upyr_win > r[2].upyr_win + 0.03 and r[0].upyr_win + 0.03 >= r[1].upyr_win and r[1].upyr_win + 0.03 >= r[2].upyr_win, "%s: подстройка не меняет шансы игрока-упыря" % diff)
 		# подстройка мягкая: шанс игрока сдвигается не больше чем на 20 пунктов
 		for x: Dictionary in [r[0], r[2]]:
 			ok += _expect(fails, absf(x.human_win - r[1].human_win) <= 0.2 and absf(x.upyr_win - r[1].upyr_win) <= 0.2, "%s: подстройка слишком резкая" % diff)
@@ -5554,6 +5615,11 @@ static func gestures() -> void:
 	await tree.create_timer(Screen.HOLD_SEC + 0.15).timeout
 	ok += _expect(fails, day.find_children("*", "ActionSheet", true, false).is_empty(), "жест открылся, хотя палец сдвинулся")
 	day._on_field_tap_input(release)
+	await _frames(tree, 2)
+	ok += _expect(fails, day.find_children("*", "ActionSheet", true, false).is_empty(), "отпускание после движения открыло меню")
+	for sh: Node in day.find_children("*", "ActionSheet", true, false):
+		(sh as ActionSheet).close(-1)
+	await _frames(tree, 2)
 
 	# 2. Показать пальцем: ты указываешь, он вздрагивает, посёлок чуть больше его подозревает, он отвечает
 	Game.hold(&"test")

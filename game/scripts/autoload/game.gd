@@ -439,6 +439,12 @@ func ask(vid: int) -> void:
 	_player_says(L.t("say.ask", {"who": t}), _intent(IntentParser.Kind.ASK, t))
 
 
+func personal_talk(vid: int, choice: int) -> void:
+	if m == null or m.phase != Match.Phase.DAY or not m.player().alive or choice < 0 or choice > 1:
+		return
+	_post_all(director.personal_talk(vid, choice))
+
+
 func answer_question(vid: int, answer: String, answer_kind: int) -> void:
 	if m == null or m.phase != Match.Phase.DAY or answer.strip_edges().is_empty():
 		return

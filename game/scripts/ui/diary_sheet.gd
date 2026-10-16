@@ -19,6 +19,14 @@ static func open(parent: Control, m: Match, d: Director) -> DiarySheet:
 ## Строки о жителе — чистые данные, их проверяет самотест.
 static func facts(m: Match, d: Director, v: Villager) -> PackedStringArray:
 	var out := PackedStringArray()
+	if not v.is_player and v.story_id >= 0:
+		out.append(SocialContent.person_title(v))
+		out.append(SocialContent.story(v.story_id, v))
+		for step in range(1, v.story_step + 1):
+			out.append(SocialContent.personal_chapter(v, step))
+		var bond := SocialContent.bond_text(v, m)
+		if not bond.is_empty():
+			out.append(bond)
 	if not v.alive:
 		if v.exiled:
 			out.append(L.t("diary.exiled", {"who": v, "n": v.exiled_day}))
