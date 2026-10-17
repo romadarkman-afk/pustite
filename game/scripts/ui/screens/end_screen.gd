@@ -95,7 +95,7 @@ func build() -> void:
 	if known.get_child_count() > 0:
 		var chapter := W.panel(&"Card")
 		var chapter_box := W.vbox(8)
-		chapter_box.add_child(W.label("После последней ночи" if L.code == "ru" else "After the last night", &"Speaker"))
+		chapter_box.add_child(W.label((String((StoryLoc.get_v("misc") as Array)[0]) if StoryLoc.has("misc") else ("После последней ночи" if L.code == "ru" else "After the last night")), &"Speaker"))
 		chapter_box.add_child(known)
 		chapter.add_child(chapter_box)
 		body.add_child(chapter)

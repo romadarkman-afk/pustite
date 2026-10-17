@@ -67,6 +67,8 @@ static func title(kind: String, id: String) -> String:
 		var titles := {"none": ["Без значка", "No brooch"], "sun": ["Солнце", "Sun"],
 			"bone": ["Кость", "Bone"], "seal": ["Печать", "Seal"]}
 		var pair: Array = titles.get(id, titles.none)
+		if StoryLoc.has("brooch"):
+			return String((StoryLoc.get_v("brooch") as Array)[["none", "sun", "bone", "seal"].find(id) if titles.has(id) else 0])
 		return pair[0] if L.code == "ru" else pair[1]
 	return L.t("%s.%s" % [kind, id])
 

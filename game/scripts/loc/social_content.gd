@@ -549,7 +549,7 @@ static func anchor_chapter(anchor_id: int, chapter: int, speaker: Villager = nul
 static func door_sign(tell: StringName, salt: int = 0) -> String:
 	var signs: Dictionary = _extra().door_signs
 	if String(tell) == "ordinary" or not signs.has(String(tell)):
-		var bank: Array = ORDINARY_SIGNS.get(L.code, [])
+		var bank: Array = ORDINARY_SIGNS.get(L.code, StoryLoc.get_v("signs") if StoryLoc.has("signs") else [])
 		if not bank.is_empty():
 			return String(bank[posmod(salt, bank.size())])
 	return String(signs.get(String(tell), signs.get("ordinary", "")))
@@ -707,6 +707,11 @@ static func person_title(v: Villager) -> String:
 	if L.code == "ru":
 		var gender := ("Девушка" if v.female else "Юноша") if young else ("Женщина" if v.female else "Мужчина")
 		return "%s, %s. %s" % [gender, L.fill("{n} {n#год|года|лет}", {"n": v.age}), L.fill(String(PEOPLE_RU[posmod(v.story_id, 12)][0]), {"me": v})]
+	if StoryLoc.has("fmt"):
+		var g: Array = StoryLoc.get_v("g")
+		var jobs: Array = StoryLoc.get_v("jobs")
+		var gw: String = g[(0 if v.female else 1) if young else (2 if v.female else 3)]
+		return L.fill(String(StoryLoc.get_v("fmt")), {"g": gw, "n": str(v.age), "job": L.fill(String(jobs[posmod(v.story_id, 12)]), {"me": v})})
 	var gender := ("Young woman" if v.female else "Young man") if young else ("Woman" if v.female else "Man")
 	return "%s, %d. %s" % [gender, v.age, JOBS_EN[posmod(v.story_id, 12)]]
 
@@ -726,6 +731,8 @@ static func bond_text(v: Villager, m: Match) -> String:
 		if L.code == "ru":
 			return ("Мой сын %s оставил дома письмо. Я обещала прочитать его только после нашего отъезда." % family.name if parent else
 				"Моя мать %s хранит моё письмо. Я надеюсь забрать его, когда мы выберемся." % family.name) if family.alive else grief_text(v, family)
+		if StoryLoc.has("bond_parent"):
+			return L.fill(String(StoryLoc.get_v("bond_parent" if parent else "bond_child")), {"name": family.name, "me": v}) if family.alive else grief_text(v, family)
 		return ("My son %s left a letter at home. I promised to read it after we leave." % family.name if parent else
 			"My mother %s keeps my letter. I hope to take it when we leave.") if family.alive else grief_text(v, family)
 	var partner := m.get_villager(v.partner_id)
@@ -736,10 +743,15 @@ static func bond_text(v: Villager, m: Match) -> String:
 		if not partner.alive:
 			relation += " Теперь ждёт у пустого дома."
 		return relation
+	if StoryLoc.has("bond_love"):
+		var t := L.fill(String(StoryLoc.get_v("bond_love")), {"name": partner.name, "me": v})
+		return t + (L.fill(String(StoryLoc.get_v("bond_lost")), {"me": v}) if not partner.alive else "")
 	return "Loves %s. They planned to leave together." % partner.name
 
 
 static func grief_text(survivor: Villager, lost: Villager) -> String:
+	if StoryLoc.has("grief"):
+		return L.fill(String(StoryLoc.get_v("grief")), {"lost": lost, "who": survivor.name, "me": survivor})
 	if L.code != "ru":
 		return "%s is gone. %s still keeps a place for them at the table." % [lost.name, survivor.name]
 	var fate := "выгнали" if lost.exiled else ("погибла" if lost.female else "погиб")
@@ -757,6 +769,8 @@ static func epilogue(v: Villager) -> String:
 		return ""
 	if v.story_step == 0:
 		return ""
+	if StoryLoc.has("epi_alive"):
+		return L.fill(String(StoryLoc.get_v("epi_alive" if v.alive else "epi_dead")), {"who": v.name})
 	if L.code != "ru":
 		return "%s kept the story you heard alive." % v.name if v.alive else "The story %s told you ended here." % v.name
 	if not v.alive:
@@ -781,10 +795,20 @@ static func epilogue(v: Villager) -> String:
 static func village_intro(m: Match) -> String:
 	if L.code == "ru":
 		return "Перед сумерками дорога вывела тебя к реке. На другом берегу кто-то звал по имени. У причала тебя остановили: «На голос с того берега не отвечай».\n\nЗдесь живут люди, которым есть кого ждать. Ночью к их дверям приходят знакомые лица. Иногда под ними уже кто-то другой.\n\nСегодня обереги сохранились в %d домах. Остальные дома заперты: ночевать там опасно. До колокола нужно познакомиться с соседями и решить, чьему голосу поверить." % m.houses.size()
+	if StoryLoc.has("intro"):
+		return L.fill(String(StoryLoc.get_v("intro")), {"n": str(m.houses.size())})
 	return "The road ends at a river. A familiar voice calls from the far bank. The ferry keeper asks you not to answer.\n\nThese people have someone to wait for. At night familiar faces knock on their doors. Some have changed.\n\nOnly %d houses still have protective charms. Meet your neighbours before the bell and decide whose voice to trust." % m.houses.size()
 
 
 static func opening_beats(m: Match) -> Array:
+	if StoryLoc.has("beats"):
+		var couple := String(StoryLoc.get_v("couple_anon"))
+		for resident: Villager in m.villagers:
+			if resident.partner_id >= 0:
+				couple = L.fill(String(StoryLoc.get_v("couple_named")), {"a": resident.name, "b": m.get_villager(resident.partner_id).name})
+				break
+		var b: Array = StoryLoc.get_v("beats")
+		return [[b[0], b[1]], [b[2], L.fill(String(b[3]), {"couple": couple})]]
 	var couple_ru := "У двоих жителей одна дорожная сумка на двоих. Они собирались уехать вместе."
 	var couple_en := "Two residents have one travel bag between them. They planned to leave together."
 	for resident: Villager in m.villagers:
@@ -807,6 +831,8 @@ static func opening_beats(m: Match) -> Array:
 static func narrative_ui(key: String) -> String:
 	var ru := {"cast": "Те, с кем встретишь ночь", "personal": "Поговорить о прошлом", "listen": "Я рядом. Расскажи ещё.", "doubt": "Что ты скрываешь от остальных?", "later": "Давай продолжим завтра.", "thanks": "Спасибо. Обычно меня прерывают раньше.", "hurt": "Я [рассказал|рассказала] то, о чём молчу годами. Теперь ты мне не веришь?", "prompt": "{who}, расскажи, что с тобой случилось.", "first_goal": "До колокола узнай историю хотя бы одного жителя. Первый разговор даст дополнительный осмотр у двери.", "bonus_earned": "Житель доверился тебе. Сегодня у двери доступен третий осмотр."}
 	var en := {"cast": "The people you will face the night with", "personal": "Ask about their past", "listen": "I'm here. Tell me more.", "doubt": "What are you hiding from the others?", "later": "Let's continue tomorrow.", "thanks": "Thank you for listening. People usually interrupt me.", "hurt": "I told you something I have kept to myself for years. Does that make me suspicious?", "prompt": "{who}, tell me what happened to you.", "first_goal": "Hear one resident's story before the bell. Your first talk grants an extra door inspection.", "bonus_earned": "A resident trusted you. You have a third inspection at the door tonight."}
+	if StoryLoc.has("ui") and (StoryLoc.get_v("ui") as Dictionary).has(key):
+		return String((StoryLoc.get_v("ui") as Dictionary)[key])
 	return String((ru if L.code == "ru" else en).get(key, key))
 
 

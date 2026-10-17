@@ -42,7 +42,7 @@ func build() -> void:
 	body.add_child(_grid("lantern", Cosmetics.LANTERNS, Save.lantern))
 	body.add_child(W.label(L.t("cos.hats"), &"Hint"))
 	body.add_child(_grid("hat", Cosmetics.HATS, Save.hat))
-	body.add_child(W.label("Значок" if L.code == "ru" else "Brooch", &"Hint"))
+	body.add_child(W.label((String((StoryLoc.get_v("misc") as Array)[1]) if StoryLoc.has("misc") else ("Значок" if L.code == "ru" else "Brooch")), &"Hint"))
 	body.add_child(_grid("brooch", Cosmetics.BROOCHES, Save.brooch))
 	body.add_child(W.label(L.t("cos.note"), &"Small"))
 

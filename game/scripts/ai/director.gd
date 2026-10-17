@@ -735,7 +735,7 @@ const COUPLE_LINES := {
 
 
 func _couple_pick(kind: String) -> String:
-	var bank: Dictionary = COUPLE_LINES.get(L.code, COUPLE_LINES["en"])
+	var bank: Dictionary = COUPLE_LINES.get(L.code, StoryLoc.get_v("couple") if StoryLoc.has("couple") else COUPLE_LINES["en"])
 	var arr: Array = bank.get(kind, COUPLE_LINES["en"][kind])
 	return String(arr[randi() % arr.size()])
 

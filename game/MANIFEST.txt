@@ -56,6 +56,7 @@ scripts/loc/l.gd
 scripts/loc/pt.gd
 scripts/loc/ru.gd
 scripts/loc/social_content.gd
+scripts/loc/story_loc.gd
 scripts/loc/tr.gd
 scripts/loc/vi.gd
 scripts/loc/voices.gd

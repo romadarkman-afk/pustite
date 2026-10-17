@@ -5758,6 +5758,35 @@ static func loc() -> void:
 				for chapter in range(3):
 					texts.append(SocialContent.personal_chapter(speaker, chapter))
 		texts.append(SocialContent.village_intro(m))
+		# задача 65: истории, пара, осмотр у двери и мелочи интерфейса на всех языках, не по-английски
+		for beat: Array in SocialContent.opening_beats(m):
+			texts.append(String(beat[0]))
+			texts.append(String(beat[1]))
+		var dn := Director.new()
+		dn.m = m
+		for kind: String in ["first", "answer", "exiled", "together", "apart"]:
+			for i in range(8):
+				for sp: Villager in [bm, bf]:
+					texts.append(L.fill(dn._couple_pick(kind), {"me": sp, "other": bf if sp == bm else bm, "name": "Name"}))
+		for salt in range(8):
+			texts.append(L.fill(SocialContent.door_sign(&"ordinary", salt), {"who": bf}))
+			texts.append(L.fill(SocialContent.door_sign(&"ordinary", salt), {"who": bm}))
+		for sp: Villager in [bm, bf]:
+			texts.append(SocialContent.grief_text(sp, bf if sp == bm else bm))
+			sp.story_step = 1
+			texts.append(SocialContent.epilogue(sp))
+			sp.story_step = 0
+		for bid: String in ["none", "sun", "bone", "seal"]:
+			texts.append(Cosmetics.title("brooch", bid))
+		if code != "ru" and code != "en":
+			var need: PackedStringArray = StoryLoc.DATA["de"].keys()
+			var have: Dictionary = StoryLoc.DATA.get(code, {})
+			var gaps := PackedStringArray()
+			for k: String in need:
+				if not have.has(k):
+					gaps.append(k)
+			ok += _expect(fails, gaps.is_empty(), "%s: в StoryLoc нет %s" % [code, ", ".join(gaps)])
+			texts.append_array(PackedStringArray(have.get("misc", [])))
 		# голоса жителей (русский банк по характерам): все метки подставляются при любом роде
 		if code == "ru":
 			for persona: int in Voices.RU:

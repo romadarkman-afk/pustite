@@ -114,7 +114,7 @@ func build() -> void:
 		card.add_child(row)
 		_cast.add_child(card)
 
-	_go = W.button("Дальше" if L.code == "ru" else "Continue")
+	_go = W.button((String((StoryLoc.get_v("misc") as Array)[2]) if StoryLoc.has("misc") else ("Дальше" if L.code == "ru" else "Continue")))
 	_go.pressed.connect(_advance)
 	footer.add_child(_go)
 	_reveal_nodes = [role, story, role_l, case_card, facts]
