@@ -226,6 +226,8 @@ func person_actions(v: Villager) -> void:
 	var elder := me.role == Match.Role.ELDER and not me.role_used
 	if elder:
 		opts.append(L.t("day.p_elder", {"who": v}))
+	var promise_index := opts.size()
+	opts.append(L.t("day.p_promise"))
 	var personal_index := opts.size()
 	opts.append(SocialContent.narrative_ui("personal"))
 	var legend_index := opts.size()
@@ -240,6 +242,9 @@ func person_actions(v: Villager) -> void:
 		return
 	if i == personal_index:
 		_personal_talk(v)
+		return
+	if i == promise_index:
+		promise_actions(v)
 		return
 	match i:
 		0: emit_intent(Intent.ACCUSE, {"id": v.id})
@@ -261,6 +266,17 @@ func _personal_talk(v: Villager) -> void:
 	var choice: int = await ActionSheet.ask(self, text, PackedStringArray([SocialContent.narrative_ui("listen"), SocialContent.narrative_ui("doubt")]))
 	if choice >= 0:
 		emit_intent(Intent.PERSONAL_TALK, {"id": v.id, "choice": choice})
+
+
+## Обещание жителю (TASK-004): из карточки, отдельной кнопки на экране нет.
+func promise_actions(v: Villager) -> void:
+	var kinds := ["open", "come"]
+	var opts := PackedStringArray()
+	for k: String in kinds:
+		opts.append(L.t("day.promise_" + k, {"who": v}))
+	var i: int = await ActionSheet.ask(self, L.t("day.promise_title", {"who": v}), opts)
+	if i >= 0:
+		emit_intent(Intent.PROMISE, {"id": v.id, "kind": kinds[i]})
 
 
 ## Долгое нажатие на жителя: жест без слов — показать пальцем, «верю», «не верю».

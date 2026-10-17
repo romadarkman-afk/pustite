@@ -511,6 +511,17 @@ func invite(vid: int, house: int) -> void:
 	_player_says(L.t("say.invite", {"who": t, "house": m.house_name(house)}), it)
 
 
+## Обещание жителю (TASK-004): «открою тебе, если постучишь» или «приду к тебе ночевать».
+func promise(vid: int, kind: String) -> void:
+	var t := m.get_villager(vid) if m != null else null
+	if t == null or t.is_player or not t.alive or m.phase != Match.Phase.DAY or not m.player().alive:
+		return
+	m.post(ChatLine.say(m.player(), L.t("say.promise_" + kind, {"who": t})))
+	var replies := director.player_promise(t, kind)
+	marks_changed.emit()
+	_feed(replies)
+
+
 func ask(vid: int) -> void:
 	var t := m.get_villager(vid)
 	_player_says(L.t("say.ask", {"who": t}), _intent(IntentParser.Kind.ASK, t))

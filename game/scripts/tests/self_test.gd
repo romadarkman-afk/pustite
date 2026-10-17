@@ -19,6 +19,12 @@ static func cli_balance() -> void:
 	for e: String in gram.errors.slice(0, 12):
 		print("  ✗ " + e)
 	ok = ok and gram.errors.is_empty()
+	# журнал событий (TASK-001): все виды событий встречаются и сходятся со старыми списками
+	var wl := PlanTests.world_log_sim(500)
+	print("журнал событий: %d партий, нет видов: %s, расхождений: %d" % [wl.games, ", ".join(wl.missing), (wl.mismatch as PackedStringArray).size()])
+	for e2: String in wl.mismatch:
+		print("  ✗ " + e2)
+	ok = ok and (wl.missing as PackedStringArray).is_empty() and (wl.mismatch as PackedStringArray).is_empty()
 	print("ИТОГ: %s" % ("OK" if ok else "БАЛАНС ВНЕ КОРИДОРА 30–70%, ИГРОК НЕ ВИДИТ ОДНУ ИЗ РОЛЕЙ У ДВЕРИ ИЛИ ОШИБКИ В ТЕКСТАХ"))
 	tree.quit(0 if ok else 1)
 
@@ -965,7 +971,7 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 		nxt.pressed.emit()
 		await _settle(tree)
 	var ps := Nav.host.current as PrologueScreen
-	ok += _expect(fails, ps != null and ps._beat_text.text in [L.t("camp.a1c2.beat1"), L.t("camp.a1c2.beat2")] and ps._cast.find_child("Goals", true, false) != null,
+	ok += _expect(fails, ps != null and ps._beat_text.text in [L.t("camp.a1c2.beat1"), L.t("camp.a1c2.beat2"), String(Revelations.beat("boat", Game.m)[1])] and ps._cast.find_child("Goals", true, false) != null,
 		"вторая глава началась без своей сцены и целей")
 	ok += _expect(fails, Game.m.force_event == Match.Event.FOG and Game.m.villagers.size() == 7, "во второй главе нет тумана или не тот состав")
 
@@ -1699,8 +1705,8 @@ static func _settle(tree: SceneTree) -> void:
 	if Nav.host.current is PrologueScreen:
 		var intro := Nav.host.current as PrologueScreen
 		if intro._beat == 0:
-			intro._advance()
-			intro._advance()
+			for k in range(intro._beats().size()):     # все страницы сцены, с откровениями главы
+				intro._advance()
 	for i in range(30):
 		if Nav.field_screen == Nav.host.current:
 			break
@@ -4854,6 +4860,9 @@ static func diary() -> void:
 	ok += _expect(fails, "\n".join(DiarySheet.facts(m0, d0, rita)).contains("%s назвал себя старожилом" % bots[1].name), "в карточке обвинённого не видно, кто его назвал")
 	ok += _expect(fails, "\n".join(DiarySheet.facts(m0, d0, bots[2])).contains("Твои рисунки: упырь"), "твои рисунки не попали в дневник")
 
+	# знание жителей и обещания (TASK-003, TASK-004)
+	ok += PlanTests.knowledge_and_promises(fails)
+
 	# 2. Экран: кнопка «Дневник», карточка на каждого, всё в кадре, закрывается
 	Save.set_difficulty("normal")
 	Nav.start_match()
@@ -4882,6 +4891,23 @@ static func diary() -> void:
 			ok += _expect(fails, inside, "карточки дневника вылезают за экран")
 			ds.close()
 			await _frames(tree, 2)
+	# обещание из карточки жителя (TASK-004): пункт в шторке, фраза игрока, ответ жителя
+	var pt: Villager = m.alive_bots()[0]
+	day.person_actions(pt)
+	await _frames(tree, 3)
+	var psh := _sheet(day)
+	ok += _expect(fails, psh != null and _all_text(psh).contains(L.t("day.p_promise")), "в шторке жителя нет обещания")
+	if psh != null:
+		psh.close(-1)
+		await _frames(tree, 2)
+	day.promise_actions(pt)
+	await _frames(tree, 3)
+	psh = _sheet(day)
+	ok += _expect(fails, psh != null and _all_text(psh).contains(L.t("day.promise_open", {"who": pt})), "нет выбора, что пообещать")
+	if psh != null:
+		psh.close(0)
+		await _frames(tree, 3)
+	ok += _expect(fails, not m.promises_today(0, pt.id).is_empty(), "обещание из шторки не записалось")
 	Nav.show_menu()
 	await _settle(tree)
 	_finish(fails, ok, "дневник", "где ночевал, что говорил, улики, заявления и твои рисунки — в одном месте")
@@ -4898,6 +4924,9 @@ static func recap() -> void:
 	tree.root.size = Vector2i(1080, 2340)
 	await _frames(tree, 3)
 	Nav.frame.refresh()
+	# память кампании и откровения (TASK-002, TASK-005)
+	ok += PlanTests.campaign_memory(fails)
+	ok += PlanTests.revelations(fails)
 	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
 
 	# 1. Причина гибели игрока — по-настоящему из партий, каждого вида
@@ -5094,6 +5123,8 @@ static func recap() -> void:
 		var rg := NightReport.new()
 		var eg := rg.add(NightReport.Kind.KILLED_STREET, lost_one, 0)
 		eg.host = blamed
+		# вдова стояла у той же двери и видела отказ сам(а): винить может (TASK-003)
+		mg.world.add(WorldLog.Kind.REFUSE, mg.day, blamed.id, lost_one.id, 0, [blamed.id, lost_one.id, widow.id])
 		lost_one.alive = false
 		mg._apply_grief(rg)
 		mg.report = rg

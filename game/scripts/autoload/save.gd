@@ -6,7 +6,9 @@ const SETTINGS_PATH := "user://settings.cfg"
 const BALANCE_PATH := "user://balance.tres"
 const DEFAULT_BALANCE := "res://config/balance_easy.tres"
 
-const SCHEMA := 1
+const SCHEMA := 2           ## 2: память кампании (TASK-002). Файл версии 1 читается как есть, память пустая
+const BACKUP_PATH := "user://settings.v%d.bak"   ## копия файла перед переходом на новую версию формата
+const MEMORY_PER_CHAPTER := 40
 
 var config: GameConfig
 var haptics: bool = true
@@ -32,6 +34,11 @@ var anchor_bonds: Dictionary[String, int] = {} ## отношения с трем
 var campaign_stars: Dictionary[String, int] = {}  ## кампания: пройденные главы -> звёзды (1–3)
 var campaign_dead: Array[int] = []              ## кампания: номера имён погибших насовсем
 var campaign_seed: int = 0
+## Память кампании (TASK-002): что игрок сделал в пройденных главах и кто об этом знает.
+## Жители — номерами имён (как campaign_dead), поэтому смена языка ничего не ломает.
+## {"ch": id главы, "kind": WorldLog.RANK, "who": номер, "day": n, "knew": [номера]}
+var campaign_memory: Array[Dictionary] = []
+var loaded_schema: int = 0                        ## версия формата прочитанного файла; 0 — файла не было
 var campaign_dead_guests: PackedStringArray = []  ## кампания: гости, погибшие насовсем                      ## кампания: порядок новых лиц, задаётся один раз
 var xp: int = 0                                   ## опыт за все партии (Progress)
 var achievements: PackedStringArray = []          ## полученные достижения
@@ -50,6 +57,9 @@ func _ready() -> void:
 func load_all() -> void:
 	var cf := ConfigFile.new()
 	var has := cf.load(SETTINGS_PATH) == OK
+	loaded_schema = int(cf.get_value("meta", "schema", 1)) if has else 0
+	if has and loaded_schema < SCHEMA:
+		_backup(loaded_schema)
 	lang = String(cf.get_value("ui", "lang", "")) if has else ""
 	if DisplayServer.get_name() == "headless":
 		lang = "ru"        # самотесты без экрана проверяют русские тексты; другой язык — флагом --lang=
@@ -96,6 +106,14 @@ func load_all() -> void:
 				campaign_stars[kv[0]] = clampi(int(kv[1]), 1, 3)
 		for part: String in String(cf.get_value("campaign", "dead", "")).split(",", false):
 			campaign_dead.append(int(part))
+	campaign_memory.clear()
+	if has:
+		var raw_mem: Variant = cf.get_value("campaign", "memory", [])
+		if raw_mem is Array:
+			for rec: Variant in raw_mem:
+				var clean := _memory_record(rec)
+				if not clean.is_empty():
+					campaign_memory.append(clean)
 	xp = int(cf.get_value("progress", "xp", 0)) if has else 0
 	achievements = String(cf.get_value("progress", "achievements", "")).split(",", false) if has else PackedStringArray()
 	endings = String(cf.get_value("progress", "endings", "")).split(",", false) if has else PackedStringArray()
@@ -342,6 +360,7 @@ func flush() -> void:
 	cf.set_value("campaign", "dead", ",".join(PackedStringArray(campaign_dead.map(func(x: int) -> String: return str(x)))))
 	cf.set_value("campaign", "seed", campaign_seed)
 	cf.set_value("campaign", "dead_guests", ",".join(campaign_dead_guests))
+	cf.set_value("campaign", "memory", campaign_memory)
 	cf.set_value("progress", "xp", xp)
 	cf.set_value("progress", "achievements", ",".join(achievements))
 	cf.set_value("progress", "endings", ",".join(endings))
@@ -353,8 +372,19 @@ func flush() -> void:
 
 
 ## Глава пройдена: звёзды — лучший результат, погибшие больше не придут.
-func record_chapter(id: String, stars: int, lost: Array[int], lost_guests: PackedStringArray = PackedStringArray()) -> void:
+func record_chapter(id: String, stars: int, lost: Array[int], lost_guests: PackedStringArray = PackedStringArray(),
+		memory: Array[Dictionary] = []) -> void:
 	campaign_stars[id] = maxi(int(campaign_stars.get(id, 0)), clampi(stars, 1, 3))
+	# память главы: прошёл заново — помнится последний раз
+	for i in range(campaign_memory.size() - 1, -1, -1):
+		if String(campaign_memory[i].get("ch", "")) == id:
+			campaign_memory.remove_at(i)
+	for rec: Dictionary in memory.slice(0, MEMORY_PER_CHAPTER):
+		var r2 := rec.duplicate()
+		r2["ch"] = id
+		var clean := _memory_record(r2)
+		if not clean.is_empty():
+			campaign_memory.append(clean)
 	for idx: int in lost:
 		if not campaign_dead.has(idx):
 			campaign_dead.append(idx)
@@ -393,8 +423,45 @@ func campaign_reset() -> void:
 	campaign_stars.clear()
 	campaign_dead.clear()
 	campaign_dead_guests.clear()
+	campaign_memory.clear()
 	campaign_seed = 0
 	flush()
+
+
+## Запись памяти из файла или из главы: только известные поля и типы. Битая запись — пусто.
+static func _memory_record(rec: Variant) -> Dictionary:
+	if not rec is Dictionary:
+		return {}
+	var d := rec as Dictionary
+	var kind := String(d.get("kind", ""))
+	var ch := String(d.get("ch", ""))
+	if kind.is_empty() or ch.is_empty() or not d.has("who"):
+		return {}
+	var knew: Array = []
+	var raw_knew: Variant = d.get("knew", [])
+	if raw_knew is Array or raw_knew is PackedInt32Array:
+		for k: Variant in raw_knew:
+			knew.append(int(k))
+	return {"ch": ch, "kind": kind, "who": int(d.who), "day": int(d.get("day", 0)), "knew": knew}
+
+
+## Что помнит кампания о жителе с номером idx: записи в порядке глав.
+func memory_of(idx: int) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for rec: Dictionary in campaign_memory:
+		if int(rec.who) == idx:
+			out.append(rec)
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return Campaign.ORDER.find(String(a.ch)) < Campaign.ORDER.find(String(b.ch)))
+	return out
+
+
+## Копия сохранения перед переходом на новую версию формата. Делается один раз на версию.
+func _backup(from_schema: int) -> void:
+	var path := BACKUP_PATH % from_schema
+	if FileAccess.file_exists(path) or DisplayServer.get_name() == "headless":
+		return
+	DirAccess.copy_absolute(ProjectSettings.globalize_path(SETTINGS_PATH), ProjectSettings.globalize_path(path))
 
 
 func mark_howto() -> void:

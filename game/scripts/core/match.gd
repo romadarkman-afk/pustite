@@ -160,6 +160,15 @@ var box_pos: Vector2 = Vector2.ZERO
 var box_loot: Loot = Loot.NONE
 var box_opened_by: int = -1
 
+## Журнал событий партии (TASK-001) и знание жителей о них (TASK-003).
+var world := WorldLog.new()
+
+## Обещания (TASK-004). open — «открою тебе, если постучишь»: обещавший держит дверь и пускает.
+## come — «приду к тебе ночевать»: обещавший ночует в том же доме. Проверяются ночью.
+## {"day", "by": id, "to": id, "kind": "open" | "come", "state": "" | "kept" | "broken" | "void"}
+var promises: Array[Dictionary] = []
+const PROMISE_KINDS: PackedStringArray = ["open", "come"]
+
 
 # =============================================================
 # Запросы (только чтение)
@@ -257,6 +266,8 @@ func player_door_role() -> DoorRole:
 func post(line: ChatLine) -> void:
 	if line.about != null and line.about.is_player and line.speaker != null and not line.speaker.is_player:
 		accused_player[line.speaker.id] = day
+	if line.about != null and line.speaker != null and line.about != line.speaker:
+		world.add(WorldLog.Kind.ACCUSE, day, line.speaker.id, line.about.id, -1, [], true)
 	chat.append(line)
 	chat_posted.emit(line)
 
@@ -370,6 +381,8 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	vote_log.clear()
 	player_death = null
 	player_kills = 0
+	world.clear()
+	promises.clear()
 	chat.clear()
 	chronicle.clear()
 	chron.clear()
@@ -608,6 +621,9 @@ func apply_vote(tally: Dictionary[int, int], votes: Dictionary = {}) -> Villager
 			if not words.is_empty():
 				last_exiled.last_words = L.fill(words[rng.randi_range(0, words.size() - 1)], {"me": last_exiled})
 		_log("day", "log.exiled", {"who": last_exiled})
+		world.add(WorldLog.Kind.EXILED, day, -1, last_exiled.id, -1, [], true)
+	for voter: Variant in votes:
+		world.add(WorldLog.Kind.VOTE, day, int(voter), int(votes[voter]), -1, [], true)
 	vote_log.append({"day": day, "votes": votes.duplicate(), "exiled": last_exiled})
 	return last_exiled
 
@@ -732,12 +748,89 @@ func admit(seat: Seat, ids: Array[int]) -> void:
 			if seat.host.is_player:
 				player_admits.append({"day": day, "who": v, "mimic": v == seat.mimic})
 	seat.decided = true
+	_log_door(seat)
 	if seat.host.is_player and seat.admitted.is_empty() and not seat.mimic_in and not seat.knockers().is_empty():
 		player_refused_all += 1
 	if not seat.host.is_player and seat.queue.has(player()) and not seat.admitted.has(player()):
 		refused_player.append({"day": day, "by": seat.host})
 	if seat.host.is_player and not today_dilemma.is_empty():
 		_settle_dilemma(seat)
+
+
+# =============================================================
+# Обещания (TASK-004)
+# =============================================================
+## by обещает to: kind = open («открою, если постучишь») или come («приду к тебе ночевать»).
+## Обещают днём, вслух: слышат все. Одно обещание от by к to за день, новое заменяет старое.
+func promise(by: Villager, to: Villager, kind: String) -> bool:
+	if phase != Phase.DAY or by == null or to == null or by == to or not by.alive or not to.alive \
+			or not PROMISE_KINDS.has(kind):
+		return false
+	for i in range(promises.size() - 1, -1, -1):
+		var p := promises[i]
+		if int(p.day) == day and int(p.by) == by.id and int(p.to) == to.id:
+			promises.remove_at(i)
+	promises.append({"day": day, "by": by.id, "to": to.id, "kind": kind, "state": ""})
+	world.add(WorldLog.Kind.PROMISE, day, by.id, to.id, -1, [], true, {"promise": kind})
+	return true
+
+
+## Обещания этого дня от by (или кому угодно, by = -1) к to.
+func promises_today(by: int = -1, to: int = -1) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for p: Dictionary in promises:
+		if int(p.day) == day and (by < 0 or int(p.by) == by) and (to < 0 or int(p.to) == to):
+			out.append(p)
+	return out
+
+
+## Где житель был этой ночью: дом, где ночевал, а если не пустили — у какой двери стоял.
+func _night_spot(v: Villager) -> int:
+	if v.night_house >= 0:
+		return v.night_house
+	var e := world.last(WorldLog.Kind.REFUSE, -1, v.id, day)
+	return e.house if e != null else -1
+
+
+## Ночь прошла: каждое обещание этого дня сдержано, нарушено или не пригодилось (void).
+func _settle_promises() -> void:
+	for p: Dictionary in promises:
+		if int(p.day) != day or String(p.state) != "":
+			continue
+		var by := get_villager(int(p.by))
+		var to := get_villager(int(p.to))
+		p.state = "void"
+		if by == null or to == null or not _night_ids.has(by.id) or not _night_ids.has(to.id):
+			continue
+		match String(p.kind):
+			"open":
+				if world.last(WorldLog.Kind.ADMIT, by.id, to.id, day) != null:
+					p.state = "kept"
+				elif world.last(WorldLog.Kind.REFUSE, by.id, to.id, day) != null:
+					p.state = "broken"
+			"come":
+				var a := _night_spot(by)
+				p.state = "kept" if a >= 0 and a == _night_spot(to) else "broken"
+		if String(p.state) != "void":
+			world.add(WorldLog.Kind.PROMISE_KEPT if p.state == "kept" else WorldLog.Kind.PROMISE_BROKEN,
+				day, by.id, to.id, -1, [by.id, to.id], false, {"promise": String(p.kind)})
+
+
+## Журнал: кого у этой двери впустили и кому отказали. Видели все, кто был в доме и стучал.
+func _log_door(seat: Seat) -> void:
+	world.drop_door(day, seat.house)        # решение у этой двери переиграли: прежняя запись не в счёт
+	var witnesses: Array[int] = []
+	for v: Villager in seat.inside():
+		witnesses.append(v.id)
+	for v: Villager in seat.queue:
+		if not witnesses.has(v.id):
+			witnesses.append(v.id)
+	for v: Villager in seat.admitted:
+		world.add(WorldLog.Kind.ADMIT, day, seat.host.id, v.id, seat.house, witnesses)
+	if seat.mimic_in:
+		world.add(WorldLog.Kind.ADMIT, day, seat.host.id, seat.mimic.id, seat.house, witnesses, false, {"mimic": true})
+	for v: Villager in seat.turned_away():
+		world.add(WorldLog.Kind.REFUSE, day, seat.host.id, v.id, seat.house, witnesses)
 
 
 func record_door_inspection(v: Villager, tell: StringName, house: int = -1, mimic: bool = false) -> void:
@@ -946,6 +1039,17 @@ func resolve_night() -> NightReport:
 		if e.is_death() and e.who != null and e.who.is_player:
 			player_death = e
 
+	# журнал: кто погиб (утром это знают все), чем кончились обещания, кто кому что рассказал
+	_settle_promises()
+	for e: NightReport.Entry in r.deaths():
+		if e.who == null:
+			continue
+		var info := {"cause": String(NightReport.Kind.keys()[e.kind]).to_lower()}
+		if e.kind == NightReport.Kind.KILLED_STREET and e.host != null:
+			info["refused_by"] = e.host.id
+		world.add(WorldLog.Kind.DIED, day, -1, e.who.id, e.house, [], true, info)
+	_spread_news()
+
 	# дневник: кто где был этой ночью и кого не стало
 	var rec := {"day": day, "where": {}, "said": {}, "dead": []}
 	for vid: int in _night_ids:
@@ -1037,6 +1141,11 @@ func _settle_dilemma(seat: Seat) -> void:
 		"refuser":
 			if bool(d.admitted):
 				owes_player[who.id] = true
+	var seen: Array[int] = []
+	for v: Villager in seat.inside():
+		seen.append(v.id)
+	world.add(WorldLog.Kind.DILEMMA, day, seat.host.id, who.id, seat.house, seen, false,
+		{"dilemma": String(d.kind), "admitted": bool(d.admitted)})
 	dilemmas.append(d)
 
 
@@ -1057,6 +1166,40 @@ func _dilemma_fate(r: NightReport) -> void:
 const GRIEF_DAYS := 2
 
 
+## Утром новости расходятся (TASK-003). Кого не пустили и кто дожил до утра, рассказывает своим.
+## Кто не дожил, за того рассказывают те, кто был рядом с дверью: был в доме или стоял в очереди.
+## Хозяин двери о своём отказе молчит. Если рядом не было никого, отказ остаётся тайной.
+func _spread_news() -> void:
+	for e: WorldLog.Event in world.of(WorldLog.Kind.REFUSE, day):
+		var refused := get_villager(e.target)
+		if refused == null:
+			continue
+		var teller: Villager = null
+		if refused.alive:
+			teller = refused
+		else:
+			var ids: Array = e.known.keys()
+			ids.sort()
+			for wid: Variant in ids:
+				var w := get_villager(int(wid))
+				if w != null and w.alive and w.id != e.actor and w.id != refused.id and not w.is_player:
+					teller = w
+					break
+		if teller == null:
+			continue
+		for kin: Villager in kin_of(refused):
+			world.tell(e, kin.id, teller.id)
+
+
+## Близкие жителя: пара и семья. Только живые.
+func kin_of(v: Villager) -> Array[Villager]:
+	var out: Array[Villager] = []
+	for k: Villager in villagers:
+		if k != v and k.alive and (k.partner_id == v.id or k.family_id == v.id or v.partner_id == k.id or v.family_id == k.id):
+			out.append(k)
+	return out
+
+
 func _apply_grief(r: NightReport) -> void:
 	for v: Villager in villagers:
 		if v.grief_days > 0:
@@ -1064,6 +1207,7 @@ func _apply_grief(r: NightReport) -> void:
 			if v.grief_days == 0:
 				v.grief_for = -1
 				v.blame_id = -1
+				v.blame_via = -1
 	for e: NightReport.Entry in r.deaths():
 		var lost := e.who
 		if lost == null or lost.is_player:
@@ -1082,9 +1226,14 @@ func _apply_grief(r: NightReport) -> void:
 			kin.grief_days = GRIEF_DAYS
 			griefs += 1
 			kin.blame_id = -1
-			# не пустили — значит виноват тот, кто держал дверь
+			kin.blame_via = -1
+			# не пустили — виноват тот, кто держал дверь. Но только если близкий об этом знает (TASK-003)
 			if e.kind == NightReport.Kind.KILLED_STREET and e.host != null and e.host != kin and e.host.alive:
-				kin.blame_id = e.host.id
+				var refusal := world.last(WorldLog.Kind.REFUSE, e.host.id, lost.id, day)
+				var src := world.source(kin.id, refusal)
+				if not src.is_empty():
+					kin.blame_id = e.host.id
+					kin.blame_via = int(src.via)
 
 
 ## Близкие, которые сейчас в трауре по lost.

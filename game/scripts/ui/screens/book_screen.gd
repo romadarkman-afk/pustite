@@ -37,6 +37,15 @@ func build() -> void:
 				String(p[1]) + ": " + L.t("book.stats", {"m": e[0], "d": e[1], "u": e[2]}), &"Small", 32)
 		line.name = "Person_" + String(p[0])
 		body.add_child(line)
+		# память кампании (TASK-002): что было между игроком и этим жителем
+		if String(p[0]).begins_with("n"):
+			var k := 0
+			for mem: String in Campaign.memory_lines(int(String(p[0]).substr(1))):
+				var ml := W.label(mem, &"Hint")
+				ml.name = "Memory_%s_%d" % [String(p[0]), k]
+				ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				body.add_child(ml)
+				k += 1
 
 	body.add_child(W.label(L.t("book.endings"), &"Speaker"))
 	for id: String in Progress.ENDINGS:

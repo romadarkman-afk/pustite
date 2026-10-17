@@ -110,6 +110,13 @@ func build() -> void:
 		var bond := SocialContent.bond_text(v, m)
 		if not bond.is_empty():
 			info.add_child(W.label(bond, &"Hint"))
+		# память кампании (TASK-002): последнее, что было между вами
+		if not Game.chapter.is_empty() and v.guest_id.is_empty():
+			var mem := Campaign.memory_lines(v.story_id, 1)
+			if not mem.is_empty():
+				var ml := W.label(mem[0], &"Hint")
+				ml.name = "Memory"
+				info.add_child(ml)
 		row.add_child(info)
 		card.add_child(row)
 		_cast.add_child(card)
@@ -132,8 +139,11 @@ func _show_beat() -> void:
 			art.custom_minimum_size = Vector2(0, 320)
 			(_beat_card.get_child(0) as Control).add_child(art)
 			(_beat_card.get_child(0) as Control).move_child(art, 0)
+	var art_node := _beat_card.find_child("Art", true, false) as Control
+	if art_node != null:
+		art_node.visible = _beat < 2          # страницы откровений длиннее: картинка главы уступает место тексту
 	_show_narrator()
-	var beats := SocialContent.opening_beats(m) if Game.chapter.is_empty() else chapter_beats(String(Game.chapter.id))
+	var beats := _beats()
 	_beat_title.text = String(beats[_beat][0])
 	_beat_text.text = String(beats[_beat][1])
 	Juice.pop_in(_beat_card, 0.06)
@@ -172,9 +182,17 @@ func _show_narrator() -> void:
 
 
 ## Сцена главы: две страницы текста и картинка главы, если она есть.
-static func chapter_beats(id: String) -> Array:
-	return [[L.t("camp.%s.beat1_title" % id), L.t("camp.%s.beat1" % id)],
+## После двух страниц — откровения главы (TASK-005): кто их расскажет, зависит от того, кто жив.
+static func chapter_beats(id: String, mm: Match = null) -> Array:
+	var out := [[L.t("camp.%s.beat1_title" % id), L.t("camp.%s.beat1" % id)],
 		[L.t("camp.%s.beat2_title" % id), L.t("camp.%s.beat2" % id)]]
+	for rid: String in Revelations.for_chapter(id):
+		out.append(Revelations.beat(rid, mm))
+	return out
+
+
+func _beats() -> Array:
+	return SocialContent.opening_beats(m) if Game.chapter.is_empty() else chapter_beats(String(Game.chapter.id), m)
 
 
 ## Цели главы: основная и две за звёзды. result — итог (Campaign.finish), до партии пусто.
@@ -204,13 +222,15 @@ static func goals_card(mm: Match, ch: Dictionary, result: Dictionary) -> PanelCo
 
 
 func _advance() -> void:
-	if _beat == 0:
-		_beat = 1
-		Sfx.play(&"knock")
-		Juice.haptic(Juice.Haptic.NIGHT)
+	var last := _beats().size() - 1
+	if _beat < last:
+		_beat += 1
+		if _beat == 1:
+			Sfx.play(&"knock")
+			Juice.haptic(Juice.Haptic.NIGHT)
 		_show_beat()
-	elif _beat == 1:
-		_beat = 2
+	elif _beat == last:
+		_beat = last + 1
 		_beat_card.visible = false
 		_cast.visible = true
 		_go.text = L.t("prologue.go")

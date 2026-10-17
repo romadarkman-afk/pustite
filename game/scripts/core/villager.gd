@@ -18,6 +18,7 @@ var persona: int = -1              ## характер речи (Voices.Persona)
 var grief_for: int = -1            ## по кому траур: близкий погиб этой ночью
 var grief_days: int = 0            ## сколько дней ещё горюет: не работает, говорит о погибшем
 var blame_id: int = -1             ## кого винит в гибели близкого: хозяин двери, что не открыл
+var blame_via: int = -1            ## откуда знает об отказе: свой id — видел сам, чужой — рассказал этот житель
 var last_words: String = ""        ## последние слова, если погиб ночью
 var story_step: int = 0
 var personal_day: int = 0

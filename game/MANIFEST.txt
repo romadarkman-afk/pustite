@@ -42,10 +42,12 @@ scripts/core/game_config.gd
 scripts/core/guests.gd
 scripts/core/match.gd
 scripts/core/night_report.gd
+scripts/core/revelations.gd
 scripts/core/progress.gd
 scripts/core/recap.gd
 scripts/core/ru.gd
 scripts/core/villager.gd
+scripts/core/world_log.gd
 scripts/loc/de.gd
 scripts/loc/en.gd
 scripts/loc/es.gd
@@ -61,6 +63,7 @@ scripts/loc/tr.gd
 scripts/loc/vi.gd
 scripts/loc/voices.gd
 scripts/loc/zh.gd
+scripts/tests/plan_tests.gd
 scripts/tests/self_test.gd
 scripts/ui/action_sheet.gd
 scripts/ui/atmosphere.gd

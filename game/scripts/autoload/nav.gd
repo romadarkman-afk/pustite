@@ -584,6 +584,8 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			Game.invite(data.id, data.house)
 		Intent.ASK:
 			Game.ask(data.id)
+		Intent.PROMISE:
+			Game.promise(int(data.id), String(data.kind))
 		Intent.PERSONAL_TALK:
 			if sender is DayScreen:
 				Game.personal_talk(int(data.id), int(data.choice))

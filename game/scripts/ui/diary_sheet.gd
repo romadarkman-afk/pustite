@@ -62,6 +62,14 @@ static func facts(m: Match, d: Director, v: Villager) -> PackedStringArray:
 		var who := m.get_villager(vid)
 		if who != v and m.claim_elder.has(vid) and m.claim_about.get(vid, -1) == v.id:
 			out.append(L.t("diary.claim", {"who": who, "text": m.claims[vid]}))
+	# обещания (TASK-004): кто кому что обещал и чем кончилось
+	for p: Dictionary in m.promises:
+		if int(p.by) != v.id and int(p.to) != v.id:
+			continue
+		var other := m.get_villager(int(p.to) if int(p.by) == v.id else int(p.by))
+		var state := String(p.state) if String(p.state) != "" else "open"
+		out.append(L.t("diary.promise_%s_%s" % ["by" if int(p.by) == v.id else "to", String(p.kind)],
+			{"who": other, "me": v, "n": int(p.day)}) + " " + L.t("diary.promise_state_" + state))
 	if m.player_seen.has(v.id):
 		out.append(L.t("diary.seen_upyr" if m.player_seen[v.id] == 1 else "diary.seen_human"))
 	if out.is_empty():

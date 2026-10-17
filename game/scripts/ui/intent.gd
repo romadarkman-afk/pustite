@@ -42,4 +42,5 @@ const OPEN_BOOK := &"open_book"           ## Книга посёлка
 const OPEN_CAMPAIGN := &"open_campaign"   ## экран глав кампании
 const PLAY_CHAPTER := &"play_chapter"     ## начать главу: {"id"}; пусто — продолжить
 const SKIP_TO_END := &"skip_to_end"  ## тебя не стало: доиграть без тебя и сразу к итогу
+const PROMISE := &"promise"      ## обещание жителю: {"id", "kind": "open" | "come"} (TASK-004)
 const WORK := &"work"            ## встать к делу: {"ji": индекс, "sab": портить вместо работы}

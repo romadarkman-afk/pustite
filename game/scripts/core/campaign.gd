@@ -209,7 +209,7 @@ static func finish(m: Match, ch: Dictionary) -> Dictionary:
 		elif v.story_id >= 0:
 			lost.append(v.story_id)
 	if passed:
-		Save.record_chapter(String(ch.id), stars, lost, lost_guests)
+		Save.record_chapter(String(ch.id), stars, lost, lost_guests, m.world.campaign_records(m, Save.MEMORY_PER_CHAPTER))
 	return {"passed": passed, "stars": stars, "goals": g, "lost": lost, "lost_guests": lost_guests, "id": String(ch.id)}
 
 
@@ -256,6 +256,27 @@ static func fallen() -> Array:
 	for g: String in Save.campaign_dead_guests:
 		if Guests.LIST.has(g):
 			out.append({"nom": Guests.name_of(g), "f": bool(Guests.LIST[g].f)})
+	return out
+
+
+## Строки памяти о жителе с номером idx (TASK-002): «Глава 2: Костя стучал к тебе, дверь осталась закрытой».
+## Новые сверху. Не больше limit строк.
+static func memory_lines(idx: int, limit: int = 3) -> PackedStringArray:
+	var out := PackedStringArray()
+	var names := L.names()
+	if idx < 0 or idx >= names.size():
+		return out
+	var who := Villager.new(100 + idx, String(names[idx][0]), false)
+	who.female = bool(names[idx][1])
+	var recs := Save.memory_of(idx)
+	recs.reverse()
+	for rec: Dictionary in recs:
+		var key := "book.mem_" + String(rec.kind)
+		if not L.has(key):
+			continue
+		out.append(L.t(key, {"who": who, "n": ORDER.find(String(rec.ch)) + 1}))
+		if out.size() >= limit:
+			break
 	return out
 
 

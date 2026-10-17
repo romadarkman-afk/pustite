@@ -71,6 +71,12 @@ var said: Dictionary = {}      ## шаблоны, уже прозвучавши�
 const OWN_VOICE_P := 0.75      ## как часто житель говорит строкой своего характера, а не общей
 const W_REVENGE := 0.8         ## утро после гибели близкого: тот, кто не открыл ему дверь, под подозрением
 var last_questioner := -1
+## Обещания (TASK-004): что скажут утром о сдержанном и нарушенном слове.
+var promise_lines: Array[ChatLine] = []
+const PROMISE_BOT_P := 0.35       ## шанс, что утром кто-то из жителей сам пообещает игроку открыть
+const PROMISE_UPYR_KEEP := 0.5    ## упырь держит слово только в половине случаев
+const PROMISE_HOST := 2.5         ## вес обещания «открою тебе» для хозяина двери
+const W_PROMISE_BROKEN := 0.3     ## нарушил слово при всех: подозрение посёлка
 ## Подстройка под игрока (задача 49): −1 — игрок проиграл несколько раз подряд, боты слабее;
 ## +1 — игрок часто выигрывает, боты собраннее. Ступень сложности не меняется.
 ## Слабее значит: против игрока-человека упыри врут неубедительно, люди-хозяева лучше верят игроку;
@@ -567,6 +573,8 @@ func opening_lines() -> Array[ChatLine]:
 		return out
 	out.append_array(pending_lines)
 	pending_lines.clear()
+	out.append_array(promise_lines)
+	promise_lines.clear()
 	out.append_array(grief_lines())
 	out.append_array(emotional_lines())
 
@@ -605,10 +613,92 @@ func opening_lines() -> Array[ChatLine]:
 
 	if rng.randf() < 0.6:
 		out.append(_say(shuffled[shuffled.size() - 1], "FILLER"))
+	var offer := bot_promise()
+	if offer != null:
+		out.append(offer)
 	var question := player_question()
 	if question != null:
 		out.append(question)
 	return out
+
+
+## Житель сам обещает игроку открыть ему ночью (TASK-004). Свой генератор: ход партии не меняется.
+## Обещает тот, кто лучше всех думает об игроке. Упыри обещают так же охотно, а держат слово хуже.
+func bot_promise() -> ChatLine:
+	var me := m.player()
+	if not me.alive or m.phase != Match.Phase.DAY:
+		return null
+	var pr := RandomNumberGenerator.new()
+	pr.seed = hash("promise:%d:%d:%d" % [m.day, m.villagers.size(), m.case_id])
+	if pr.randf() >= PROMISE_BOT_P:
+		return null
+	var best: Villager = null
+	for bot: Villager in m.alive_bots():
+		if not m.promises_today(bot.id, me.id).is_empty():
+			continue
+		if best == null or view(bot, me) < view(best, me):
+			best = bot
+	if best == null or view(best, me) > 1.2:
+		return null
+	m.promise(best, me, "open")
+	var line := ChatLine.say(best, L.fill(Phrases.pick("PROMISE_BOT_OPEN", pr, {"me": best}), {}))
+	line.emotion = "relieved"
+	return line
+
+
+## Игрок обещает жителю (TASK-004). Житель отвечает своим характером и запоминает.
+func player_promise(t: Villager, kind: String) -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	var me := m.player()
+	if t == null or t.is_player or not t.alive or not m.promise(me, t, kind):
+		return out
+	var b: BotBrain = brains.get(t.id)
+	if b != null:
+		b.private_delta[me.id] = b.private_delta.get(me.id, 0.0) - 0.2
+		if kind == "open" and me.announced_house >= 0 and b.pact_house < 0 and not t.is_upyr:
+			t.announced_house = me.announced_house     # раз обещали открыть, пойдёт к тебе
+	var pr := RandomNumberGenerator.new()
+	pr.seed = hash("promise-reply:%d:%d:%s" % [m.day, t.id, kind])
+	var bank := "PROMISE_REPLY_" + kind.to_upper()
+	var reply := ChatLine.say(t, L.fill(Phrases.pick(bank, pr, {"me": t, "house": m.house_name(maxi(0, me.announced_house))}), {}))
+	reply.emotion = "relieved"
+	out.append(reply)
+	return out
+
+
+## Утро: чем кончились вчерашние обещания. Нарушенное слово житель называет вслух, при всех:
+## посёлок теперь знает, и доверия к обещавшему меньше. Сдержанное — короткое спасибо.
+func _settle_promise_lines() -> void:
+	var me := m.player()
+	var pr := RandomNumberGenerator.new()
+	for p: Dictionary in m.promises:
+		if int(p.day) != m.day or String(p.state) == "" or String(p.state) == "void":
+			continue
+		var by := m.get_villager(int(p.by))
+		var to := m.get_villager(int(p.to))
+		if by == null or to == null:
+			continue
+		pr.seed = hash("promise-morning:%d:%d:%d" % [m.day, by.id, to.id])
+		var ev := m.world.last(WorldLog.Kind.PROMISE_BROKEN if p.state == "broken" else WorldLog.Kind.PROMISE_KEPT, by.id, to.id, m.day)
+		if by.is_player and to.alive and not to.is_player:
+			var b: BotBrain = brains.get(to.id)
+			var key := "PROMISE_%s_%s" % [String(p.state).to_upper(), String(p.kind).to_upper()]
+			var line := ChatLine.say(to, L.fill(Phrases.pick(key, pr, {"me": to}), {}))
+			if p.state == "broken":
+				line.emotion = "angry"
+				line.about = me
+				if b != null:
+					b.grudge[me.id] = b.grudge.get(me.id, 0.0) + 1.0
+				_bump(me.id, W_PROMISE_BROKEN)
+				if ev != null:
+					ev.public = true             # сказано при всех
+			else:
+				line.emotion = "relieved"
+				if b != null:
+					b.private_delta[me.id] = b.private_delta.get(me.id, 0.0) - 0.6
+			promise_lines.append(line)
+		elif to.is_player and p.state == "broken" and not by.is_player:
+			promise_lines.append(ChatLine.system(L.t("promise.bot_broke", {"who": by})))
 
 
 ## Утро после гибели близкого: горе вслух и, если погибшего не пустили, обвинение хозяину той двери.
@@ -628,6 +718,10 @@ func grief_lines() -> Array[ChatLine]:
 		var blamed := m.get_villager(v.blame_id)
 		if fresh_loss and blamed != null and blamed.alive:
 			var r := _say(v, "REVENGE", blamed, {"lost": lost})
+			var via := m.get_villager(v.blame_via)
+			if via != null:
+				# откуда знает (TASK-003): видел сам или кто рассказал
+				r.text += " " + L.t("know.saw" if via == v else "know.told", {"me": v, "who": via, "lost": lost})
 			r.emotion = "angry"
 			r.about = blamed
 			out.append(r)
@@ -747,6 +841,8 @@ func personal_talk(vid: int, choice: int) -> Array[ChatLine]:
 		return out
 	v.personal_day = m.day
 	v.story_step = mini(v.story_step + 1, 2)
+	if choice == 0:
+		m.world.add(WorldLog.Kind.LISTENED, m.day, m.player().id, v.id, -1, [m.player().id, v.id])
 	var brain: BotBrain = brains[vid]
 	brain.private_delta[0] = brain.private_delta.get(0, 0.0) + (-0.2 if choice == 0 else 0.25)
 	if v.anchor_id >= 0:
@@ -1013,6 +1109,14 @@ func host_decide(seat: Match.Seat, player_plea: String = "") -> Array[int]:
 		var s := -view(host, g)
 		if b.pact_id == g.id:
 			s += 3.0
+		if not m.promises_today(host.id, g.id).filter(func(p: Dictionary) -> bool: return p.kind == "open").is_empty():
+			var keep := not host.is_upyr
+			if host.is_upyr:
+				var pk := RandomNumberGenerator.new()
+				pk.seed = hash("promise-keep:%d:%d:%d" % [m.day, host.id, g.id])
+				keep = pk.randf() < PROMISE_UPYR_KEEP
+			if keep:
+				s += PROMISE_HOST
 		if g.is_player:
 			s += _plea_weight(host, player_plea)
 			if m.owes_player.get(host.id, false):
@@ -1155,6 +1259,7 @@ func read_report(r: NightReport) -> void:
 				_note_evidence(e.who.id, "liar")
 	for b: BotBrain in brains.values():
 		b.clear_pact()
+	_settle_promise_lines()
 
 
 ## Голоса считаются ОДИН раз. (В v0.1 они пересчитывались на каждой итерации
