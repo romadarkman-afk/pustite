@@ -44,7 +44,37 @@ func build() -> void:
 		body.add_child(you_dead_card(r))
 		Sfx.set_music(&"", 0.3)
 		Sfx.play(Dread.death_sound(m.player_death.kind), 1.0, -4.0)
+	_scene_then_reveal(r)
+
+
+## Сцена утра (TASK-013, TASK-014): после первой ночи главы «Стук» — одно из трёх утр,
+## в кампании после гибели близкого — сцена того, кто остался. Одна полная сцена за утро,
+## остальные утраты — короткими карточками.
+var scene_shown := ""
+
+
+func _scene_then_reveal(r: NightReport) -> void:
+	var sc := morning_scene(m, r)
+	if not sc.is_empty() and not you_died():
+		scene_shown = String(sc.id)
+		await ScenePlayer.play(self, sc, m)
+		if not is_instance_valid(self):
+			return
 	_reveal(r)
+
+
+static func morning_scene(mm: Match, r: NightReport) -> Dictionary:
+	if Game.chapter.is_empty():
+		return {}
+	if String(Game.chapter.get("id", "")) == "a1c1" and mm.day == 1:
+		return Scenes.first_morning(mm)
+	for e: NightReport.Entry in r.deaths():
+		if e.who == null or e.who.is_player:
+			continue
+		for kin: Villager in mm.kin_of(e.who):
+			if not kin.is_player and kin.guest_id.is_empty() and kin.story_id >= 0:
+				return Scenes.grief(kin, e.who)
+	return {}
 
 
 func you_died() -> bool:
@@ -250,6 +280,8 @@ func _text(e: NightReport.Entry) -> String:
 	var v := e.who
 	var house := m.house_name(e.house) if e.house >= 0 else ""
 	var a := {"who": v, "house": house}
+	if e.cause == "river":
+		return L.t("mo.river_dead" if e.is_death() else "mo.river_ok", a)
 	match e.kind:
 		NightReport.Kind.KILLED_STREET:
 			return L.t("mo.street_dead", a)

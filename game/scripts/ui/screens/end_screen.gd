@@ -37,6 +37,9 @@ func build() -> void:
 		Sfx.play(&"growl", 0.9, -9.0)
 	if not Game.chapter_result.is_empty():
 		body.add_child(chapter_card(Game.chapter_result))
+		var mem := memory_card(m)
+		if mem != null:
+			body.add_child(mem)
 	if not Game.progress_result.is_empty():
 		body.add_child(progress_card(Game.progress_result))
 	body.add_child(_verdict_card())
@@ -213,6 +216,45 @@ func chapter_card(res: Dictionary) -> PanelContainer:
 		var end := W.label(Campaign.act_ending(int(Game.chapter.get("act", 1))), &"Tale")
 		end.name = "ActEnd"
 		box.add_child(end)
+	return card
+
+
+## «Их память» (TASK-015): 2–4 строки о том, что жители запомнили из этой главы. По одной на человека,
+## самые важные первыми. Ничего не запомнили — карточки нет.
+static func memory_lines(mm: Match, limit: int = 4) -> PackedStringArray:
+	var out := PackedStringArray()
+	var seen: Dictionary = {}
+	for rec: Dictionary in mm.world.campaign_records(mm):
+		var idx := int(rec.who)
+		if seen.has(idx):
+			continue
+		var who: Villager = null
+		for v: Villager in mm.villagers:
+			if v.story_id == idx and not v.is_player and v.guest_id.is_empty():
+				who = v
+		var key := "memo." + String(rec.kind)
+		if who == null or not L.has(key):
+			continue
+		seen[idx] = true
+		out.append(L.t(key, {"who": who}))
+		if out.size() >= limit:
+			break
+	return out
+
+
+static func memory_card(mm: Match) -> PanelContainer:
+	var lines := memory_lines(mm)
+	if lines.is_empty():
+		return null
+	var card := W.panel(&"Card")
+	card.name = "TheirMemory"
+	var box := W.vbox(6)
+	card.add_child(box)
+	box.add_child(W.label(L.t("memo.title"), &"Speaker"))
+	for l: String in lines:
+		var lab := W.label(l, &"Small")
+		lab.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(lab)
 	return card
 
 

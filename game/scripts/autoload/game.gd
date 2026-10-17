@@ -22,6 +22,7 @@ var m: Match
 var director: Director
 var daily: String = ""             ## дата испытания дня, если идёт оно; "" — обычная партия
 var new_items: PackedStringArray = []   ## что открылось за эту партию: «lantern:copper»
+var opening_done := false        ## глава «Стук»: сцена у реки уже показана (TASK-011)
 var first_contact := false       ## первый личный разговор в партии
 var inspection_bonus := 0       ## награда за знакомство: один осмотр у двери
 var host_pleas: Dictionary[int, String] = {}
@@ -82,6 +83,7 @@ func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = 
 	Dread.reset()
 	dilemma = {}
 	first_contact = false
+	opening_done = false
 	inspection_bonus = 0
 	m = Match.new()
 	director = Director.new()
@@ -105,6 +107,10 @@ func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = 
 		"quiet": m.force_event = Match.Event.QUIET
 	director.tune = 0.0 if daily != "" else Save.tune()   # испытание дня у всех одинаковое
 	director.attach(m)
+	director.first_chapter = String(chapter.get("id", "")) == "a1c1"
+	if not chapter.is_empty():
+		# кампания помнит прошлые главы: доверие, обиды, заступничество (TASK-007, TASK-010)
+		director.apply_campaign(Save.campaign_bonds, Campaign.active_grudges(), Campaign.defenders())
 	_keep_screen(true)
 	m.phase_changed.connect(_on_phase)
 	m.chat_posted.connect(func(l: ChatLine) -> void: chat_line.emit(l))
@@ -387,7 +393,7 @@ func _on_phase(p: Match.Phase) -> void:
 			var before := Cosmetics.open_ids()
 			Save.record_result(won, you.is_upyr, daily == "" and chapter.is_empty())
 			if not chapter.is_empty():
-				chapter_result = Campaign.finish(m, chapter)
+				chapter_result = Campaign.finish(m, chapter, director)
 			progress_result = Progress.record(m, chapter_result)
 			if daily != "":
 				Save.record_daily(daily, won)
@@ -540,14 +546,15 @@ func personal_talk(vid: int, choice: int) -> void:
 	_post_all(lines)
 
 
-func answer_question(vid: int, answer: String, answer_kind: int) -> void:
+func answer_question(vid: int, answer: String, answer_kind: int, question_kind: String = "") -> void:
 	if m == null or m.phase != Match.Phase.DAY or answer.strip_edges().is_empty():
 		return
 	var asker := m.get_villager(vid)
 	if asker == null or not asker.alive or asker.is_player:
 		return
 	m.post(ChatLine.say(m.player(), answer.strip_edges()))
-	var replies := director.answer_player_question(asker, answer, answer_kind)
+	var replies := director.answer_grief(asker, answer_kind) if question_kind == "grief" \
+		else director.answer_player_question(asker, answer, answer_kind)
 	marks_changed.emit()
 	_feed(replies)
 

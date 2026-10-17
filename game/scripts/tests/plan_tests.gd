@@ -97,7 +97,7 @@ static func world_log_sim(games: int = 500) -> Dictionary:
 			if int(c[1]) != int(c[2]) and mismatch.size() < 8:
 				mismatch.append("партия %d: %s в журнале %d, в старом списке %d" % [g, c[0], c[1], c[2]])
 	var missing := PackedStringArray()
-	for k in range(WorldLog.KEYS.size()):
+	for k in range(WorldLog.MATCH_KINDS):
 		if not seen.has(k):
 			missing.append(WorldLog.KEYS[k])
 	return {"games": games, "missing": missing, "mismatch": mismatch}
@@ -355,4 +355,464 @@ static func revelations(fails: PackedStringArray) -> int:
 	Save.campaign_dead.assign(dead_before)
 	ok += SelfTest._expect(fails, PrologueScreen.chapter_beats("a1c2").size() == 3 and PrologueScreen.chapter_beats("a1c1").size() == 2,
 		"откровения не попали в сцену главы")
+	return ok
+
+
+# =============================================================
+# Группа 2. TASK-006, 007, 010: чувства, связи, реакции на утрату
+# =============================================================
+static func _pair(m: Match, older_story: int, younger_story: int) -> Array:
+	var a: Villager = null
+	var b: Villager = null
+	for v: Villager in m.villagers:
+		if v.story_id == older_story and v.guest_id.is_empty():
+			a = v
+		if v.story_id == younger_story and v.guest_id.is_empty():
+			b = v
+	return [a, b]
+
+
+static func feelings_and_bonds(fails: PackedStringArray) -> int:
+	var ok := 0
+	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
+	c.players = 12
+	# TASK-007: в любой партии с Лидой и Костей они бабушка и внук; давние связи на месте
+	var family_ok := true
+	for seed_i in range(5):
+		var fm := Match.new()
+		fm.start(c, 800 + seed_i)
+		var p := _pair(fm, 2, 3)
+		var lida: Villager = p[0]
+		var kostya: Villager = p[1]
+		if lida != null and kostya != null:
+			family_ok = family_ok and lida.family_id == kostya.id and lida.family_kind == "grandchild" and kostya.family_kind == "grandparent"
+			family_ok = family_ok and SocialContent.bond_text(lida, fm).contains(kostya.name) and SocialContent.bond_text(lida, fm).contains("внук")
+			family_ok = family_ok and SocialContent.bond_text(kostya, fm).contains("бабушка")
+		var t := _pair(fm, 5, 9)
+		if t[0] != null and t[1] != null:
+			family_ok = family_ok and (t[0] as Villager).tie_id == (t[1] as Villager).id and (t[0] as Villager).tie_kind == "engaged"
+			family_ok = family_ok and SocialContent.bond_text(t[0], fm).contains((t[1] as Villager).name.left(3))
+	ok += SelfTest._expect(fails, family_ok, "связи: Лида и Костя не бабушка и внук или нет давних связей")
+	ok += SelfTest._expect(fails, SocialContent.PEOPLE_RU[3][1].begins_with("Сестра") and SocialContent.PEOPLE_RU[2][1].contains("сестра Кости"),
+		"связи: биографии Лиды и Кости противоречат друг другу")
+
+	# TASK-006: вдовец горюет сильно наутро и почти отпускает через четыре дня
+	var m := Match.new()
+	m.start(c, 811)
+	var widow: Villager = null
+	var lost: Villager = null
+	for v: Villager in m.alive_bots():
+		if v.partner_id >= 0 and widow == null:
+			widow = v
+			lost = m.get_villager(v.partner_id)
+	if widow == null:
+		fails.append("чувства: в составе нет пары")
+		return ok
+	var r := NightReport.new()
+	r.add(NightReport.Kind.KILLED_INSIDE, lost, 0, [] as Array[Villager])
+	lost.alive = false
+	m._apply_grief(r)
+	m.feelings.morning(r)
+	var g0 := m.feelings.get_f(widow.id, Feelings.F.GRIEF)
+	for i in range(4):
+		m.feelings.morning(NightReport.new())
+	var g4 := m.feelings.get_f(widow.id, Feelings.F.GRIEF)
+	ok += SelfTest._expect(fails, g0 > 0.7 and g4 < 0.3, "чувства: горе наутро %.2f, через четыре дня %.2f" % [g0, g4])
+	ok += SelfTest._expect(fails, m.feelings.main(widow.id) != "grief", "чувства: через четыре дня горе всё ещё главное")
+	# характер: паникёр пугается сильнее тихони
+	var panic: Villager = null
+	var quiet: Villager = null
+	for v: Villager in m.alive_bots():
+		if v.persona == Voices.Persona.PANIC and panic == null: panic = v
+		if v.persona == Voices.Persona.QUIET and quiet == null: quiet = v
+	if panic != null and quiet != null:
+		var p0 := m.feelings.get_f(panic.id, Feelings.F.FEAR)
+		var q0 := m.feelings.get_f(quiet.id, Feelings.F.FEAR)
+		m.feelings.add(panic.id, Feelings.F.FEAR, 0.3)
+		m.feelings.add(quiet.id, Feelings.F.FEAR, 0.3)
+		ok += SelfTest._expect(fails, m.feelings.get_f(panic.id, Feelings.F.FEAR) - p0 > m.feelings.get_f(quiet.id, Feelings.F.FEAR) - q0,
+			"чувства: характер не влияет на силу страха")
+	ok += reactions(fails)
+	return ok
+
+
+## TASK-010: пять ситуаций с Лидой и Костей дают ожидаемую реакцию, и она переходит в следующую главу.
+static func reactions(fails: PackedStringArray) -> int:
+	var ok := 0
+	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
+	c.players = 12
+	var cases := [
+		{"name": "не знала об отказе", "knew": false, "full": false, "rel": 0.0, "want": "withdraw"},
+		{"name": "знала, мест не было", "knew": true, "full": true, "rel": 0.0, "want": "defend"},
+		{"name": "знала, места были", "knew": true, "full": false, "rel": 0.0, "want": "accuse"},
+		{"name": "знала, игрок враг", "knew": true, "full": false, "rel": -1.2, "want": "revenge"},
+		{"name": "знала, игроку верит", "knew": true, "full": false, "rel": 0.9, "want": "withdraw"},
+	]
+	var path := ProjectSettings.globalize_path(Save.SETTINGS_PATH)
+	var backup := FileAccess.get_file_as_bytes(path) if FileAccess.file_exists(path) else PackedByteArray()
+	for cs: Dictionary in cases:
+		var m := Match.new()
+		var d := Director.new()
+		var sd := 821
+		m.start(c, sd)
+		while (_pair(m, 2, 3)[1] == null or _pair(m, 2, 3)[0] == null) and sd < 900:
+			sd += 1
+			m = Match.new()
+			m.start(c, sd)
+		d.attach(m)
+		var p := _pair(m, 2, 3)
+		var lida: Villager = p[0]
+		var kostya: Villager = p[1]
+		if lida == null or kostya == null:
+			fails.append("реакции: в составе нет Лиды и Кости")
+			return ok
+		m.begin_day()
+		m.phase = Match.Phase.DOOR
+		var s := Match.Seat.new()
+		s.house = 0
+		s.host = m.player()
+		s.queue.append(kostya)
+		var filler: Villager = null
+		if bool(cs.full):
+			for v: Villager in m.alive_bots():
+				if v != lida and v != kostya:
+					filler = v
+					break
+			s.queue.append(filler)
+		if bool(cs.knew):
+			s.queue.append(lida)
+		m.seats = [s]
+		var ids: Array[int] = []
+		if filler != null:
+			ids.append(filler.id)
+		m.admit(s, ids)
+		lida.relationship = 0                  # память прошлых партий в этой проверке не участвует
+		d.public_susp[0] = 0.0
+		d.brains[lida.id].private_delta[0] = -float(cs.rel)
+		var r := NightReport.new()
+		var e := r.add(NightReport.Kind.KILLED_STREET, kostya, 0)
+		e.host = m.player()
+		kostya.alive = false
+		m._spread_news()
+		m._apply_grief(r)
+		d.read_report(r)
+		ok += SelfTest._expect(fails, lida.reaction == String(cs.want),
+			"реакции (%s): Лида выбрала «%s», ждали «%s»" % [cs.name, lida.reaction, cs.want])
+		var lines := d.grief_lines()
+		var said := ""
+		var asks := false
+		for l: ChatLine in lines:
+			if l.speaker == lida:
+				said += l.text
+				asks = asks or l.asks_player
+		if String(cs.want) == "accuse":
+			ok += SelfTest._expect(fails, said == GriefReactions.line(lida, kostya, "accuse") and asks, "реакции: обвинение не сказано или нет вопроса игроку")
+			var reply := d.answer_grief(lida, 1)
+			ok += SelfTest._expect(fails, reply.size() == 1 and lida.reaction == "withdraw", "реакции: извинение не смягчило Лиду")
+		if String(cs.want) == "revenge":
+			# месть переходит в следующую главу и мешает игроку там
+			var recs := m.world.campaign_records(m)
+			Save.record_chapter("a1c1", 2, [], PackedStringArray(), recs)
+			ok += SelfTest._expect(fails, Campaign.active_grudges().has(2), "реакции: месть Лиды не перешла в следующую главу")
+			var m2 := Match.new()
+			var d2 := Director.new()
+			m2.start(c, 822)
+			d2.attach(m2)
+			d2.apply_campaign(Save.campaign_bonds, Campaign.active_grudges(), Campaign.defenders())
+			var lida2: Villager = _pair(m2, 2, 3)[0]
+			ok += SelfTest._expect(fails, lida2 != null and d2.brains[lida2.id].grudge.get(0, 0.0) > 1.0 and int(m2.feelings.rage_at.get(lida2.id, -1)) == 0,
+				"реакции: в следующей главе Лида не помнит обиду")
+			# игрок впустил её в новой главе — обида прощена
+			Save.record_chapter("a1c2", 2, [], PackedStringArray(), [{"kind": "admitted", "who": 2, "day": 1, "knew": []}])
+			ok += SelfTest._expect(fails, not Campaign.active_grudges().has(2), "реакции: поступок игрока не исправил обиду")
+	# отношения между главами (TASK-007): доверие к игроку и между жителями переходит в память кампании
+	var mb := Match.new()
+	var db := Director.new()
+	mb.start(c, 831)
+	db.attach(mb)
+	var a: Villager = mb.alive_bots()[0]
+	var b: Villager = mb.alive_bots()[1]
+	db.brains[a.id].private_delta[0] = -0.9
+	db.brains[a.id].private_delta[b.id] = 0.6
+	var bonds := db.campaign_bonds()
+	ok += SelfTest._expect(fails, int(bonds.get("%d>p" % a.story_id, 0)) == 3 and int(bonds.get("%d>%d" % [a.story_id, b.story_id], 0)) == -2,
+		"связи: отношения не записались в память кампании: %s" % str(bonds))
+	if backup.is_empty():
+		DirAccess.remove_absolute(path)
+	else:
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		f.store_buffer(backup)
+		f.close()
+	Save.load_all()
+	return ok
+
+
+# =============================================================
+# TASK-008, 009: чувства меняют поведение и видны
+# =============================================================
+static func behaviour(fails: PackedStringArray) -> int:
+	var ok := 0
+	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
+	c.players = 12
+	var m := Match.new()
+	var d := Director.new()
+	m.start(c, 841)
+	d.attach(m)
+	m.begin_day()
+	var humans: Array[Villager] = []
+	for v: Villager in m.alive_bots():
+		if not v.is_upyr:
+			humans.append(v)
+	var host: Villager = humans[0]
+	var foe: Villager = humans[1]
+	var other: Villager = humans[2]
+	for v: Villager in [foe, other]:
+		d.brains[host.id].private_delta[v.id] = 0.0
+		d.public_susp[v.id] = 0.0
+	var seat := Match.Seat.new()
+	seat.host = host
+	seat.house = 0
+	seat.queue.assign([foe, other])
+	# ярость: обидчика не пускает
+	m.feelings.set_f(host.id, Feelings.F.RAGE, 0.9)
+	m.feelings.rage_at[host.id] = foe.id
+	ok += SelfTest._expect(fails, d.host_decide(seat).has(other.id) and not d.host_decide(seat).has(foe.id), "поведение: злой хозяин впустил обидчика")
+	# вина: пускает того, кому отказал
+	m.feelings.set_f(host.id, Feelings.F.RAGE, 0.0)
+	m.feelings.rage_at.clear()
+	m.feelings.set_f(host.id, Feelings.F.GUILT, 0.9)
+	m.feelings.guilt_for[host.id] = foe.id
+	ok += SelfTest._expect(fails, d.host_decide(seat).has(foe.id), "поведение: виноватый хозяин не впустил того, кому отказал")
+	# страх: открывает только своим
+	m.feelings.set_f(host.id, Feelings.F.GUILT, 0.0)
+	m.feelings.guilt_for.clear()
+	d.brains[host.id].pact_id = other.id
+	m.feelings.set_f(host.id, Feelings.F.FEAR, 0.95)
+	d.brains[host.id].private_delta[foe.id] = -0.5          # чужому даже немного верит
+	ok += SelfTest._expect(fails, d.host_decide(seat).has(other.id) and not d.host_decide(seat).has(foe.id), "поведение: напуганный хозяин открыл чужому")
+	d.brains[host.id].pact_id = -1
+	# ярость: голосует против обидчика
+	m.feelings.set_f(other.id, Feelings.F.RAGE, 0.9)
+	m.feelings.rage_at[other.id] = foe.id
+	m.phase = Match.Phase.VOTE
+	ok += SelfTest._expect(fails, int(d.votes().get(other.id, -1)) == foe.id, "поведение: злой житель голосует не против обидчика")
+	# надежда и доверие: поддерживает обвинение игрока
+	var ally: Villager = humans[3]
+	m.feelings.set_f(ally.id, Feelings.F.TRUST, 0.8)
+	m.feelings.set_f(ally.id, Feelings.F.HOPE, 0.7)
+	var accused: Villager = humans[4]
+	var l := ChatLine.say(m.player(), "!")
+	l.about = accused
+	m.post(l)
+	ok += SelfTest._expect(fails, int(d.votes().get(ally.id, -1)) == accused.id, "поведение: верящий игроку не поддержал его обвинение")
+	# истощение: не больше одного дела
+	m.phase = Match.Phase.DAY
+	var tired := humans[5]
+	m.feelings.set_f(tired.id, Feelings.F.EXHAUSTION, 0.95)
+	var tasks := 0
+	for k in range(20):
+		for t: Director.JobTask in d.plan_jobs(90.0):
+			tasks += 1 if t.vid == tired.id else 0
+	ok += SelfTest._expect(fails, tasks <= 20, "поведение: уставший работает больше одного дела за день (%d за 20 дней)" % tasks)
+	# отчаяние: уходит ночью к реке; выслушал днём — остаётся
+	var lost_one := humans[6]
+	m.feelings.set_f(lost_one.id, Feelings.F.DESPAIR, 0.95)
+	var gone := false
+	for day_i in range(1, 9):
+		m.day = day_i
+		d.plan_day()
+		if m.wander_plan.has(lost_one.id):
+			gone = true
+			break
+	ok += SelfTest._expect(fails, gone and not d.pending_lines.is_empty(), "поведение: отчаявшийся не собрался к реке или не сказал об этом")
+	lost_one.personal_day = -1
+	d.personal_talk(lost_one.id, 0)
+	ok += SelfTest._expect(fails, not m.wander_plan.has(lost_one.id), "поведение: разговор не остановил отчаявшегося")
+	m.wander_plan[lost_one.id] = true
+	m.phase = Match.Phase.NIGHT
+	var ch := d.night_choices()
+	ch[0] = 0
+	m.seat_night(ch)
+	var seated := false
+	for st: Match.Seat in m.seats:
+		seated = seated or st.host == lost_one or st.queue.has(lost_one)
+	var rn := m.resolve_night()
+	var river := false
+	for e: NightReport.Entry in rn.entries:
+		river = river or (e.who == lost_one and e.cause == "river")
+	ok += SelfTest._expect(fails, not seated and river, "поведение: ушедший к реке ночевал в доме или утро о нём молчит")
+	# TASK-009: состояние словами в карточке
+	m.feelings.set_f(foe.id, Feelings.F.FEAR, 0.95)
+	ok += SelfTest._expect(fails, m.feelings.status_text(foe) == L.t("feel.fear", {"me": foe}), "видимость: в карточке нет состояния жителя")
+	return ok
+
+
+# =============================================================
+# TASK-012: движок сцен — кадры, выбор в журнал, «Назад», сворачивание
+# =============================================================
+static func scene_engine(tree: SceneTree, fails: PackedStringArray) -> int:
+	var ok := 0
+	Nav.start_match()
+	await SelfTest._frames(tree, 3)
+	var host: Control = Nav.host.current
+	var m := Game.m
+	var sc := {"id": "test", "frames": [
+		{"art": "res://assets/scenes/none.jpg", "lines": [{"text": "один"}], "sound": [{"at": 0.0, "do": "play", "id": "knock"}]},
+		{"portrait": m.alive_bots()[0], "lines": [{"who": "Кто-то", "text": "два"}, {"text": "три"}]},
+		{"art": "res://assets/scenes/a1c2.jpg", "weather": "rain", "lines": [{"text": "четыре"}]},
+	], "choice": {"prompt": "Что делать?", "options": [{"id": "a", "text": "Первое"}, {"id": "b", "text": "Второе"}]}}
+	var sp := ScenePlayer.new()
+	sp.scene = sc
+	sp.m = m
+	host.add_child(sp)
+	sp._build()
+	ok += SelfTest._expect(fails, Game.held() and sp.frame_i == 0 and not sp._art.visible, "сцены: без картинки кадр не пошёл поверх посёлка или часы не встали")
+	var guard := 0
+	while sp._choices.visible == false and guard < 400:
+		guard += 1
+		await tree.process_frame
+	ok += SelfTest._expect(fails, sp._choices.visible and sp._choices.get_child_count() == 2, "сцены: кадры не дошли до выбора")
+	(sp._choices.get_child(1) as Button).pressed.emit()
+	await SelfTest._frames(tree, 2)
+	var ev := m.world.last(WorldLog.Kind.CHOICE)
+	ok += SelfTest._expect(fails, ev != null and ev.info.get("choice", "") == "b" and ev.info.get("scene", "") == "test", "сцены: выбор не записан в журнал")
+	ok += SelfTest._expect(fails, not Game.held(), "сцены: после сцены часы партии стоят")
+	# «Назад» доводит до выбора, сворачивание ставит на паузу
+	var sp2 := ScenePlayer.new()
+	sp2.scene = sc
+	sp2.m = m
+	host.add_child(sp2)
+	sp2._build()
+	sp2._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
+	var before := sp2.line_i
+	await SelfTest._frames(tree, 10)
+	ok += SelfTest._expect(fails, sp2.line_i == before and sp2.frame_i == 0, "сцены: свёрнутая игра листает сцену")
+	sp2._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
+	ok += SelfTest._expect(fails, (host as Screen).handle_back() and sp2._in_choice, "сцены: «Назад» не довёл сцену до выбора")
+	sp2.choose("a")
+	await SelfTest._frames(tree, 2)
+	Nav.show_menu()
+	await SelfTest._frames(tree, 2)
+	return ok
+
+
+# =============================================================
+# TASK-011, 013, 014, 015: глава «Стук» от реки до итога
+# =============================================================
+static func chapter_one(tree: SceneTree, fails: PackedStringArray) -> int:
+	var ok := 0
+	var path := ProjectSettings.globalize_path(Save.SETTINGS_PATH)
+	var backup := FileAccess.get_file_as_bytes(path) if FileAccess.file_exists(path) else PackedByteArray()
+	Save.campaign_reset()
+	Nav.start_chapter("a1c1")
+	var ds: DoorScreen = null
+	var river: ScenePlayer = null
+	for i in range(60):
+		await tree.process_frame
+		if Nav.host.current is DoorScreen:
+			ds = Nav.host.current as DoorScreen
+			for ch: Node in ds.get_children():
+				if ch is ScenePlayer and String((ch as ScenePlayer).scene.get("id", "")) == "a1c1_river":
+					river = ch
+		if river != null:
+			break
+	ok += SelfTest._expect(fails, river != null, "глава «Стук»: нет сцены у реки перед первым стуком")
+	if river == null:
+		return ok
+	var guard := 0
+	while not river._in_choice and guard < 400:
+		guard += 1
+		await tree.process_frame
+	river.choose("answer")
+	for i in range(200):
+		await tree.process_frame
+		if ds.find_children("*", "ScenePlayer", true, false).filter(func(n: Node) -> bool: return not n.is_queued_for_deletion()).is_empty():
+			break
+	ok += SelfTest._expect(fails, Game.m.world.last(WorldLog.Kind.CHOICE) != null and not Game.director.scene_lines.is_empty(),
+		"глава «Стук»: ответ на зов не записан или перевозчица о нём не вспомнит")
+	# у двери: вопрос «Кто там?» один за ночь
+	var g: Villager = ds.seat.knockers()[0]
+	ds.ask_who(g.id)
+	var note: Label = ds._observations.get(g.id)
+	ok += SelfTest._expect(fails, note != null and note.visible and not note.text.is_empty() and ds._asked, "глава «Стук»: на «Кто там?» никто не ответил")
+	var ids: Array[int] = [g.id]
+	ds._finish_host(ids)
+	var mo: MorningScreen = null
+	for i in range(200):
+		await tree.process_frame
+		if Nav.host.current is MorningScreen:
+			mo = Nav.host.current
+			break
+	ok += SelfTest._expect(fails, mo != null and mo.scene_shown.begins_with("a1c1_morning_"), "глава «Стук»: первое утро без сцены")
+	var outcome := Scenes.first_night_outcome(Game.m)
+	ok += SelfTest._expect(fails, mo != null and mo.scene_shown == "a1c1_morning_" + String(outcome.kind) and int(outcome.who) == g.id,
+		"глава «Стук»: сцена утра не та, что вышла ночью")
+	for i in range(400):
+		if mo == null or mo.revealed:
+			break
+		await tree.process_frame
+	# три исхода — три разных утра
+	var kinds := {}
+	for sd in range(1, 40):
+		var mm := Match.new()
+		mm.start(Campaign.config("a1c1"), 900 + sd)
+		mm.begin_day()
+		mm.phase = Match.Phase.DOOR
+		var s := Match.Seat.new()
+		s.host = mm.player()
+		s.house = 0
+		var bots := mm.alive_bots()
+		s.queue.assign([bots[sd % bots.size()]])
+		mm.seats = [s]
+		var adm: Array[int] = []
+		if sd % 3 != 0:
+			adm.append(bots[sd % bots.size()].id)
+		mm.admit(s, adm)
+		kinds[String(Scenes.first_morning(mm).id)] = true
+	ok += SelfTest._expect(fails, kinds.size() == 3, "глава «Стук»: утр после первой ночи не три: %s" % str(kinds.keys()))
+	# день: первое обещание в главе обязательно, перевозчица вспоминает ответ на зов
+	Game.proceed()
+	for i in range(60):
+		await tree.process_frame
+		if Nav.host.current is DayScreen:
+			break
+	var lines := Game.director.opening_lines()
+	var promised := not Game.m.promises_today(-1, 0).is_empty()
+	ok += SelfTest._expect(fails, promised, "глава «Стук»: в первый день никто не пообещал открыть")
+	# TASK-014: сцена утраты для каждого из 12 жителей — свои кадры на русском
+	var gm := Match.new()
+	var cfg12 := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
+	cfg12.players = 12
+	gm.start(cfg12, 951)
+	var bad := PackedStringArray()
+	var re_tag := RegEx.create_from_string("[{}\\[\\]|]")
+	for v: Villager in gm.alive_bots():
+		var sc := Scenes.grief(v, gm.alive_bots()[0] if gm.alive_bots()[0] != v else gm.alive_bots()[1])
+		var fr: Array = sc.frames
+		var t0 := String((fr[0].lines as Array)[0].text) if not fr.is_empty() else ""
+		if fr.size() < 2 or re_tag.search(t0) != null or t0.is_empty():
+			bad.append(v.name)
+		for kind: String in ["accuse", "defend", "withdraw"]:
+			var lt := GriefReactions.line(v, gm.alive_bots()[0], kind)
+			if lt.is_empty() or re_tag.search(lt) != null:
+				bad.append("%s:%s" % [v.name, kind])
+	ok += SelfTest._expect(fails, bad.is_empty(), "сцены утраты: битые кадры или реплики у %s" % ", ".join(bad))
+	# TASK-015: «Их память» на итоге главы
+	var mem := EndScreen.memory_lines(Game.m)
+	ok += SelfTest._expect(fails, not mem.is_empty() and mem.size() <= 4, "итог главы: нет строк «Их память»")
+	Game.m.winner = Match.Team.PEOPLE
+	Game.chapter_result = Campaign.finish(Game.m, Game.chapter, Game.director)
+	Game.m.phase = Match.Phase.OVER
+	Nav.show(EndScreen.new())
+	await SelfTest._frames(tree, 4)
+	ok += SelfTest._expect(fails, Nav.host.current.find_child("TheirMemory", true, false) != null, "итог главы: нет карточки «Их память»")
+	Nav.show_menu()
+	await SelfTest._frames(tree, 3)
+	if backup.is_empty():
+		DirAccess.remove_absolute(path)
+	else:
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		f.store_buffer(backup)
+		f.close()
+	Save.load_all()
 	return ok

@@ -73,6 +73,8 @@ const W_REVENGE := 0.8         ## утро после гибели близко�
 var last_questioner := -1
 ## Обещания (TASK-004): что скажут утром о сдержанном и нарушенном слове.
 var promise_lines: Array[ChatLine] = []
+var scene_lines: Array[ChatLine] = []     ## что скажут днём после сцены (отозвался на зов у реки)
+var first_chapter := false                ## глава «Стук»: в первый день кто-то обязательно обещает открыть
 const PROMISE_BOT_P := 0.35       ## шанс, что утром кто-то из жителей сам пообещает игроку открыть
 const PROMISE_UPYR_KEEP := 0.5    ## упырь держит слово только в половине случаев
 const PROMISE_HOST := 2.5         ## вес обещания «открою тебе» для хозяина двери
@@ -95,6 +97,7 @@ func attach(match_ref: Match) -> void:
 	last_question_topic = ""
 	last_questioner = -1
 	said.clear()
+	promise_lines.clear()
 	for v: Villager in m.villagers:
 		public_susp[v.id] = 0.0
 		if not v.is_player:
@@ -177,6 +180,9 @@ func plan_jobs(day_sec: float) -> Array[JobTask]:
 			n = 1 if rng.randf() < 0.75 else 0
 		elif rng.randf() < 0.85:
 			n = 2 if rng.randf() < 0.4 else 1
+		var tired := m.feelings.get_f(bot.id, Feelings.F.EXHAUSTION)
+		if tired >= 0.7 and not bot.is_upyr:
+			n = mini(n, 1)                # не спал ночь: на второе дело сил нет
 		# за дело берутся с первых секунд дня, а не к середине: посёлок с утра в работе
 		var t := rng.randf_range(2.5, maxf(5.0, day_sec * 0.3))
 		for k in range(n):
@@ -194,7 +200,7 @@ func plan_jobs(day_sec: float) -> Array[JobTask]:
 			task.real = rng.randf() < (UPYR_REAL if bot.is_upyr else 1.0 - HUMAN_FAIL)
 			task.sabotage = bot.is_upyr and not task.real and rng.randf() < SABOTAGE_P
 			out.append(task)
-			t += WORK_SEC + rng.randf_range(4.0, 9.0)
+			t += WORK_SEC + rng.randf_range(4.0, 9.0) + tired * 8.0     # уставший долго собирается
 	out.sort_custom(func(a: JobTask, b: JobTask) -> bool: return a.start < b.start)
 	return out
 
@@ -468,6 +474,27 @@ func plan_day() -> void:
 			bot.announced_house = _house_with_partner(bot, counts)
 		counts[bot.announced_house] += 1
 	_elder_day()
+	_plan_wander()
+
+
+## Отчаяние (TASK-008): житель в сильном отчаянии решает ночью уйти к реке на голос. Утром говорит об этом,
+## и его можно остановить: выслушать или пообещать прийти. Свой генератор: обычный ход партии не меняется.
+const WANDER_FROM := 0.6
+const WANDER_P := 0.5
+
+
+func _plan_wander() -> void:
+	m.wander_plan.clear()
+	for bot: Villager in m.alive_bots():
+		if bot.is_upyr or m.feelings.get_f(bot.id, Feelings.F.DESPAIR) < WANDER_FROM:
+			continue
+		var wr := RandomNumberGenerator.new()
+		wr.seed = hash("wander:%d:%d:%d" % [m.day, bot.id, m.case_id])
+		if wr.randf() < WANDER_P:
+			m.wander_plan[bot.id] = true
+			var line := ChatLine.say(bot, L.fill(Phrases.pick("WANDER_WARN", wr, {"me": bot}), {}))
+			line.emotion = "sad"
+			pending_lines.append(line)
 
 
 ## Старожил смотрит рисунки и рассказывает. Упырь иногда называется старожилом и топит человека.
@@ -575,6 +602,8 @@ func opening_lines() -> Array[ChatLine]:
 	pending_lines.clear()
 	out.append_array(promise_lines)
 	promise_lines.clear()
+	out.append_array(scene_lines)
+	scene_lines.clear()
 	out.append_array(grief_lines())
 	out.append_array(emotional_lines())
 
@@ -630,7 +659,9 @@ func bot_promise() -> ChatLine:
 		return null
 	var pr := RandomNumberGenerator.new()
 	pr.seed = hash("promise:%d:%d:%d" % [m.day, m.villagers.size(), m.case_id])
-	if pr.randf() >= PROMISE_BOT_P:
+	# глава «Стук»: в первый же день, когда можно, кто-то обязательно обещает открыть (TASK-011)
+	var first := first_chapter and m.promises.filter(func(p: Dictionary) -> bool: return int(p.to) == me.id).is_empty()
+	if pr.randf() >= PROMISE_BOT_P and not first:
 		return null
 	var best: Villager = null
 	for bot: Villager in m.alive_bots():
@@ -638,12 +669,38 @@ func bot_promise() -> ChatLine:
 			continue
 		if best == null or view(bot, me) < view(best, me):
 			best = bot
-	if best == null or view(best, me) > 1.2:
+	if best == null or (view(best, me) > 1.2 and not first):
 		return null
 	m.promise(best, me, "open")
 	var line := ChatLine.say(best, L.fill(Phrases.pick("PROMISE_BOT_OPEN", pr, {"me": best}), {}))
 	line.emotion = "relieved"
 	return line
+
+
+## У реки игрок отозвался на зов с того берега, хотя перевозчица просила молчать (TASK-011).
+## Она это запомнит: меньше доверия и упрёк днём.
+func river_answered() -> void:
+	for v: Villager in m.alive_bots():
+		if v.story_id == 0 and v.guest_id.is_empty():
+			brains[v.id].private_delta[0] = brains[v.id].private_delta.get(0, 0.0) + 0.4
+			var l := ChatLine.say(v, L.t("sc.river.answered", {"me": v}))
+			l.emotion = "suspicious"
+			scene_lines.append(l)
+
+
+## «Кто там?» у двери (TASK-013). Человек отвечает по делу: называет дом, куда собирался днём,
+## или честно говорит, что передумал. Упырь — по делу лишь иногда, чаще уходит от ответа.
+## Свой генератор: ответ не меняет ход партии.
+func door_answer(g: Villager, seat: Match.Seat) -> String:
+	var ar := RandomNumberGenerator.new()
+	ar.seed = hash("ask:%d:%d:%d" % [m.day, g.id, m.case_id])
+	var creature := g.is_upyr or (seat != null and g == seat.mimic)
+	var plain := ar.randf() < (0.4 if creature else 0.85)
+	if not plain:
+		return L.t("door.ask_vague", {"me": g})
+	if seat != null and g.announced_house == seat.house:
+		return L.t("door.ask_true", {"me": g, "house": m.house_name(seat.house)})
+	return L.t("door.ask_changed", {"me": g})
 
 
 ## Игрок обещает жителю (TASK-004). Житель отвечает своим характером и запоминает.
@@ -653,6 +710,7 @@ func player_promise(t: Villager, kind: String) -> Array[ChatLine]:
 	if t == null or t.is_player or not t.alive or not m.promise(me, t, kind):
 		return out
 	var b: BotBrain = brains.get(t.id)
+	m.wander_plan.erase(t.id)               # дали слово — к реке не пойдёт
 	if b != null:
 		b.private_delta[me.id] = b.private_delta.get(me.id, 0.0) - 0.2
 		if kind == "open" and me.announced_house >= 0 and b.pact_house < 0 and not t.is_upyr:
@@ -712,6 +770,9 @@ func grief_lines() -> Array[ChatLine]:
 		if lost == null:
 			continue
 		var fresh_loss := v.grief_days == Match.GRIEF_DAYS
+		if fresh_loss and v.reaction != "":
+			out.append_array(_reaction_lines(v, lost))
+			continue
 		var g := _say(v, "GRIEF", null, {"lost": lost})
 		g.emotion = "sad"
 		out.append(g)
@@ -733,6 +794,7 @@ func grief_lines() -> Array[ChatLine]:
 
 func emotional_lines() -> Array[ChatLine]:
 	var out: Array[ChatLine] = []
+	out.append_array(tie_lines())
 	for v: Villager in m.alive_bots():
 		var partner := m.get_villager(v.partner_id)
 		if partner == null or (partner.alive and v.id > partner.id):
@@ -759,6 +821,29 @@ func emotional_lines() -> Array[ChatLine]:
 			var answer := ChatLine.say(partner, L.fill(_couple_pick("answer"), {"me": partner, "other": v, "name": v.name}))
 			answer.emotion = "sad"
 			out.append(answer)
+		break
+	return out
+
+
+## Давние связи (TASK-007): в первые два дня один из связанных вспоминает о второй стороне вслух.
+## Свой генератор: обычный ход партии не меняется.
+func tie_lines() -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	if m.day > 2:
+		return out
+	for v: Villager in m.alive_bots():
+		var o := m.get_villager(v.tie_id)
+		if o == null or not o.alive or v.id > o.id:
+			continue
+		var tr := RandomNumberGenerator.new()
+		tr.seed = hash("tie:%d:%d:%d" % [m.day, v.id, m.case_id])
+		if tr.randf() < 0.5:
+			continue
+		var first := v if Match.TIES.any(func(t: Array) -> bool: return t[0] == v.story_id) else o
+		var second := o if first == v else v
+		var line := ChatLine.say(first, L.t("tie.%s_day" % first.tie_kind, {"me": first, "who": second}))
+		line.emotion = "sad"
+		out.append(line)
 		break
 	return out
 
@@ -843,6 +928,10 @@ func personal_talk(vid: int, choice: int) -> Array[ChatLine]:
 	v.story_step = mini(v.story_step + 1, 2)
 	if choice == 0:
 		m.world.add(WorldLog.Kind.LISTENED, m.day, m.player().id, v.id, -1, [m.player().id, v.id])
+	m.feelings.on_talk(v.id, choice == 0)
+	var stopped := choice == 0 and m.wander_plan.has(v.id)
+	if stopped:
+		m.wander_plan.erase(v.id)          # выслушал — остаётся ночевать с людьми
 	var brain: BotBrain = brains[vid]
 	brain.private_delta[0] = brain.private_delta.get(0, 0.0) + (-0.2 if choice == 0 else 0.25)
 	if v.anchor_id >= 0:
@@ -855,6 +944,10 @@ func personal_talk(vid: int, choice: int) -> Array[ChatLine]:
 	var reply := ChatLine.say(v, L.fill(SocialContent.narrative_ui("thanks" if choice == 0 else "hurt"), {"me": v}))
 	reply.emotion = "relieved" if choice == 0 else "angry"
 	out.append(reply)
+	if stopped:
+		var stay := ChatLine.say(v, L.fill(Phrases.pick("WANDER_STAY", rng, {"me": v}), {}))
+		stay.emotion = "relieved"
+		out.append(stay)
 	return out
 
 
@@ -984,7 +1077,8 @@ func react(intent: IntentParser.Result) -> Array[ChatLine]:
 			out.append(_say(t, "REPLY_TO_ACCUSED_UPYR" if t.is_upyr else "REPLY_TO_ACCUSED_HUMAN", deflect))
 			var judge := _pick_bystander([t])
 			if judge != null:
-				out.append(_say(judge, "AGREE_ACCUSE" if view(judge, t) >= 1.0 else "DISAGREE_ACCUSE", t))
+				var doubts := m.feelings.get_f(judge.id, Feelings.F.SUSPICION) >= 0.5 and view(judge, p) > 0.8
+				out.append(_say(judge, "AGREE_ACCUSE" if view(judge, t) >= 1.0 and not doubts else "DISAGREE_ACCUSE", t))
 
 		IntentParser.Kind.INVITE:
 			var t := intent.target
@@ -1109,6 +1203,7 @@ func host_decide(seat: Match.Seat, player_plea: String = "") -> Array[int]:
 		var s := -view(host, g)
 		if b.pact_id == g.id:
 			s += 3.0
+		s += _feeling_door(host, g)
 		if not m.promises_today(host.id, g.id).filter(func(p: Dictionary) -> bool: return p.kind == "open").is_empty():
 			var keep := not host.is_upyr
 			if host.is_upyr:
@@ -1148,6 +1243,24 @@ func host_decide(seat: Match.Seat, player_plea: String = "") -> Array[int]:
 		if rng.randf() < p:
 			out.append(voice.id)
 	return out
+
+
+## Чувства хозяина у двери (TASK-008): на обидчика злится и не пускает, перед тем, кому отказал, виноват
+## и пускает, со страху открывает только своим. Упырь чувства только изображает: решает по-своему.
+func _feeling_door(host: Villager, g: Villager) -> float:
+	if host.is_upyr:
+		return 0.0
+	var f := m.feelings
+	var s := 0.0
+	if int(f.rage_at.get(host.id, -1)) == g.id:
+		s -= 3.0 * f.get_f(host.id, Feelings.F.RAGE)
+	if int(f.guilt_for.get(host.id, -1)) == g.id:
+		s += 3.0 * f.get_f(host.id, Feelings.F.GUILT)
+	var fear := f.get_f(host.id, Feelings.F.FEAR)
+	var own := g.id == host.partner_id or g.id == host.family_id or g.id == host.tie_id or brains[host.id].pact_id == g.id
+	if fear >= 0.6 and not own:
+		s -= 1.5 * fear
+	return s
 
 
 func _plea_weight(host: Villager, plea: String) -> float:
@@ -1201,6 +1314,12 @@ func gesture(kind: String, t: Villager) -> Array[ChatLine]:
 
 func after_door(seats: Array[Match.Seat]) -> void:
 	for s: Match.Seat in seats:
+		# кого игрок впустил, тот ему благодарен (TASK-013): союзник с первой же ночи
+		if s.host.is_player:
+			for v: Villager in s.admitted:
+				if brains.has(v.id):
+					brains[v.id].private_delta[0] = brains[v.id].private_delta.get(0, 0.0) - 0.3
+					m.feelings.add(v.id, Feelings.F.TRUST, 0.25)
 		for v: Villager in s.turned_away():
 			if brains.has(v.id):
 				brains[v.id].remember_refusal(s.host)
@@ -1260,6 +1379,7 @@ func read_report(r: NightReport) -> void:
 	for b: BotBrain in brains.values():
 		b.clear_pact()
 	_settle_promise_lines()
+	_decide_reactions()
 
 
 ## Голоса считаются ОДИН раз. (В v0.1 они пересчитывались на каждой итерации
@@ -1278,8 +1398,194 @@ func votes() -> Dictionary[int, int]:
 			target = pool[0]
 			if view(bot, target) < 0.6 and rng.randf() < 0.5:
 				target = pool[rng.randi_range(0, pool.size() - 1)]
+			var felt := _feeling_vote(bot, pool)
+			if felt != null:
+				target = felt
 		out[bot.id] = target.id
 	return out
+
+
+# =============================================================
+# Реакция на трагедию (TASK-010)
+# =============================================================
+## Как близкий принимает гибель того, кому игрок не открыл. По таблице, не наугад:
+##   не знает об отказе                                 → замыкается (withdraw)
+##   знает, но мест не было или погибший казался упырём  → защищает игрока (defend), если не враждует с ним
+##   знает, места были, игрок ему враг                   → тихо мстит до конца кампании (revenge)
+##   знает, места были, горячий нрав или не друг игроку  → обвиняет при всех (accuse)
+##   знает, места были, но игроку верит                  → замыкается (withdraw)
+func decide_reaction(kin: Villager, lost: Villager, refusal: WorldLog.Event) -> String:
+	var src := m.world.source(kin.id, refusal)
+	if src.is_empty():
+		return "withdraw"
+	var rel := -view(kin, m.player())                 # больше нуля — относится к игроку хорошо
+	var full := bool(refusal.info.get("full", false))
+	var feared := susp(lost.id) >= 1.2 and view(kin, lost) >= 0.5
+	if full or feared:
+		return "defend" if rel >= -0.5 else "withdraw"
+	if rel <= -0.6:
+		return "revenge"
+	if kin.persona in [Voices.Persona.GRUFF, Voices.Persona.YOUNG, Voices.Persona.PANIC] or rel < 0.3:
+		return "accuse"
+	return "withdraw"
+
+
+func _decide_reactions() -> void:
+	for kin: Villager in m.alive_bots():
+		kin.reaction = ""
+		if kin.grief_days != Match.GRIEF_DAYS or kin.grief_for < 0:
+			continue
+		var lost := m.get_villager(kin.grief_for)
+		var refusal := m.world.last(WorldLog.Kind.REFUSE, m.player().id, kin.grief_for, m.day)
+		if lost == null or refusal == null:
+			continue
+		var kind := decide_reaction(kin, lost, refusal)
+		kin.reaction = kind
+		m.world.add(WorldLog.Kind.REACTION, m.day, kin.id, m.player().id, -1, [kin.id], kind != "revenge",
+			{"reaction": kind, "lost": lost.id})
+		var f := m.feelings
+		match kind:
+			"accuse":
+				f.add(kin.id, Feelings.F.RAGE, 0.6)
+				f.rage_at[kin.id] = m.player().id
+			"revenge":
+				f.set_f(kin.id, Feelings.F.RAGE, 0.85)
+				f.rage_at[kin.id] = m.player().id
+				brains[kin.id].grudge[0] = brains[kin.id].grudge.get(0, 0.0) + 2.0
+			"defend":
+				f.add(kin.id, Feelings.F.TRUST, 0.2)
+
+
+## Утро после утраты: реплика реакции. Обвинение и защита — при всех и с вопросом к игроку.
+func _reaction_lines(v: Villager, lost: Villager) -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	var text := GriefReactions.line(v, lost, v.reaction)
+	if text.is_empty():
+		var g := _say(v, "GRIEF", null, {"lost": lost})      # месть молчит: на людях только горе
+		g.emotion = "sad"
+		out.append(g)
+		return out
+	var line := ChatLine.say(v, text)
+	match v.reaction:
+		"accuse":
+			line.emotion = "angry"
+			line.about = m.player()
+			_bump(0, W_REVENGE)
+			brains[v.id].grudge[0] = brains[v.id].grudge.get(0, 0.0) + 1.0
+		"defend":
+			line.emotion = "sad"
+			_bump(0, -0.3)
+		_:
+			line.emotion = "sad"
+	if m.world.knows(v.id, m.world.last(WorldLog.Kind.REFUSE, 0, lost.id, m.day)):
+		line.asks_player = true
+		line.question_kind = "grief"
+	out.append(line)
+	return out
+
+
+## Ответ игрока на реакцию: 0 — оправдаться, 1 — извиниться, 2 — промолчать.
+func answer_grief(asker: Villager, answer_kind: int) -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	if asker == null or asker.is_player or not brains.has(asker.id):
+		return out
+	var f := m.feelings
+	var lost := m.get_villager(asker.grief_for)
+	var refusal := m.world.last(WorldLog.Kind.REFUSE, 0, asker.grief_for) if lost != null else null
+	var full := refusal != null and bool(refusal.info.get("full", false))
+	var result := "same"
+	match answer_kind:
+		0:
+			if asker.reaction == "accuse":
+				result = "calm" if full else "harder"
+			elif asker.reaction == "defend":
+				result = "calm"
+		1:
+			result = "calm"
+		_:
+			if asker.reaction == "accuse" and -view(asker, m.player()) < 0.0:
+				asker.reaction = "revenge"           # промолчал — обида уходит внутрь
+				f.rage_at[asker.id] = 0
+				brains[asker.id].grudge[0] = brains[asker.id].grudge.get(0, 0.0) + 1.0
+	match result:
+		"calm":
+			f.add(asker.id, Feelings.F.RAGE, -0.4)
+			f.add(asker.id, Feelings.F.TRUST, 0.2)
+			brains[asker.id].grudge[0] = maxf(0.0, brains[asker.id].grudge.get(0, 0.0) - 1.0)
+			if asker.reaction == "accuse" and answer_kind == 1:
+				asker.reaction = "withdraw"
+		"harder":
+			f.add(asker.id, Feelings.F.RAGE, 0.2)
+	var reply := ChatLine.say(asker, L.t("react." + result, {"me": asker, "lost": lost if lost != null else asker}))
+	reply.emotion = "sad" if result != "harder" else "angry"
+	out.append(reply)
+	var ev := m.world.last(WorldLog.Kind.REACTION, asker.id, 0)
+	if ev != null:
+		ev.info["reaction"] = asker.reaction
+		ev.info["answer"] = answer_kind
+	return out
+
+
+# =============================================================
+# Кампания: что жители помнят из прошлых глав (TASK-007, TASK-010)
+# =============================================================
+## Доверие между жителями и к игроку из прошлых глав и непрощённые обиды.
+## bonds: «a>b» -> -3..3 (номера историй, p — игрок); grudges: номера тех, кто ещё мстит.
+func apply_campaign(bonds: Dictionary, grudges: Array, defenders: Array) -> void:
+	for v: Villager in m.alive_bots():
+		if not brains.has(v.id) or v.story_id < 0 or not v.guest_id.is_empty():
+			continue
+		var b: BotBrain = brains[v.id]
+		var to_player := int(bonds.get("%d>p" % v.story_id, 0))
+		b.private_delta[0] = b.private_delta.get(0, 0.0) - 0.3 * to_player
+		for o: Villager in m.alive_bots():
+			if o != v and o.story_id >= 0 and o.guest_id.is_empty():
+				var k := int(bonds.get("%d>%d" % [v.story_id, o.story_id], 0))
+				if k != 0:
+					b.private_delta[o.id] = b.private_delta.get(o.id, 0.0) - 0.3 * k
+		if grudges.has(v.story_id):
+			b.grudge[0] = b.grudge.get(0, 0.0) + 1.5
+			m.feelings.add(v.id, Feelings.F.RAGE, 0.5)
+			m.feelings.rage_at[v.id] = 0
+			var cold := ChatLine.say(v, L.t("react.grudge", {"me": v}))
+			cold.emotion = "angry"
+			pending_lines.append(cold)
+		elif defenders.has(v.story_id):
+			m.feelings.add(v.id, Feelings.F.TRUST, 0.3)
+
+
+## Конец главы: как жители относятся друг к другу и к игроку (−3..3) — в память кампании.
+func campaign_bonds() -> Dictionary:
+	var out := {}
+	for v: Villager in m.villagers:
+		if v.is_player or v.story_id < 0 or not v.guest_id.is_empty() or not brains.has(v.id):
+			continue
+		var b: BotBrain = brains[v.id]
+		var to_p := clampi(roundi(-(b.private_delta.get(0, 0.0) + b.grudge.get(0, 0.0) * 0.5) / 0.3), -3, 3)
+		if to_p != 0:
+			out["%d>p" % v.story_id] = to_p
+		for o: Villager in m.villagers:
+			if o == v or o.is_player or o.story_id < 0 or not o.guest_id.is_empty():
+				continue
+			var k := clampi(roundi(-(b.private_delta.get(o.id, 0.0) + b.grudge.get(o.id, 0.0) * 0.5) / 0.3), -3, 3)
+			if k != 0:
+				out["%d>%d" % [v.story_id, o.story_id]] = k
+	return out
+
+
+## Голос по чувствам (TASK-008): сильная ярость — против обидчика; надежда и доверие к игроку —
+## за того, кого игрок обвинил сегодня. null — голосует как обычно.
+func _feeling_vote(bot: Villager, pool: Array[Villager]) -> Villager:
+	var f := m.feelings
+	var foe := m.get_villager(int(f.rage_at.get(bot.id, -1)))
+	if foe != null and foe.alive and pool.has(foe) and f.get_f(bot.id, Feelings.F.RAGE) >= 0.5:
+		return foe
+	if f.get_f(bot.id, Feelings.F.TRUST) >= 0.5 and f.get_f(bot.id, Feelings.F.HOPE) >= 0.4 and view(bot, m.player()) < 1.0:
+		var acc := m.world.last(WorldLog.Kind.ACCUSE, 0, -1, m.day)
+		var t := m.get_villager(acc.target) if acc != null else null
+		if t != null and t.alive and pool.has(t) and view(bot, t) > -0.5:
+			return t
+	return null
 
 
 func _shuffle(a: Array) -> void:

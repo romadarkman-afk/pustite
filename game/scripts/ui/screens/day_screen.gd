@@ -161,7 +161,8 @@ func _answer_npc_question(line: ChatLine) -> void:
 	if not is_inside_tree() or m == null or line.speaker == null or m.phase != Match.Phase.DAY:
 		return
 	Game.hold(&"dialog")
-	var quick := SocialContent.question_answers()
+	# после утраты — свои ответы: оправдаться, извиниться, промолчать (TASK-010)
+	var quick := L.arr("react.answers") if line.question_kind == "grief" else SocialContent.question_answers()
 	var prompt := SocialContent.question_title(line.speaker.name) + "\n" + line.text
 	var answer := await TextSheet.ask(self, prompt, quick)
 	Game.release(&"dialog")
@@ -215,6 +216,9 @@ func person_actions(v: Villager) -> void:
 	var ev := director.evidence_text(v) if director != null else ""
 	var head := v.name
 	head += "\n" + SocialContent.person_title(v)
+	var state := m.feelings.status_text(v)     # что с человеком сейчас: словами, без цифр (TASK-009)
+	if not state.is_empty():
+		head += "\n" + state
 	if not ev.is_empty():
 		head += "\n" + ev
 	var opts := PackedStringArray([

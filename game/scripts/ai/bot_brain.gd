@@ -17,7 +17,7 @@ func _init(v: Villager) -> void:
 
 func view(vid: int, public: float) -> float:
 	var bond := -0.25 * me.relationship if vid == 0 and me.anchor_id >= 0 else 0.0
-	var affection := -0.25 if vid == me.partner_id else 0.0
+	var affection := -0.25 if vid == me.partner_id else (-0.15 if vid == me.tie_id else 0.0)   # давняя связь — тоже своя
 	return public + private_delta.get(vid, 0.0) + grudge.get(vid, 0.0) * 0.5 + bond + affection
 
 

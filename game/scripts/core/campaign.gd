@@ -192,7 +192,7 @@ static func goal_done(m: Match, key: String) -> bool:
 
 
 ## Итог главы: пройдена ли (основная цель), сколько звёзд, кто погиб насовсем.
-static func finish(m: Match, ch: Dictionary) -> Dictionary:
+static func finish(m: Match, ch: Dictionary, d: Director = null) -> Dictionary:
 	var g := goals(m, ch)
 	var passed := bool(g[0].done)
 	var stars := 0
@@ -209,7 +209,8 @@ static func finish(m: Match, ch: Dictionary) -> Dictionary:
 		elif v.story_id >= 0:
 			lost.append(v.story_id)
 	if passed:
-		Save.record_chapter(String(ch.id), stars, lost, lost_guests, m.world.campaign_records(m, Save.MEMORY_PER_CHAPTER))
+		Save.record_chapter(String(ch.id), stars, lost, lost_guests, m.world.campaign_records(m, Save.MEMORY_PER_CHAPTER),
+			d.campaign_bonds() if d != null else {})
 	return {"passed": passed, "stars": stars, "goals": g, "lost": lost, "lost_guests": lost_guests, "id": String(ch.id)}
 
 
@@ -256,6 +257,31 @@ static func fallen() -> Array:
 	for g: String in Save.campaign_dead_guests:
 		if Guests.LIST.has(g):
 			out.append({"nom": Guests.name_of(g), "f": bool(Guests.LIST[g].f)})
+	return out
+
+
+## Кто из жителей ещё не простил гибель близкого у двери игрока (TASK-010): обвинял или мстил,
+## и с тех пор игрок не впустил его и не сдержал данного ему слова.
+static func active_grudges() -> Array[int]:
+	return _latest_state(["react_accuse", "react_revenge"], ["admitted", "kept", "react_defend", "react_withdraw"])
+
+
+## Кто заступился за игрока в прошлых главах и с тех пор не обиделся.
+static func defenders() -> Array[int]:
+	return _latest_state(["react_defend"], ["react_accuse", "react_revenge", "broken", "refused_died"])
+
+
+static func _latest_state(on: Array, off: Array) -> Array[int]:
+	var out: Array[int] = []
+	for idx in range(L.names().size()):
+		var state := false
+		for rec: Dictionary in Save.memory_of(idx):
+			if on.has(String(rec.kind)):
+				state = true
+			elif off.has(String(rec.kind)):
+				state = false
+		if state:
+			out.append(idx)
 	return out
 
 

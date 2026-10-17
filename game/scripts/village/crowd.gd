@@ -572,6 +572,7 @@ func sync(m: Match, phase: Match.Phase) -> void:
 				if f.position.distance_to(ring[v.id]) > 4.0:
 					f.run_to(ring[v.id])
 	day_life = phase == Match.Phase.DAY
+	apply_moods(m)
 	if phase == Match.Phase.NIGHT:
 		flinch_all()
 	# живой игрок: бег начнётся по колоколу (Nav вызовет arrange_run). Без игрока — все к своим домам.
@@ -586,6 +587,23 @@ func sync(m: Match, phase: Match.Phase) -> void:
 		for v: Villager in m.villagers:
 			if v.alive and figures.has(v.id):
 				figures[v.id].scare()
+
+
+## Чувства на поле (TASK-009): горе сутулится и смотрит в сторону, страх дрожит, ярость смотрит на обидчика.
+func apply_moods(m: Match) -> void:
+	for v: Villager in m.villagers:
+		var f: VillagerFigure = figures.get(v.id)
+		if f == null or v.is_player:
+			continue
+		f.mood = m.feelings.main(v.id) if v.alive else ""
+		match f.mood:
+			"rage":
+				var foe: VillagerFigure = figures.get(int(m.feelings.rage_at.get(v.id, -1)))
+				if foe != null:
+					f.look_at_x(foe.position.x, 6.0)
+			"grief", "despair":
+				var cx: float = view.def.square_center.x if view != null else 0.0
+				f.look_at_x(f.position.x + (200.0 if f.position.x >= cx else -200.0), 6.0)   # отвернулся от людей
 
 
 ## Колокол: все живые вздрагивают и отшатываются от колодца.
@@ -615,8 +633,8 @@ func life_step(delta: float) -> void:
 	var free: Array[VillagerFigure] = []
 	for vid: int in figures:
 		var f: VillagerFigure = figures[vid]
-		if vid != 0 and f.is_free():
-			free.append(f)
+		if vid != 0 and f.is_free() and f.mood != "grief" and f.mood != "despair":
+			free.append(f)                   # кто в горе, ни с кем не шепчется
 	free.shuffle()
 	for a: VillagerFigure in free:
 		for b: VillagerFigure in free:

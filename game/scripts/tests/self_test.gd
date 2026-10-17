@@ -930,8 +930,11 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 	var ds := Nav.host.current as DoorScreen
 	var knock_ok := ds != null and ds.role == Match.DoorRole.HOST and not ds.seat.knockers().is_empty()
 	if knock_ok:
+		var humans := 0                      # через раз один из двоих — упырь, но сытый (TASK-013)
 		for v: Villager in ds.seat.knockers():
-			knock_ok = knock_ok and not v.is_upyr
+			humans += 0 if v.is_upyr else 1
+			knock_ok = knock_ok and (not v.is_upyr or v.fed)
+		knock_ok = knock_ok and humans >= 1
 	ok += _expect(fails, knock_ok and String(Game.chapter.get("id", "")) == "a1c1", "новичок после «Играть» не у двери со стуком (%s)" % [Nav.host.current])
 	ok += _expect(fails, Time.get_ticks_msec() - t0 < 10000, "до стука дольше 10 секунд")
 	ok += _expect(fails, Nav.village.crowd.figures.size() == Game.m.villagers.size(), "глава со стука началась без жителей на поле")
@@ -1419,6 +1422,9 @@ static func lifecycle() -> void:
 	Diag.check_previous()
 	passed += _expect(fails, not Diag.crashed_last_time, "после нормального выхода самописец не должен видеть вылет")
 	Diag.enabled = false
+
+	# 11. Движок сцен (TASK-012): кадры, выбор в журнал, «Назад», сворачивание
+	passed += await PlanTests.scene_engine(tree, fails)
 
 	print("=== жизненный цикл: %d проверок ===" % (passed + fails.size()))
 	if fails.is_empty():
@@ -4862,6 +4868,7 @@ static func diary() -> void:
 
 	# знание жителей и обещания (TASK-003, TASK-004)
 	ok += PlanTests.knowledge_and_promises(fails)
+	ok += PlanTests.behaviour(fails)
 
 	# 2. Экран: кнопка «Дневник», карточка на каждого, всё в кадре, закрывается
 	Save.set_difficulty("normal")
@@ -4927,6 +4934,8 @@ static func recap() -> void:
 	# память кампании и откровения (TASK-002, TASK-005)
 	ok += PlanTests.campaign_memory(fails)
 	ok += PlanTests.revelations(fails)
+	ok += PlanTests.feelings_and_bonds(fails)
+	ok += await PlanTests.chapter_one(tree, fails)
 	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
 
 	# 1. Причина гибели игрока — по-настоящему из партий, каждого вида

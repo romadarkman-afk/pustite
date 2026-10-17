@@ -8,9 +8,13 @@ extends RefCounted
 ## остальное — свидетели и те, кому свидетели рассказали. Для каждого знающего хранится,
 ## откуда он знает: видел сам или кто рассказал. Реакции называют этот источник.
 
-enum Kind { ADMIT, REFUSE, ACCUSE, VOTE, PROMISE, PROMISE_KEPT, PROMISE_BROKEN, DIED, EXILED, DILEMMA, LISTENED }
+enum Kind { ADMIT, REFUSE, ACCUSE, VOTE, PROMISE, PROMISE_KEPT, PROMISE_BROKEN, DIED, EXILED, DILEMMA, LISTENED,
+	REACTION, CHOICE }
 const KEYS: PackedStringArray = ["admit", "refuse", "accuse", "vote", "promise", "promise_kept", "promise_broken",
-	"died", "exiled", "dilemma", "listened"]
+	"died", "exiled", "dilemma", "listened",
+	"reaction", "choice"]
+## Виды, которые бывают в обычной партии без сюжета: их проверяет --sim. Реакции и выбор в сценах — только в кампании.
+const MATCH_KINDS := 11
 
 const SAW := "saw"        ## был рядом и видел или слышал сам
 const TOLD := "told"      ## рассказал другой житель (via)
@@ -147,6 +151,10 @@ func campaign_records(m: Match, limit: int = 40) -> Array[Dictionary]:
 			Kind.LISTENED:
 				if e.actor == me:
 					rec = {"kind": "listened", "who": e.target}
+			Kind.REACTION:
+				# реакция близкого на гибель у двери игрока (TASK-010): помнится до конца кампании
+				if e.target == me:
+					rec = {"kind": "react_" + String(e.info.get("reaction", "withdraw")), "who": e.actor}
 			Kind.VOTE:
 				if e.actor == me:
 					var t := m.get_villager(e.target)
@@ -173,5 +181,5 @@ func campaign_records(m: Match, limit: int = 40) -> Array[Dictionary]:
 
 
 ## Порядок важности записей памяти кампании: при переполнении отрезается конец.
-const RANK: PackedStringArray = ["refused_died", "broken", "exiled_by_you", "broke_you", "refused", "refused_you",
-	"kept", "admitted", "listened"]
+const RANK: PackedStringArray = ["react_revenge", "react_accuse", "react_defend", "react_withdraw", "refused_died",
+	"broken", "exiled_by_you", "broke_you", "refused", "refused_you", "kept", "admitted", "listened"]

@@ -25,6 +25,11 @@ var _portrait_used: Dictionary = {}
 var _go: Button
 var _box: VBoxContainer       ## содержимое двери на тёмной подложке
 var _seats: HBoxContainer     ## свободные места значками: занятые светятся
+var _asked := false            ## вопрос «Кто там?» — один за ночь (TASK-013)
+var _ask_rows: Dictionary[int, Button] = {}
+var _touched := false          ## игрок что-то сделал у двери: повторный стук больше не нужен
+const IDLE_KNOCK := 5.5        ## молчишь у двери — через столько секунд стучат снова
+const IDLE_KNOCKS := 3
 
 
 func screen_id() -> String:
@@ -163,6 +168,13 @@ func _build_host() -> void:
 		texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		texts.add_child(W.label(g.name, &"Body"))
 		texts.add_child(W.label(L.t("door.quote", {"text": pleas.get(g.id, "…")}), &"Small"))
+		var ask := W.button(L.t("door.ask"), &"Ghost")
+		ask.name = "Ask_%d" % g.id
+		ask.custom_minimum_size = Vector2(0, ThemeFactory.TOUCH)
+		var aid := g.id
+		ask.pressed.connect(func() -> void: ask_who(aid))
+		_ask_rows[g.id] = ask
+		texts.add_child(ask)
 		var observation := W.label("", &"Hint")
 		observation.name = "Observation_%d" % g.id
 		observation.visible = false
@@ -197,7 +209,60 @@ func _build_host() -> void:
 	var refuse := W.button(L.t("door.refuse"), &"Danger")
 	refuse.pressed.connect(func() -> void: _finish_host([]))
 	footer.add_child(refuse)
+	_start_knocks()
+
+
+## Первая ночь главы «Стук» (TASK-011, TASK-013): сначала река и зов с того берега, потом темнота и стук.
+## В остальные ночи — сразу стук. Молчишь у двери — стучат снова.
+func _start_knocks() -> void:
+	if String(Game.chapter.get("id", "")) == "a1c1" and m.day == 1 and not Game.opening_done:
+		Game.opening_done = true
+		var choice: String = await ScenePlayer.play(self, Scenes.river(m), m)
+		if not is_instance_valid(self):
+			return
+		if choice == "answer" and director != null:
+			director.river_answered()
+		await ScenePlayer.play(self, Scenes.first_knock(choice == "answer"), m)
+		if not is_instance_valid(self):
+			return
 	_knock_sequence(seat.knockers().size())
+	_idle_knock()
+
+
+func _idle_knock() -> void:
+	for i in range(IDLE_KNOCKS):
+		await Juice.wait(IDLE_KNOCK)
+		if not is_instance_valid(self) or is_locked() or _touched or not _selected.is_empty() or Juice.instant:
+			return
+		knock_fx.emit()
+		Sfx.play(&"knock", randf_range(0.94, 1.02), -2.0)
+		Juice.haptic(Juice.Haptic.KNOCK)
+		for f: VillagerFigure in _visitor_figures.values():
+			if is_instance_valid(f):
+				f.knock()
+
+
+## «Кто там?» (TASK-013): один вопрос за ночь. Ответ зависит от того, кто стучит, но не выдаёт его наверняка.
+func ask_who(gid: int) -> void:
+	if _asked or is_locked():
+		return
+	var g := m.get_villager(gid)
+	if g == null and seat.mimic != null and seat.mimic.id == gid:
+		g = seat.mimic
+	if g == null:
+		return
+	_asked = true
+	_touched = true
+	var answer := director.door_answer(g, seat) if director != null else ""
+	var note: Label = _observations.get(gid)
+	if is_instance_valid(note):
+		note.text = answer if note.text.is_empty() else note.text + "\n" + answer
+		note.visible = true
+	for b: Button in _ask_rows.values():
+		b.disabled = true
+	var figure: VillagerFigure = _visitor_figures.get(gid)
+	if is_instance_valid(figure):
+		figure.knock()
 
 
 ## Дилемма: что за выбор и чем он грозит. Текст на всех языках — ключи dil.<вид> и dil.<вид>_cost.
@@ -265,6 +330,7 @@ func _toggle(gid: int, cap: int) -> void:
 
 
 func _inspect(gid: int) -> void:
+	_touched = true
 	if _inspection_left <= 0 or _inspected.has(gid):
 		return
 	emit_intent(Intent.DOOR_INSPECT, {"id": gid})
@@ -465,6 +531,9 @@ func _knock_sequence(n: int) -> void:
 			Juice.haptic(Juice.Haptic.KNOCK)
 			await Juice.wait(0.15 if precise_rhythm else KNOCK_BEATS[beat])
 		await Juice.wait(0.65)
+	# за дверью дышат: в первую ночь всегда, потом изредка (TASK-013)
+	if is_instance_valid(self) and not is_locked() and (String(Game.chapter.get("id", "")) == "a1c1" or randf() < 0.3):
+		Sfx.play(&"breath", 1.0, -9.0)
 
 
 func ambience() -> StringName:

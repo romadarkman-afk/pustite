@@ -38,11 +38,13 @@ scripts/core/chat_line.gd
 scripts/core/cosmetics.gd
 scripts/core/difficulty.gd
 scripts/core/dread.gd
+scripts/core/feelings.gd
 scripts/core/game_config.gd
 scripts/core/guests.gd
 scripts/core/match.gd
 scripts/core/night_report.gd
 scripts/core/revelations.gd
+scripts/core/scenes.gd
 scripts/core/progress.gd
 scripts/core/recap.gd
 scripts/core/ru.gd
@@ -53,6 +55,7 @@ scripts/loc/en.gd
 scripts/loc/es.gd
 scripts/loc/fr.gd
 scripts/loc/gram.gd
+scripts/loc/grief_reactions.gd
 scripts/loc/hi.gd
 scripts/loc/l.gd
 scripts/loc/pt.gd
@@ -77,6 +80,7 @@ scripts/ui/intent.gd
 scripts/ui/journal_sheet.gd
 scripts/ui/phase_clock.gd
 scripts/ui/safe_frame.gd
+scripts/ui/scene_player.gd
 scripts/ui/screen.gd
 scripts/ui/screen_host.gd
 scripts/ui/screens/book_screen.gd

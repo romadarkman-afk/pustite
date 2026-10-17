@@ -38,6 +38,8 @@ var campaign_seed: int = 0
 ## Жители — номерами имён (как campaign_dead), поэтому смена языка ничего не ломает.
 ## {"ch": id главы, "kind": WorldLog.RANK, "who": номер, "day": n, "knew": [номера]}
 var campaign_memory: Array[Dictionary] = []
+## Отношения жителей кампании (TASK-007): «a>b» -> −3..3, номера историй; «a>p» — к игроку. Пишется в конце главы.
+var campaign_bonds: Dictionary = {}
 var loaded_schema: int = 0                        ## версия формата прочитанного файла; 0 — файла не было
 var campaign_dead_guests: PackedStringArray = []  ## кампания: гости, погибшие насовсем                      ## кампания: порядок новых лиц, задаётся один раз
 var xp: int = 0                                   ## опыт за все партии (Progress)
@@ -107,7 +109,13 @@ func load_all() -> void:
 		for part: String in String(cf.get_value("campaign", "dead", "")).split(",", false):
 			campaign_dead.append(int(part))
 	campaign_memory.clear()
+	campaign_bonds.clear()
 	if has:
+		var raw_bonds: Variant = cf.get_value("campaign", "bonds", {})
+		if raw_bonds is Dictionary:
+			for k: Variant in raw_bonds:
+				if String(k).contains(">"):
+					campaign_bonds[String(k)] = clampi(int(raw_bonds[k]), -3, 3)
 		var raw_mem: Variant = cf.get_value("campaign", "memory", [])
 		if raw_mem is Array:
 			for rec: Variant in raw_mem:
@@ -361,6 +369,7 @@ func flush() -> void:
 	cf.set_value("campaign", "seed", campaign_seed)
 	cf.set_value("campaign", "dead_guests", ",".join(campaign_dead_guests))
 	cf.set_value("campaign", "memory", campaign_memory)
+	cf.set_value("campaign", "bonds", campaign_bonds)
 	cf.set_value("progress", "xp", xp)
 	cf.set_value("progress", "achievements", ",".join(achievements))
 	cf.set_value("progress", "endings", ",".join(endings))
@@ -373,7 +382,9 @@ func flush() -> void:
 
 ## Глава пройдена: звёзды — лучший результат, погибшие больше не придут.
 func record_chapter(id: String, stars: int, lost: Array[int], lost_guests: PackedStringArray = PackedStringArray(),
-		memory: Array[Dictionary] = []) -> void:
+		memory: Array[Dictionary] = [], bonds: Dictionary = {}) -> void:
+	if not bonds.is_empty():
+		campaign_bonds = bonds.duplicate()
 	campaign_stars[id] = maxi(int(campaign_stars.get(id, 0)), clampi(stars, 1, 3))
 	# память главы: прошёл заново — помнится последний раз
 	for i in range(campaign_memory.size() - 1, -1, -1):
@@ -424,6 +435,7 @@ func campaign_reset() -> void:
 	campaign_dead.clear()
 	campaign_dead_guests.clear()
 	campaign_memory.clear()
+	campaign_bonds.clear()
 	campaign_seed = 0
 	flush()
 

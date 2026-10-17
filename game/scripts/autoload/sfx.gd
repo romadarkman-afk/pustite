@@ -36,11 +36,18 @@ const SOUNDS := {
 	&"call_far": "res://assets/sfx/call_far.ogg",
 	&"scare": "res://assets/sfx/scare.ogg",
 	&"weep": "res://assets/sfx/weep.ogg",
+	# сцены (TASK-012–014, tools/make_scene_sfx.py)
+	&"breath": "res://assets/sfx/breath.ogg",
+	&"cup_break": "res://assets/sfx/cup_break.ogg",
+	&"hammer": "res://assets/sfx/hammer.ogg",
+	&"latch": "res://assets/sfx/latch.ogg",
+	&"floorboard": "res://assets/sfx/floorboard.ogg",
 }
 const LOOPS := {
 	&"amb_day": "res://assets/sfx/amb_day.ogg",
 	&"amb_night": "res://assets/sfx/amb_night.ogg",
 	&"amb_dusk": "res://assets/sfx/amb_dusk.ogg",       # пролог: ветер без сверчков
+	&"amb_river": "res://assets/sfx/amb_river.ogg",     # сцена у реки (глава «Стук»)
 	&"heartbeat": "res://assets/sfx/heartbeat.ogg",
 	&"menu": "res://assets/music/menu.ogg",
 	&"day": "res://assets/music/day.ogg",
@@ -128,12 +135,24 @@ func play(n: StringName, pitch: float = 1.0, vol_db: float = 0.0) -> void:
 
 
 ## Голос жителя: 2–4 слога-писка с высотой, своей у каждого. Слышно, кто говорит.
-func voice(speaker_id: int, female: bool, text_len: int) -> void:
+## mood — состояние говорящего (TASK-009): в горе ниже и медленнее, в страхе выше и чаще.
+func voice(speaker_id: int, female: bool, text_len: int, mood: String = "") -> void:
 	var base := (1.35 if female else 0.95) + 0.06 * float((speaker_id * 37) % 7)
+	var gap := 0.085
+	match mood:
+		"grief", "despair", "guilt", "exhaustion":
+			base *= 0.86
+			gap = 0.13
+		"fear":
+			base *= 1.12
+			gap = 0.06
+		"rage":
+			base *= 0.95
+			gap = 0.07
 	var n := clampi(text_len / 12, 2, 4)
 	for i in range(n):
 		if i > 0:
-			await get_tree().create_timer(0.085).timeout
+			await get_tree().create_timer(gap).timeout
 		play(&"blip", base * (1.0 + 0.09 * sin(float(i) * 2.3 + speaker_id)), -6.0)
 
 

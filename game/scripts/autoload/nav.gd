@@ -479,7 +479,7 @@ func _on_chat(line: ChatLine) -> void:
 			f.talk(b.life if b != null else 2.5)
 			if not line.emotion.is_empty():
 				f.set_emotion(line.emotion, b.life if b != null else 4.0)
-			Sfx.voice(line.speaker.id, line.speaker.female, line.text.length())
+			Sfx.voice(line.speaker.id, line.speaker.female, line.text.length(), f.mood)
 			_react_to_accusation(line)
 
 
@@ -593,7 +593,7 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 					(sender as DayScreen).contact_done()
 		Intent.QUESTION_REPLY:
 			if sender is DayScreen:
-				Game.answer_question(int(data.id), String(data.answer), int(data.answer_kind))
+				Game.answer_question(int(data.id), String(data.answer), int(data.answer_kind), String(data.get("kind", "")))
 		Intent.DEFEND:
 			Game.defend()
 		Intent.END_DAY:

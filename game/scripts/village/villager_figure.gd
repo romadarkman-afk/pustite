@@ -31,6 +31,7 @@ const S := 0.62            ## масштаб рисунка жителя (Folk) 
 const FIG_TOP := 88.0      ## высота жителя с шапкой, логических единиц
 
 var emotion: String = ""   ## временная эмоция: angry, shocked, happy, suspicious
+var mood: String = ""      ## постоянное состояние (Feelings.main): grief, despair, guilt, fear, rage, exhaustion, hope
 var night: float = 0.0
 var lantern_light: PointLight2D
 var _emotion_t: float = 0.0
@@ -383,6 +384,15 @@ func current_face() -> String:
 		return "relieved" if fmod(_t * 0.5 + _phase, 2.0) < 0.4 else "neutral"
 	if cold:
 		return "cold"
+	match mood:
+		"grief", "despair", "guilt", "exhaustion":
+			return "sad"
+		"fear":
+			return "cold"         # дрожит и днём
+		"rage":
+			return "angry"
+		"hope":
+			return "relieved" if fmod(_t * 0.3 + _phase, 3.0) < 1.0 else "neutral"
 	return "neutral"
 
 
@@ -1221,6 +1231,13 @@ func pose_now() -> Array:
 		pose["lean"] = _lean * _face
 	if f == "sad":
 		pose["lean"] = float(pose.get("lean", 0.0)) + 0.07
+		if mood == "grief" or mood == "despair":
+			pose["lean"] = float(pose.get("lean", 0.0)) + 0.08     # горе сутулит
+			pose["droop"] = 1.0
+	if f == "cold" and mood == "fear":
+		pose["shiver"] = true
+	if f == "angry" and mood == "rage" and not bool(pose.get("emote", false)):
+		pose["fists"] = true
 	elif f == "happy" or f == "relieved":
 		pose["tilt"] = -0.03
 	if _knock_t > 0.0:

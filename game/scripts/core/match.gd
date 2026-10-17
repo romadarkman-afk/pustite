@@ -17,6 +17,12 @@ signal chat_posted(line: ChatLine)
 
 ## Имена жителей и названия убежищ — в файле языка (L.names(), L.houses()): у каждой страны свой посёлок.
 
+## Семьи по номерам историй: [старший, младший, вид]. Лида — бабушка Кости, Женя — мать Захара.
+const FAMILIES := [[2, 3, "grand"], [4, 6, "parent"]]
+## Давние связи (TASK-007): Тихон и Нина были помолвлены, Полина ковала нож для мужа Жени,
+## Рита ждёт у моста брата Вадима.
+const TIES := [[5, 9, "engaged"], [11, 4, "knife"], [7, 10, "bridge"]]
+
 
 ## Кто к какому убежищу пришёл ночью. Первый добежавший — хозяин двери.
 class Seat:
@@ -162,6 +168,10 @@ var box_opened_by: int = -1
 
 ## Журнал событий партии (TASK-001) и знание жителей о них (TASK-003).
 var world := WorldLog.new()
+## Чувства жителей (TASK-006).
+var feelings := Feelings.new()
+## Отчаяние (TASK-008): кто этой ночью уйдёт к реке на голос, а не к дому. Остановить можно днём разговором.
+var wander_plan: Dictionary[int, bool] = {}
 
 ## Обещания (TASK-004). open — «открою тебе, если постучишь»: обещавший держит дверь и пускает.
 ## come — «приду к тебе ночевать»: обещавший ночует в том же доме. Проверяются ночью.
@@ -268,6 +278,7 @@ func post(line: ChatLine) -> void:
 		accused_player[line.speaker.id] = day
 	if line.about != null and line.speaker != null and line.about != line.speaker:
 		world.add(WorldLog.Kind.ACCUSE, day, line.speaker.id, line.about.id, -1, [], true)
+		feelings.on_accused(line.about.id, line.speaker.id)
 	chat.append(line)
 	chat_posted.emit(line)
 
@@ -325,8 +336,8 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 				break
 		if a.partner_id >= 0:
 			break
-	# Семейные связи зависят от биографии, а не от скрытой роли.
-	for pair: Array in [[2, 3], [4, 6]]:
+	# Семейные связи зависят от биографии, а не от скрытой роли (TASK-007: Лида — бабушка Кости).
+	for pair: Array in FAMILIES:
 		var parent: Villager = null
 		var child: Villager = null
 		for resident: Villager in villagers:
@@ -335,6 +346,20 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 		if parent != null and child != null:
 			parent.family_id = child.id
 			child.family_id = parent.id
+			parent.family_kind = "grandchild" if pair[2] == "grand" else "child"
+			child.family_kind = "grandparent" if pair[2] == "grand" else "parent"
+	# давние связи не по крови: о них говорят, их помнят, но траура по ним нет
+	for tie: Array in TIES:
+		var a: Villager = null
+		var b: Villager = null
+		for resident: Villager in villagers:
+			if resident.story_id == tie[0]: a = resident
+			if resident.story_id == tie[1]: b = resident
+		if a != null and b != null and a.tie_id < 0 and b.tie_id < 0:
+			a.tie_id = b.id
+			b.tie_id = a.id
+			a.tie_kind = String(tie[2])
+			b.tie_kind = String(tie[2])
 
 	var order: Array = range(villagers.size())
 	if config.player_always_human:
@@ -344,6 +369,8 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 		villagers[int(order[k])].is_upyr = true
 
 	_seat_guests()
+	feelings.attach(self)
+	wander_plan.clear()
 	if village == null:
 		village = load(DEFAULT_VILLAGE) as VillageDef
 	houses = L.houses(village.houses_key).slice(0, config.shelters)
@@ -654,6 +681,9 @@ func seat_night(choices: Dictionary[int, int], arrival: Dictionary[int, float] =
 	for i in range(houses.size()):
 		buckets.append([])
 	for v: Villager in alive():
+		if wander_plan.has(v.id) and not v.is_player:
+			v.night_house = -1             # ушёл к реке на голос: ни к одной двери не пришёл
+			continue
 		var h: int = clampi(choices.get(v.id, 0), 0, houses.size() - 1)
 		v.night_house = h
 		buckets[h].append(v)
@@ -702,9 +732,20 @@ func cold_open(choices: Dictionary[int, int]) -> void:
 	var arrival: Dictionary[int, float] = {0: 0.0}
 	choices[0] = 0
 	var knock: Array[Villager] = []
+	# через раз один из двоих — упырь (TASK-013): сытый, но рядом с ним ночь будет неспокойной.
+	# Свой генератор: ход партии от этого не меняется.
+	var pick := RandomNumberGenerator.new()
+	pick.seed = hash("cold:%d" % rng.seed)
+	if pick.randf() < 0.5:
+		for v: Villager in alive_bots():
+			if v.is_upyr:
+				knock.append(v)
+				break
 	for v: Villager in alive_bots():
 		if not v.is_upyr and knock.size() < 2:
 			knock.append(v)
+	if pick.randf() < 0.5:
+		knock.reverse()
 	for v: Villager in alive_bots():
 		if v.is_upyr:
 			v.fed = true                   # первая ночь новичка: упырь ещё сыт, учиться можно без резни в доме
@@ -829,8 +870,10 @@ func _log_door(seat: Seat) -> void:
 		world.add(WorldLog.Kind.ADMIT, day, seat.host.id, v.id, seat.house, witnesses)
 	if seat.mimic_in:
 		world.add(WorldLog.Kind.ADMIT, day, seat.host.id, seat.mimic.id, seat.house, witnesses, false, {"mimic": true})
+	# мест не осталось: впущено столько, сколько вмещает дом — отказ вынужденный (TASK-010)
+	var full := seat.admitted.size() + (1 if seat.mimic_in else 0) >= config.capacity - 1
 	for v: Villager in seat.turned_away():
-		world.add(WorldLog.Kind.REFUSE, day, seat.host.id, v.id, seat.house, witnesses)
+		world.add(WorldLog.Kind.REFUSE, day, seat.host.id, v.id, seat.house, witnesses, false, {"full": full})
 
 
 func record_door_inspection(v: Villager, tell: StringName, house: int = -1, mimic: bool = false) -> void:
@@ -915,6 +958,22 @@ func resolve_night() -> NightReport:
 			else:
 				r.add(NightReport.Kind.SURVIVED_STREET, v, s.house)
 				_log("night", "log.street_ok", {"who": v})
+
+	# 1а. Отчаяние: ушёл ночью к реке на голос (TASK-008). Упырю река не страшна.
+	for vid: int in wander_plan:
+		var w := get_villager(vid)
+		if w == null or not w.alive:
+			continue
+		var ew: NightReport.Entry
+		if not w.is_upyr and rng.randf() < p_out:
+			w.alive = false
+			ew = r.add(NightReport.Kind.KILLED_STREET, w, -1)
+			_log("night", "log.river_dead", {"who": w})
+		else:
+			ew = r.add(NightReport.Kind.SURVIVED_STREET, w, -1)
+			_log("night", "log.river_ok", {"who": w})
+		ew.cause = "river"
+	wander_plan.clear()
 
 	# 1б. Подражатель: впустили — забирает одного из тех, кто внутри. Не впустили — стук слышали все.
 	for s: Seat in seats:
@@ -1062,6 +1121,7 @@ func resolve_night() -> NightReport:
 
 	_dilemma_fate(r)
 	_apply_grief(r)
+	feelings.morning(r)
 	report = r
 	_settle_winner()
 	_set_phase(Phase.MORNING)

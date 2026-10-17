@@ -36,8 +36,13 @@ static func apply(m: Match, v: Villager, id: String) -> void:
 			o.partner_id = -1
 		if o.family_id == v.id:
 			o.family_id = -1
+		if o.tie_id == v.id:
+			o.tie_id = -1
+			o.tie_kind = ""
 	v.partner_id = -1
 	v.family_id = -1
+	v.tie_id = -1
+	v.tie_kind = ""
 
 
 ## Роль гостя по сюжету: число упырей не меняется — с кем-то другим меняемся ролью.
