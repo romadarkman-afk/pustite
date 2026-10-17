@@ -769,6 +769,9 @@ static func epilogue(v: Villager) -> String:
 		return ""
 	if v.story_step == 0:
 		return ""
+	if v.alive and StoryLoc.has("epi"):
+		var endings_l: Array = StoryLoc.get_v("epi")
+		return L.fill(String(endings_l[posmod(v.story_id, endings_l.size())]), {"who": v.name, "me": v})
 	if StoryLoc.has("epi_alive"):
 		return L.fill(String(StoryLoc.get_v("epi_alive" if v.alive else "epi_dead")), {"who": v.name})
 	if L.code != "ru":

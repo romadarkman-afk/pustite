@@ -200,6 +200,9 @@ func data() -> Dictionary:
 			"I know how it looks. But I'm not a vampire.",
 			"Trust me once. Throw me out later if you want.",
 		],
+		"ph.PLEA_FOG": ["I can't see a thing in this fog. I followed your light, open up.", "The fog is so thick I can't see my own hands. Please let me in.", "I got lost in the fog between the houses. It's really me."],
+		"ph.PLEA_RAIN": ["I'm soaked to the bone. Let me sit by the stove at least.", "The rain is putting out the lanterns. I found you almost by touch, open up.", "I'm dripping, I know. Just let me in, I'll stand in the porch."],
+		"ph.PLEA_MOON": ["The moon is bright as day, they can see me from afar. Open quickly.", "Full moon. Don't leave me standing in the light, please.", "They are bolder under a moon like this. Let me in before it's too late."],
 		"ph.PLEA_NORMAL": [
 			"Open up, it's cold out here.",
 			"It's me. Let me in.",
@@ -769,6 +772,8 @@ func data() -> Dictionary:
 		"ending.act2_none": "Act II: the river takes the mill",
 		"ach.act2.name": "Upriver",
 		"ach.act2.desc": "Finish Act II of the campaign.",
+		"narr.ignat": "Brother Ignat",
+		"narr.keeper": "Stationmaster",
 		"ach.act3.name": "The Bell Behind You",
 		"ach.act3.desc": "Finish Act III of the campaign.",
 		"ach.act4.name": "The Last Train",

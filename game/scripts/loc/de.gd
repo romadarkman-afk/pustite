@@ -201,6 +201,9 @@ func data() -> Dictionary:
 			"Ich weiß, wie es aussieht. Aber ich bin kein Werwolf.",
 			"Glaub mir ein Mal. Danach kannst du mich rauswerfen.",
 		],
+		"ph.PLEA_FOG": ["Im Nebel sieht man nichts. Ich bin deinem Licht gefolgt, mach auf.", "Der Nebel ist so dicht, ich sehe meine Hände nicht. Bitte lass mich rein.", "Ich habe mich im Nebel zwischen den Häusern verlaufen. Ich bin es wirklich."],
+		"ph.PLEA_RAIN": ["Ich bin bis auf die Haut nass. Lass mich wenigstens an den Ofen.", "Der Regen löscht die Laternen. Ich habe dich fast blind gefunden, mach auf.", "Ich tropfe, ich weiß. Lass mich nur rein, ich bleibe im Flur."],
+		"ph.PLEA_MOON": ["Der Mond scheint wie am Tag, man sieht mich von weitem. Mach schnell auf.", "Vollmond. Lass mich nicht im Licht stehen, bitte.", "Bei so einem Mond sind sie mutiger. Lass mich rein, bevor es zu spät ist."],
 		"ph.PLEA_NORMAL": [
 			"Mach auf, hier ist es kalt.",
 			"Ich bin's. Lass mich rein.",
@@ -770,6 +773,8 @@ func data() -> Dictionary:
 		"ending.act2_none": "Akt II: der Fluss holt die Mühle",
 		"ach.act2.name": "Flussaufwärts",
 		"ach.act2.desc": "Akt II der Kampagne schaffen.",
+		"narr.ignat": "Bruder Ignat",
+		"narr.keeper": "Stationsvorsteher",
 		"ach.act3.name": "Die Glocke im Rücken",
 		"ach.act3.desc": "Akt III der Kampagne schaffen.",
 		"ach.act4.name": "Der letzte Zug",

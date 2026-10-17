@@ -1016,6 +1016,17 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 	ok += _expect(fails, L.fill("{h.in}", {"h": mon[3]}) == "Крипте" and String(Campaign.chapter("a3c2").get("event", "")) == "quiet"
 		and Campaign.last_of_act("a3c3") and not Campaign.last_of_act("a3c1") and Campaign.act_ending_id(3).begins_with("act3_")
 		and Campaign.act_ending(3) != "", "акт III собран неверно")
+	# рассказчик главы: на второй странице сцены портрет и имя брата Игната
+	Nav.start_chapter("a3c1")
+	await _frames(tree, 4)
+	var pro := Nav.host.current
+	var narr: Control = null
+	if pro is PrologueScreen:
+		(pro as PrologueScreen)._advance()
+		await _frames(tree, 2)
+		narr = pro.find_child("Narrator", true, false) as Control
+	ok += _expect(fails, narr != null and narr.visible and _all_text(narr).contains(L.t("narr.ignat")), "в главе акта III нет рассказчика (%s)" % pro.screen_id())
+	await _settle(tree)
 	Nav.show_menu()
 	await _settle(tree)
 
@@ -5774,7 +5785,11 @@ static func loc() -> void:
 		for sp: Villager in [bm, bf]:
 			texts.append(SocialContent.grief_text(sp, bf if sp == bm else bm))
 			sp.story_step = 1
-			texts.append(SocialContent.epilogue(sp))
+			var keep_story := sp.story_id
+			for sid in range(12):
+				sp.story_id = sid
+				texts.append(SocialContent.epilogue(sp))
+			sp.story_id = keep_story
 			sp.story_step = 0
 		for bid: String in ["none", "sun", "bone", "seal"]:
 			texts.append(Cosmetics.title("brooch", bid))

@@ -994,6 +994,13 @@ func plea_for(bot: Villager) -> String:
 		return Phrases.pick("PLEA_AFTER_STREET", rng, g)
 	if susp(bot.id) > 2.0:
 		return Phrases.pick("PLEA_SUSPECT", rng, g)
+	# туман, ливень, полная луна: человек у двери говорит о том, что творится снаружи
+	# свой генератор: общий ход партии (и баланс) от этих реплик не меняется
+	if m.night_event != Match.Event.NONE and m.night_event != Match.Event.QUIET:
+		var pr := RandomNumberGenerator.new()
+		pr.seed = hash("plea:%d:%d:%d" % [m.day, bot.id, m.villagers.size()])
+		if pr.randf() < 0.45:
+			return Phrases.pick("PLEA_" + String(Match.EVENT_KEY[m.night_event]).to_upper(), pr, g)
 	return L.fill(_pick_line(bot, "PLEA_NORMAL"), g)     # свой голос и у двери
 
 

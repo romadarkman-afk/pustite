@@ -196,6 +196,9 @@ func data() -> Dictionary:
 			"Sé cómo se ve. Pero no soy vampiro.",
 			"Créeme una vez. Luego me corres si quieres.",
 		],
+		"ph.PLEA_FOG": ["En esta niebla no se ve nada. Seguí tu luz, abre.", "La niebla es tan espesa que no veo mis manos. Déjame entrar, por favor.", "Me perdí en la niebla entre las casas. Soy yo, de verdad."],
+		"ph.PLEA_RAIN": ["Estoy [empapado|empapada] hasta los huesos. Déjame al menos junto a la estufa.", "La lluvia apaga los faroles. Llegué casi a tientas, abre.", "Estoy chorreando, lo sé. Solo déjame entrar, me quedo en la entrada."],
+		"ph.PLEA_MOON": ["La luna alumbra como de día, me ven desde lejos. Abre rápido.", "Luna llena. No me dejes a la luz, por favor.", "Con una luna así se vuelven más atrevidos. Déjame entrar antes de que sea tarde."],
 		"ph.PLEA_NORMAL": [
 			"Ábreme, hace frío.",
 			"Soy yo. Déjame entrar.",
@@ -765,6 +768,8 @@ func data() -> Dictionary:
 		"ending.act2_none": "Acto II: el río se lleva el molino",
 		"ach.act2.name": "Río arriba",
 		"ach.act2.desc": "Terminar el acto II de la campaña.",
+		"narr.ignat": "Hermano Ignat",
+		"narr.keeper": "Jefe de estación",
 		"ach.act3.name": "La campana a tu espalda",
 		"ach.act3.desc": "Terminar el acto III de la campaña.",
 		"ach.act4.name": "El último tren",

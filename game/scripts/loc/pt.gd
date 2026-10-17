@@ -194,6 +194,9 @@ func data() -> Dictionary:
 			"Eu sei como parece. Mas eu não sou lobisomem.",
 			"Confia em mim uma vez. Depois pode me expulsar.",
 		],
+		"ph.PLEA_FOG": ["Não dá para ver nada nessa neblina. Segui a sua luz, abre.", "A neblina está tão densa que não vejo as minhas mãos. Me deixa entrar, por favor.", "Me perdi na neblina entre as casas. Sou eu mesmo."],
+		"ph.PLEA_RAIN": ["Estou [encharcado|encharcada] até os ossos. Me deixa ao menos perto do fogão.", "A chuva está apagando os lampiões. Cheguei quase às cegas, abre.", "Estou pingando, eu sei. Só me deixa entrar, fico na entrada."],
+		"ph.PLEA_MOON": ["A lua clareia como de dia, me veem de longe. Abre logo.", "Lua cheia. Não me deixa na luz, por favor.", "Com uma lua dessas eles ficam mais ousados. Me deixa entrar antes que seja tarde."],
 		"ph.PLEA_NORMAL": [
 			"Abre, tá frio aqui.",
 			"Sou eu. Me deixa entrar.",
@@ -763,6 +766,8 @@ func data() -> Dictionary:
 		"ending.act2_none": "Ato II: o rio leva o moinho",
 		"ach.act2.name": "Rio acima",
 		"ach.act2.desc": "Concluir o ato II da campanha.",
+		"narr.ignat": "Irmão Ignat",
+		"narr.keeper": "Chefe de estação",
 		"ach.act3.name": "O sino às costas",
 		"ach.act3.desc": "Concluir o ato III da campanha.",
 		"ach.act4.name": "O último trem",

@@ -132,10 +132,43 @@ func _show_beat() -> void:
 			art.custom_minimum_size = Vector2(0, 320)
 			(_beat_card.get_child(0) as Control).add_child(art)
 			(_beat_card.get_child(0) as Control).move_child(art, 0)
+	_show_narrator()
 	var beats := SocialContent.opening_beats(m) if Game.chapter.is_empty() else chapter_beats(String(Game.chapter.id))
 	_beat_title.text = String(beats[_beat][0])
 	_beat_text.text = String(beats[_beat][1])
 	Juice.pop_in(_beat_card, 0.06)
+
+
+## Рассказчик главы: на второй странице сцены рядом с текстом его портрет и имя.
+## Акт III — брат Игнат из монастыря, акт IV — смотритель станции.
+const NARRATORS := {3: ["narr.ignat", "res://assets/folk/npc_abbot.png"], 4: ["narr.keeper", "res://assets/folk/npc_stationmaster.png"]}
+
+
+func _show_narrator() -> void:
+	var old := _beat_card.find_child("Narrator", true, false)
+	var act := int(Game.chapter.get("act", 0)) if not Game.chapter.is_empty() else 0
+	var on := _beat == 1 and NARRATORS.has(act)
+	if old != null:
+		(old as Control).visible = on
+		return
+	if not on:
+		return
+	var n: Array = NARRATORS[act]
+	var row := W.hbox(14)
+	row.name = "Narrator"
+	var pic := TextureRect.new()
+	pic.texture = load(String(n[1])) as Texture2D
+	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pic.custom_minimum_size = Vector2(84, 154)
+	row.add_child(pic)
+	var name_l := W.label(L.t(String(n[0])), &"Speaker")
+	name_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(name_l)
+	var box := _beat_card.get_child(0) as Control
+	box.add_child(row)
+	box.move_child(row, _beat_title.get_index() + 1)
 
 
 ## Сцена главы: две страницы текста и картинка главы, если она есть.

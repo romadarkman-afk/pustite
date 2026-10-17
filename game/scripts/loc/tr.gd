@@ -238,6 +238,9 @@ func data() -> Dictionary:
 			"Nasıl göründüğünü biliyorum. Ama ben hortlak değilim.",
 			"Bir kere inan. Sonra istersen kov.",
 		],
+		"ph.PLEA_FOG": ["Bu siste hiçbir şey görünmüyor. Işığını takip ettim, aç.", "Sis öyle yoğun ki ellerimi göremiyorum. Lütfen içeri al.", "Evlerin arasında siste kayboldum. Gerçekten benim."],
+		"ph.PLEA_RAIN": ["İliklerime kadar ıslandım. Hiç değilse sobanın yanına al.", "Yağmur fenerleri söndürüyor. Seni neredeyse el yordamıyla buldum, aç.", "Damlıyorum, biliyorum. Sadece içeri al, girişte dururum."],
+		"ph.PLEA_MOON": ["Ay gündüz gibi parlıyor, beni uzaktan görüyorlar. Çabuk aç.", "Dolunay. Beni ışıkta bırakma, ne olur.", "Böyle bir ayda daha cesur oluyorlar. Geç olmadan içeri al."],
 		"ph.PLEA_NORMAL": [
 			"Aç, burası soğuk.",
 			"Benim. Al beni içeri.",
@@ -807,6 +810,8 @@ func data() -> Dictionary:
 		"ending.act2_none": "II. Perde: nehir değirmeni alıyor",
 		"ach.act2.name": "Nehrin yukarısı",
 		"ach.act2.desc": "Hikâyenin II. perdesini bitir.",
+		"narr.ignat": "Ignat Kardeş",
+		"narr.keeper": "İstasyon şefi",
 		"ach.act3.name": "Arkandaki çan",
 		"ach.act3.desc": "Hikâyenin III. perdesini bitir.",
 		"ach.act4.name": "Son tren",

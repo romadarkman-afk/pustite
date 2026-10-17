@@ -211,6 +211,9 @@ func data() -> Dictionary:
 			"Je sais de quoi ça a l'air. Mais je ne suis pas un loup-garou.",
 			"Crois-moi une fois. Tu me chasseras après.",
 		],
+		"ph.PLEA_FOG": ["On ne voit rien dans ce brouillard. J'ai suivi ta lumière, ouvre.", "Le brouillard est si épais que je ne vois pas mes mains. Laisse-moi entrer, s'il te plaît.", "Je me suis [perdu|perdue] dans le brouillard entre les maisons. C'est vraiment moi."],
+		"ph.PLEA_RAIN": ["Je suis [trempé|trempée] jusqu'aux os. Laisse-moi au moins près du poêle.", "La pluie éteint les lanternes. Je t'ai trouvé presque à tâtons, ouvre.", "Je dégouline, je sais. Laisse-moi juste entrer, je resterai dans l'entrée."],
+		"ph.PLEA_MOON": ["La lune éclaire comme en plein jour, on me voit de loin. Ouvre vite.", "Pleine lune. Ne me laisse pas dans la lumière, je t'en prie.", "Sous une lune pareille, ils sont plus hardis. Laisse-moi entrer avant qu'il soit trop tard."],
 		"ph.PLEA_NORMAL": [
 			"Ouvre, il fait froid.",
 			"C'est moi. Laisse-moi entrer.",
@@ -780,6 +783,8 @@ func data() -> Dictionary:
 		"ending.act2_none": "Acte II : la rivière emporte le moulin",
 		"ach.act2.name": "En amont",
 		"ach.act2.desc": "Terminer l'acte II de la campagne.",
+		"narr.ignat": "Frère Ignat",
+		"narr.keeper": "Chef de gare",
 		"ach.act3.name": "La cloche derrière toi",
 		"ach.act3.desc": "Terminer l'acte III de la campagne.",
 		"ach.act4.name": "Le dernier train",

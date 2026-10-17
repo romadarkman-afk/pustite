@@ -194,6 +194,9 @@ func data() -> Dictionary:
 			"Tôi biết trông thế nào. Nhưng tôi không phải ma cà rồng.",
 			"Tin tôi một lần. Sau đó đuổi cũng được.",
 		],
+		"ph.PLEA_FOG": ["Sương mù thế này chẳng thấy gì. Tôi lần theo ánh đèn của bạn, mở cửa đi.", "Sương dày đến mức không thấy tay mình. Làm ơn cho tôi vào.", "Tôi bị lạc trong sương giữa các ngôi nhà. Đúng là tôi mà."],
+		"ph.PLEA_RAIN": ["Tôi ướt sũng rồi. Ít nhất cho tôi ngồi cạnh bếp.", "Mưa làm tắt hết đèn. Tôi gần như mò mẫm mới tới được, mở cửa đi.", "Tôi đang nhỏ nước, tôi biết. Chỉ cần cho tôi vào, tôi đứng ở cửa thôi."],
+		"ph.PLEA_MOON": ["Trăng sáng như ban ngày, từ xa đã thấy tôi. Mở nhanh đi.", "Trăng tròn rồi. Đừng để tôi đứng ngoài chỗ sáng, làm ơn.", "Trăng thế này chúng bạo hơn. Cho tôi vào trước khi quá muộn."],
 		"ph.PLEA_NORMAL": [
 			"Mở cửa đi, ngoài này lạnh.",
 			"Tôi đây. Cho tôi vào.",
@@ -763,6 +766,8 @@ func data() -> Dictionary:
 		"ending.act2_none": "Hồi II: sông cuốn cối xay",
 		"ach.act2.name": "Ngược dòng",
 		"ach.act2.desc": "Hoàn thành hồi II của cốt truyện.",
+		"narr.ignat": "Thầy Ignat",
+		"narr.keeper": "Trưởng ga",
 		"ach.act3.name": "Tiếng chuông sau lưng",
 		"ach.act3.desc": "Hoàn thành hồi III của cốt truyện.",
 		"ach.act4.name": "Chuyến tàu cuối",
