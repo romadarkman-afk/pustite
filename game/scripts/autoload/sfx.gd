@@ -20,6 +20,8 @@ const SOUNDS := {
 	&"win": "res://assets/sfx/win.ogg",
 	&"lose": "res://assets/sfx/lose.ogg",
 	&"reveal": "res://assets/sfx/reveal.ogg",
+	&"reveal_2": "res://assets/sfx/reveal_2.ogg",   # пролог: варианты раскрытия роли (tools/make_prologue_sfx.py)
+	&"reveal_3": "res://assets/sfx/reveal_3.ogg",
 	&"dawn": "res://assets/sfx/dawn.ogg",
 	&"job_done": "res://assets/sfx/job_done.ogg",
 	&"job_fail": "res://assets/sfx/job_fail.ogg",
@@ -38,6 +40,7 @@ const SOUNDS := {
 const LOOPS := {
 	&"amb_day": "res://assets/sfx/amb_day.ogg",
 	&"amb_night": "res://assets/sfx/amb_night.ogg",
+	&"amb_dusk": "res://assets/sfx/amb_dusk.ogg",       # пролог: ветер без сверчков
 	&"heartbeat": "res://assets/sfx/heartbeat.ogg",
 	&"menu": "res://assets/music/menu.ogg",
 	&"day": "res://assets/music/day.ogg",
@@ -45,6 +48,8 @@ const LOOPS := {
 	&"end_dawn": "res://assets/music/end_dawn.ogg",     # итог: люди дожили (tools/make_end_music.py)
 	&"end_dark": "res://assets/music/end_dark.ogg",     # итог: посёлок пал
 }
+## Звук с вариантами: каждый раз случайный из списка, в журнал пишется общее имя.
+const VARIANTS := {&"reveal": [&"reveal", &"reveal_2", &"reveal_3"]}
 const BUSES := [&"Music", &"Sfx", &"Ambience"]
 const POOL := 8
 const LOG_MAX := 64
@@ -110,9 +115,13 @@ func play(n: StringName, pitch: float = 1.0, vol_db: float = 0.0) -> void:
 		push_warning("нет звука: %s" % n)
 		return
 	_note(n)
+	var stream_name := n
+	if VARIANTS.has(n):
+		var opts: Array = VARIANTS[n]
+		stream_name = opts[randi() % opts.size()]
 	var p := _pool[_next]
 	_next = (_next + 1) % POOL
-	p.stream = _streams[n]
+	p.stream = _streams.get(stream_name, _streams[n])
 	p.pitch_scale = clampf(pitch, 0.25, 4.0)
 	p.volume_db = vol_db
 	p.play()

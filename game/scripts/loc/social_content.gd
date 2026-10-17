@@ -546,9 +546,38 @@ static func anchor_chapter(anchor_id: int, chapter: int, speaker: Villager = nul
 	return L.fill(String(lines[chapter]), {"me": speaker}) if chapter >= 0 and chapter < lines.size() else ""
 
 
-static func door_sign(tell: StringName) -> String:
+static func door_sign(tell: StringName, salt: int = 0) -> String:
 	var signs: Dictionary = _extra().door_signs
+	if String(tell) == "ordinary" or not signs.has(String(tell)):
+		var bank: Array = ORDINARY_SIGNS.get(L.code, [])
+		if not bank.is_empty():
+			return String(bank[posmod(salt, bank.size())])
 	return String(signs.get(String(tell), signs.get("ordinary", "")))
+
+
+## Обычный человек у двери: ничего странного, но каждый раз по-своему. Подсказок про упыря здесь нет.
+const ORDINARY_SIGNS := {
+	"ru": [
+		"Пальцы дрожат, слова сбиваются. Страх или холод, отсюда не понять.",
+		"Пар изо рта густой, на ресницах иней. Стоит, переминаясь с ноги на ногу.",
+		"Стучит неровно, то тише, то громче. Всё время оглядывается на лес.",
+		"Говорит шёпотом и часто сглатывает. Рукой держится за косяк.",
+		"Плечи в снегу, шапка набок. Похоже, бежал{who:|а} от самого колодца.",
+		"Дышит тяжело, голос срывается. На рукаве свежая грязь.",
+		"Тень на двери качается вместе с фонарём в руке. Фонарь почти погас.",
+		"Слышно, как стучат зубы. Пальцы спрятаны в рукава.",
+	],
+	"en": [
+		"Their fingers shake and the words stumble. Fear or cold, you cannot tell from here.",
+		"Thick breath fogs the air, frost on the lashes. They shift from foot to foot.",
+		"The knocking is uneven, soft then loud. They keep glancing at the forest.",
+		"They whisper and keep swallowing. One hand grips the doorframe.",
+		"Snow on the shoulders, hat askew. Looks like they ran all the way from the well.",
+		"Heavy breathing, a breaking voice. Fresh mud on one sleeve.",
+		"The shadow on the door sways with the lantern in their hand. The flame is nearly out.",
+		"You can hear their teeth chattering. Fingers tucked into sleeves.",
+	],
+}
 
 
 static func door_ui(key: String) -> String:

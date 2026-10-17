@@ -216,7 +216,7 @@ func _reveal(nodes: Array) -> void:
 
 
 func ambience() -> StringName:
-	return &"amb_night"
+	return &"amb_dusk"
 
 
 func music() -> StringName:

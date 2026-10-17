@@ -169,9 +169,10 @@ func plan_jobs(day_sec: float) -> Array[JobTask]:
 			n = 0                     # в трауре: не до вёдер и дров
 		elif bot.is_upyr:
 			n = 1 if rng.randf() < 0.75 else 0
-		elif rng.randf() < 0.8:
-			n = 2 if rng.randf() < 0.35 else 1
-		var t := rng.randf_range(6.0, maxf(8.0, day_sec * 0.45))
+		elif rng.randf() < 0.85:
+			n = 2 if rng.randf() < 0.4 else 1
+		# за дело берутся с первых секунд дня, а не к середине: посёлок с утра в работе
+		var t := rng.randf_range(2.5, maxf(5.0, day_sec * 0.3))
 		for k in range(n):
 			if t > day_sec - WORK_SEC - 3.0 or planned >= cap:
 				break
@@ -187,7 +188,7 @@ func plan_jobs(day_sec: float) -> Array[JobTask]:
 			task.real = rng.randf() < (UPYR_REAL if bot.is_upyr else 1.0 - HUMAN_FAIL)
 			task.sabotage = bot.is_upyr and not task.real and rng.randf() < SABOTAGE_P
 			out.append(task)
-			t += WORK_SEC + rng.randf_range(6.0, 14.0)
+			t += WORK_SEC + rng.randf_range(4.0, 9.0)
 	out.sort_custom(func(a: JobTask, b: JobTask) -> bool: return a.start < b.start)
 	return out
 
@@ -642,32 +643,101 @@ func emotional_lines() -> Array[ChatLine]:
 		var partner := m.get_villager(v.partner_id)
 		if partner == null or (partner.alive and v.id > partner.id):
 			continue
-		var text := ""
 		var feeling := "happy"
 		if not partner.alive and not partner.exiled:
 			continue                  # гибель близкого — в grief_lines, своим голосом
+		var kind := "first"
 		if not partner.alive:
 			feeling = "sad"
-			if partner.exiled:
-				text = L.fill("{other} {other:обещал|обещала} вернуться. Теперь я даже не знаю, куда нести тёплые вещи.", {"other": partner}) if L.code == "ru" else "%s promised to come back. Where do I take these warm clothes now?" % partner.name
-			else:
-				text = "Всю ночь [держал|держала] для тебя место, {name}. Утром даже стул убрать не могу.".replace("{name}", partner.name) if L.code == "ru" else "I kept a place for you all night, %s. I cannot even put the chair away." % partner.name
+			kind = "exiled"
 		elif m.day == 1:
-			text = "Мы с {other} собирались уехать после свадьбы. Теперь я прошу только об одном: оставьте нам два места рядом.".replace("{other}", L.gram().name_case(partner.name, "ins", partner.female)) if L.code == "ru" else "We meant to leave after our wedding, %s and I. Now I just want two places together." % partner.name
+			kind = "first"
 		elif v.night_house >= 0 and v.night_house == partner.night_house:
-			text = "Утром [проснулся|проснулась] раньше и [слушал|слушала], как ты дышишь, {name}. Так страшно ещё никогда не было.".replace("{name}", partner.name) if L.code == "ru" else "I woke first and listened to you breathing, %s. I have never been so afraid." % partner.name
+			kind = "together"
 		else:
 			feeling = "sad"
-			text = "{name}, я всю ночь [ждал|ждала] твоего стука. Понимаю, что ты {other:пошёл|пошла} в другой дом. Простить пока не получается.".replace("{name}", partner.name) if L.code == "ru" else "I waited for your knock all night, %s. I know why we were apart. It still hurts." % partner.name
-		var line := ChatLine.say(v, L.fill(text, {"me": v, "other": partner}))
+			kind = "apart"
+		var args := {"me": v, "other": partner, "name": partner.name}
+		var line := ChatLine.say(v, L.fill(_couple_pick(kind), args))
 		line.emotion = feeling
 		out.append(line)
 		if partner.alive and m.day == 1:
-			var answer := ChatLine.say(partner, L.fill("Я рядом, {name}. Только если ночью услышу твой голос, всё равно спрошу про нашу первую встречу.".replace("{name}", v.name)) if L.code == "ru" else "I'm here, %s. But if you knock tonight, I will still ask where we first met." % v.name)
+			var answer := ChatLine.say(partner, L.fill(_couple_pick("answer"), {"me": partner, "other": v, "name": v.name}))
 			answer.emotion = "sad"
 			out.append(answer)
 		break
 	return out
+
+
+## Реплики пары: несколько вариантов на случай, чтобы от партии к партии не повторялось одно и то же.
+## {name} — имя второго, {other:…|…} — род второго, [а|б] — род говорящего.
+const COUPLE_LINES := {
+	"ru": {
+		"first": [
+			"Мы с {other.ins} собирались уехать после свадьбы. Теперь прошу только об одном: оставьте нам два места рядом.",
+			"{name}, держись рядом. Если нас разведут по разным домам, я не усну.",
+			"Мы с {other.ins} даже кольца не успели купить. Я [хотел|хотела] весной, когда сойдёт снег.",
+			"Вчера {name} [смеялся|смеялась] над моими страхами. Сегодня не смеётся никто.",
+			"Если ночью постучит {name}, я узнаю по стуку. Мы так договорились ещё летом.",
+			"Я [обещал|обещала] матери {other.gen} привести {other:его|её} домой живым. Помогите мне сдержать слово.",
+		],
+		"answer": [
+			"Я рядом, {name}. Только если ночью услышу твой голос, всё равно спрошу про нашу первую встречу.",
+			"Никуда не денусь, {name}. Но дверь я открою, только если ответишь, где мы познакомились.",
+			"Мы справимся, {name}. Только не выходи ночью, даже если позовут моим голосом.",
+			"Я с тобой. Если что, наш знак тот же: два коротких, один длинный.",
+		],
+		"exiled": [
+			"{name} {other:обещал|обещала} вернуться. Теперь я даже не знаю, куда нести тёплые вещи.",
+			"Вы выгнали {other.acc} в лес. Если {other:он вернётся|она вернётся} ночью, я не знаю, открою ли.",
+			"Я всё ещё ставлю две кружки. Привычка. {name} теперь где-то за деревьями.",
+		],
+		"together": [
+			"Утром [проснулся|проснулась] раньше и [слушал|слушала], как ты дышишь, {name}. Так страшно ещё никогда не было.",
+			"Мы с {other.ins} всю ночь держались за руки. Пальцы до сих пор не разжимаются.",
+			"{name} шептал{other:|а} мне сказки, чтобы я не [слушал|слушала] стук. Помогло.",
+		],
+		"apart": [
+			"{name}, я всю ночь [ждал|ждала] твоего стука. Понимаю, что ты {other:пошёл|пошла} в другой дом. Простить пока не получается.",
+			"Ночью мы были в разных домах. Я каждый час [подходил|подходила] к окну, {name}.",
+			"Больше не расходимся, {name}. Ещё одну такую ночь я не выдержу.",
+		],
+	},
+	"en": {
+		"first": [
+			"We meant to leave after our wedding, {name} and I. Now I just want two places together.",
+			"Stay close, {name}. If they split us between houses, I won't sleep.",
+			"{name} and I didn't even get to buy rings. I wanted to in spring, when the snow melts.",
+			"Yesterday {name} laughed at my fears. Today nobody is laughing.",
+			"If {name} knocks tonight, I'll know the knock. We agreed on it last summer.",
+		],
+		"answer": [
+			"I'm here, {name}. But if you knock tonight, I will still ask where we first met.",
+			"I'm not going anywhere, {name}. But I'll only open if you tell me where we met.",
+			"We'll manage, {name}. Just don't go out tonight, even if someone calls in my voice.",
+		],
+		"exiled": [
+			"{name} promised to come back. Where do I take these warm clothes now?",
+			"You sent {name} into the forest. If they come back tonight, I don't know if I'll open.",
+			"I still set out two cups. Habit. {name} is somewhere beyond the trees now.",
+		],
+		"together": [
+			"I woke first and listened to you breathing, {name}. I have never been so afraid.",
+			"{name} and I held hands all night. My fingers still won't let go.",
+		],
+		"apart": [
+			"I waited for your knock all night, {name}. I know why we were apart. It still hurts.",
+			"We were in different houses last night. I went to the window every hour, {name}.",
+			"No more splitting up, {name}. I can't take another night like that.",
+		],
+	},
+}
+
+
+func _couple_pick(kind: String) -> String:
+	var bank: Dictionary = COUPLE_LINES.get(L.code, COUPLE_LINES["en"])
+	var arr: Array = bank.get(kind, COUPLE_LINES["en"][kind])
+	return String(arr[randi() % arr.size()])
 
 
 func personal_talk(vid: int, choice: int) -> Array[ChatLine]:

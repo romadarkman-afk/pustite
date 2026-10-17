@@ -2821,7 +2821,7 @@ static func sound() -> void:
 		await _settle(tree)
 		await _frames(tree, 4)
 		if attempt == 0:
-			ok += _expect(fails, Sfx.played.has(&"reveal") and Sfx.ambience_name == &"amb_night", "пролог без звука раскрытия роли")
+			ok += _expect(fails, Sfx.played.has(&"reveal") and Sfx.ambience_name == &"amb_dusk", "пролог без звука раскрытия роли")
 		Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
 		await _settle(tree)
 		if attempt == 0:

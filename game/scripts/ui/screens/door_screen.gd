@@ -289,12 +289,24 @@ func show_inspection(gid: int, tell: StringName) -> void:
 					identity = known_person
 					break
 		var known := DiarySheet.facts(m, director, identity)
-		var details := PackedStringArray([SocialContent.door_sign(tell)])
+		var details := PackedStringArray([L.fill(SocialContent.door_sign(tell, m.day * 31 + identity.id * 7), {"who": identity})])
+		# биография одна и та же каждую ночь: у двери полезнее то, что было в эту партию
+		var fixed := PackedStringArray()
+		if not identity.is_player and identity.story_id >= 0:
+			fixed.append(SocialContent.person_title(identity))
+			fixed.append(SocialContent.story(identity.story_id, identity))
+			for step in range(1, identity.story_step + 1):
+				fixed.append(SocialContent.personal_chapter(identity, step))
+		var fresh := PackedStringArray()
 		for fact: String in known:
-			if fact != L.t("diary.nothing") and fact != SocialContent.door_record(m.day, tell):
-				details.append(fact)
+			if fact != L.t("diary.nothing") and fact != SocialContent.door_record(m.day, tell) and not fixed.has(fact):
+				fresh.append(fact)
+		if fresh.is_empty() and not fixed.is_empty():
+			fresh.append(fixed[0])          # о человеке ничего не известно: хотя бы кто это
+		for fact: String in fresh:
 			if details.size() >= 3:
 				break
+			details.append(fact)
 		note.text = "\n".join(details)
 		note.visible = true
 	var figure: VillagerFigure = _visitor_figures.get(gid)
