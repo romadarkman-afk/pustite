@@ -28,6 +28,7 @@ var story_step: int = 0
 var personal_day: int = 0
 var alive: bool = true
 var exiled: bool = false
+var departed: bool = false         ## TASK-020: уплыл на лодке за реку — жив, но в деревне его нет
 var fed: bool = false              ## поел прошлой ночью — этой не убивает
 var announced_house: int = -1      ## куда сказал днём, что пойдёт
 var night_house: int = -1          ## где реально ночевал последнюю ночь

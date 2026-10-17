@@ -75,6 +75,11 @@ var last_questioner := -1
 var promise_lines: Array[ChatLine] = []
 var scene_lines: Array[ChatLine] = []     ## что скажут днём после сцены (отозвался на зов у реки)
 var first_chapter := false                ## глава «Стук»: в первый день кто-то обязательно обещает открыть
+var chapter_id := ""                      ## глава кампании или "" — обычная партия
+const W_BOAT_BACK := 0.8
+const W_CONFRONT := 0.4                   ## спросили при всех о противоречии
+const W_DENY := 0.3                       ## отпирается, когда улики против
+const UPYR_FAKE_ADMIT := 0.25             ## упырь иногда «признаётся» с правдоподобным объяснением
 const PROMISE_BOT_P := 0.35       ## шанс, что утром кто-то из жителей сам пообещает игроку открыть
 const PROMISE_UPYR_KEEP := 0.5    ## упырь держит слово только в половине случаев
 const PROMISE_HOST := 2.5         ## вес обещания «открою тебе» для хозяина двери
@@ -604,6 +609,7 @@ func opening_lines() -> Array[ChatLine]:
 	promise_lines.clear()
 	out.append_array(scene_lines)
 	scene_lines.clear()
+	out.append_array(chapter_lines())
 	out.append_array(grief_lines())
 	out.append_array(emotional_lines())
 
@@ -675,6 +681,112 @@ func bot_promise() -> ChatLine:
 	var line := ChatLine.say(best, L.fill(Phrases.pick("PROMISE_BOT_OPEN", pr, {"me": best}), {}))
 	line.emotion = "relieved"
 	return line
+
+
+## Реплики главы (TASK-016): в «Тумане» в первый день солдат Гордей учит спрашивать о памяти,
+## вдова Агафья рассказывает, как туман забрал мужа.
+func chapter_lines() -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	if chapter_id != "a1c2" or m.day != 1:
+		return out
+	for v: Villager in m.alive_bots():
+		if v.guest_id == "soldier":
+			out.append(ChatLine.say(v, L.t("fog.teach", {"me": v})))
+		elif v.guest_id == "widow":
+			var l := ChatLine.say(v, L.t("fog.widow", {"me": v}))
+			l.emotion = "sad"
+			out.append(l)
+	return out
+
+
+# =============================================================
+# Улики (TASK-017): спросить при всех о противоречии
+# =============================================================
+## Игрок сравнил две записи и спрашивает жителя при всех. Человек объясняет, упырь чаще отпирается.
+## Свой генератор: ответ не меняет ход партии.
+func confront(a: Dictionary, b: Dictionary) -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	var t := m.get_villager(int(a.get("who", -1)))
+	if t == null or t.is_player or not t.alive or not m.clues.contradiction(a, b):
+		return out
+	var key := Clues.pair_key(a, b)
+	if m.clues.asked.has(key):
+		return out
+	m.clues.asked[key] = true
+	var ar := RandomNumberGenerator.new()
+	ar.seed = hash("confront:%s:%d" % [key, t.id])
+	var admit := not t.is_upyr or ar.randf() < UPYR_FAKE_ADMIT
+	_bump(t.id, W_CONFRONT + (0.0 if admit else W_DENY))
+	var reply := ChatLine.say(t, L.fill(Phrases.pick("CLUE_ADMIT" if admit else "CLUE_DENY", ar, {"me": t}), {}))
+	reply.emotion = "sad" if admit else "angry"
+	out.append(reply)
+	var judge := _pick_bystander([t])
+	if judge != null and not admit:
+		out.append(_say(judge, "AGREE_ACCUSE", t))
+	m.world.add(WorldLog.Kind.ACCUSE, m.day, 0, t.id, -1, [], true, {"clue": key})
+	return out
+
+
+# =============================================================
+# Туман (TASK-016): вопрос о том, что знаете только вы двое
+# =============================================================
+## Был ли у игрока днём разговор с этим жителем: выслушал историю или дал/получил слово.
+func shared_memory(v: Villager) -> String:
+	if v == null:
+		return ""
+	if m.world.last(WorldLog.Kind.LISTENED, 0, v.id) != null:
+		return "story"
+	for p: Dictionary in m.promises:
+		if (int(p.by) == 0 and int(p.to) == v.id) or (int(p.to) == 0 and int(p.by) == v.id):
+			return "promise"
+	return ""
+
+
+## Ответ голоса из тумана. Человек помнит разговор, упырь и Подражатель — нет: голос подделать можно, память нельзя.
+func memory_answer(g: Villager, seat: Match.Seat) -> Dictionary:
+	var who := g
+	var creature := g.is_upyr or (seat != null and g == seat.mimic)
+	var kind := shared_memory(who)
+	if kind.is_empty():
+		return {}
+	if creature:
+		var ar := RandomNumberGenerator.new()
+		ar.seed = hash("mem:%d:%d" % [m.day, g.id])
+		return {"text": L.fill(Phrases.pick("MEM_WRONG", ar, {"me": g}), {}), "ok": false}
+	if kind == "story":
+		var fact := SocialContent.story(who.story_id, who) if who.story_id >= 0 and who.guest_id.is_empty() else Guests.story(who)
+		return {"text": L.t("door.mem_story", {"text": fact.get_slice(".", 0)}), "ok": true}
+	return {"text": L.t("door.mem_promise", {"me": g}), "ok": true}
+
+
+# =============================================================
+# Прощание (TASK-020)
+# =============================================================
+## Игрок отправляет жителя на лодке за реку. Ответ зависит от того, как житель к игроку относится.
+func farewell(v: Villager) -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	if not m.send_away(v):
+		return out
+	var warm := view(v, m.player()) < 0.6
+	var l := ChatLine.say(v, L.t("farewell.warm" if warm else "farewell.cold", {"me": v}))
+	l.emotion = "relieved" if warm else "sad"
+	out.append(l)
+	return out
+
+
+## «Имя на доске» (TASK-019): ответ игрока меняет отношение рассказчика и посёлка.
+func board_answer(teller: Villager, choice: String) -> void:
+	if teller != null and brains.has(teller.id):
+		match choice:
+			"confess":
+				brains[teller.id].private_delta[0] = brains[teller.id].private_delta.get(0, 0.0) - 0.4
+				_bump(0, 0.3)                     # посёлок насторожился: пришёл с той стороны
+			"deny":
+				brains[teller.id].private_delta[0] = brains[teller.id].private_delta.get(0, 0.0) + 0.3
+	if teller != null:
+		var l := ChatLine.say(teller, L.t("sc.board.r_" + choice, {"me": teller}))
+		l.emotion = "sad"
+		scene_lines.append(l)
 
 
 ## У реки игрок отозвался на зов с того берега, хотя перевозчица просила молчать (TASK-011).
@@ -1345,7 +1457,10 @@ func read_report(r: NightReport) -> void:
 				street_last_night[e.who.id] = true
 				_note_evidence(e.who.id, "street")
 			NightReport.Kind.SURVIVED_ALONE:
-				_bump(e.who.id, W_ALONE)
+				if e.cause == "boat_back":
+					_bump(e.who.id, W_BOAT_BACK)        # лодка вернулась пустой: странно, но не доказательство
+				elif e.cause != "boat":
+					_bump(e.who.id, W_ALONE)
 			NightReport.Kind.KILLED_INSIDE:
 				for o: Villager in e.others:
 					_bump(o.id, W_DEATH_ROOM / float(e.others.size()))

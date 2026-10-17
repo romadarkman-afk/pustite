@@ -172,6 +172,13 @@ var world := WorldLog.new()
 var feelings := Feelings.new()
 ## Отчаяние (TASK-008): кто этой ночью уйдёт к реке на голос, а не к дому. Остановить можно днём разговором.
 var wander_plan: Dictionary[int, bool] = {}
+## Тетрадь улик (TASK-017).
+var clues := Clues.new()
+var plant_chapter := ""            ## глава кампании с заложенным противоречием (TASK-018); ставится до start()
+## Прощание (TASK-020): кого игрок отправил на лодке, уплывёт на рассвете. -1 — никого.
+var send_away_id := -1
+var send_used := false
+const SEND_BACK_HUMAN := 0.3       ## человек тоже иногда передумывает: по возвращению упыря не узнать наверняка
 
 ## Обещания (TASK-004). open — «открою тебе, если постучишь»: обещавший держит дверь и пускает.
 ## come — «приду к тебе ночевать»: обещавший ночует в том же доме. Проверяются ночью.
@@ -370,7 +377,10 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 
 	_seat_guests()
 	feelings.attach(self)
+	clues.attach(self)
 	wander_plan.clear()
+	send_away_id = -1
+	send_used = false
 	if village == null:
 		village = load(DEFAULT_VILLAGE) as VillageDef
 	houses = L.houses(village.houses_key).slice(0, config.shelters)
@@ -436,6 +446,11 @@ func begin_day() -> void:
 		job_left.append(j.portions)
 		supply_total += j.portions
 	supply_done = 0
+	if plant_chapter != "" and day == 2:
+		clues.plant(plant_chapter)
+	# «Пустая лодка» (TASK-018): в первый день главы — находка у реки
+	if day == 1 and plant_chapter in ["a1c2", "a1c3"]:
+		clues.add("find", -1, L.t("clue.boat_oar" if plant_chapter == "a1c2" else "clue.boat_scarf"), {"mystery": "boat"})
 	_set_phase(Phase.DAY)
 	post(ChatLine.system(L.t("sys.dawn1") if day == 1 else L.t("sys.dawn", {"d": day, "n": alive().size()})))
 
@@ -617,6 +632,7 @@ func open_box(v: Villager) -> Dictionary:
 
 func end_day() -> void:
 	assert(phase == Phase.DAY)
+	clues.record_claims()
 	_set_phase(Phase.VOTE if vote_open() else Phase.NIGHT)
 
 
@@ -790,6 +806,8 @@ func admit(seat: Seat, ids: Array[int]) -> void:
 				player_admits.append({"day": day, "who": v, "mimic": v == seat.mimic})
 	seat.decided = true
 	_log_door(seat)
+	if seat.host.is_player or seat.queue.has(player()):
+		clues.record_door(seat)
 	if seat.host.is_player and seat.admitted.is_empty() and not seat.mimic_in and not seat.knockers().is_empty():
 		player_refused_all += 1
 	if not seat.host.is_player and seat.queue.has(player()) and not seat.admitted.has(player()):
@@ -1122,6 +1140,7 @@ func resolve_night() -> NightReport:
 	_dilemma_fate(r)
 	_apply_grief(r)
 	feelings.morning(r)
+	_sail(r)
 	report = r
 	_settle_winner()
 	_set_phase(Phase.MORNING)
@@ -1224,6 +1243,39 @@ func _dilemma_fate(r: NightReport) -> void:
 ## не работают, говорят о погибшем и винят хозяина двери, если того не пустили.
 ## Последние слова погибшего достаются утренней сцене. Скрытые роли на это не влияют.
 const GRIEF_DAYS := 2
+
+
+## Прощание (TASK-020): игрок днём выбрал, кого отправить на лодке. Только в главе «Прощание», раз за главу.
+func send_away(v: Villager) -> bool:
+	if phase != Phase.DAY or send_used or v == null or v.is_player or not v.alive or plant_chapter != "a1c3":
+		return false
+	send_away_id = v.id
+	send_used = true
+	return true
+
+
+## Рассвет: лодка уходит. Человек уплывает (иногда передумывает), упырь возвращается: река его не берёт.
+## Уплывший жив и придёт в следующих главах, но в этой деревне на одного человека меньше.
+func _sail(r: NightReport) -> void:
+	var v := get_villager(send_away_id)
+	send_away_id = -1
+	if v == null or not v.alive:
+		return
+	var back := v.is_upyr
+	if not back:
+		var pr := RandomNumberGenerator.new()
+		pr.seed = hash("sail:%d:%d" % [v.id, rng.seed])
+		back = pr.randf() < SEND_BACK_HUMAN
+	var e := r.add(NightReport.Kind.SURVIVED_ALONE, v, -1)
+	if back:
+		e.cause = "boat_back"
+		_log("morning", "log.sent_back", {"who": v})
+	else:
+		e.cause = "boat"
+		v.alive = false
+		v.departed = true
+		_log("morning", "log.sent", {"who": v})
+	_settle_winner()
 
 
 ## Утром новости расходятся (TASK-003). Кого не пустили и кто дожил до утра, рассказывает своим.

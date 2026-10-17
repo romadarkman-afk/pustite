@@ -42,5 +42,7 @@ const OPEN_BOOK := &"open_book"           ## Книга посёлка
 const OPEN_CAMPAIGN := &"open_campaign"   ## экран глав кампании
 const PLAY_CHAPTER := &"play_chapter"     ## начать главу: {"id"}; пусто — продолжить
 const SKIP_TO_END := &"skip_to_end"  ## тебя не стало: доиграть без тебя и сразу к итогу
+const CONFRONT := &"confront"    ## спросить при всех о противоречии: {"a", "b"} — id записей тетради (TASK-017)
+const SEND_AWAY := &"send_away"  ## отправить на лодке за реку: {"id"} (TASK-020)
 const PROMISE := &"promise"      ## обещание жителю: {"id", "kind": "open" | "come"} (TASK-004)
 const WORK := &"work"            ## встать к делу: {"ji": индекс, "sab": портить вместо работы}

@@ -816,3 +816,237 @@ static func chapter_one(tree: SceneTree, fails: PackedStringArray) -> int:
 		f.close()
 	Save.load_all()
 	return ok
+
+
+# =============================================================
+# Группа 4. TASK-016–020: туман, улики, пустая лодка, имя на доске, прощание
+# =============================================================
+static func _chapter_match(ch: String, seed_n: int) -> Array:
+	var m := Match.new()
+	m.plant_chapter = ch
+	m.guests = Campaign.guests(ch)
+	m.guest_roles_fixed = true
+	m.start(Campaign.config(ch), seed_n)
+	var d := Director.new()
+	d.attach(m)
+	d.chapter_id = ch
+	m.begin_day()
+	return [m, d]
+
+
+static func group_four(fails: PackedStringArray) -> int:
+	var ok := 0
+	var path := ProjectSettings.globalize_path(Save.SETTINGS_PATH)
+	var backup := FileAccess.get_file_as_bytes(path) if FileAccess.file_exists(path) else PackedByteArray()
+	var dead_before := Save.campaign_dead.duplicate()
+	var mem_before := Save.campaign_memory.duplicate(true)
+	var name_before := Save.player_name
+	var bad_tag := RegEx.create_from_string("[{}\\[\\]|]")
+
+	# TASK-016: в тумане вопрос есть только после разговора днём; человек помнит, упырь нет
+	var humans := 0
+	var upyrs := 0
+	var fog_bad := 0
+	for sd in range(12):
+		var md := _chapter_match("a1c2", 3100 + sd)
+		var m: Match = md[0]
+		var d: Director = md[1]
+		for v: Villager in m.alive_bots():
+			if not d.memory_answer(v, null).is_empty():
+				fog_bad += 1
+			m.world.add(WorldLog.Kind.LISTENED, m.day, 0, v.id, -1, [0, v.id])
+			var a := d.memory_answer(v, null)
+			var text := String(a.get("text", ""))
+			if a.is_empty() or bool(a.ok) == v.is_upyr or text.is_empty() or bad_tag.search(text) != null:
+				fog_bad += 1
+			if v.is_upyr:
+				upyrs += 1
+			else:
+				humans += 1
+	ok += SelfTest._expect(fails, fog_bad == 0 and humans > 0 and upyrs > 0,
+		"туман: вопрос без разговора или неверная память (ошибок %d, людей %d, упырей %d)" % [fog_bad, humans, upyrs])
+	var fog_lines := 0
+	for sd in range(40):
+		var md := _chapter_match("a1c2", 3200 + sd)
+		for l: ChatLine in (md[1] as Director).chapter_lines():
+			fog_lines += 1
+			if bad_tag.search(l.text) != null:
+				fog_bad += 1
+	ok += SelfTest._expect(fails, fog_lines > 0 and fog_bad == 0, "туман: солдат и вдова не учат вопросу о памяти")
+
+	# TASK-017, 018: заложенное противоречие есть в обеих главах, спрашивается один раз,
+	# человек объясняет, упырь чаще отпирается; находка у реки — в каждой главе
+	var plant_bad := PackedStringArray()
+	var deny_upyr := 0
+	var asked_upyr := 0
+	for ch: String in ["a1c2", "a1c3"]:
+		for sd in range(30):
+			var md := _chapter_match(ch, 3300 + sd)
+			var m: Match = md[0]
+			var d: Director = md[1]
+			var finds := m.clues.entries.filter(func(e: Dictionary) -> bool: return String(e.mystery) == "boat" and int(e.who) < 0)
+			if finds.size() != 1:
+				plant_bad.append("%s/%d: находка у реки %d" % [ch, sd, finds.size()])
+			m.clues.plant(ch)
+			var cs := m.clues.contradictions()
+			if cs.is_empty():
+				plant_bad.append("%s/%d: нет противоречия" % [ch, sd])
+				continue
+			var a: Dictionary = cs[0][0]
+			var b: Dictionary = cs[0][1]
+			var t := m.get_villager(int(a.who))
+			var lines := d.confront(a, b)
+			if lines.is_empty() or not d.confront(a, b).is_empty():
+				plant_bad.append("%s/%d: вопрос не прошёл или прошёл дважды" % [ch, sd])
+				continue
+			var admit := lines[0].emotion == "sad"
+			if not t.is_upyr and not admit:
+				plant_bad.append("%s/%d: человек отпирается" % [ch, sd])
+			if t.is_upyr:
+				asked_upyr += 1
+				deny_upyr += 0 if admit else 1
+			for l: ChatLine in lines:
+				if bad_tag.search(l.text) != null:
+					plant_bad.append("теги в ответе: " + l.text)
+			if Campaign.boat_records(m).size() != 2:
+				plant_bad.append("%s/%d: находки лодки не попадут в память" % [ch, sd])
+	ok += SelfTest._expect(fails, plant_bad.is_empty(), "улики: " + "; ".join(plant_bad.slice(0, 4)))
+	ok += SelfTest._expect(fails, asked_upyr == 0 or deny_upyr * 2 > asked_upyr, "улики: упырь не отпирается (%d из %d)" % [deny_upyr, asked_upyr])
+	# противоречие по фактам: сказал одно, у двери видели в другом доме
+	var mf: Match = _chapter_match("a1c2", 3400)[0]
+	var bot: Villager = mf.alive_bots()[0]
+	var c1 := mf.clues.add("claim", bot.id, "c", {"house": 1})
+	var c2 := mf.clues.add("seen", bot.id, "s", {"house": 2})
+	var c3 := mf.clues.add("seen", bot.id, "s", {"house": 1})
+	ok += SelfTest._expect(fails, mf.clues.contradiction(c1, c2) and not mf.clues.contradiction(c1, c3), "улики: сказанное и увиденное сравниваются неверно")
+	# тетрадь: две спорящие записи — кнопка «Спросить» доступна днём; заложенные записи не вытесняются
+	mf.clues.plant("a1c2")
+	for i in range(Clues.MAX * 2):
+		mf.clues.add("claim", bot.id, "x%d" % i, {"house": 0})
+	var shown_ids := mf.clues.shown().map(func(e: Dictionary) -> String: return String(e.id))
+	var planted_ok := mf.clues.shown().size() <= Clues.MAX + 1
+	for pc: Array in mf.clues.contradictions():
+		if String(pc[0].pair) != "" or String(pc[1].pair) != "":
+			planted_ok = planted_ok and shown_ids.has(String(pc[0].id)) and shown_ids.has(String(pc[1].id))
+	ok += SelfTest._expect(fails, planted_ok, "тетрадь улик: заложенное противоречие вытеснено новыми записями")
+	var host := Control.new()
+	host.size = Vector2(720, 1280)
+	var book := ClueBook.open(host, mf, null)
+	var pair: Array = mf.clues.contradictions()[0]
+	book.toggle(String(pair[0].id))
+	book.toggle(String(pair[1].id))
+	ok += SelfTest._expect(fails, not book.ask_btn.disabled and book.status.text == L.t("clue.conflict"), "тетрадь улик: противоречие не видно")
+	host.free()
+
+	# TASK-018: разгадка лодки при любых погибших; конец акта помнит лодку и доску
+	for dead: Array in [[], [0], [0, 5], [0, 1, 2, 5, 7]]:
+		Save.campaign_dead.assign(dead)
+		var b := Revelations.beat("boat_answer")
+		var good := not String(b[1]).is_empty() and bad_tag.search(String(b[1])) == null
+		if dead.has(0) and dead.has(5):
+			good = good and String(b[1]).contains(L.t("rev.boat_answer.item").left(20))
+		ok += SelfTest._expect(fails, good, "разгадка лодки при погибших %s: «%s»" % [str(dead), b[1]])
+	Save.campaign_dead.assign([])
+	Save.campaign_memory.clear()
+	var open_text := Campaign.act_ending(1)
+	for i in range(Campaign.BOAT_SOLVED):
+		Save.campaign_memory.append({"ch": "a1c2", "kind": "clue_boat", "who": -1, "day": 1, "knew": []})
+	Save.campaign_memory.append({"ch": "a1c3", "kind": "board_deny", "who": -1, "day": 2, "knew": []})
+	var solved_text := Campaign.act_ending(1)
+	ok += SelfTest._expect(fails, open_text.contains(L.t("camp.act1.boat_open")) and solved_text.contains(L.t("camp.act1.boat"))
+		and solved_text.contains(L.t("camp.act1.board_deny")) and Campaign.board_choice() == "deny", "конец акта: не помнит лодку или доску")
+	ok += SelfTest._expect(fails, Save.memory_of(-1).size() >= 0 and Save._memory_record({"ch": "a1c3", "kind": "board_silent", "who": -1}).size() > 0,
+		"память: запись без жителя не сохраняется")
+
+	# TASK-019: доска — Лида, без неё Рита, без обеих находка; ответ запоминается
+	var board_bad := PackedStringArray()
+	var tellers := {}
+	for sd in range(60):
+		var md := _chapter_match("a1c3", 3500 + sd)
+		var m: Match = md[0]
+		var d: Director = md[1]
+		var pair2 := _pair(m, 2, 7)
+		if pair2[0] == null:
+			continue
+		for kill in range(3):
+			if kill >= 1:
+				(pair2[0] as Villager).alive = false
+			if kill == 2 and pair2[1] != null:
+				(pair2[1] as Villager).alive = false
+			Save.player_name = "" if kill == 1 else "Влади"
+			var sc := Scenes.board(m)
+			tellers[int(sc.teller)] = true
+			var ok_sc := (sc.frames as Array).size() >= 2 and (sc.choice.options as Array).size() == 3
+			for f: Dictionary in sc.frames:
+				for ln: Dictionary in f.lines:
+					if bad_tag.search(String(ln.text)) != null:
+						ok_sc = false
+			var t := m.get_villager(int(sc.teller))
+			if kill == 0 and (t == null or t.story_id != 2):
+				ok_sc = false
+			if kill >= 1 and t != null and t.story_id == 2:
+				ok_sc = false
+			if not ok_sc:
+				board_bad.append("%d/%d" % [sd, kill])
+			if kill == 0:
+				m.world.add(WorldLog.Kind.CHOICE, m.day, 0, -1, -1, [0], false, {"scene": "a1c3_board", "choice": "confess"})
+				d.board_answer(t, "confess")
+				var recs := m.world.campaign_records(m)
+				if d.scene_lines.is_empty() or recs.filter(func(r: Dictionary) -> bool: return String(r.kind) == "board_confess").is_empty():
+					board_bad.append("%d: ответ у доски не запомнен" % sd)
+				d.scene_lines.clear()
+		if tellers.size() >= 3:
+			break
+	# утро главы «Прощание»: сцена доски один раз за партию, после первой ночи
+	var chapter_before := Game.chapter
+	Game.chapter = Campaign.chapter("a1c3")
+	Game.board_done = false
+	var mb: Match = _chapter_match("a1c3", 3550)[0]
+	var r0 := NightReport.new()
+	var first_day := MorningScreen.morning_scene(mb, r0)
+	mb.day = 2
+	var s1 := MorningScreen.morning_scene(mb, r0)
+	var s2 := MorningScreen.morning_scene(mb, r0)
+	ok += SelfTest._expect(fails, String(first_day.get("id", "")) != "a1c3_board" and String(s1.get("id", "")) == "a1c3_board"
+		and String(s2.get("id", "")) != "a1c3_board", "имя на доске: сцена не на втором утре или повторяется")
+	Game.chapter = chapter_before
+	Game.board_done = false
+	ok += SelfTest._expect(fails, board_bad.is_empty() and tellers.has(-1), "имя на доске: " + ", ".join(board_bad.slice(0, 5)) + " рассказчики " + str(tellers.keys()))
+
+	# TASK-020: на лодке — раз за главу и только в «Прощании»; упырь возвращается, человек уплывает
+	var send_bad := PackedStringArray()
+	var gone := 0
+	var back_upyr := 0
+	for sd in range(40):
+		var md := _chapter_match("a1c3", 3600 + sd)
+		var m: Match = md[0]
+		var bots := m.alive_bots()
+		var v: Villager = bots[sd % bots.size()]
+		if not m.send_away(v) or m.send_away(bots[(sd + 1) % bots.size()]):
+			send_bad.append("%d: не раз за главу" % sd)
+			continue
+		var r := NightReport.new()
+		m._sail(r)
+		if v.is_upyr:
+			back_upyr += 1
+			if not v.alive or v.departed:
+				send_bad.append("%d: упырь уплыл" % sd)
+		elif not v.alive:
+			gone += 1
+			if not v.departed:
+				send_bad.append("%d: уплывший считается погибшим" % sd)
+		if r.entries.is_empty() or not String(r.entries[0].cause).begins_with("boat"):
+			send_bad.append("%d: утро не знает о лодке" % sd)
+	var m2: Match = _chapter_match("a1c2", 3700)[0]
+	if m2.send_away(m2.alive_bots()[0]):
+		send_bad.append("лодка доступна не в «Прощании»")
+	ok += SelfTest._expect(fails, send_bad.is_empty() and gone > 0 and back_upyr > 0, "прощание: %s (уплыло %d, упырей вернулось %d)" % [", ".join(send_bad.slice(0, 4)), gone, back_upyr])
+
+	Save.campaign_dead.assign(dead_before)
+	Save.campaign_memory.assign(mem_before)
+	Save.player_name = name_before
+	if not backup.is_empty():
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		f.store_buffer(backup)
+		f.close()
+	return ok

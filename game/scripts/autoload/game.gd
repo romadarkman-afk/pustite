@@ -24,6 +24,7 @@ var daily: String = ""             ## дата испытания дня, есл
 var new_items: PackedStringArray = []   ## что открылось за эту партию: «lantern:copper»
 var opening_done := false        ## глава «Стук»: сцена у реки уже показана (TASK-011)
 var first_contact := false       ## первый личный разговор в партии
+var board_done := false          ## сцена «Имя на доске» в этой партии уже была (TASK-019)
 var inspection_bonus := 0       ## награда за знакомство: один осмотр у двери
 var host_pleas: Dictionary[int, String] = {}
 var clock: PhaseClock
@@ -83,6 +84,7 @@ func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = 
 	Dread.reset()
 	dilemma = {}
 	first_contact = false
+	board_done = false
 	opening_done = false
 	inspection_bonus = 0
 	m = Match.new()
@@ -95,6 +97,8 @@ func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = 
 		m.cast = Campaign.cast(String(chapter.id))
 		m.guests = Campaign.guests(String(chapter.id))
 		m.guest_roles_fixed = String(chapter.get("guest_roles", "story")) == "story"
+		if String(chapter.id) in ["a1c2", "a1c3"]:
+			m.plant_chapter = String(chapter.id)      # заложенное противоречие и «Пустая лодка» (TASK-018)
 		if Campaign.MAPS.has(String(chapter.get("map", ""))):
 			m.village = load(Campaign.MAPS[String(chapter.map)]) as VillageDef
 	elif daily_date == "" and randf() < Guests.QUICK_P:
@@ -108,6 +112,7 @@ func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = 
 	director.tune = 0.0 if daily != "" else Save.tune()   # испытание дня у всех одинаковое
 	director.attach(m)
 	director.first_chapter = String(chapter.get("id", "")) == "a1c1"
+	director.chapter_id = String(chapter.get("id", ""))
 	if not chapter.is_empty():
 		# кампания помнит прошлые главы: доверие, обиды, заступничество (TASK-007, TASK-010)
 		director.apply_campaign(Save.campaign_bonds, Campaign.active_grudges(), Campaign.defenders())
@@ -515,6 +520,36 @@ func invite(vid: int, house: int) -> void:
 	var it := _intent(IntentParser.Kind.INVITE, t)
 	it.house = house
 	_player_says(L.t("say.invite", {"who": t, "house": m.house_name(house)}), it)
+
+
+## Спросить при всех о противоречии в тетради улик (TASK-017).
+func confront(a_id: String, b_id: String) -> void:
+	if m == null or m.phase != Match.Phase.DAY or not m.player().alive:
+		return
+	var a := m.clues.get_entry(a_id)
+	var b := m.clues.get_entry(b_id)
+	var t := m.get_villager(int(a.get("who", -1)))
+	if t == null or not m.clues.contradiction(a, b) or m.clues.asked.has(Clues.pair_key(a, b)):
+		return
+	var line := ChatLine.say(m.player(), L.t("say.confront", {"who": t}))
+	line.about = t
+	m.post(line)
+	var replies := director.confront(a, b)
+	marks_changed.emit()
+	_feed(replies)
+
+
+## Отправить жителя на лодке за реку (TASK-020).
+func send_away(vid: int) -> void:
+	var t := m.get_villager(vid) if m != null else null
+	if t == null or m.phase != Match.Phase.DAY:
+		return
+	var replies := director.farewell(t)
+	if replies.is_empty():
+		return
+	m.post(ChatLine.system(L.t("sys.send", {"who": t})))
+	marks_changed.emit()
+	_feed(replies)
 
 
 ## Обещание жителю (TASK-004): «открою тебе, если постучишь» или «приду к тебе ночевать».

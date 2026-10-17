@@ -216,6 +216,15 @@ func chapter_card(res: Dictionary) -> PanelContainer:
 		var end := W.label(Campaign.act_ending(int(Game.chapter.get("act", 1))), &"Tale")
 		end.name = "ActEnd"
 		box.add_child(end)
+		# разгадка «Пустой лодки» (TASK-018): только если игрок собрал достаточно находок
+		if id == "a1c3" and Campaign.boat_clues() >= Campaign.BOAT_SOLVED:
+			var b := Revelations.beat("boat_answer", m)
+			var bt := W.label(String(b[0]), &"Speaker")
+			bt.name = "BoatAnswer"
+			box.add_child(bt)
+			var bx := W.label(String(b[1]), &"Tale")
+			bx.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			box.add_child(bx)
 	return card
 
 

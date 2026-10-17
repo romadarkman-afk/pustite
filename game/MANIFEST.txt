@@ -39,6 +39,7 @@ scripts/core/cosmetics.gd
 scripts/core/difficulty.gd
 scripts/core/dread.gd
 scripts/core/feelings.gd
+scripts/core/clues.gd
 scripts/core/game_config.gd
 scripts/core/guests.gd
 scripts/core/match.gd
@@ -81,6 +82,7 @@ scripts/ui/journal_sheet.gd
 scripts/ui/phase_clock.gd
 scripts/ui/safe_frame.gd
 scripts/ui/scene_player.gd
+scripts/ui/clue_book.gd
 scripts/ui/screen.gd
 scripts/ui/screen_host.gd
 scripts/ui/screens/book_screen.gd

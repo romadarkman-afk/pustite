@@ -4869,6 +4869,7 @@ static func diary() -> void:
 	# знание жителей и обещания (TASK-003, TASK-004)
 	ok += PlanTests.knowledge_and_promises(fails)
 	ok += PlanTests.behaviour(fails)
+	ok += PlanTests.group_four(fails)
 
 	# 2. Экран: кнопка «Дневник», карточка на каждого, всё в кадре, закрывается
 	Save.set_difficulty("normal")

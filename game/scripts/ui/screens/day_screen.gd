@@ -232,6 +232,10 @@ func person_actions(v: Villager) -> void:
 		opts.append(L.t("day.p_elder", {"who": v}))
 	var promise_index := opts.size()
 	opts.append(L.t("day.p_promise"))
+	var send_index := -1
+	if m.plant_chapter == "a1c3" and not m.send_used:       # «Прощание»: лодка за реку, одна за главу (TASK-020)
+		send_index = opts.size()
+		opts.append(L.t("day.p_send"))
 	var personal_index := opts.size()
 	opts.append(SocialContent.narrative_ui("personal"))
 	var legend_index := opts.size()
@@ -249,6 +253,11 @@ func person_actions(v: Villager) -> void:
 		return
 	if i == promise_index:
 		promise_actions(v)
+		return
+	if i == send_index and send_index >= 0:
+		var yes: int = await ActionSheet.ask(self, L.t("day.send_ask", {"who": v}), PackedStringArray([L.t("day.send_yes")]))
+		if yes == 0:
+			emit_intent(Intent.SEND_AWAY, {"id": v.id})
 		return
 	match i:
 		0: emit_intent(Intent.ACCUSE, {"id": v.id})

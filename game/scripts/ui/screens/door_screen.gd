@@ -27,6 +27,8 @@ var _box: VBoxContainer       ## содержимое двери на тёмно
 var _seats: HBoxContainer     ## свободные места значками: занятые светятся
 var _asked := false            ## вопрос «Кто там?» — один за ночь (TASK-013)
 var _ask_rows: Dictionary[int, Button] = {}
+var _name_labels: Dictionary[int, Label] = {}
+var _portraits: Dictionary[int, Control] = {}
 var _touched := false          ## игрок что-то сделал у двери: повторный стук больше не нужен
 const IDLE_KNOCK := 5.5        ## молчишь у двери — через столько секунд стучат снова
 const IDLE_KNOCKS := 3
@@ -166,9 +168,16 @@ func _build_host() -> void:
 		row.add_child(portrait)
 		var texts := W.vbox(4)
 		texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		texts.add_child(W.label(g.name, &"Body"))
+		var fog := m.night_event == Match.Event.FOG
+		var name_l := W.label(L.t("door.fog_voice") if fog else g.name, &"Body")
+		_name_labels[g.id] = name_l
+		texts.add_child(name_l)
+		_portraits[g.id] = portrait
+		if fog:
+			portrait.modulate = Color(0.8, 0.85, 0.9, 0.3)     # в тумане лица не видно (TASK-016)
 		texts.add_child(W.label(L.t("door.quote", {"text": pleas.get(g.id, "…")}), &"Small"))
-		var ask := W.button(L.t("door.ask"), &"Ghost")
+		var mem := fog and director != null and not director.shared_memory(g).is_empty()
+		var ask := W.button(L.t("door.mem_ask") if mem else L.t("door.ask"), &"Ghost")
 		ask.name = "Ask_%d" % g.id
 		ask.custom_minimum_size = Vector2(0, ThemeFactory.TOUCH)
 		var aid := g.id
@@ -254,6 +263,17 @@ func ask_who(gid: int) -> void:
 	_asked = true
 	_touched = true
 	var answer := director.door_answer(g, seat) if director != null else ""
+	# туман: если днём был разговор, вопрос о нём, и голос либо помнит, либо сбивается (TASK-016)
+	if m.night_event == Match.Event.FOG and director != null:
+		var mem := director.memory_answer(g, seat)
+		if not mem.is_empty():
+			answer = String(mem.text) + "\n" + L.t("door.mem_ok" if bool(mem.ok) else "door.mem_bad")
+		var name_l: Label = _name_labels.get(gid)
+		if is_instance_valid(name_l):
+			name_l.text = L.t("door.fog_claim", {"me": g})
+		var pic: Control = _portraits.get(gid)
+		if is_instance_valid(pic):
+			pic.modulate = Color(1, 1, 1, 0.7)
 	var note: Label = _observations.get(gid)
 	if is_instance_valid(note):
 		note.text = answer if note.text.is_empty() else note.text + "\n" + answer

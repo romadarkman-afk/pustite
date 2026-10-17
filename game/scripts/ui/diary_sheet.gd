@@ -99,6 +99,14 @@ func _build(m: Match, d: Director) -> void:
 	var box := W.vbox(10)
 	sheet.add_child(box)
 	box.add_child(W.label(L.t("diary.head"), &"Hint"))
+	# тетрадь улик (TASK-017): записи и противоречия
+	var clues_b := W.button(L.t("clue.btn", {"n": m.clues.shown().size()}), &"Ghost")
+	clues_b.name = "Clues"
+	clues_b.pressed.connect(func() -> void:
+		var parent := get_parent() as Control
+		close()
+		ClueBook.open(parent, m, parent as Screen))
+	box.add_child(clues_b)
 	box.add_child(W.label(SocialContent.case_title(m.case_id), &"Body"))
 	var sc := ScrollContainer.new()
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED

@@ -199,6 +199,9 @@ func handle_back() -> bool:
 		if c is ScenePlayer:
 			(c as ScenePlayer).skip()
 			return true
+		if c is ClueBook:
+			(c as ClueBook).close()
+			return true
 		if c is ActionSheet:
 			(c as ActionSheet).close(-1)
 			return true

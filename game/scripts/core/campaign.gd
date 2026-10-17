@@ -202,22 +202,66 @@ static func finish(m: Match, ch: Dictionary, d: Director = null) -> Dictionary:
 	var lost: Array[int] = []
 	var lost_guests := PackedStringArray()
 	for v: Villager in m.villagers:
-		if v.is_player or v.alive:
+		if v.is_player or v.alive or v.departed:      # уплывший за реку жив и придёт в следующих главах
 			continue
 		if not v.guest_id.is_empty():
 			lost_guests.append(v.guest_id)
 		elif v.story_id >= 0:
 			lost.append(v.story_id)
 	if passed:
-		Save.record_chapter(String(ch.id), stars, lost, lost_guests, m.world.campaign_records(m, Save.MEMORY_PER_CHAPTER),
-			d.campaign_bonds() if d != null else {})
+		var mem := m.world.campaign_records(m, Save.MEMORY_PER_CHAPTER - 2)
+		mem.append_array(boat_records(m))
+		Save.record_chapter(String(ch.id), stars, lost, lost_guests, mem, d.campaign_bonds() if d != null else {})
 	return {"passed": passed, "stars": stars, "goals": g, "lost": lost, "lost_guests": lost_guests, "id": String(ch.id)}
 
 
 ## Концовка акта: сколько из первых жителей деревни дожили до конца акта.
 static func act_ending(act: int) -> String:
 	var id := act_ending_id(act)
-	return L.t("camp.act%d.end_%s" % [act, id.get_slice("_", 1)]) if not id.is_empty() else ""
+	var text := L.t("camp.act%d.end_%s" % [act, id.get_slice("_", 1)]) if not id.is_empty() else ""
+	if act == 1 and not text.is_empty():
+		# акт I помнит загадки (TASK-018, 019): разгадана ли лодка и что игрок ответил у доски
+		text += " " + L.t("camp.act1.boat" if boat_clues() >= BOAT_SOLVED else "camp.act1.boat_open")
+		var board := board_choice()
+		if not board.is_empty():
+			text += " " + L.t("camp.act1.board_" + board)
+	return text
+
+
+## Что глава добавила к «Пустой лодке» (TASK-018): находка у реки и спрошенное при всех противоречие.
+## Находка есть в каждой из двух глав, вопрос — только если игрок сам сравнил записи. Разгадка — от трёх.
+static func boat_records(m: Match) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for e: Dictionary in m.clues.entries:
+		if String(e.mystery) == "boat" and int(e.who) < 0:
+			out.append({"kind": "clue_boat", "who": -1, "day": int(e.day), "knew": []})
+	for key: String in m.clues.asked:
+		for id: String in key.split("|"):
+			if String(m.clues.get_entry(id).get("mystery", "")) == "boat":
+				out.append({"kind": "clue_boat", "who": -1, "day": m.day, "knew": []})
+				break
+	return out.slice(0, 2)
+
+
+const BOAT_SOLVED := 3
+
+
+## Сколько находок «Пустой лодки» собрано за кампанию.
+static func boat_clues() -> int:
+	var n := 0
+	for rec: Dictionary in Save.campaign_memory:
+		if String(rec.kind) == "clue_boat":
+			n += 1
+	return n
+
+
+## Что игрок ответил у доски с именем: confess, deny, silent или "" — ещё не был там.
+static func board_choice() -> String:
+	var out := ""
+	for rec: Dictionary in Save.campaign_memory:
+		if String(rec.kind).begins_with("board_"):
+			out = String(rec.kind).substr(6)
+	return out
 
 
 ## Какая концовка акта вышла: act1_all, act1_some или act1_none (и так же для следующих актов).

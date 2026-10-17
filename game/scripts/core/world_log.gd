@@ -151,6 +151,11 @@ func campaign_records(m: Match, limit: int = 40) -> Array[Dictionary]:
 			Kind.LISTENED:
 				if e.actor == me:
 					rec = {"kind": "listened", "who": e.target}
+			Kind.CHOICE:
+				# выбор в сюжетной сцене (TASK-019): помнится без привязки к жителю
+				if String(e.info.get("scene", "")) == "a1c3_board":
+					out.append({"kind": "board_" + String(e.info.get("choice", "silent")), "who": -1, "day": e.day, "knew": []})
+				continue
 			Kind.REACTION:
 				# реакция близкого на гибель у двери игрока (TASK-010): помнится до конца кампании
 				if e.target == me:

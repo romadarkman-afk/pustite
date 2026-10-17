@@ -447,7 +447,7 @@ static func _memory_record(rec: Variant) -> Dictionary:
 	var d := rec as Dictionary
 	var kind := String(d.get("kind", ""))
 	var ch := String(d.get("ch", ""))
-	if kind.is_empty() or ch.is_empty() or not d.has("who"):
+	if kind.is_empty() or ch.is_empty() or not d.has("who"):   # who = -1 — запись без жителя (находка, выбор)
 		return {}
 	var knew: Array = []
 	var raw_knew: Variant = d.get("knew", [])

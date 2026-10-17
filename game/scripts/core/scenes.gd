@@ -95,6 +95,36 @@ static func first_night_outcome(m: Match) -> Dictionary:
 	return {"kind": "refuse", "who": refused.target if refused != null else -1}
 
 
+## «Имя на доске» (TASK-019): глава «Прощание», утро второго дня. Рассказчик — Лида, без неё Рита,
+## без обеих игрок находит доску сам. В конце три ответа: признаться, отрицать, промолчать.
+static func board(m: Match) -> Dictionary:
+	var present: Array = []
+	for v: Villager in m.alive_bots():
+		if v.guest_id.is_empty():
+			present.append(v.story_id)
+	var src := Revelations.source("board_name", present)
+	var teller := _anchor(m, int(src.who)) if int(src.who) >= 0 else null
+	var lines: Array = []
+	if int(src.lost) >= 0:
+		lines.append({"text": L.t("rev.instead", {"lost": Revelations._person(int(src.lost), null)})})
+	var name := Save.player_name
+	var carved := L.t("sc.board.2", {"name": name}) if not name.is_empty() else L.t("sc.board.2_noname")
+	var frames: Array = []
+	if teller != null:
+		lines.append({"who": teller.name, "text": L.t("sc.board.1", {"me": teller})})
+		frames.append({"portrait": teller, "light": "dawn", "lines": lines, "sound": [{"at": 0.0, "do": "silence"}]})
+		frames.append({"art": art("a1c3"), "light": "dawn", "lines": [{"text": carved}], "sound": [{"at": 0.4, "do": "play", "id": "creak", "vol": -6.0}]})
+		frames.append({"portrait": teller, "light": "night", "lines": [{"who": teller.name, "text": L.t("sc.board.3", {"me": teller})}]})
+	else:
+		lines.append({"text": L.t("sc.board.alone")})
+		frames.append({"art": art("a1c3"), "light": "dawn", "lines": lines})
+		frames.append({"art": art("a1c3"), "light": "dawn", "lines": [{"text": carved}], "sound": [{"at": 0.4, "do": "play", "id": "creak", "vol": -6.0}]})
+	return {"id": "a1c3_board", "teller": teller.id if teller != null else -1, "frames": frames,
+		"choice": {"prompt": L.t("sc.board.ask"), "options": [
+			{"id": "confess", "text": L.t("sc.board.c_confess")}, {"id": "deny", "text": L.t("sc.board.c_deny")},
+			{"id": "silent", "text": L.t("sc.board.c_silent")}]}}
+
+
 ## Утро после утраты (TASK-014): кадры по предмету из истории того, кто остался, затем реплика реакции днём.
 static func grief(kin: Villager, lost: Villager) -> Dictionary:
 	var g := GriefReactions.scene_frames(kin, lost)

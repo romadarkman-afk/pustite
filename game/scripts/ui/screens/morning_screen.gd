@@ -57,7 +57,9 @@ func _scene_then_reveal(r: NightReport) -> void:
 	var sc := morning_scene(m, r)
 	if not sc.is_empty() and not you_died():
 		scene_shown = String(sc.id)
-		await ScenePlayer.play(self, sc, m)
+		var choice: String = await ScenePlayer.play(self, sc, m)
+		if String(sc.id) == "a1c3_board":
+			board_chosen(sc, choice)
 		if not is_instance_valid(self):
 			return
 	_reveal(r)
@@ -68,6 +70,10 @@ static func morning_scene(mm: Match, r: NightReport) -> Dictionary:
 		return {}
 	if String(Game.chapter.get("id", "")) == "a1c1" and mm.day == 1:
 		return Scenes.first_morning(mm)
+	# «Имя на доске» (TASK-019): первое утро главы «Прощание» после первой ночи; утрата подождёт карточкой
+	if String(Game.chapter.get("id", "")) == "a1c3" and mm.day >= 2 and not Game.board_done and mm.player().alive:
+		Game.board_done = true
+		return Scenes.board(mm)
 	for e: NightReport.Entry in r.deaths():
 		if e.who == null or e.who.is_player:
 			continue
@@ -75,6 +81,14 @@ static func morning_scene(mm: Match, r: NightReport) -> Dictionary:
 			if not kin.is_player and kin.guest_id.is_empty() and kin.story_id >= 0:
 				return Scenes.grief(kin, e.who)
 	return {}
+
+
+## Ответ у доски: в журнал мира (Campaign запомнит) и рассказчику.
+static func board_chosen(sc: Dictionary, choice: String) -> void:
+	if choice.is_empty() or Game.m == null:
+		return
+	if Game.director != null:
+		Game.director.board_answer(Game.m.get_villager(int(sc.get("teller", -1))), choice)
 
 
 func you_died() -> bool:
@@ -280,6 +294,8 @@ func _text(e: NightReport.Entry) -> String:
 	var v := e.who
 	var house := m.house_name(e.house) if e.house >= 0 else ""
 	var a := {"who": v, "house": house}
+	if e.cause == "boat" or e.cause == "boat_back":
+		return L.t("mo.sent" if e.cause == "boat" else "mo.sent_back", a)
 	if e.cause == "river":
 		return L.t("mo.river_dead" if e.is_death() else "mo.river_ok", a)
 	match e.kind:

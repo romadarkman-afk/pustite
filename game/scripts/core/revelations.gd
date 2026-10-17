@@ -14,6 +14,10 @@ const LIST := {
 	"board": {"chapter": "a1c3", "sources": [2, 7]},
 	## Свежая могила без имени за мельницей. Тимур — могильщик, Миша — следопыт.
 	"grave": {"chapter": "a2c1", "sources": [1, 8]},
+	## Разгадка «Пустой лодки» в конце акта I (TASK-018): лодку пригнал тот, кто звал игрока с того берега.
+	"boat_answer": {"chapter": "", "sources": [0, 5]},
+	## «Имя на доске» в главе «Прощание» (TASK-019): на доске имя игрока. Лида, без неё — Рита.
+	"board_name": {"chapter": "", "sources": [2, 7]},
 }
 const ORDER: PackedStringArray = ["boat", "board", "grave"]
 
