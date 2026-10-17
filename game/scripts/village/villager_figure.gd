@@ -159,6 +159,11 @@ static func pick_cast_sprite(v: Villager, used: Dictionary) -> int:
 		if not used.has(id):
 			used[id] = true
 			return id
+	# своего возраста картинки кончились: берём любую свободную того же пола, повтор только потом
+	for id: int in (FOLK_FEMALE if v.female else FOLK_MALE):
+		if not used.has(id):
+			used[id] = true
+			return id
 	return candidates[posmod(v.story_id, candidates.size())]
 
 
