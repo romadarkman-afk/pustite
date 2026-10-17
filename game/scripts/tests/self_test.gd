@@ -975,7 +975,7 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 	var cs := Nav.host.current
 	var b1 := cs.find_child("Chapter_a1c1", true, false) as Button
 	var b3 := cs.find_child("Chapter_a1c3", true, false) as Button
-	ok += _expect(fails, b1 != null and not b1.disabled and b3 != null and b3.disabled and cs.find_child("Soon_4", true, false) != null and cs.find_child("Chapter_a2c1", true, false) != null
+	ok += _expect(fails, b1 != null and not b1.disabled and b3 != null and b3.disabled and cs.find_child("Soon_4", true, false) == null and cs.find_child("Chapter_a4c3", true, false) != null and cs.find_child("Chapter_a2c1", true, false) != null
 		and cs.find_child("Fallen", true, false) != null, "экран глав: не видно открытых, закрытых, будущих актов или погибших")
 	var none_lost: Array[int] = []
 	Save.record_chapter("a1c2", 3, none_lost)
@@ -1019,6 +1019,28 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 	Nav.show_menu()
 	await _settle(tree)
 
+	# акт IV и финал сезона: станция, свои убежища, состав главы не больше живых жителей кампании
+	for cid: String in ["a3c1", "a3c2", "a3c3"]:
+		Save.record_chapter(cid, 1, no_lost)
+	ok += _expect(fails, Campaign.unlocked("a4c1") and not Campaign.unlocked("a4c2"), "акт IV не открылся после акта III")
+	Nav.start_chapter("a4c1")
+	await _settle(tree)
+	var st := L.houses("houses_station")
+	ok += _expect(fails, Game.m.village.houses_key == "houses_station" and Nav.village.titles[0] == st[0] and Game.m.force_event == Match.Event.RAIN,
+		"глава акта IV не на станции")
+	Nav.show_menu()
+	await _settle(tree)
+	var fin_end := Campaign.act_ending(4)
+	ok += _expect(fails, L.fill("{h.in}", {"h": st[1]}) == "Водокачке" and Campaign.last_of_act("a4c3") and Campaign.next_of("a4c3") == ""
+		and Campaign.act_ending_id(4).begins_with("act4_") and fin_end != "" and not fin_end.contains("{"), "финал сезона собран неверно")
+	var saved_dead := Save.campaign_dead.duplicate()
+	for i in range(3, L.names().size()):
+		if not Save.campaign_dead.has(i):
+			Save.campaign_dead.append(i)
+	ok += _expect(fails, Campaign.config("a4c3").players == Campaign.MIN_PLAYERS and Campaign.cast("a4c3").size() <= 3,
+		"погибшие насовсем возвращаются в главу: жителей %d" % Campaign.config("a4c3").players)
+	Save.campaign_dead = saved_dead
+
 	Save.campaign_reset()
 	Save.stats["games"] = games_before
 	Save.flush()
@@ -1052,6 +1074,11 @@ static func _guests_progress_checks(tree: SceneTree, fails: PackedStringArray) -
 		"гости кампании: роль, имя или число упырей не те")
 	ok += _expect(fails, not SocialContent.person_title(merchant).contains("{") and SocialContent.story(merchant.story_id, merchant) == Guests.story(merchant),
 		"у гостя чужая биография")
+	var gs_ok := true
+	for gid: String in Guests.IDS:
+		var gsid := VillagerFigure.guest_sprite(gid)
+		gs_ok = gs_ok and gsid > 0 and VillagerFigure.folk_tex(gsid) != null
+	ok += _expect(fails, gs_ok, "у гостей нет своих картинок")
 	var clues_ok := true
 	for d in range(1, Guests.REVEAL_DAY + 1):
 		mg.day = d
@@ -5643,7 +5670,7 @@ static func loc() -> void:
 			if not d.has(key):
 				miss.append(key)
 				continue
-			if key in ["houses", "houses_mill", "houses_monastery", "names", "looks", "you", "someone"]:
+			if key in ["houses", "houses_mill", "houses_monastery", "houses_station", "names", "looks", "you", "someone"]:
 				continue
 			if (ru_d[key] is Array) != (d[key] is Array):
 				bad_vars.append("%s: строка вместо банка или наоборот" % key)
@@ -5699,7 +5726,7 @@ static func loc() -> void:
 			elif not v.female and bm == null:
 				bm = v
 		for key: String in d:
-			if key in ["houses", "houses_mill", "houses_monastery", "names", "looks", "you", "someone"] or key.begins_with("intent."):
+			if key in ["houses", "houses_mill", "houses_monastery", "houses_station", "names", "looks", "you", "someone"] or key.begins_with("intent."):
 				continue
 			var lines: PackedStringArray = L.arr(key)
 			for who: Villager in [bm, bf, m.player()]:

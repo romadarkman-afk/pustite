@@ -8,36 +8,52 @@
 script = ExtResource("2_house")
 title = "Келья"
 kind = 0
-pos = Vector2(128, 312)
-size = Vector2(118, 92)
+pos = Vector2(84, 300)
+size = Vector2(130, 70)
+art = "cells"
+art_w = 1.85
+art_door = Rect2(0.1, 0.62, 0.08, 0.24)
 
 [sub_resource type="Resource" id="house_1"]
 script = ExtResource("2_house")
 title = "Трапезная"
 kind = 1
-pos = Vector2(592, 312)
-size = Vector2(142, 100)
+pos = Vector2(636, 302)
+size = Vector2(120, 80)
+art = "refectory"
+art_w = 1.75
+art_door = Rect2(0.22, 0.62, 0.1, 0.26)
+art_chimney = Vector2(0.6, 0.06)
 
 [sub_resource type="Resource" id="house_2"]
 script = ExtResource("2_house")
 title = "Храм"
 kind = 2
-pos = Vector2(360, 232)
-size = Vector2(96, 104)
+pos = Vector2(376, 214)
+size = Vector2(110, 96)
+art = "cathedral"
+art_w = 1.9
+art_door = Rect2(0.15, 0.64, 0.12, 0.28)
 
 [sub_resource type="Resource" id="house_3"]
 script = ExtResource("2_house")
 title = "Крипта"
 kind = 3
-pos = Vector2(178, 486)
-size = Vector2(122, 58)
+pos = Vector2(104, 500)
+size = Vector2(110, 64)
+art = "crypt"
+art_w = 1.75
+art_door = Rect2(0.2, 0.3, 0.22, 0.48)
 
 [sub_resource type="Resource" id="house_4"]
 script = ExtResource("2_house")
 title = "Колокольня"
 kind = 4
-pos = Vector2(552, 486)
-size = Vector2(128, 72)
+pos = Vector2(612, 506)
+size = Vector2(90, 110)
+art = "belltower"
+art_w = 1.5
+art_door = Rect2(0.29, 0.8, 0.11, 0.15)
 
 [sub_resource type="Resource" id="house_5"]
 script = ExtResource("2_house")
@@ -74,7 +90,7 @@ title = "Натаскать воды"
 place = "у колодца"
 done_line = "Воды до утра хватит."
 kind = 0
-pos = Vector2(406, 402)
+pos = Vector2(440, 372)
 portions = 3
 work_sec = 3.0
 
@@ -85,7 +101,7 @@ title = "Нарубить дров"
 place = "у поленницы"
 done_line = "Дров на всю ночь."
 kind = 1
-pos = Vector2(596, 402)
+pos = Vector2(215, 440)
 portions = 2
 work_sec = 3.5
 
@@ -96,7 +112,7 @@ title = "Заправить фонари"
 place = "у фонаря"
 done_line = "Фонари заправлены."
 kind = 2
-pos = Vector2(234, 366)
+pos = Vector2(250, 336)
 portions = 2
 work_sec = 3.0
 
@@ -107,19 +123,24 @@ title = "Наловить рыбы"
 place = "у реки"
 done_line = "Рыба на ужин есть."
 kind = 4
-pos = Vector2(110, 428)
+pos = Vector2(300, 500)
 portions = 2
 work_sec = 3.5
 
 [resource]
 script = ExtResource("1_village")
 shelters = Array[ExtResource("2_house")]([SubResource("house_0"), SubResource("house_1"), SubResource("house_2"), SubResource("house_3"), SubResource("house_4")])
-decor = Array[ExtResource("2_house")]([SubResource("house_5"), SubResource("house_6"), SubResource("house_7"), SubResource("house_8")])
-lamps = PackedVector2Array(258, 312, 462, 312, 360, 468)
-well = Vector2(360, 384)
-props = Array[Dictionary]([{"id": "prop_graves", "pos": Vector2(688, 470), "w": 62.0}, {"id": "prop_graves", "pos": Vector2(288, 548), "w": 58.0, "flip": true}, {"id": "prop_graves", "pos": Vector2(470, 552), "w": 54.0}, {"id": "prop_bench", "pos": Vector2(56, 350), "w": 54.0}, {"id": "prop_trough", "pos": Vector2(606, 556), "w": 56.0}])
+decor = Array[ExtResource("2_house")]([])
+lamps = PackedVector2Array(270, 300, 512, 300, 394, 452)
+well = Vector2(394, 356)
+props = Array[Dictionary]([{"id": "prop_bench", "pos": Vector2(204, 330), "w": 50.0}, {"id": "prop_trough", "pos": Vector2(520, 230), "w": 56.0}])
 houses_key = "houses_monastery"
-square_center = Vector2(360, 392)
-square_radii = Vector2(270, 100)
-river = true
+square_center = Vector2(394, 360)
+square_radii = Vector2(200, 104)
+river = false
+ground = "ground_monastery"
+ground_rect = Rect2(-50, 20, 819.2, 612)
+fences = PackedVector2Array()
+fish_planks = false
+box_spots = PackedVector2Array(232, 420, 556, 420, 300, 470, 488, 476)
 jobs = Array[ExtResource("3_job")]([SubResource("job_water"), SubResource("job_wood"), SubResource("job_lamp"), SubResource("job_fish")])

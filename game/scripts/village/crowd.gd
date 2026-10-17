@@ -45,7 +45,8 @@ func populate(m: Match) -> void:
 			f.set_sprite(VillagerFigure.hero_for(l))
 			f.set_hero_hat(Save.hat)
 		else:
-			f.sprite_id = VillagerFigure.pick_cast_sprite(v, used)
+			var gs := VillagerFigure.guest_sprite(v.guest_id)
+			f.sprite_id = gs if gs > 0 else VillagerFigure.pick_cast_sprite(v, used)
 		f.modulate = night_tint
 		add_child(f)
 		if v.is_player:

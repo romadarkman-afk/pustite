@@ -91,6 +91,8 @@ const HERO_M := 101
 const HERO_F := 102
 const HERO_HAT_IDS: PackedStringArray = ["top_hat", "beret", "straw", "ushanka", "flower", "jester"]
 ## Где фонарь на картинке героя: доля ширины от середины и доля высоты от земли.
+## Гости кампании — свои картинки assets/folk/guest_<id>.png.
+const GUEST_SPRITES := {"soldier": 201, "widow": 202, "merchant": 203}
 const HERO_LANTERN := {HERO_M: Vector2(0.41, 0.66), HERO_F: Vector2(0.40, 0.66)}
 static var _folk_tex: Dictionary = {}
 static var _hero_hat_tex: Dictionary = {}
@@ -149,6 +151,12 @@ func set_identity_color(id: int) -> void:
 		tag.queue_redraw()
 
 
+## Картинка гостя или 0, если её нет.
+static func guest_sprite(guest_id: String) -> int:
+	var id: int = GUEST_SPRITES.get(guest_id, 0)
+	return id if id > 0 and ResourceLoader.exists(FOLK_DIR + "guest_" + guest_id + ".png") else 0
+
+
 static func pick_cast_sprite(v: Villager, used: Dictionary) -> int:
 	var candidates: PackedInt32Array
 	if v.female:
@@ -170,6 +178,8 @@ static func pick_cast_sprite(v: Villager, used: Dictionary) -> int:
 static func folk_tex(id: int) -> Texture2D:
 	if not _folk_tex.has(id):
 		var file := "hero_m" if id == HERO_M else ("hero_f" if id == HERO_F else "f%d" % id)
+		if GUEST_SPRITES.values().has(id):
+			file = "guest_" + String(GUEST_SPRITES.find_key(id))
 		_folk_tex[id] = load(FOLK_DIR + file + ".png")
 	return _folk_tex[id]
 

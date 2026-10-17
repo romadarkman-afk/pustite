@@ -10,6 +10,10 @@ title = "Дом мельника"
 kind = 0
 pos = Vector2(128, 312)
 size = Vector2(118, 92)
+art = "miller"
+art_w = 1.45
+art_door = Rect2(0.14, 0.6, 0.12, 0.28)
+art_chimney = Vector2(0.68, 0.04)
 
 [sub_resource type="Resource" id="house_1"]
 script = ExtResource("2_house")
@@ -17,6 +21,9 @@ title = "Мельничный двор"
 kind = 1
 pos = Vector2(592, 312)
 size = Vector2(142, 100)
+art = "mill"
+art_w = 1.4
+art_door = Rect2(0.56, 0.66, 0.08, 0.28)
 
 [sub_resource type="Resource" id="house_2"]
 script = ExtResource("2_house")
@@ -24,6 +31,9 @@ title = "Скит"
 kind = 2
 pos = Vector2(360, 232)
 size = Vector2(96, 104)
+art = "hermitage"
+art_w = 1.65
+art_door = Rect2(0.2, 0.62, 0.1, 0.29)
 
 [sub_resource type="Resource" id="house_3"]
 script = ExtResource("2_house")
@@ -31,6 +41,9 @@ title = "Схрон"
 kind = 3
 pos = Vector2(96, 470)
 size = Vector2(122, 58)
+art = "dugout"
+art_w = 1.25
+art_door = Rect2(0.18, 0.33, 0.24, 0.47)
 
 [sub_resource type="Resource" id="house_4"]
 script = ExtResource("2_house")
@@ -38,6 +51,10 @@ title = "Двор кузнеца"
 kind = 4
 pos = Vector2(552, 486)
 size = Vector2(128, 72)
+art = "smithy"
+art_w = 1.35
+art_door = Rect2(0.12, 0.42, 0.3, 0.5)
+art_chimney = Vector2(0.66, 0.11)
 
 [sub_resource type="Resource" id="house_5"]
 script = ExtResource("2_house")

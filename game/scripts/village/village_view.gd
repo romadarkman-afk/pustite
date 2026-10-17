@@ -566,6 +566,13 @@ func _flip(h: HouseDef) -> bool:
 
 
 func _art(h: HouseDef) -> Array:
+	if not h.art.is_empty():
+		var key := "maps/" + h.art
+		if not _tex.has(key + "_day"):
+			_tex[key + "_day"] = load(ART_DIR + key + "_day.png") as Texture2D
+			var np := ART_DIR + key + "_night.png"
+			_tex[key + "_night"] = load(np) as Texture2D if ResourceLoader.exists(np) else null
+		return [key, h.art_w, h.art_door]
 	return HOUSE_ART.get(h.kind, HOUSE_ART[HouseDef.Kind.HOME])
 
 
@@ -634,9 +641,13 @@ func _draw_house(ci: CanvasItem, h: HouseDef, state: int, n: float, lit: float, 
 		mod = mod.darkened(0.32)
 	elif state == 0:
 		mod = mod.darkened(0.08)
+	var night_tex: Texture2D = _tex.get(a[0] + "_night")
+	if night_tex == null and state != 2:
+		# у картинки нет ночной пары: жилой дом ночью теплеет, будто внутри горит свет
+		mod = mod.lerp(Color(1.0, 0.82, 0.6), 0.42 * lit)
 	_blit(ci, _tex[a[0] + "_day"], r, flip, mod)
-	if state != 2 and lit > 0.0:
-		_blit(ci, _tex[a[0] + "_night"], r, flip, Color(1, 1, 1, lit * (1.0 if state == 1 else 0.85)))
+	if state != 2 and lit > 0.0 and night_tex != null:
+		_blit(ci, night_tex, r, flip, Color(1, 1, 1, lit * (1.0 if state == 1 else 0.85)))
 	var dr := door_rect(h)
 	if state == 1:
 		_draw_talisman(ci, dr, flip, n, tal)
@@ -921,10 +932,10 @@ func _build_smoke() -> void:
 	grow.add_point(Vector2(1, 1.0))
 	var k := 0
 	for h: HouseDef in homes:
-		if not CHIMNEY.has(h.kind):
+		var f: Vector2 = h.art_chimney if not h.art.is_empty() else CHIMNEY.get(h.kind, Vector2(-1, -1))
+		if f.x < 0.0:
 			continue
 		var r := house_rect(h)
-		var f: Vector2 = CHIMNEY[h.kind]
 		var p := CPUParticles2D.new()
 		p.texture = _tex.smoke
 		p.position = Vector2(r.position.x + r.size.x * (1.0 - f.x if _flip(h) else f.x), r.position.y + r.size.y * f.y - 6.0)

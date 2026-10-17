@@ -10,7 +10,7 @@ const ACTS := [
 	{"id": 1, "chapters": ["a1c1", "a1c2", "a1c3"]},
 	{"id": 2, "chapters": ["a2c1", "a2c2", "a2c3"]},   ## «Мельница у реки»: своя карта (config/village_mill.tres)
 	{"id": 3, "chapters": ["a3c1", "a3c2", "a3c3"]},   ## «Монастырь»: config/village_monastery.tres
-	{"id": 4, "chapters": []},       ## «Станция» — скоро
+	{"id": 4, "chapters": ["a4c1", "a4c2", "a4c3"]},   ## «Станция», финал сезона: config/village_station.tres
 ]
 
 ## Условия глав. cold_open — глава начинается сразу со стука в дверь (первые 3 минуты новичка).
@@ -35,10 +35,19 @@ const CHAPTERS := {
 	"a3c3": {"act": 3, "map": "monastery", "players": 10, "monsters": 3, "shelters": 4, "capacity": 3, "nights": 5,
 		"event": "moon", "goal": "people_win", "extra": ["no_wrong_exile", "guest_secret"], "guests": ["soldier", "merchant"],
 		"guest_roles": "random"},
+	"a4c1": {"act": 4, "map": "station", "players": 9, "monsters": 2, "shelters": 3, "capacity": 3, "nights": 4,
+		"event": "rain", "goal": "people_win", "extra": ["survive", "inspect"], "guests": ["merchant"]},
+	"a4c2": {"act": 4, "map": "station", "players": 10, "monsters": 3, "shelters": 4, "capacity": 2, "nights": 4,
+		"event": "fog", "goal": "exile_upyr_by_3", "extra": ["no_wrong_exile", "keep_couple"]},
+	"a4c3": {"act": 4, "map": "station", "players": 11, "monsters": 3, "shelters": 4, "capacity": 3, "nights": 5,
+		"event": "moon", "goal": "people_win", "extra": ["survive", "no_wrong_exile"], "guests": ["soldier", "widow", "merchant"],
+		"guest_roles": "random"},
 }
-const ORDER: PackedStringArray = ["a1c1", "a1c2", "a1c3", "a2c1", "a2c2", "a2c3", "a3c1", "a3c2", "a3c3"]
-const MAPS := {"mill": "res://config/village_mill.tres", "monastery": "res://config/village_monastery.tres"}
-const ENDING_ACTS := 3        ## у скольких актов уже есть концовка
+const ORDER: PackedStringArray = ["a1c1", "a1c2", "a1c3", "a2c1", "a2c2", "a2c3", "a3c1", "a3c2", "a3c3", "a4c1", "a4c2", "a4c3"]
+const MAPS := {"mill": "res://config/village_mill.tres", "monastery": "res://config/village_monastery.tres",
+	"station": "res://config/village_station.tres"}
+const ENDING_ACTS := 4        ## у скольких актов есть концовка; концовка акта IV — финал сезона
+const MIN_PLAYERS := 5
 const ART := "res://assets/scenes/%s.jpg"     ## картинка главы, если есть: a1c1.jpg …
 
 
@@ -55,7 +64,8 @@ static func config(id: String) -> GameConfig:
 	var c := (Save.config.duplicate() as GameConfig)
 	if ch.is_empty():
 		return c
-	c.players = int(ch.players)
+	# погибшие насовсем в главу не приходят: если живых местных меньше, чем мест в главе, жителей меньше
+	c.players = mini(int(ch.players), maxi(MIN_PLAYERS, cast(id).size() + 1))
 	c.monsters = int(ch.monsters)
 	c.shelters = int(ch.shelters)
 	c.capacity = int(ch.capacity)

@@ -89,8 +89,8 @@ static func pick(key: String, rng: RandomNumberGenerator, args: Dictionary = {})
 	return fill(a[rng.randi_range(0, a.size() - 1)], args)
 
 
-## Наборы убежищ: деревня (акт I и быстрая партия), мельница (акт II), монастырь (акт III).
-const HOUSE_KEYS: PackedStringArray = ["houses", "houses_mill", "houses_monastery"]
+## Наборы убежищ: деревня (акт I и быстрая партия), мельница (акт II), монастырь (акт III), станция (акт IV).
+const HOUSE_KEYS: PackedStringArray = ["houses", "houses_mill", "houses_monastery", "houses_station"]
 
 
 ## Убежища партии: названия в именительном.

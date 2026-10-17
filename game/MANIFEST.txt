@@ -17,6 +17,7 @@ config/looks_zh.tres
 config/village_default.tres
 config/village_mill.tres
 config/village_monastery.tres
+config/village_station.tres
 export_presets.cfg
 project.godot
 scenes/boot.tscn
