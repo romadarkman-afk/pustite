@@ -1108,7 +1108,7 @@ func data() -> Dictionary:
 		"ph.CLUE_ADMIT": ["Fine. I went to the river to check the boat. Couldn't sleep.", "Yes, I lied. I was afraid you'd suspect me.", "It's true. Someone called from the other bank, I went to look. Nobody there."],
 		"ph.CLUE_DENY": ["Nothing like that happened. You're mixing things up.", "Who do you trust, me or tracks in the mud?", "I was home. Enough."],
 		"ph.MEM_WRONG": ["Of course I remember. Open up, I'll tell you later.", "That talk? Yes, yes. Open up, it's cold.", "We had a deal. Open up."],
-		"door.mem_ask": "Ask what you talked about today",
+		"door.mem_ask": "What did we talk about?",
 		"door.mem_story": "\"Today we talked about this: {text}.\"",
 		"door.mem_promise": "\"We made a deal today. I remember my word.\"",
 		"door.mem_ok": "The voice remembers what only the two of you knew.",

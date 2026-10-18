@@ -1146,7 +1146,7 @@ func data() -> Dictionary:
 		"ph.CLUE_ADMIT": ["Peki. Kayığa bakmak için nehre gittim. Uyuyamadım.", "Evet, yalan söyledim. Benden şüphelenirsiniz diye korktum.", "Doğru. Karşı kıyıdan seslendiler, bakmaya gittim. Kimse yoktu."],
 		"ph.CLUE_DENY": ["Öyle bir şey olmadı. Karıştırıyorsun.", "Kime inanıyorsun, bana mı çamurdaki izlere mi?", "Evdeydim. Yeter."],
 		"ph.MEM_WRONG": ["Tabii hatırlıyorum. Aç, sonra anlatırım.", "O konuşma mı? Evet evet. Aç, hava soğuk.", "Anlaşmıştık ya. Aç."],
-		"door.mem_ask": "Bugün ne konuştuğunuzu sor",
+		"door.mem_ask": "Ne konuştuk?",
 		"door.mem_story": "“Bugün şundan konuştuk: {text}.”",
 		"door.mem_promise": "“Bugün sözleştik. Sözümü hatırlıyorum.”",
 		"door.mem_ok": "Ses yalnızca ikinizin bildiğini hatırlıyor.",

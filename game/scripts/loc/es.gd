@@ -1104,7 +1104,7 @@ func data() -> Dictionary:
 		"ph.CLUE_ADMIT": ["Vale. Fui al río a mirar la barca. No podía dormir.", "Sí, mentí. Tenía miedo de que sospecharais de mí.", "Es verdad. Llamaban desde la otra orilla y fui a mirar. No había nadie."],
 		"ph.CLUE_DENY": ["No pasó nada de eso. Te confundes.", "¿A quién crees, a mí o a unas huellas en el barro?", "Estuve en casa. Basta."],
 		"ph.MEM_WRONG": ["Claro que me acuerdo. Abre y luego te lo cuento.", "¿Esa charla? Sí, sí. Abre, hace frío.", "Teníamos un trato. Abre."],
-		"door.mem_ask": "Preguntar de qué hablasteis hoy",
+		"door.mem_ask": "¿De qué hablamos?",
 		"door.mem_story": "«Hoy hablamos de esto: {text}.»",
 		"door.mem_promise": "«Hoy hicimos un trato. Me acuerdo de mi palabra.»",
 		"door.mem_ok": "La voz recuerda lo que solo sabíais vosotros dos.",

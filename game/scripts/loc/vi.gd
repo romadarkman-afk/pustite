@@ -1102,7 +1102,7 @@ func data() -> Dictionary:
 		"ph.CLUE_ADMIT": ["Thôi được. Tôi ra sông xem thuyền. Không ngủ được.", "Ừ, tôi nói dối. Sợ mọi người nghi tôi.", "Đúng vậy. Có tiếng gọi từ bờ bên kia, tôi ra xem. Không có ai."],
 		"ph.CLUE_DENY": ["Không có chuyện đó. Bạn nhầm rồi.", "Bạn tin ai, tôi hay mấy dấu chân trong bùn?", "Tôi ở nhà. Đủ rồi."],
 		"ph.MEM_WRONG": ["Nhớ chứ. Mở cửa đi, lát kể.", "Chuyện đó à? Ừ ừ. Mở cửa đi, lạnh lắm.", "Mình đã hứa rồi mà. Mở cửa đi."],
-		"door.mem_ask": "Hỏi ban ngày hai người đã nói gì",
+		"door.mem_ask": "Mình đã nói gì?",
 		"door.mem_story": "“Hôm nay mình nói về chuyện này: {text}.”",
 		"door.mem_promise": "“Hôm nay mình đã hứa với nhau. Tôi nhớ lời mình.”",
 		"door.mem_ok": "Giọng nói nhớ điều chỉ hai người biết.",
