@@ -1,0 +1,69 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Пустите"
+config/description="Социальная дедукция с убежищами"
+config/version="0.50.0"
+run/main_scene="res://scenes/boot.tscn"
+config/quit_on_go_back=false
+config/features=PackedStringArray("4.6", "GL Compatibility")
+run/max_fps=60
+boot_splash/bg_color=Color(0.047, 0.035, 0.11, 1)
+boot_splash/stretch_mode=4
+boot_splash/image="res://assets/splash.png"
+config/icon="res://assets/icon/icon_512.png"
+
+[autoload]
+
+Diag="*res://scripts/autoload/diag.gd"
+Juice="*res://scripts/autoload/juice.gd"
+Sfx="*res://scripts/autoload/sfx.gd"
+Save="*res://scripts/autoload/save.gd"
+Game="*res://scripts/autoload/game.gd"
+Nav="*res://scripts/autoload/nav.gd"
+
+[debug]
+
+file_logging/enable_file_logging=true
+
+[display]
+
+window/size/viewport_width=720
+window/size/viewport_height=1280
+window/energy_saving/keep_screen_on=false
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=1
+
+[gui]
+
+timers/tooltip_delay_sec=99.0
+common/drop_mouse_on_gui_input_disabled=true
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
+[internationalization]
+
+locale/include_text_server_data=true
+
+[physics]
+
+common/physics_ticks_per_second=30
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
+environment/defaults/default_clear_color=Color(0.039, 0.063, 0.075, 1)
