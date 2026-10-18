@@ -22,19 +22,20 @@ const CHAPTERS := {
 	"a1c3": {"act": 1, "players": 8, "monsters": 2, "shelters": 3, "capacity": 3, "nights": 4,
 		"goal": "people_win", "extra": ["keep_couple", "no_wrong_exile"], "guests": ["soldier", "widow", "merchant"]},
 	"a2c1": {"act": 2, "map": "mill", "players": 7, "monsters": 1, "shelters": 3, "capacity": 2, "nights": 3,
-		"event": "rain", "goal": "people_win", "extra": ["survive", "inspect"]},
+		"event": "rain", "goal": "people_win", "extra": ["survive", "inspect"], "npc": "miller"},
 	"a2c2": {"act": 2, "map": "mill", "players": 8, "monsters": 2, "shelters": 3, "capacity": 2, "nights": 4,
 		"goal": "exile_upyr_by_3", "extra": ["no_wrong_exile", "guest_secret"], "guests": ["soldier", "widow", "merchant"],
-		"guest_roles": "random"},
+		"guest_roles": "random", "npc": "miller", "force_upyr": 9},
 	"a2c3": {"act": 2, "map": "mill", "players": 9, "monsters": 2, "shelters": 3, "capacity": 3, "nights": 4,
-		"event": "moon", "goal": "people_win", "extra": ["keep_couple", "no_wrong_exile"]},
+		"event": "moon", "goal": "people_win", "extra": ["keep_couple", "no_wrong_exile"], "npc": "miller", "flood": 2},
 	"a3c1": {"act": 3, "map": "monastery", "players": 8, "monsters": 2, "shelters": 3, "capacity": 2, "nights": 4,
-		"event": "fog", "goal": "people_win", "extra": ["inspect", "no_wrong_exile"], "guests": ["widow"]},
+		"event": "fog", "goal": "people_win", "extra": ["inspect", "no_wrong_exile"], "guests": ["widow"],
+		"npc": "ignat", "npcs": ["anfisa"], "vouch": true},
 	"a3c2": {"act": 3, "map": "monastery", "players": 9, "monsters": 2, "shelters": 3, "capacity": 3, "nights": 4,
-		"event": "quiet", "goal": "exile_upyr_by_3", "extra": ["survive", "keep_couple"]},
+		"event": "quiet", "goal": "exile_upyr_by_3", "extra": ["survive", "keep_couple"], "npc": "ignat", "npcs": ["anfisa"], "bell": true},
 	"a3c3": {"act": 3, "map": "monastery", "players": 10, "monsters": 3, "shelters": 4, "capacity": 3, "nights": 5,
 		"event": "moon", "goal": "people_win", "extra": ["no_wrong_exile", "guest_secret"], "guests": ["soldier", "merchant"],
-		"guest_roles": "random"},
+		"guest_roles": "random", "npc": "ignat", "npcs": ["anfisa"], "trial": true},
 	"a4c1": {"act": 4, "map": "station", "players": 9, "monsters": 2, "shelters": 3, "capacity": 3, "nights": 4,
 		"event": "rain", "goal": "people_win", "extra": ["survive", "inspect"], "guests": ["merchant"]},
 	"a4c2": {"act": 4, "map": "station", "players": 10, "monsters": 3, "shelters": 4, "capacity": 2, "nights": 4,
@@ -49,6 +50,58 @@ const MAPS := {"mill": "res://config/village_mill.tres", "monastery": "res://con
 const ENDING_ACTS := 4        ## у скольких актов есть концовка; концовка акта IV — финал сезона
 const MIN_PLAYERS := 5
 const ART := "res://assets/scenes/%s.jpg"     ## картинка главы, если есть: a1c1.jpg …
+
+
+## Особые условия главы для партии, до Match.start (TASK-021–024).
+static func setup_match(m: Match, ch: Dictionary) -> void:
+	m.chapter_id = String(ch.get("id", ""))
+	m.npc_id = String(ch.get("npc", ""))
+	m.force_upyr_story = int(ch.get("force_upyr", -1))
+	m.flood_day = int(ch.get("flood", -1))
+	# тайна мельника (TASK-022): промолчал — мельник помог с оберегами в монастыре
+	m.talisman_whole = int(ch.get("act", 0)) == 3 and miller_choice() == "keep"
+	# акт III (TASK-026–030)
+	m.extra_npcs = PackedStringArray(ch.get("npcs", []))
+	m.vouch_on = bool(ch.get("vouch", false))
+	m.bell_on = bool(ch.get("bell", false))
+	m.trust_on = int(ch.get("act", 0)) == 3
+	m.trust = trust_start(String(ch.get("id", "")))
+
+
+## Доверие группы переходит из главы в главу акта III (TASK-030): последняя запись "trust" в памяти.
+static func trust_start(id: String) -> int:
+	if id == "a3c1":
+		return Match.TRUST_START
+	var out := Match.TRUST_START
+	for rec: Dictionary in Save.campaign_memory:
+		if String(rec.kind) == "trust" and String(rec.ch).begins_with("a3") and String(rec.ch) != id:
+			out = clampi(int(rec.day), 0, Match.TRUST_MAX)
+	return out
+
+
+## Суд в «Крипте» (TASK-029): исход только по журналу. Кто помнит добро — защищает, кто помнит зло — обвиняет.
+## {"acquit": bool, "def": [{"who": номер, "kind"}], "acc": [...]}
+const TRIAL_DEF: PackedStringArray = ["admitted", "kept", "listened", "react_defend", "refused_you", "broke_you"]
+const TRIAL_ACC: PackedStringArray = ["refused_died", "refused", "broken", "exiled_by_you", "react_accuse", "react_revenge"]
+
+
+static func trial(m: Match) -> Dictionary:
+	var recs: Array[Dictionary] = []
+	recs.append_array(Save.campaign_memory)
+	if m != null:
+		for r: Dictionary in m.world.campaign_records(m, 60):
+			recs.append(r)
+	var dfn: Array[Dictionary] = []
+	var acc: Array[Dictionary] = []
+	for r: Dictionary in recs:
+		var k := String(r.kind)
+		if int(r.who) < 0:
+			continue
+		if TRIAL_DEF.has(k):
+			dfn.append({"who": int(r.who), "kind": k})
+		elif TRIAL_ACC.has(k):
+			acc.append({"who": int(r.who), "kind": k})
+	return {"acquit": dfn.size() >= acc.size(), "def": dfn, "acc": acc}
 
 
 static func chapter(id: String) -> Dictionary:
@@ -211,6 +264,9 @@ static func finish(m: Match, ch: Dictionary, d: Director = null) -> Dictionary:
 	if passed:
 		var mem := m.world.campaign_records(m, Save.MEMORY_PER_CHAPTER - 2)
 		mem.append_array(boat_records(m))
+		mem.append_array(miller_records(m))
+		if m.trust_on:
+			mem.append({"kind": "trust", "who": -1, "day": m.trust, "knew": []})   # доверие группы — в следующую главу акта
 		Save.record_chapter(String(ch.id), stars, lost, lost_guests, mem, d.campaign_bonds() if d != null else {})
 	return {"passed": passed, "stars": stars, "goals": g, "lost": lost, "lost_guests": lost_guests, "id": String(ch.id)}
 
@@ -225,6 +281,20 @@ static func act_ending(act: int) -> String:
 		var board := board_choice()
 		if not board.is_empty():
 			text += " " + L.t("camp.act1.board_" + board)
+	if act == 2 and not text.is_empty():
+		# акт II считается по двум актам (TASK-025): тайна мельника и сколько людей потеряно за оба
+		var mc := miller_choice()
+		if not mc.is_empty():
+			text += " " + L.t("camp.act2.miller_" + mc)
+		var lost := Save.campaign_dead.size()
+		text += " " + L.t("camp.act2.sum_few" if lost <= 2 else ("camp.act2.sum_some" if lost <= 5 else "camp.act2.sum_many"), {"n": lost})
+	if act == 3:
+		# суд в крипте (TASK-029): проигранный суд — своя концовка акта
+		for rec: Dictionary in Save.campaign_memory:
+			if String(rec.kind) == "trial_lost":
+				return L.t("camp.act3.end_trial")
+		if not text.is_empty() and Save.campaign_memory.any(func(r: Dictionary) -> bool: return String(r.kind) == "trial_won"):
+			text += " " + L.t("camp.act3.trial_won")
 	return text
 
 
@@ -244,6 +314,54 @@ static func boat_records(m: Match) -> Array[Dictionary]:
 
 
 const BOAT_SOLVED := 3
+const MILLER_KNOWN := 2       ## столько находок о мельнике — и игрок спрашивает его сам, а не слушает исповедь
+
+
+## Находки тайны мельника в главе (TASK-022): одна на главу акта II.
+static func miller_records(m: Match) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for e: Dictionary in m.clues.entries:
+		if String(e.mystery) == "miller" and int(e.who) < 0:
+			out.append({"kind": "clue_miller", "who": -1, "day": int(e.day), "knew": []})
+	return out.slice(0, 1)
+
+
+static func miller_clues() -> int:
+	var n := 0
+	for rec: Dictionary in Save.campaign_memory:
+		if String(rec.kind) == "clue_miller":
+			n += 1
+	return n
+
+
+## Что игрок решил о мельнике: tell (рассказал беженцам), keep (промолчал) или "".
+static func miller_choice() -> String:
+	var out := ""
+	for rec: Dictionary in Save.campaign_memory:
+		if String(rec.kind).begins_with("miller_"):
+			out = String(rec.kind).substr(7)
+	return out
+
+
+## Кто из жителей акта I жив и что он помнит об игроке (TASK-025): [{"who": номер, "kind": запись}].
+## Самая важная запись на каждого, не больше limit.
+static func act_one_memory(limit: int = 3) -> Array[Dictionary]:
+	var best: Dictionary = {}
+	for rec: Dictionary in Save.campaign_memory:
+		var who := int(rec.who)
+		if who < 0 or Save.campaign_dead.has(who) or not String(rec.ch).begins_with("a1"):
+			continue
+		var rank := WorldLog.RANK.find(String(rec.kind))
+		if rank < 0:
+			continue
+		if not best.has(who) or rank < WorldLog.RANK.find(String(best[who].kind)):
+			best[who] = rec
+	var out: Array[Dictionary] = []
+	for who: int in best:
+		out.append({"who": who, "kind": String(best[who].kind)})
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return WorldLog.RANK.find(String(a.kind)) < WorldLog.RANK.find(String(b.kind)))
+	return out.slice(0, limit)
 
 
 ## Сколько находок «Пустой лодки» собрано за кампанию.

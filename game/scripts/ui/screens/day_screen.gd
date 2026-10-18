@@ -212,6 +212,31 @@ func _defend() -> void:
 	emit_intent(Intent.DEFEND)
 
 
+## Хозяин места (TASK-021): один вопрос в день. Ответ — в чат, его видят все.
+func npc_actions(id: String = "") -> void:
+	if id.is_empty():
+		id = m.npc_id
+	if id.is_empty() or director == null:
+		return
+	var topics := Npc.topics(id)
+	var opts := PackedStringArray()
+	for t: String in topics:
+		opts.append(L.t("npc.%s.q_%s" % [id, t]))
+	var i: int = await ActionSheet.ask(self, Npc.display_name(id), opts)
+	if i < 0 or i >= topics.size() or not is_instance_valid(self):
+		return
+	if topics[i] == "book":
+		VouchSheet.open(self, m, director)      # книга у ворот: смотреть можно всегда, вопрос не тратится
+		return
+	if int(m.npc_asked.get(id, 0)) == m.day:
+		Nav.toast(L.t("npc.busy", {"name": Npc.display_name(id)}))
+		return
+	var answer := director.npc_answer(topics[i], id)
+	if not answer.is_empty():
+		m.post(ChatLine.say(m.player(), opts[i]))
+		m.post(Director.npc_line(id, answer))
+
+
 func person_actions(v: Villager) -> void:
 	var ev := director.evidence_text(v) if director != null else ""
 	var head := v.name
@@ -236,6 +261,10 @@ func person_actions(v: Villager) -> void:
 	if m.plant_chapter == "a1c3" and not m.send_used:       # «Прощание»: лодка за реку, одна за главу (TASK-020)
 		send_index = opts.size()
 		opts.append(L.t("day.p_send"))
+	var vouch_index := -1
+	if m.vouch_on and m.vouch_day != m.day:                  # «Ворота»: вписать имя в книгу (TASK-026)
+		vouch_index = opts.size()
+		opts.append(L.t("day.p_vouch"))
 	var personal_index := opts.size()
 	opts.append(SocialContent.narrative_ui("personal"))
 	var legend_index := opts.size()
@@ -253,6 +282,9 @@ func person_actions(v: Villager) -> void:
 		return
 	if i == promise_index:
 		promise_actions(v)
+		return
+	if i == vouch_index and vouch_index >= 0:
+		VouchSheet.confirm(self, m, director, v)
 		return
 	if i == send_index and send_index >= 0:
 		var yes: int = await ActionSheet.ask(self, L.t("day.send_ask", {"who": v}), PackedStringArray([L.t("day.send_yes")]))

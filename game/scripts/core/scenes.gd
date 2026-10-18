@@ -125,6 +125,127 @@ static func board(m: Match) -> Dictionary:
 			{"id": "silent", "text": L.t("sc.board.c_silent")}]}}
 
 
+## Хозяин места в сцене: портрет-картинка вместо жителя.
+static func npc_frame(id: String, text: String, light: String = "dawn") -> Dictionary:
+	return {"portrait": Npc.sprite_path(id), "light": light, "lines": [{"who": Npc.display_name(id), "text": text}]}
+
+
+## «Чужаки» (TASK-023): утро после первой ночи. Свежую могилу находит Тимур, без него Миша, без обоих
+## любой местный. В могиле нож охотницы, если она в составе (по деревне ходит то, что заняло её место),
+## иначе чужой путник. Деревня сразу винит гостей.
+static func grave(m: Match) -> Dictionary:
+	var finder: Villager = null
+	for idx: int in [1, 8]:
+		var v := _anchor(m, idx)
+		if v != null and v.alive:
+			finder = v
+			break
+	if finder == null:
+		for v: Villager in m.alive_bots():
+			if v.guest_id.is_empty():
+				finder = v
+				break
+	var hunter := _anchor(m, 9)
+	var frames: Array = []
+	var first := "sc.grave.1" if finder != null and finder.story_id == 1 else "sc.grave.1_other"
+	if finder != null:
+		frames.append({"portrait": finder, "light": "dawn", "weather": "rain",
+			"lines": [{"who": finder.name, "text": L.t(first, {"me": finder})}],
+			"sound": [{"at": 0.0, "do": "silence"}, {"at": 0.5, "do": "play", "id": "hammer", "vol": -10.0}]})
+	var found := L.t("sc.grave.knife", {"who": hunter}) if hunter != null and hunter.alive else L.t("sc.grave.stranger")
+	frames.append({"art": art("a2c2"), "light": "dawn", "weather": "rain", "lines": [{"text": found}]})
+	return {"id": "a2c2_grave", "finder": finder.id if finder != null else -1,
+		"hunter": hunter.id if hunter != null and hunter.alive else -1, "frames": frames}
+
+
+## «Половодье» (TASK-024): утро после первой ночи. Мельник: вода к вечеру будет у порога, лодка одна.
+## Игрок выбирает, какой из низких домов она спасёт; другой заливает до конца главы.
+static func flood(m: Match) -> Dictionary:
+	var opts: Array = []
+	for h: int in m.low_houses():
+		opts.append({"id": "h%d" % h, "text": L.t("sc.flood.c_house", {"house": m.house_name(h)})})
+	return {"id": "a2c3_flood", "frames": [
+		{"art": art("a2c3"), "light": "dawn", "weather": "rain", "lines": [{"text": L.t("sc.flood.1")}],
+		 "sound": [{"at": 0.0, "do": "amb", "id": "amb_river"}]},
+		npc_frame("miller", L.t("sc.flood.2"))],
+		"choice": {"prompt": L.t("sc.flood.ask"), "options": opts}}
+
+
+## Тайна мельника (TASK-022): глава «Половодье», утро после второй ночи. Нашёл достаточно — спрашиваешь сам,
+## нет — мельник рассказывает сам. Решение: рассказать беженцам или промолчать за его помощь.
+static func miller_secret(m: Match) -> Dictionary:
+	var known := Campaign.miller_clues() + Campaign.miller_records(m).size() >= Campaign.MILLER_KNOWN
+	var frames: Array = [
+		{"art": art("a2c3"), "light": "night", "lines": [{"text": L.t("sc.miller.1_known" if known else "sc.miller.1")}],
+		 "sound": [{"at": 0.0, "do": "silence"}, {"at": 0.6, "do": "play", "id": "latch", "vol": -6.0}]},
+		npc_frame("miller", L.t("sc.miller.2"), "night"),
+		npc_frame("miller", L.t("sc.miller.3"), "night"),
+	]
+	return {"id": "a2c3_miller", "frames": frames, "choice": {"prompt": L.t("sc.miller.ask"), "options": [
+		{"id": "tell", "text": L.t("sc.miller.c_tell")}, {"id": "keep", "text": L.t("sc.miller.c_keep")}]}}
+
+
+## «Колокол» (TASK-028): утро после первой ночи. Анфиса показывает вторую книгу — зачёркнутые имена.
+## Среди них дочь мельника и имя игрока: лодка, мельник и доска — одна история. Если загадки актов I–II
+## не разгаданы, Анфиса договаривает ответ сама.
+static func crossed_book(m: Match) -> Dictionary:
+	var name := Save.player_name
+	var frames: Array = [
+		npc_frame("anfisa", L.t("sc.crossed.1"), "night"),
+		{"art": art("a3c2"), "light": "night", "lines": [{"text": L.t("sc.crossed.2", {"name": name}) if not name.is_empty() else L.t("sc.crossed.2_noname")}],
+		 "sound": [{"at": 0.0, "do": "silence"}, {"at": 0.5, "do": "play", "id": "creak", "vol": -8.0}]},
+		npc_frame("anfisa", L.t("sc.crossed.3"), "night"),
+	]
+	var told: Array = []
+	if Campaign.boat_clues() < Campaign.BOAT_SOLVED:
+		told.append({"who": Npc.display_name("anfisa"), "text": L.t("sc.crossed.boat")})
+	if Campaign.miller_choice().is_empty():
+		told.append({"who": Npc.display_name("anfisa"), "text": L.t("sc.crossed.miller")})
+	if Campaign.board_choice().is_empty():
+		told.append({"who": Npc.display_name("anfisa"), "text": L.t("sc.crossed.board")})
+	if not told.is_empty():
+		frames.append({"portrait": Npc.sprite_path("anfisa"), "light": "night", "lines": told})
+	return {"id": "a3c2_crossed", "told": told.size(), "frames": frames}
+
+
+## «Крипта» (TASK-029): утро после первой ночи. Ответ на главный вопрос: упыри приходят к тем,
+## кто их помнит и оплакивает, и просятся их голосом. Игрока звали с того берега — его тоже оплакивали.
+static func crypt(m: Match) -> Dictionary:
+	return {"id": "a3c3_crypt", "frames": [
+		{"art": art("a3c3"), "light": "night", "lines": [{"text": L.t("sc.crypt.1"), "hold": 1.2}],
+		 "sound": [{"at": 0.0, "do": "silence", "fade": 0.6}, {"at": 0.8, "do": "play", "id": "breath", "vol": -12.0}]},
+		{"art": art("a3c3"), "light": "night", "lines": [{"text": L.t("sc.crypt.2")}, {"text": L.t("sc.crypt.3")}]},
+		npc_frame("ignat", L.t("sc.crypt.ignat"), "night"),
+	]}
+
+
+## Суд Игната (TASK-029): утро после второй ночи. Исход только по журналу кампании и главы:
+## кто помнит добро игрока, защищает, кто помнит зло — обвиняет. Пришедших слышно голосом, остальных — через других.
+const TRIAL_SHOWN := 2
+
+
+static func trial(m: Match) -> Dictionary:
+	var t := Campaign.trial(m)
+	var frames: Array = [npc_frame("ignat", L.t("sc.trial.open"), "warm")]
+	for side: String in ["def", "acc"]:
+		var shown := 0
+		for rec: Dictionary in t[side]:
+			if shown >= TRIAL_SHOWN:
+				break
+			var v := _anchor(m, int(rec.who))
+			var key := "trial.%s.%s" % [side, String(rec.kind)]
+			if v != null and v.alive:
+				frames.append({"portrait": v, "light": "warm", "lines": [{"who": v.name, "text": L.t(key, {"me": v})}]})
+			else:
+				var p := Revelations._person(int(rec.who), m)
+				frames.append({"light": "warm", "lines": [{"text": L.t("sc.trial.relay", {"who": p, "text": L.t(key, {"me": p})})}]})
+			shown += 1
+	if t.def.is_empty() and t.acc.is_empty():
+		frames.append({"light": "warm", "lines": [{"text": L.t("sc.trial.nobody")}]})
+	frames.append(npc_frame("ignat", L.t("sc.trial.acquit" if bool(t.acquit) else "sc.trial.convict"), "warm"))
+	return {"id": "a3c3_trial", "acquit": bool(t.acquit), "defenders": t.def.size(), "accusers": t.acc.size(), "frames": frames}
+
+
 ## Утро после утраты (TASK-014): кадры по предмету из истории того, кто остался, затем реплика реакции днём.
 static func grief(kin: Villager, lost: Villager) -> Dictionary:
 	var g := GriefReactions.scene_frames(kin, lost)

@@ -27,6 +27,15 @@ func build() -> void:
 		var caller := m.get_villager(m.meeting_by)
 		body.add_child(W.label(L.t("vote.bell_you") if caller.is_player else L.t("vote.bell", {"who": caller}), &"Hint"))
 	body.add_child(W.label(L.t("vote.ask"), &"Tale"))
+	if m.trust_on:
+		# доверие группы (TASK-030): лицами, без цифры — сколько смотрят на тебя, сколько отвернулись
+		var faces := TrustFaces.new()
+		faces.trust = m.trust
+		body.add_child(faces)
+		if m.trust_mute_day == m.day:
+			var mute := W.label(L.t("vote.trust_mute"), &"Hint")
+			mute.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			body.add_child(mute)
 	var diary := W.button(L.t("day.diary"), &"Quick")
 	diary.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	diary.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING

@@ -66,7 +66,7 @@ func build() -> void:
 				who.append(v.name)
 				if director.brains[v.id].pact_id == me.id:
 					pact = v
-		var text := m.houses[i]
+		var text := ("%d. " % (i + 1) if m.bell_on else "") + m.houses[i]     # «Колокол»: номер дома = число ударов
 		if not who.is_empty():
 			text += "\n" + L.t("night.going", {"list": L.t("list.sep").join(who)})
 		if pact != null:
@@ -75,8 +75,11 @@ func build() -> void:
 			text += "\n" + L.t("night.tunnel", {"house": m.house_name(m.tunnel_to(i))})
 		if i < m.talisman.size() and m.talisman[i] < Match.TALISMAN_MAX:
 			text += "\n" + L.t("night.tal_broken" if m.talisman[i] <= 0 else "night.tal_cracked")
+		if i == m.flooded_house:
+			text += "\n" + L.t("night.flooded")        # половодье (TASK-024): дом залит, туда не бегут
 		var b := W.wrap(W.button(text, &"Row", 108))
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.disabled = i == m.flooded_house
 		var idx := i
 		b.pressed.connect(func() -> void: select_house(idx))
 		_rows.append(b)
@@ -143,6 +146,9 @@ func hint_below() -> bool:
 ## на поле, Game считает, когда ты добежишь, и фигурка бежит к двери.
 func select_house(i: int) -> void:
 	if i < 0 or i >= _rows.size():
+		return
+	if i == m.flooded_house:
+		Nav.toast(L.t("night.flooded"))
 		return
 	_select(i, _rows[i])
 	emit_intent(Intent.SELECT_HOUSE, {"house": i})

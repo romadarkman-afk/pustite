@@ -462,11 +462,15 @@ func _say(who: Villager, bank: String, target: Villager = null, extra: Dictionar
 ## Боты решают, куда пойдут, и объявляют это. Люди — честно,
 ## упыри — туда, где их пустит человек, которому верят.
 func plan_day() -> void:
+	bots_vouch()
 	var counts: Array[int] = []
 	counts.resize(m.houses.size())
 	counts.fill(0)
+	if m.flooded_house >= 0:
+		counts[m.flooded_house] = 99           # залитый дом: туда никто не собирается
 	for v: Villager in m.alive():
 		if v.announced_house >= 0:
+			v.announced_house = m.dry_house(v.announced_house)
 			counts[v.announced_house] += 1
 
 	for bot: Villager in _by_susp(m.alive_bots()):
@@ -477,6 +481,7 @@ func plan_day() -> void:
 			bot.announced_house = _house_of_most_trusted(bot, counts)
 		else:
 			bot.announced_house = _house_with_partner(bot, counts)
+		bot.announced_house = m.dry_house(bot.announced_house)
 		counts[bot.announced_house] += 1
 	_elder_day()
 	_plan_wander()
@@ -610,6 +615,7 @@ func opening_lines() -> Array[ChatLine]:
 	out.append_array(scene_lines)
 	scene_lines.clear()
 	out.append_array(chapter_lines())
+	out.append_array(act_three_daily())
 	out.append_array(grief_lines())
 	out.append_array(emotional_lines())
 
@@ -687,6 +693,8 @@ func bot_promise() -> ChatLine:
 ## вдова Агафья рассказывает, как туман забрал мужа.
 func chapter_lines() -> Array[ChatLine]:
 	var out: Array[ChatLine] = []
+	if m.day == 1:
+		out.append_array(act_two_lines())
 	if chapter_id != "a1c2" or m.day != 1:
 		return out
 	for v: Villager in m.alive_bots():
@@ -697,6 +705,193 @@ func chapter_lines() -> Array[ChatLine]:
 			l.emotion = "sad"
 			out.append(l)
 	return out
+
+
+# =============================================================
+# Акт II (TASK-021–025): мельник, чужаки, половодье, память акта I
+# =============================================================
+const W_STRANGER := 0.3          ## «Чужаки»: местные с первого дня косятся на гостей
+const W_GRAVE := 0.25            ## после могилы деревня винит гостей ещё сильнее
+const W_TELL := 0.12             ## рассказал беженцам про мельника — посёлок доверяет больше
+
+
+## Строка хозяина места в чате.
+static func npc_line(id: String, text: String) -> ChatLine:
+	var l := ChatLine.system(L.t("npc.line", {"name": Npc.display_name(id), "text": text}))
+	l.npc_id = id
+	l.npc_text = text
+	return l
+
+
+## Первый день глав акта II и последствия тайны мельника в акте III.
+func act_two_lines() -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	match chapter_id:
+		"a2c1":
+			out.append(npc_line("miller", L.t("npc.miller.rule")))
+			var board := Campaign.board_choice()
+			if not board.is_empty():
+				out.append(npc_line("miller", L.t("npc.miller.board_" + board)))   # ответ у доски меняет мельника (TASK-025)
+			out.append_array(carry_lines())
+		"a2c2":
+			out.append(npc_line("miller", L.t("npc.miller.strangers")))
+			for b: Villager in m.alive_bots():
+				if not b.guest_id.is_empty():
+					continue
+				for g: Villager in m.alive_bots():
+					if not g.guest_id.is_empty():
+						brains[b.id].private_delta[g.id] = brains[b.id].private_delta.get(g.id, 0.0) + W_STRANGER
+		"a2c3":
+			out.append(npc_line("miller", L.t("npc.miller.flood")))
+		"a3c1", "a3c2", "a3c3":
+			out.append_array(act_three_open())
+			var mc := Campaign.miller_choice() if chapter_id != "a3c3" else ""
+			var bots := m.alive_bots()
+			if not mc.is_empty() and not bots.is_empty():
+				var v: Villager = bots[0]
+				for b: Villager in bots:
+					if b.guest_id.is_empty():
+						v = b
+						break
+				if chapter_id == "a3c1":
+					out.append(ChatLine.say(v, L.t("carry.miller_" + mc, {"me": v})))
+				if mc == "tell":
+					for b: Villager in bots:
+						brains[b.id].private_delta[0] = brains[b.id].private_delta.get(0, 0.0) - W_TELL
+	return out
+
+
+## Акт III (TASK-026–029): Игнат и Анфиса в первый день главы называют, чем она живёт.
+func act_three_open() -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	out.append(npc_line("ignat", L.t("npc.ignat.open_" + chapter_id)))
+	out.append(npc_line("anfisa", L.t("npc.anfisa.open_" + chapter_id)))
+	return out
+
+
+## Реплика хозяев монастыря в начале каждого следующего дня: по очереди, своя на каждый день.
+func act_three_daily() -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	if not chapter_id.begins_with("a3") or m.day < 2:
+		return out
+	var who := "ignat" if m.day % 2 == 0 else "anfisa"
+	out.append(npc_line(who, L.t("npc.%s.day%d" % [who, clampi(m.day - 1, 1, 3)])))
+	return out
+
+
+## Ответ Игната или Анфисы. Анфиса со второй главы показывает зачёркнутые имена (TASK-027, 028).
+func act_three_answer(id: String, topic: String) -> String:
+	if id == "anfisa" and topic == "crossed":
+		if chapter_id == "a3c1":
+			return L.t("npc.anfisa.a_crossed_early")
+		m.clues.add("find", -1, L.t("clue.crossed_book"), {"mystery": "crossed"})
+		return L.t("npc.anfisa.a_crossed")
+	return L.t("npc.%s.a_%s" % [id, topic])
+
+
+## «Ворота» (TASK-026): днём двое жителей вписывают в книгу того, кому больше всех верят.
+## Упырь тоже вписывает: так он выглядит своим. Поручительство — запись в тетради улик.
+const VOUCH_BOTS := 2
+
+
+func bots_vouch() -> void:
+	if not m.vouch_on:
+		return
+	var n := 0
+	for bot: Villager in _by_susp(m.alive_bots()):
+		if n >= VOUCH_BOTS:
+			break
+		var best: Villager = null
+		for o: Villager in _others(bot):
+			if o.is_player or not o.alive:
+				continue
+			if best == null or view(bot, o) < view(bot, best):
+				best = o
+		if best != null and m.vouch(bot, best):
+			n += 1
+
+
+## Память акта I в первой главе акта II (TASK-025): кто дожил и пришёл, говорит одну строку о том,
+## что игрок сделал. Если никого из них нет в главе, один присылает письмо.
+func carry_lines() -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	var mem := Campaign.act_one_memory(3)
+	var absent: Array[Dictionary] = []
+	for rec: Dictionary in mem:
+		var v: Villager = null
+		for b: Villager in m.alive_bots():
+			if b.story_id == int(rec.who) and b.guest_id.is_empty():
+				v = b
+		if v == null:
+			absent.append(rec)
+			continue
+		var l := ChatLine.say(v, L.t("carry." + String(rec.kind), {"me": v}))
+		l.emotion = "sad" if String(rec.kind) in ["refused", "refused_died", "broken", "react_accuse", "react_revenge", "react_withdraw"] else "relieved"
+		out.append(l)
+		if out.size() >= 2:
+			break
+	if out.is_empty() and not absent.is_empty():
+		var rec: Dictionary = absent[0]
+		var who := Revelations._person(int(rec.who), m)
+		out.append(ChatLine.system(L.t("carry.letter", {"who": who, "text": L.t("carry." + String(rec.kind), {"me": who})})))
+	return out
+
+
+## Хозяин отвечает на один вопрос в день. Ответ зависит от главы и от того, что игрок уже знает.
+func npc_answer(topic: String, id: String = "") -> String:
+	if id.is_empty():
+		id = m.npc_id
+	if int(m.npc_asked.get(id, 0)) == m.day:
+		return ""
+	m.npc_asked[id] = m.day
+	if id != "miller":
+		return act_three_answer(id, topic)
+	var key := "npc.miller.a_" + topic
+	if topic == "before" and (Campaign.miller_clues() + Campaign.miller_records(m).size()) >= Campaign.MILLER_KNOWN:
+		key += "_known"                     # игрок уже видел книгу или мешок: мельник отвечает резче
+	return L.t(key)
+
+
+## После могилы (TASK-023): деревня винит гостей, в тетради — находка.
+func grave_found(hunter_id: int) -> void:
+	var hunter := m.get_villager(hunter_id)
+	if hunter != null and hunter.alive:
+		m.clues.add("find", hunter.id, L.t("sc.grave.knife", {"who": hunter}), {"mystery": "grave"})
+	else:
+		m.clues.add("find", -1, L.t("sc.grave.stranger"), {"mystery": "grave"})
+	var guests: Array[Villager] = []
+	for g: Villager in m.alive_bots():
+		if not g.guest_id.is_empty():
+			guests.append(g)
+			_bump(g.id, W_GRAVE)
+	var accuser: Villager = null
+	for b: Villager in m.alive_bots():
+		if b.guest_id.is_empty() and b.id != hunter_id:
+			accuser = b
+			break
+	if accuser != null and not guests.is_empty():
+		var l := ChatLine.say(accuser, L.t("sc.grave.blame", {"me": accuser, "who": guests[0]}))
+		l.emotion = "angry"
+		l.about = guests[0]
+		scene_lines.append(l)
+
+
+## Суд в крипте (TASK-029): оправдали — доверие растёт; осудили — игрока изгоняют, у акта своя концовка.
+func trial_result(acquit: bool) -> void:
+	m.world.add(WorldLog.Kind.CHOICE, m.day, 0, -1, -1, [0], true, {"scene": "a3c3_trial", "choice": "won" if acquit else "lost"})
+	if acquit:
+		m.trust_add(1, "trial")
+		scene_lines.append(npc_line("anfisa", L.t("npc.anfisa.after_trial")))
+	else:
+		m.exile_player()
+
+
+## Тайна мельника (TASK-022): рассказать беженцам или промолчать.
+func miller_answer(choice: String) -> void:
+	scene_lines.append(npc_line("miller", L.t("npc.miller.after_" + choice)))
+	if choice == "tell":
+		for b: Villager in m.alive_bots():
+			brains[b.id].private_delta[0] = brains[b.id].private_delta.get(0, 0.0) - W_TELL
 
 
 # =============================================================
@@ -713,6 +908,7 @@ func confront(a: Dictionary, b: Dictionary) -> Array[ChatLine]:
 	if m.clues.asked.has(key):
 		return out
 	m.clues.asked[key] = true
+	m.trust_add(1, "confront")            # разобрался в противоречии при всех (TASK-030)
 	var ar := RandomNumberGenerator.new()
 	ar.seed = hash("confront:%s:%d" % [key, t.id])
 	var admit := not t.is_upyr or ar.randf() < UPYR_FAKE_ADMIT
@@ -1264,7 +1460,7 @@ func night_choices() -> Dictionary[int, int]:
 			h = hunt.announced_house   # старожил раскрылся — упырь идёт за ним
 		elif bot.is_upyr and not bot.fed and rng.randf() < 0.3:
 			h = rng.randi_range(0, m.houses.size() - 1)   # передумал — оставит след во лжи
-		out[bot.id] = h
+		out[bot.id] = m.dry_house(h)
 	return out
 
 
@@ -1296,6 +1492,12 @@ func plea_for(bot: Villager) -> String:
 		return Phrases.pick("PLEA_AFTER_STREET", rng, g)
 	if susp(bot.id) > 2.0:
 		return Phrases.pick("PLEA_SUSPECT", rng, g)
+	# половодье (TASK-024): кто ночевал бы в залитом доме, просится и говорит о воде
+	if m.flooded_house >= 0:
+		var fr := RandomNumberGenerator.new()
+		fr.seed = hash("flood:%d:%d" % [m.day, bot.id])
+		if fr.randf() < 0.6:
+			return Phrases.pick("PLEA_FLOOD", fr, {"me": bot, "house": m.house_name(m.flooded_house)})
 	# туман, ливень, полная луна: человек у двери говорит о том, что творится снаружи
 	# свой генератор: общий ход партии (и баланс) от этих реплик не меняется
 	if m.night_event != Match.Event.NONE and m.night_event != Match.Event.QUIET:
@@ -1443,7 +1645,16 @@ func after_door(seats: Array[Match.Seat]) -> void:
 				m.heal_tonight(healer)
 
 
+## Поручитель того, кто ночью убивал, теперь под подозрением (TASK-026).
+const W_VOUCHED_KILLER := 0.6
+
+
 func read_report(r: NightReport) -> void:
+	for e: NightReport.Entry in r.entries:
+		if e.kind == NightReport.Kind.KILLED_INSIDE and e.killer != null:
+			var by := m.voucher_of(e.killer.id)
+			if by > 0 and m.get_villager(by) != null and m.get_villager(by).alive:
+				_bump(by, W_VOUCHED_KILLER)
 	# тайна гостя раскрылась этим утром: посёлок по-новому смотрит на него
 	for v: Villager in m.alive_bots():
 		if not v.guest_id.is_empty() and m.day == Guests.REVEAL_DAY:

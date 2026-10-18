@@ -44,7 +44,28 @@ func build() -> void:
 		body.add_child(you_dead_card(r))
 		Sfx.set_music(&"", 0.3)
 		Sfx.play(Dread.death_sound(m.player_death.kind), 1.0, -4.0)
+	bell_lines()
 	_scene_then_reveal(r)
+
+
+## «Колокол» (TASK-028): сколько раз ночью бил колокол. Число ударов — номер дома в списке убежищ.
+## Слышно и видно: удары звучат, и то же самое написано словами.
+func bell_lines() -> void:
+	for n: int in m.last_bells:
+		var l := W.label(L.t("mo.bell", {"n": n}), &"Hint")
+		l.name = "Bell%d" % n
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		body.add_child(l)
+	if not m.last_bells.is_empty() and not Juice.instant:
+		_ring.call_deferred(m.last_bells[0])
+
+
+func _ring(n: int) -> void:
+	for i in range(n):
+		if not is_inside_tree():
+			return
+		Sfx.play(&"bell", 1.0, -6.0)
+		await get_tree().create_timer(0.9).timeout
 
 
 ## Сцена утра (TASK-013, TASK-014): после первой ночи главы «Стук» — одно из трёх утр,
@@ -58,8 +79,7 @@ func _scene_then_reveal(r: NightReport) -> void:
 	if not sc.is_empty() and not you_died():
 		scene_shown = String(sc.id)
 		var choice: String = await ScenePlayer.play(self, sc, m)
-		if String(sc.id) == "a1c3_board":
-			board_chosen(sc, choice)
+		scene_chosen(sc, choice)
 		if not is_instance_valid(self):
 			return
 	_reveal(r)
@@ -71,9 +91,36 @@ static func morning_scene(mm: Match, r: NightReport) -> Dictionary:
 	if String(Game.chapter.get("id", "")) == "a1c1" and mm.day == 1:
 		return Scenes.first_morning(mm)
 	# «Имя на доске» (TASK-019): первое утро главы «Прощание» после первой ночи; утрата подождёт карточкой
-	if String(Game.chapter.get("id", "")) == "a1c3" and mm.day >= 2 and not Game.board_done and mm.player().alive:
+	var ch := String(Game.chapter.get("id", ""))
+	if not mm.player().alive:
+		return _grief_scene(mm, r)
+	if ch == "a1c3" and not Game.board_done:
 		Game.board_done = true
 		return Scenes.board(mm)
+	# акт II (TASK-022–024): могила у «Чужаков», лодка в «Половодье», тайна мельника на следующее утро
+	if ch == "a2c2" and not Game.scenes_done.has("grave"):
+		Game.scenes_done["grave"] = true
+		return Scenes.grave(mm)
+	if ch == "a2c3" and not Game.scenes_done.has("flood") and mm.day + 1 == mm.flood_day:
+		Game.scenes_done["flood"] = true
+		return Scenes.flood(mm)
+	if ch == "a2c3" and not Game.scenes_done.has("miller") and mm.day >= 2:
+		Game.scenes_done["miller"] = true
+		return Scenes.miller_secret(mm)
+	# акт III (TASK-028, 029): книга Анфисы, крипта, суд Игната
+	if ch == "a3c2" and not Game.scenes_done.has("crossed"):
+		Game.scenes_done["crossed"] = true
+		return Scenes.crossed_book(mm)
+	if ch == "a3c3" and not Game.scenes_done.has("crypt"):
+		Game.scenes_done["crypt"] = true
+		return Scenes.crypt(mm)
+	if ch == "a3c3" and not Game.scenes_done.has("trial") and mm.day >= 2:
+		Game.scenes_done["trial"] = true
+		return Scenes.trial(mm)
+	return _grief_scene(mm, r)
+
+
+static func _grief_scene(mm: Match, r: NightReport) -> Dictionary:
 	for e: NightReport.Entry in r.deaths():
 		if e.who == null or e.who.is_player:
 			continue
@@ -83,12 +130,28 @@ static func morning_scene(mm: Match, r: NightReport) -> Dictionary:
 	return {}
 
 
-## Ответ у доски: в журнал мира (Campaign запомнит) и рассказчику.
-static func board_chosen(sc: Dictionary, choice: String) -> void:
-	if choice.is_empty() or Game.m == null:
+## Выбор в сцене утра: ответ у доски, куда плывёт лодка, что делать с тайной мельника.
+## Сам выбор уже в журнале мира (ScenePlayer пишет CHOICE), здесь — последствия.
+static func scene_chosen(sc: Dictionary, choice: String) -> void:
+	if Game.m == null:
 		return
-	if Game.director != null:
-		Game.director.board_answer(Game.m.get_villager(int(sc.get("teller", -1))), choice)
+	var d := Game.director
+	match String(sc.get("id", "")):
+		"a1c3_board":
+			if d != null and not choice.is_empty():
+				d.board_answer(Game.m.get_villager(int(sc.get("teller", -1))), choice)
+		"a2c2_grave":
+			if d != null:
+				d.grave_found(int(sc.get("hunter", -1)))
+		"a2c3_flood":
+			if choice.begins_with("h"):
+				Game.m.flood_choice = int(choice.substr(1))
+		"a2c3_miller":
+			if d != null and not choice.is_empty():
+				d.miller_answer(choice)
+		"a3c3_trial":
+			if d != null:
+				d.trial_result(bool(sc.get("acquit", true)))
 
 
 func you_died() -> bool:

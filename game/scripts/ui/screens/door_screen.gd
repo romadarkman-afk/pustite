@@ -172,6 +172,10 @@ func _build_host() -> void:
 		var name_l := W.label(L.t("door.fog_voice") if fog else g.name, &"Body")
 		_name_labels[g.id] = name_l
 		texts.add_child(name_l)
+		if m.vouch_on and m.voucher_of(g.id, 0) >= 0 and g != seat.mimic:
+			var vl := W.label(L.t("vouch.door"), &"Hint")          # «Ворота»: вписан в книгу — входит (TASK-026)
+			vl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			texts.add_child(vl)
 		_portraits[g.id] = portrait
 		if fog:
 			portrait.modulate = Color(0.8, 0.85, 0.9, 0.3)     # в тумане лица не видно (TASK-016)

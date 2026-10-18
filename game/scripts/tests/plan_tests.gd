@@ -1003,12 +1003,10 @@ static func group_four(fails: PackedStringArray) -> int:
 	Game.board_done = false
 	var mb: Match = _chapter_match("a1c3", 3550)[0]
 	var r0 := NightReport.new()
-	var first_day := MorningScreen.morning_scene(mb, r0)
-	mb.day = 2
 	var s1 := MorningScreen.morning_scene(mb, r0)
 	var s2 := MorningScreen.morning_scene(mb, r0)
-	ok += SelfTest._expect(fails, String(first_day.get("id", "")) != "a1c3_board" and String(s1.get("id", "")) == "a1c3_board"
-		and String(s2.get("id", "")) != "a1c3_board", "имя на доске: сцена не на втором утре или повторяется")
+	ok += SelfTest._expect(fails, String(s1.get("id", "")) == "a1c3_board" and String(s2.get("id", "")) != "a1c3_board",
+		"имя на доске: сцены нет на первом утре или она повторяется")
 	Game.chapter = chapter_before
 	Game.board_done = false
 	ok += SelfTest._expect(fails, board_bad.is_empty() and tellers.has(-1), "имя на доске: " + ", ".join(board_bad.slice(0, 5)) + " рассказчики " + str(tellers.keys()))
@@ -1041,6 +1039,457 @@ static func group_four(fails: PackedStringArray) -> int:
 	if m2.send_away(m2.alive_bots()[0]):
 		send_bad.append("лодка доступна не в «Прощании»")
 	ok += SelfTest._expect(fails, send_bad.is_empty() and gone > 0 and back_upyr > 0, "прощание: %s (уплыло %d, упырей вернулось %d)" % [", ".join(send_bad.slice(0, 4)), gone, back_upyr])
+
+	Save.campaign_dead.assign(dead_before)
+	Save.campaign_memory.assign(mem_before)
+	Save.player_name = name_before
+	if not backup.is_empty():
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		f.store_buffer(backup)
+		f.close()
+	return ok
+
+
+# =============================================================
+# Группа 5. TASK-021–025: мельник, его тайна, чужаки, половодье, память акта I
+# =============================================================
+static func _act_two(ch: String, seed_n: int) -> Array:
+	var m := Match.new()
+	Campaign.setup_match(m, Campaign.chapter(ch))
+	m.guests = Campaign.guests(ch)
+	m.guest_roles_fixed = String(Campaign.chapter(ch).get("guest_roles", "story")) == "story"
+	m.village = load(Campaign.MAPS[String(Campaign.chapter(ch).get("map", "mill"))]) as VillageDef if Campaign.chapter(ch).has("map") else null
+	m.start(Campaign.config(ch), seed_n)
+	var d := Director.new()
+	d.attach(m)
+	d.chapter_id = ch
+	m.begin_day()
+	return [m, d]
+
+
+static func _no_tags(t: String) -> bool:
+	return not t.is_empty() and RegEx.create_from_string("[{}\\[\\]|]").search(t) == null
+
+
+static func group_five(fails: PackedStringArray) -> int:
+	var ok := 0
+	var path := ProjectSettings.globalize_path(Save.SETTINGS_PATH)
+	var backup := FileAccess.get_file_as_bytes(path) if FileAccess.file_exists(path) else PackedByteArray()
+	var dead_before := Save.campaign_dead.duplicate()
+	var mem_before := Save.campaign_memory.duplicate(true)
+	Save.campaign_dead.assign([])
+	Save.campaign_memory.clear()
+
+	# TASK-021: мельник отвечает на один вопрос в день, правило главы звучит в первый день
+	var md := _act_two("a2c1", 5100)
+	var m: Match = md[0]
+	var d: Director = md[1]
+	var first := d.npc_answer("ford")
+	var again := d.npc_answer("night")
+	ok += SelfTest._expect(fails, m.npc_id == "miller" and _no_tags(first) and again.is_empty(), "мельник: вопрос не раз в день («%s» / «%s»)" % [first, again])
+	var opening := d.act_two_lines()
+	ok += SelfTest._expect(fails, not opening.is_empty() and opening[0].text.contains(L.t("npc.miller.rule").left(20)), "мельник не называет правило главы")
+	for t: String in Npc.topics("miller"):
+		ok += SelfTest._expect(fails, _no_tags(L.t("npc.miller.q_" + t)) and _no_tags(L.t("npc.miller.a_" + t)), "мельник: нет вопроса или ответа «%s»" % t)
+
+	# TASK-022: по находке о мельнике в каждой главе акта II; исповедь и два решения
+	var finds := 0
+	for ch: String in ["a2c1", "a2c2", "a2c3"]:
+		finds += Campaign.miller_records(_act_two(ch, 5200)[0]).size()
+	ok += SelfTest._expect(fails, finds == 3, "тайна мельника: находок %d из 3" % finds)
+	var sc0 := Scenes.miller_secret(_act_two("a2c3", 5210)[0])
+	for i in range(2):
+		Save.campaign_memory.append({"ch": "a2c%d" % (i + 1), "kind": "clue_miller", "who": -1, "day": 1, "knew": []})
+	var m3: Match = _act_two("a2c3", 5211)[0]
+	var sc1 := Scenes.miller_secret(m3)
+	ok += SelfTest._expect(fails, String(sc0.frames[0].lines[0].text) == L.t("sc.miller.1") and String(sc1.frames[0].lines[0].text) == L.t("sc.miller.1_known")
+		and (sc1.choice.options as Array).size() == 2, "тайна мельника: сцена не зависит от находок")
+	m3.world.add(WorldLog.Kind.CHOICE, m3.day, 0, -1, -1, [0], false, {"scene": "a2c3_miller", "choice": "tell"})
+	var recs := m3.world.campaign_records(m3)
+	ok += SelfTest._expect(fails, not recs.filter(func(r: Dictionary) -> bool: return String(r.kind) == "miller_tell").is_empty(), "тайна мельника: решение не попадёт в память")
+	var outcome := {}
+	for choice: String in ["tell", "keep"]:
+		Save.campaign_memory.assign(Save.campaign_memory.filter(func(r: Dictionary) -> bool: return not String(r.kind).begins_with("miller_")))
+		Save.campaign_memory.append({"ch": "a2c3", "kind": "miller_" + choice, "who": -1, "day": 2, "knew": []})
+		var ma: Array = _act_two("a3c1", 5300)
+		var cracked := 0
+		for t: int in (ma[0] as Match).talisman:
+			if t < Match.TALISMAN_MAX:
+				cracked += 1
+		var lines := (ma[1] as Director).act_two_lines()
+		var joined := ""
+		for ln: ChatLine in lines:
+			joined += ln.text + "\n"
+		outcome[choice] = [cracked, joined]
+	ok += SelfTest._expect(fails, int(outcome.keep[0]) == 0 and int(outcome.tell[0]) == 1 and String(outcome.keep[1]) != String(outcome.tell[1]),
+		"тайна мельника: решения не меняют следующую главу %s" % str(outcome))
+	Save.campaign_memory.clear()
+
+	# TASK-023: местные косятся на гостей; охотница в составе — упырь; могилу находит Тимур или другой
+	var forced := 0
+	var stranger_bad := 0
+	var grave_bad := PackedStringArray()
+	for sd in range(30):
+		var mg: Array = _act_two("a2c2", 5400 + sd)
+		var gm: Match = mg[0]
+		var gd: Director = mg[1]
+		var ups := gm.villagers.filter(func(v: Villager) -> bool: return v.is_upyr).size()
+		if ups != gm.config.monsters:
+			grave_bad.append("%d: упырей %d" % [sd, ups])
+		var hunter := Scenes._anchor(gm, 9)
+		if hunter != null:
+			forced += 1
+			if not hunter.is_upyr:
+				grave_bad.append("%d: охотница не упырь" % sd)
+		gd.act_two_lines()
+		for b: Villager in gm.alive_bots():
+			for g: Villager in gm.alive_bots():
+				if b.guest_id.is_empty() and not g.guest_id.is_empty() and float(gd.brains[b.id].private_delta.get(g.id, 0.0)) < Director.W_STRANGER:
+					stranger_bad += 1
+		if sd % 2 == 1:
+			var tim := Scenes._anchor(gm, 1)
+			if tim != null:
+				tim.alive = false
+		var sc := Scenes.grave(gm)
+		var finder := gm.get_villager(int(sc.finder))
+		var t0 := String(sc.frames[0].lines[0].text)
+		if finder == null or not _no_tags(t0) or (sd % 2 == 1 and finder.story_id == 1):
+			grave_bad.append("%d: нашёл %s" % [sd, finder.name if finder != null else "никто"])
+		var last := String((sc.frames.back() as Dictionary).lines[0].text)
+		if (hunter != null) != (last != L.t("sc.grave.stranger")):
+			grave_bad.append("%d: находка в могиле не та" % sd)
+		var before := gm.clues.entries.size()
+		gd.grave_found(int(sc.hunter))
+		if gm.clues.entries.size() != before + 1 or (not gm.villagers.filter(func(v: Villager) -> bool: return not v.guest_id.is_empty() and v.alive).is_empty() and gd.scene_lines.is_empty()):
+			grave_bad.append("%d: после могилы ни улики, ни упрёка гостям" % sd)
+	ok += SelfTest._expect(fails, grave_bad.is_empty() and forced > 0 and stranger_bad == 0,
+		"чужаки: %s (охотница в составе %d раз, без недоверия %d)" % [", ".join(grave_bad.slice(0, 4)), forced, stranger_bad])
+
+	# TASK-024: половодье — залит один низкий дом, туда никто не идёт, остальные теснее.
+	# Баланс: те же партии без половодья для сравнения.
+	var flood_bad := PackedStringArray()
+	var games := 150
+	var wins := {"flood": 0, "dry": 0}
+	for mode: String in ["flood", "dry"]:
+		for sd in range(games):
+			var mf: Array = _act_two("a2c3", 5500 + sd)
+			var fm: Match = mf[0]
+			var fd: Director = mf[1]
+			var pr := RandomNumberGenerator.new()
+			pr.seed = 77 + sd
+			var low := fm.low_houses()
+			if low.size() < 2:
+				flood_bad.append("низких домов %d" % low.size())
+				break
+			if mode == "dry":
+				fm.flood_day = -1
+			fm.flood_choice = low[sd % low.size()]
+			var cap0 := fm.config.capacity
+			var guard := 0
+			while fm.phase != Match.Phase.OVER and guard < 60:
+				guard += 1
+				match fm.phase:
+					Match.Phase.DAY:
+						fd.plan_day()
+						fd.opening_lines()
+						if mode == "flood" and fm.day >= fm.flood_day:
+							if fm.flooded_house < 0 or fm.flooded_house == fm.flood_choice or fm.config.capacity != cap0 + Match.FLOOD_EXTRA:
+								flood_bad.append("%d: дом не залит или места те же" % sd)
+							for v: Villager in fm.alive():
+								if v.announced_house == fm.flooded_house:
+									flood_bad.append("%d: %s идёт в залитый дом" % [sd, v.name])
+						fd.run_jobs_instant(fd.plan_jobs(fm.config.day_seconds))
+						fm.end_day()
+					Match.Phase.VOTE:
+						var tally: Dictionary[int, int] = {}
+						var bv := fd.votes()
+						for voter: int in bv:
+							tally[bv[voter]] = tally.get(bv[voter], 0) + fm.vote_weight(voter)
+						fm.apply_vote(tally, bv)
+						fm.after_vote()
+					Match.Phase.NIGHT:
+						var ch := fd.night_choices()
+						if fm.player().alive:
+							ch[0] = fm.flooded_house if fm.flooded_house >= 0 else pr.randi_range(0, fm.houses.size() - 1)
+						fm.seat_night(ch)
+						for s: Match.Seat in fm.seats:
+							if s.house == fm.flooded_house and fm.flooded_house >= 0:
+								flood_bad.append("%d: ночуют в залитом доме" % sd)
+					Match.Phase.DOOR:
+						for s: Match.Seat in fm.seats:
+							if s.host.is_player:
+								fm.door_dilemma(s)
+								var ids: Array[int] = []
+								for v: Villager in s.knockers():
+									if pr.randf() < 0.5:
+										ids.append(v.id)
+								fm.admit(s, ids)
+							else:
+								fm.admit(s, fd.host_decide(s, "beg"))
+						fm.tunnel_pass(false)
+						fd.after_door(fm.seats)
+						fd.read_report(fm.resolve_night())
+					Match.Phase.MORNING:
+						fm.end_morning()
+			if fm.winner == Match.Team.PEOPLE:
+				wins[mode] += 1
+	print("половодье: люди победили в %d из %d, без воды %d" % [wins.flood, games, wins.dry])
+	ok += SelfTest._expect(fails, flood_bad.is_empty(), "половодье: " + ", ".join(flood_bad.slice(0, 4)))
+	ok += SelfTest._expect(fails, absi(int(wins.flood) - int(wins.dry)) <= games * 0.12 and int(wins.flood) > 0,
+		"половодье ломает баланс: люди %d из %d, без воды %d" % [wins.flood, games, wins.dry])
+
+	# TASK-025: акт II помнит акт I; без вспомнивших в главе — письмо; доска меняет мельника
+	var mc: Array = _act_two("a2c1", 5600)
+	var cm: Match = mc[0]
+	var cd: Director = mc[1]
+	var present := -1
+	var absent := -1
+	for v: Villager in cm.alive_bots():
+		if v.guest_id.is_empty() and v.story_id >= 0:
+			present = v.story_id
+	for i in range(L.names().size()):
+		if cm.villagers.filter(func(v: Villager) -> bool: return v.story_id == i and v.guest_id.is_empty()).is_empty():
+			absent = i
+	var texts := []
+	for kind: String in ["admitted", "refused"]:
+		Save.campaign_memory.assign([{"ch": "a1c2", "kind": kind, "who": present, "day": 1, "knew": []}])
+		var cl := cd.carry_lines()
+		texts.append(cl[0].text if not cl.is_empty() else "")
+	Save.campaign_memory.assign([{"ch": "a1c3", "kind": "kept", "who": absent, "day": 1, "knew": []}])
+	var letter := cd.carry_lines()
+	ok += SelfTest._expect(fails, _no_tags(String(texts[0])) and _no_tags(String(texts[1])) and texts[0] != texts[1]
+		and letter.size() == 1 and letter[0].kind == ChatLine.Kind.SYSTEM and _no_tags(letter[0].text),
+		"память акта I: реплики %s, письмо %s" % [str(texts), letter[0].text if not letter.is_empty() else "нет"])
+	for kind: String in WorldLog.RANK:
+		ok += SelfTest._expect(fails, _no_tags(L.t("carry." + kind, {"me": cm.alive_bots()[0]})), "нет реплики памяти «%s»" % kind)
+	Save.campaign_memory.assign([{"ch": "a1c3", "kind": "board_confess", "who": -1, "day": 2, "knew": []}])
+	var with_board := cd.act_two_lines()
+	ok += SelfTest._expect(fails, with_board.size() >= 2 and with_board[1].text.contains(L.t("npc.miller.board_confess").left(15)), "ответ у доски не меняет мельника")
+	Save.campaign_memory.assign([{"ch": "a2c3", "kind": "miller_keep", "who": -1, "day": 2, "knew": []}])
+	Save.campaign_dead.assign([0, 4, 6])
+	var end2 := Campaign.act_ending(2)
+	ok += SelfTest._expect(fails, end2.contains(L.t("camp.act2.miller_keep")) and end2.contains(L.t("camp.act2.sum_some", {"n": 3})), "концовка акта II не считает два акта: «%s»" % end2)
+
+	Save.campaign_dead.assign(dead_before)
+	Save.campaign_memory.assign(mem_before)
+	if not backup.is_empty():
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		f.store_buffer(backup)
+		f.close()
+	return ok
+
+
+## Мельник на карте (TASK-021): отдельная фигура, не житель; виден в кадре, тап по нему — его, а не жителя.
+static func npc_on_map(tree: SceneTree, fails: PackedStringArray) -> int:
+	var ok := 0
+	var path := ProjectSettings.globalize_path(Save.SETTINGS_PATH)
+	var backup := FileAccess.get_file_as_bytes(path) if FileAccess.file_exists(path) else PackedByteArray()
+	Save.campaign_reset()
+	Game.start(Campaign.config("a2c1"), "", Campaign.chapter("a2c1"))
+	for i in range(30):
+		await tree.process_frame
+	var guard := 0
+	while not (Nav.host.current is DayScreen) and guard < 10:
+		guard += 1
+		if Game.m != null and Game.m.phase != Match.Phase.DAY:
+			Game.proceed()
+		for i in range(20):
+			await tree.process_frame
+	var cr := Nav.village.crowd
+	var npc := cr.npc
+	ok += SelfTest._expect(fails, npc != null and npc.visible, "мельника нет на карте главы «Брод»")
+	if npc != null:
+		ok += SelfTest._expect(fails, cr.figures.size() == Game.m.villagers.size() and npc.get_parent() == cr and not cr.figures.values().any(func(f: VillagerFigure) -> bool: return f.get_instance_id() == npc.get_instance_id()), "мельник попал в жители")
+		var c := npc.hit_rect_global().get_center()
+		ok += SelfTest._expect(fails, cr.npc_at(c) == "miller" and cr.figure_at(c) < 0, "тап по мельнику попадает в жителя")
+		var vp := Rect2(Vector2.ZERO, tree.root.get_visible_rect().size)
+		ok += SelfTest._expect(fails, vp.has_point(c), "мельник за краем экрана: %s" % str(c))
+	Game.abandon()
+	Nav.show_menu()
+	for i in range(10):
+		await tree.process_frame
+	if not backup.is_empty():
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		f.store_buffer(backup)
+		f.close()
+	return ok
+
+
+# =============================================================
+# Группа 6. TASK-026–030: книга у ворот, Игнат и Анфиса, колокол, крипта, доверие
+# =============================================================
+static func group_six(fails: PackedStringArray) -> int:
+	var ok := 0
+	var path := ProjectSettings.globalize_path(Save.SETTINGS_PATH)
+	var backup := FileAccess.get_file_as_bytes(path) if FileAccess.file_exists(path) else PackedByteArray()
+	var dead_before := Save.campaign_dead.duplicate()
+	var mem_before := Save.campaign_memory.duplicate(true)
+	var name_before := Save.player_name
+	Save.campaign_dead.assign([])
+	Save.campaign_memory.clear()
+
+	# TASK-027: Игнат и Анфиса — по вопросу в день каждому, свои реплики по дням
+	var md := _act_two("a3c1", 6100)
+	var m: Match = md[0]
+	var d: Director = md[1]
+	var a1 := d.npc_answer("night", "ignat")
+	var a2 := d.npc_answer("before", "ignat")
+	var a3 := d.npc_answer("heal", "anfisa")
+	var opening := d.act_two_lines()
+	ok += SelfTest._expect(fails, m.all_npcs() == PackedStringArray(["ignat", "anfisa"]) and _no_tags(a1) and a2.is_empty() and _no_tags(a3)
+		and opening.size() >= 2, "Игнат и Анфиса: вопрос не по одному в день или нет первых реплик")
+	m.day = 2
+	var d2 := d.act_three_daily()
+	m.day = 3
+	var d3 := d.act_three_daily()
+	ok += SelfTest._expect(fails, d2.size() == 1 and d3.size() == 1 and d2[0].text != d3[0].text and d2[0].npc_id != d3[0].npc_id, "хозяева монастыря не меняют реплик по дням")
+	m.day = 1
+
+	# TASK-026: книга у ворот — игрок одно имя в день; вписанный входит без вопросов; боты тоже вписывают
+	var bots := m.alive_bots()
+	var v0: Villager = bots[0]
+	var v1: Villager = bots[1]
+	var first := m.vouch(m.player(), v0)
+	var second := m.vouch(m.player(), v1)
+	ok += SelfTest._expect(fails, first and not second and m.voucher_of(v0.id, 0) == 0, "книга: игрок вписывает больше одного имени в день")
+	var vouch_clues := m.clues.entries.filter(func(e: Dictionary) -> bool: return String(e.kind) == "vouch").size()
+	d.bots_vouch()
+	var bot_vouches := m.vouches.filter(func(e: Dictionary) -> bool: return int(e.by) != 0).size()
+	ok += SelfTest._expect(fails, vouch_clues == 1 and bot_vouches >= 1 and bot_vouches <= Director.VOUCH_BOTS
+		and m.clues.entries.filter(func(e: Dictionary) -> bool: return String(e.kind) == "vouch").size() == 1 + bot_vouches,
+		"книга: поручительства ботов не попадают в улики (%d)" % bot_vouches)
+	m.phase = Match.Phase.DOOR
+	var s := Match.Seat.new()
+	s.house = 0
+	s.host = m.player()
+	s.queue.append(v0)
+	s.queue.append(v1)
+	m.seats.assign([s])
+	m.admit(s, [] as Array[int])
+	ok += SelfTest._expect(fails, s.admitted.has(v0) and not s.admitted.has(v1), "книга: вписанный не вошёл без вопросов")
+	# вписанный упырь у двери игрока: доверие падает на два
+	var up: Villager = null
+	for v: Villager in m.alive_bots():
+		if v.is_upyr:
+			up = v
+	if up != null:
+		m.vouches.append({"by": 0, "who": up.id, "day": 1})
+		var s2 := Match.Seat.new()
+		s2.house = 0
+		s2.host = m.player()
+		s2.queue.append(up)
+		m.seats.assign([s2])
+		m.admit(s2, [] as Array[int])
+		var t0 := m.trust
+		m._night_trust(NightReport.new())
+		ok += SelfTest._expect(fails, s2.admitted.has(up) and m.trust == t0 - 2, "книга: за вписанного упыря доверие не падает вдвое (%d → %d)" % [t0, m.trust])
+
+	# TASK-030: доверие в обе стороны; на нуле голос игрока не считается; переходит в следующую главу
+	var mt: Match = _act_two("a3c2", 6200)[0]
+	mt.trust = 1
+	mt.trust_add(-1, "test")
+	var muted := mt.vote_weight(0) == 0 and mt.trust_mute_day == mt.day
+	mt.trust_add(2, "test")
+	ok += SelfTest._expect(fails, muted and mt.trust == 2 and mt.vote_weight(1) >= 1, "доверие: ноль не глушит голос или не растёт обратно")
+	Save.campaign_memory.assign([{"ch": "a3c1", "kind": "trust", "who": -1, "day": 1, "knew": []}])
+	ok += SelfTest._expect(fails, Campaign.trust_start("a3c2") == 1 and Campaign.trust_start("a3c1") == Match.TRUST_START, "доверие не переходит между главами акта")
+	Save.campaign_memory.clear()
+	var mv: Array = _act_two("a3c2", 6210)
+	var vm: Match = mv[0]
+	var t1 := vm.trust
+	var human: Villager = vm.alive_bots().filter(func(v: Villager) -> bool: return not v.is_upyr)[0]
+	vm.phase = Match.Phase.VOTE
+	var tally: Dictionary[int, int] = {human.id: 5}
+	vm.apply_vote(tally, {0: human.id})
+	ok += SelfTest._expect(fails, vm.trust == t1 - 1, "доверие: ошибочное изгнание не снижает")
+
+	# TASK-028: колокол бьёт номер дома, где ночью упырь; совпадает всегда
+	var bell_bad := PackedStringArray()
+	var rings := 0
+	for sd in range(40):
+		var mb: Array = _act_two("a3c2", 6300 + sd)
+		var bm: Match = mb[0]
+		var bd: Director = mb[1]
+		bd.plan_day()
+		bm.end_day()
+		if bm.phase == Match.Phase.VOTE:
+			var bv := bd.votes()
+			var tl: Dictionary[int, int] = {}
+			for voter: int in bv:
+				tl[bv[voter]] = tl.get(bv[voter], 0) + 1
+			bm.apply_vote(tl, bv)
+			bm.after_vote()
+		if bm.phase != Match.Phase.NIGHT:
+			continue
+		bm.seat_night(bd.night_choices())
+		for st: Match.Seat in bm.seats:
+			var adm: Array[int] = []
+			if not st.host.is_player:
+				adm = bd.host_decide(st)
+			bm.admit(st, adm)
+		var expect: Array[int] = []
+		for st: Match.Seat in bm.seats:
+			if st.inside().any(func(v: Villager) -> bool: return v.is_upyr):
+				expect.append(st.house + 1)
+		expect.sort()
+		bm.resolve_night()
+		rings += bm.last_bells.size()
+		if bm.last_bells != expect:
+			bell_bad.append("%d: %s вместо %s" % [sd, str(bm.last_bells), str(expect)])
+	ok += SelfTest._expect(fails, bell_bad.is_empty() and rings > 0, "колокол: %s (ударов %d)" % [", ".join(bell_bad.slice(0, 3)), rings])
+	ok += SelfTest._expect(fails, _no_tags(L.t("mo.bell", {"n": 3})), "колокол: строка утра с дырой")
+
+	# книга Анфисы: нерешённые загадки она договаривает сама, решённые — нет
+	Save.player_name = ""
+	var open := Scenes.crossed_book(_act_two("a3c2", 6400)[0])
+	for i in range(Campaign.BOAT_SOLVED):
+		Save.campaign_memory.append({"ch": "a1c2", "kind": "clue_boat", "who": -1, "day": 1, "knew": []})
+	Save.campaign_memory.append({"ch": "a1c3", "kind": "board_deny", "who": -1, "day": 1, "knew": []})
+	Save.campaign_memory.append({"ch": "a2c3", "kind": "miller_keep", "who": -1, "day": 2, "knew": []})
+	Save.player_name = "Влади"
+	var closed := Scenes.crossed_book(_act_two("a3c2", 6401)[0])
+	var tags_ok := true
+	for sc: Dictionary in [open, closed, Scenes.crypt(_act_two("a3c3", 6402)[0])]:
+		for f: Dictionary in sc.frames:
+			for ln: Dictionary in f.lines:
+				tags_ok = tags_ok and _no_tags(String(ln.text))
+	ok += SelfTest._expect(fails, int(open.told) == 3 and int(closed.told) == 0 and tags_ok, "книга Анфисы: ответ не зависит от разгаданного (%d/%d)" % [open.told, closed.told])
+
+	# TASK-029: суд — исход только по журналу; проигрыш изгоняет игрока и даёт свою концовку акта
+	var mj: Array = _act_two("a3c3", 6500)
+	var jm: Match = mj[0]
+	var jd: Director = mj[1]
+	var present: Array[int] = []
+	for v: Villager in jm.alive_bots():
+		if v.guest_id.is_empty():
+			present.append(v.story_id)
+	Save.campaign_memory.assign([
+		{"ch": "a1c2", "kind": "admitted", "who": present[0], "day": 1, "knew": []},
+		{"ch": "a2c1", "kind": "kept", "who": present[1], "day": 1, "knew": []},
+		{"ch": "a2c2", "kind": "refused", "who": present[2], "day": 1, "knew": []}])
+	var good := Scenes.trial(jm)
+	Save.campaign_memory.assign([
+		{"ch": "a1c2", "kind": "refused", "who": present[0], "day": 1, "knew": []},
+		{"ch": "a2c1", "kind": "broken", "who": present[1], "day": 1, "knew": []},
+		{"ch": "a2c2", "kind": "kept", "who": present[2], "day": 1, "knew": []}])
+	var bad := Scenes.trial(jm)
+	var trial_tags := true
+	for sc: Dictionary in [good, bad]:
+		for f: Dictionary in sc.frames:
+			for ln: Dictionary in f.lines:
+				trial_tags = trial_tags and _no_tags(String(ln.text))
+	ok += SelfTest._expect(fails, bool(good.acquit) and not bool(bad.acquit) and int(good.defenders) == 2 and int(bad.accusers) == 2 and trial_tags,
+		"суд: исход не по журналу")
+	for k: String in Campaign.TRIAL_DEF + Campaign.TRIAL_ACC:
+		var side := "def" if Campaign.TRIAL_DEF.has(k) else "acc"
+		ok += SelfTest._expect(fails, _no_tags(L.t("trial.%s.%s" % [side, k], {"me": jm.alive_bots()[0]})), "суд: нет реплики %s" % k)
+	jm.phase = Match.Phase.MORNING
+	jd.trial_result(false)
+	var recs := jm.world.campaign_records(jm)
+	ok += SelfTest._expect(fails, not jm.player().alive and jm.player().exiled and not recs.filter(func(r: Dictionary) -> bool: return String(r.kind) == "trial_lost").is_empty(),
+		"суд: проигрыш не изгоняет игрока или не попадёт в память")
+	Save.campaign_memory.assign([{"ch": "a3c3", "kind": "trial_lost", "who": -1, "day": 2, "knew": []}])
+	ok += SelfTest._expect(fails, Campaign.act_ending(3) == L.t("camp.act3.end_trial"), "суд: у проигрыша нет своей концовки акта")
 
 	Save.campaign_dead.assign(dead_before)
 	Save.campaign_memory.assign(mem_before)

@@ -314,6 +314,7 @@ func _sync_traces(phase: Match.Phase) -> void:
 				blood.append(village.street_point(e.who.id))
 	village.set_traces(blood, trails)
 	village.set_rain(Game.m.night_event == Match.Event.RAIN and phase != Match.Phase.PROLOGUE and phase != Match.Phase.IDLE)
+	village.set_flood(Game.m.flooded_house)
 
 
 func _tween_to(obj: Object, prop: String, value: float, dur: float) -> void:
@@ -337,6 +338,7 @@ func _home_village() -> void:
 	village.set_village(default_village, Save.config.shelters, L.houses())
 	village.set_traces(PackedVector2Array(), PackedVector2Array())
 	village.set_rain(false)
+	village.set_flood(-1)
 
 
 func _on_phase(phase: Match.Phase) -> void:
@@ -472,6 +474,10 @@ func _sly_step(delta: float) -> void:
 func _on_chat(line: ChatLine) -> void:
 	if host.current is DayScreen:
 		(host.current as DayScreen).append_line(line)
+		var npc: Npc = village.crowd.npcs.get(line.npc_id) if not line.npc_id.is_empty() else null
+		if npc != null and npc.visible:
+			npc.poke()
+			bubbles.say(npc.who, line.npc_text, npc.get_global_transform_with_canvas() * Vector2(0, -VillagerFigure.FIG_TOP), false, npc)
 		if line.speaker != null and village.crowd.figures.has(line.speaker.id):
 			var f: VillagerFigure = village.crowd.figures[line.speaker.id]
 			village.crowd.turn_to(f.position.x, [line.speaker.id] as Array[int], 260.0, 2.2)
@@ -649,6 +655,13 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			if Game.m == null:
 				return
 			var day_play: bool = sender is DayScreen and Game.m.player().alive and Game.m.phase == Match.Phase.DAY
+			var nid := village.crowd.npc_at(data.pos) if vid < 0 and day_play else ""
+			if not nid.is_empty():
+				village.crowd.npcs[nid].poke()          # хозяин места: один вопрос в день (TASK-021, 027)
+				Juice.haptic(Juice.Haptic.TAP)
+				Sfx.play(&"tap")
+				(sender as DayScreen).npc_actions(nid)
+				return
 			# значок дела нарисован поверх жителей: палец на значке — это дело, даже если под ним кто-то стоит
 			var ji := village.jobs_layer.job_at(data.pos) if day_play else -1
 			if ji >= 0 and (vid < 0 or village.jobs_layer.icon_rect_global(ji).has_point(data.pos)):

@@ -178,6 +178,27 @@ var plant_chapter := ""            ## глава кампании с залож�
 ## Прощание (TASK-020): кого игрок отправил на лодке, уплывёт на рассвете. -1 — никого.
 var send_away_id := -1
 var send_used := false
+## Акт II (TASK-021–024). Ставятся до start().
+var chapter_id := ""                ## глава кампании или ""
+var npc_id := ""                    ## хозяин места вне голосования: "miller"
+var force_upyr_story := -1          ## «Чужаки»: житель с этим номером истории — упырь, если он в составе
+var talisman_whole := false         ## мельник помог (TASK-022): ни один оберег не треснул до вас
+var flood_day := -1                 ## «Половодье»: с утра этого дня вода заливает один из низких домов
+var flood_choice := -1              ## куда игрок отправил лодку: этот низкий дом остаётся сухим
+var flooded_house := -1             ## залитый дом: в нём никто не ночует до конца главы
+## Акт III (TASK-026–030). Ставятся до start().
+var extra_npcs: PackedStringArray = []   ## ещё хозяева места: Анфиса рядом с Игнатом
+var npc_asked: Dictionary = {}      ## хозяин -> день, когда игрок уже спросил
+var vouch_on := false               ## «Ворота»: книга поручительств у ворот
+var vouches: Array[Dictionary] = [] ## {"by": id, "who": id, "day": n}
+var vouch_day := 0                  ## в какой день игрок уже вписал имя
+var bell_on := false                ## «Колокол»: колокол бьёт сам, когда упырь в доме
+var last_bells: Array[int] = []     ## номера домов (с 1), где этой ночью бил колокол
+var trust_on := false               ## доверие группы к игроку (TASK-030)
+var trust := TRUST_START
+var trust_mute_day := -1            ## в этот день голос игрока не считается
+var trust_log: Array[Dictionary] = []   ## {"day", "d", "why"} — для проверок и разбора
+var player_on_trial := false        ## «Крипта»: Игнат судит игрока (TASK-029)
 const SEND_BACK_HUMAN := 0.3       ## человек тоже иногда передумывает: по возвращению упыря не узнать наверняка
 
 ## Обещания (TASK-004). open — «открою тебе, если постучишь»: обещавший держит дверь и пускает.
@@ -376,11 +397,19 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 		villagers[int(order[k])].is_upyr = true
 
 	_seat_guests()
+	_force_upyr()
 	feelings.attach(self)
 	clues.attach(self)
 	wander_plan.clear()
 	send_away_id = -1
 	send_used = false
+	npc_asked.clear()
+	flooded_house = -1
+	vouches.clear()
+	vouch_day = 0
+	last_bells.clear()
+	trust_mute_day = -1
+	trust_log.clear()
 	if village == null:
 		village = load(DEFAULT_VILLAGE) as VillageDef
 	houses = L.houses(village.houses_key).slice(0, config.shelters)
@@ -402,7 +431,9 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	for i in range(houses.size()):
 		talisman.append(TALISMAN_MAX)
 	if not houses.is_empty():
-		talisman[rng.randi_range(0, houses.size() - 1)] = TALISMAN_MAX - 1
+		var cracked := rng.randi_range(0, houses.size() - 1)
+		if not talisman_whole:
+			talisman[cracked] = TALISMAN_MAX - 1
 	day = 1
 	case_id = posmod(seed_value, 3) if seed_value != 0 else rng.randi_range(0, 2)
 	winner = Team.NONE
@@ -435,6 +466,8 @@ func begin_day() -> void:
 		v.announced_house = -1
 	night_event = Event.NONE
 	meeting_by = -1
+	if day == flood_day and flood_day > 0:
+		_start_flood()
 	jobs = base_jobs.duplicate()
 	for h in range(houses.size()):
 		if talisman[h] < TALISMAN_MAX:
@@ -451,6 +484,9 @@ func begin_day() -> void:
 	# «Пустая лодка» (TASK-018): в первый день главы — находка у реки
 	if day == 1 and plant_chapter in ["a1c2", "a1c3"]:
 		clues.add("find", -1, L.t("clue.boat_oar" if plant_chapter == "a1c2" else "clue.boat_scarf"), {"mystery": "boat"})
+	# тайна мельника (TASK-022): в каждой главе акта II одна находка
+	if day == 1 and MILLER_CLUES.has(chapter_id):
+		clues.add("find", -1, L.t(MILLER_CLUES[chapter_id]), {"mystery": "miller"})
 	_set_phase(Phase.DAY)
 	post(ChatLine.system(L.t("sys.dawn1") if day == 1 else L.t("sys.dawn", {"d": day, "n": alive().size()})))
 
@@ -668,6 +704,8 @@ func apply_vote(tally: Dictionary[int, int], votes: Dictionary = {}) -> Villager
 	for voter: Variant in votes:
 		world.add(WorldLog.Kind.VOTE, day, int(voter), int(votes[voter]), -1, [], true)
 	vote_log.append({"day": day, "votes": votes.duplicate(), "exiled": last_exiled})
+	if last_exiled != null and votes.has(0) and int(votes[0]) == last_exiled.id:
+		trust_add(1 if last_exiled.is_upyr else -1, "exiled_upyr" if last_exiled.is_upyr else "wrong_exile")
 	return last_exiled
 
 
@@ -700,7 +738,7 @@ func seat_night(choices: Dictionary[int, int], arrival: Dictionary[int, float] =
 		if wander_plan.has(v.id) and not v.is_player:
 			v.night_house = -1             # ушёл к реке на голос: ни к одной двери не пришёл
 			continue
-		var h: int = clampi(choices.get(v.id, 0), 0, houses.size() - 1)
+		var h: int = dry_house(clampi(choices.get(v.id, 0), 0, houses.size() - 1))
 		v.night_house = h
 		buckets[h].append(v)
 	for i in range(houses.size()):
@@ -721,6 +759,167 @@ func seat_night(choices: Dictionary[int, int], arrival: Dictionary[int, float] =
 		seats.append(s)
 	_place_mimic()
 	_set_phase(Phase.DOOR)
+
+
+const FLOOD_EXTRA := 0           ## половодье: на сколько мест теснее в сухих домах
+const MILLER_CLUES := {"a2c1": "clue.miller_book", "a2c2": "clue.miller_sack", "a2c3": "clue.miller_lock"}
+
+
+## «Чужаки» (TASK-023): тот, кто ходит под именем охотницы, — упырь. Роль меняется местами
+## с другим упырём из местных, число упырей то же. Гостей с ролью по сюжету не трогаем.
+func _force_upyr() -> void:
+	if force_upyr_story < 0:
+		return
+	var target: Villager = null
+	for v: Villager in villagers:
+		if v.story_id == force_upyr_story and not v.is_player and v.guest_id.is_empty():
+			target = v
+	if target == null or target.is_upyr:
+		return
+	for v: Villager in villagers:
+		if v.is_upyr and not v.is_player and v.guest_id.is_empty():
+			v.is_upyr = false
+			target.is_upyr = true
+			return
+
+
+## Все хозяева места этой главы: первый — главный.
+func all_npcs() -> PackedStringArray:
+	var out := PackedStringArray()
+	if not npc_id.is_empty():
+		out.append(npc_id)
+	out.append_array(extra_npcs)
+	return out
+
+
+# =============================================================
+# Акт III: книга поручительств, колокол, доверие (TASK-026, 028, 030)
+# =============================================================
+const TRUST_START := 3
+const TRUST_MAX := 5
+
+
+## Вписать имя в книгу у ворот. Игрок — одно имя в день. Ночью вписанный входит без вопросов.
+func vouch(by: Villager, target: Villager) -> bool:
+	if not vouch_on or phase != Phase.DAY or by == null or target == null or by == target or not target.alive or not by.alive:
+		return false
+	if by.is_player and vouch_day == day:
+		return false
+	for e: Dictionary in vouches:
+		if int(e.by) == by.id and int(e.who) == target.id:
+			return false
+	vouches.append({"by": by.id, "who": target.id, "day": day})
+	if by.is_player:
+		vouch_day = day
+	clues.add("vouch", target.id, L.t("clue.vouch", {"me": by, "who": target}), {"source": by.id})
+	return true
+
+
+## Кто поручился за жителя: id или -1. by >= 0 — только этот поручитель.
+func voucher_of(target_id: int, by: int = -1) -> int:
+	for e: Dictionary in vouches:
+		if int(e.who) == target_id and (by < 0 or int(e.by) == by):
+			return int(e.by)
+	return -1
+
+
+## Доверие группы: 0..5. Ноль — на следующем собрании голос игрока не считается.
+func trust_add(d: int, why: String) -> void:
+	if not trust_on or d == 0:
+		return
+	var before := trust
+	trust = clampi(trust + d, 0, TRUST_MAX)
+	trust_log.append({"day": day, "d": trust - before, "why": why})
+	if trust == 0 and before > 0:
+		trust_mute_day = day + (0 if phase == Phase.DAY else 1)
+		_log("day", "log.trust_zero")
+
+
+## Ночь со своим колоколом: в каждом доме, где упырь, колокол бьёт номер дома.
+func _ring_bells() -> void:
+	last_bells.clear()
+	if not bell_on:
+		return
+	for s: Seat in seats:
+		for v: Villager in s.inside():
+			if v.is_upyr:
+				last_bells.append(s.house + 1)
+				_log("night", "log.bell", {"n": s.house + 1})
+				break
+	last_bells.sort()
+
+
+## Доверие по итогам ночи у двери игрока: впустил упыря — падает, вдвойне если вписал его сам;
+## впустил людей и все дожили — растёт.
+func _night_trust(r: NightReport) -> void:
+	if not trust_on:
+		return
+	var seat := player_seat()
+	if seat == null or not seat.host.is_player:
+		return
+	var upyr_in := false
+	var vouched_upyr := false
+	var saved := 0
+	for v: Villager in seat.admitted:
+		if v.is_upyr:
+			upyr_in = true
+			if voucher_of(v.id, 0) >= 0:
+				vouched_upyr = true
+		elif v.alive:
+			saved += 1
+	if vouched_upyr:
+		trust_add(-2, "vouched_upyr")
+	elif upyr_in and not r.deaths().is_empty():
+		trust_add(-1, "upyr_in")
+	elif saved > 0 and r.deaths().filter(func(e: NightReport.Entry) -> bool: return e.house == seat.house).is_empty():
+		trust_add(1, "saved")
+
+
+## Суд проигран (TASK-029): игрока изгоняют утром, глава идёт без него.
+func exile_player() -> void:
+	var p := player()
+	if not p.alive:
+		return
+	p.alive = false
+	p.exiled = true
+	p.exiled_day = day
+	world.add(WorldLog.Kind.EXILED, day, -1, p.id, -1, [], true)
+	_log("day", "log.trial_exiled")
+	_settle_winner()
+
+
+## Низкие дома этой карты среди открытых убежищ (TASK-024).
+func low_houses() -> Array[int]:
+	var out: Array[int] = []
+	if village != null:
+		for h: int in village.low:
+			if h >= 0 and h < houses.size():
+				out.append(h)
+	return out
+
+
+## Половодье: лодка одна. Низкий дом, куда её отправили, остаётся сухим, другой заливает.
+## В остальных домах становится теснее: место на одного больше.
+func _start_flood() -> void:
+	var low := low_houses()
+	if low.size() < 2 or flooded_house >= 0:
+		return
+	var saved := flood_choice if low.has(flood_choice) else low[posmod(hash("flood:%d" % rng.seed), low.size())]
+	flood_choice = saved
+	for h: int in low:
+		if h != saved:
+			flooded_house = h
+			break
+	config.capacity += FLOOD_EXTRA
+	talisman[flooded_house] = TALISMAN_MAX       # залитый дом не чинят
+	_log("day", "log.flood", {"house": house_name(flooded_house)})
+
+
+## Куда идти вместо залитого дома: следующий сухой.
+func dry_house(h: int) -> int:
+	if flooded_house < 0 or h != flooded_house or houses.size() < 2:
+		return h
+	return (h + 1) % houses.size()
 
 
 ## Гости занимают места приезжих с конца списка: постоянные жители и игрок остаются собой.
@@ -795,6 +994,12 @@ func admit(seat: Seat, ids: Array[int]) -> void:
 	seat.admitted.clear()
 	seat.mimic_in = false
 	var n := 0
+	if vouch_on:
+		# «Ворота»: за кого поручились, тот входит без вопросов (TASK-026)
+		for v: Villager in seat.queue:
+			if not ids.has(v.id) and voucher_of(v.id, 0 if seat.host.is_player else -1) >= 0:
+				ids = ids.duplicate()
+				ids.insert(0, v.id)
 	for v: Villager in seat.knockers():
 		if ids.has(v.id) and n < config.capacity - 1:
 			n += 1
@@ -1141,6 +1346,8 @@ func resolve_night() -> NightReport:
 	_apply_grief(r)
 	feelings.morning(r)
 	_sail(r)
+	_ring_bells()
+	_night_trust(r)
 	report = r
 	_settle_winner()
 	_set_phase(Phase.MORNING)
@@ -1443,6 +1650,8 @@ static func healer_named(h: Villager) -> String:
 
 ## Сколько весит голос на изгнании: у Старосты — два.
 func vote_weight(vid: int) -> int:
+	if vid == 0 and trust_on and trust_mute_day == day:
+		return 0                                  # деревня не слушает игрока (TASK-030)
 	var v := get_villager(vid)
 	return 2 if v != null and v.alive and v.role == Role.HEADMAN else 1
 
@@ -1469,8 +1678,8 @@ func call_meeting(v: Villager) -> bool:
 # =============================================================
 ## Куда ведёт туннель из дома h. -1 — из этого дома хода нет.
 func tunnel_to(h: int) -> int:
-	if tunnel.x < 0:
-		return -1
+	if tunnel.x < 0 or (flooded_house >= 0 and (tunnel.x == flooded_house or tunnel.y == flooded_house)):
+		return -1                 # ход в залитый дом затоплен (TASK-024)
 	if h == tunnel.x:
 		return tunnel.y
 	if h == tunnel.y:

@@ -4870,6 +4870,8 @@ static func diary() -> void:
 	ok += PlanTests.knowledge_and_promises(fails)
 	ok += PlanTests.behaviour(fails)
 	ok += PlanTests.group_four(fails)
+	ok += PlanTests.group_five(fails)
+	ok += PlanTests.group_six(fails)
 
 	# 2. Экран: кнопка «Дневник», карточка на каждого, всё в кадре, закрывается
 	Save.set_difficulty("normal")
@@ -5678,6 +5680,7 @@ static func folk() -> void:
 	ok += _expect(fails, day_still and not cr.day_life, "ночью жители продолжают дневные действия")
 	Nav.show_menu()
 	await _settle(tree)
+	ok += await PlanTests.npc_on_map(tree, fails)
 	_finish(fails, ok, "новые жители", "девушки отличаются, у каждого свои приметы, эмоции всем телом, ноги идут, толпа реагирует, днём все чем-то заняты")
 
 

@@ -14,6 +14,8 @@ var day_life := false           ## днём жители переминаютс�
 var _whisper_in := 4.0
 var whispers := 0               ## для самотеста
 var flinched := 0               ## сколько жителей вздрогнули на последний колокол
+var npc: Npc = null              ## хозяин места вне голосования (TASK-021): мельник, Игнат, начальник станции
+var npcs: Dictionary[String, Npc] = {}   ## все хозяева места этой главы; npc — первый из них
 
 
 func _ready() -> void:
@@ -25,6 +27,10 @@ func clear() -> void:
 		f.queue_free()
 	figures.clear()
 	ring.clear()
+	for n: Npc in npcs.values():
+		n.queue_free()
+	npcs.clear()
+	npc = null
 
 
 func populate(m: Match) -> void:
@@ -61,6 +67,25 @@ func populate(m: Match) -> void:
 	for i in range(figs.size()):
 		figs[i].position = spots[i]
 		ring[m.villagers[i].id] = spots[i]
+	for id: String in m.all_npcs():
+		if not Npc.has_def(id):
+			continue
+		var n := Npc.new()
+		n.setup(id)
+		n.modulate = night_tint
+		add_child(n)
+		npcs[id] = n
+		if npc == null:
+			npc = n
+
+
+## Тап по хозяину места: его id или "", если палец не на нём.
+func npc_at(global_pos: Vector2) -> String:
+	for id: String in npcs:
+		var n: Npc = npcs[id]
+		if n.visible and n.hit_rect_global().has_point(global_pos):
+			return id
+	return ""
 
 
 ## Днём — два ряда. Передний перед колодцем (вы в центре), задний на уровне колодца,
@@ -452,6 +477,8 @@ func set_night(n: float) -> void:
 	for f: VillagerFigure in figures.values():
 		f.set_night(n)
 		f.modulate = night_tint
+	for hn: Npc in npcs.values():
+		hn.modulate = night_tint
 
 
 func set_player_highlight(on: bool) -> void:
@@ -551,6 +578,8 @@ func _run_to_spot(vid: int, spot: Vector2, timing: Callable) -> void:
 
 func sync(m: Match, phase: Match.Phase) -> void:
 	stop_all_work()
+	for n: Npc in npcs.values():
+		n.visible = phase in [Match.Phase.DAY, Match.Phase.VOTE, Match.Phase.MORNING, Match.Phase.PROLOGUE]   # ночью хозяин у себя
 	var at_house: Dictionary[int, int] = {}
 	for v: Villager in m.villagers:
 		var f: VillagerFigure = figures.get(v.id)
