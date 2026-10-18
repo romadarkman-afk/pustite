@@ -25,6 +25,7 @@ var new_items: PackedStringArray = []   ## что открылось за эту
 var opening_done := false        ## глава «Стук»: сцена у реки уже показана (TASK-011)
 var first_contact := false       ## первый личный разговор в партии
 var board_done := false          ## сцена «Имя на доске» в этой партии уже была (TASK-019)
+var scenes_done: Dictionary = {}  ## сюжетные сцены акта II, уже показанные в этой партии
 var inspection_bonus := 0       ## награда за знакомство: один осмотр у двери
 var host_pleas: Dictionary[int, String] = {}
 var clock: PhaseClock
@@ -85,6 +86,7 @@ func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = 
 	dilemma = {}
 	first_contact = false
 	board_done = false
+	scenes_done.clear()
 	opening_done = false
 	inspection_bonus = 0
 	m = Match.new()
@@ -99,6 +101,7 @@ func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = 
 		m.guest_roles_fixed = String(chapter.get("guest_roles", "story")) == "story"
 		if String(chapter.id) in ["a1c2", "a1c3"]:
 			m.plant_chapter = String(chapter.id)      # заложенное противоречие и «Пустая лодка» (TASK-018)
+		Campaign.setup_match(m, chapter)                # акт II: мельник, чужаки, половодье, помощь мельника (TASK-021–025)
 		if Campaign.MAPS.has(String(chapter.get("map", ""))):
 			m.village = load(Campaign.MAPS[String(chapter.map)]) as VillageDef
 	elif daily_date == "" and randf() < Guests.QUICK_P:
@@ -810,5 +813,5 @@ func _feed(lines: Array[ChatLine]) -> void:
 			await get_tree().process_frame
 		if gen != _feed_gen or m == null or m.phase != Match.Phase.DAY:
 			return
-		Diag.step("реплика: %s" % line.speaker.name)
+		Diag.step("реплика: %s" % (line.speaker.name if line.speaker != null else "хозяин места"))   # строки мельника и письма — без жителя
 		m.post(line)

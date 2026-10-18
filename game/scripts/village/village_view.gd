@@ -246,6 +246,16 @@ func set_traces(blood: PackedVector2Array, trails: PackedVector2Array) -> void:
 		_refresh()
 
 
+## Залитый дом (TASK-024): вода у стен, -1 — сухо.
+var flooded := -1
+
+
+func set_flood(h: int) -> void:
+	if h != flooded:
+		flooded = h
+		_refresh()
+
+
 func set_rain(on: bool) -> void:
 	if on != rain:
 		rain = on
@@ -708,6 +718,22 @@ func _draw_traces(n: float) -> void:
 			var sp := def.puddle_spots[i]
 			var h := sp.z * pt.get_height() / pt.get_width()
 			_blit(self, pt, Rect2(sp.x - sp.z * 0.5, sp.y - h * 0.5, sp.z, h), i % 2 == 1, Color(mod, 0.92))
+	if flooded >= 0 and flooded < def.shelters.size():
+		# вода у залитого дома: тёмное пятно с отблеском, поверх земли и под людьми
+		var hd: HouseDef = def.shelters[flooded]
+		var c := hd.pos + Vector2(0, 16)
+		var rx := hd.size.x * 1.05
+		var ry := hd.size.y * 0.5
+		for k in range(3):
+			var pts := PackedVector2Array()
+			for i in range(28):
+				var a := TAU * i / 28.0
+				pts.append(c + Vector2(cos(a) * rx * (1.0 - k * 0.18), sin(a) * ry * (1.0 - k * 0.18)))
+			draw_colored_polygon(pts, Color(Color(0.22, 0.36, 0.5).lerp(mod, 0.15), 0.5 + k * 0.14))
+		for w in range(3):
+			var y := c.y - ry * 0.35 + w * ry * 0.3
+			var x0 := c.x - rx * (0.55 - w * 0.12)
+			draw_line(Vector2(x0, y), Vector2(x0 + rx * (0.5 + w * 0.1), y - 2.0), Color(0.86, 0.93, 1.0, 0.45), 2.0)
 	var ft: Texture2D = _tex.footprints
 	for d: Vector2 in trail_doors:
 		var from_left := d.x < def.square_center.x

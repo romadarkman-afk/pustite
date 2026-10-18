@@ -144,4 +144,5 @@ houses_key = "houses_mill"
 fences = PackedVector2Array(604, 560)
 fish_planks = false
 river = true
+low = PackedInt32Array(1, 2)
 jobs = Array[ExtResource("3_job")]([SubResource("job_water"), SubResource("job_wood"), SubResource("job_lamp"), SubResource("job_fish")])

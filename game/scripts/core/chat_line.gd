@@ -10,6 +10,8 @@ var about: Villager = null   ## кого обвиняет реплика: тол
 var asks_player: bool = false
 var question_kind: String = ""
 var emotion: String = ""    ## эмоция известна из сцены, а не угадывается по случайной фразе
+var npc_id: String = ""     ## строка хозяина места (TASK-021): системная, но с пузырём над ним на карте
+var npc_text: String = ""   ## его слова без имени — для пузыря
 
 
 static func say(who: Villager, t: String) -> ChatLine:

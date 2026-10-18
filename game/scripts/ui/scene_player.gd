@@ -180,6 +180,14 @@ func _next_frame() -> void:
 	if who is Villager:
 		var pic := W.portrait(who as Villager, Vector2(150, 270), Color(0.62, 0.62, 0.7))
 		_portrait_box.add_child(pic)
+	elif who is String and ResourceLoader.exists(String(who)):
+		# хозяин места (TASK-021): его фигура вместо портрета жителя
+		var tr := TextureRect.new()
+		tr.texture = load(String(who)) as Texture2D
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tr.custom_minimum_size = Vector2(150, 270)
+		_portrait_box.add_child(tr)
 	_fog.color.a = 0.22 if String(f.get("weather", "")) == "fog" else 0.0
 	_rain.visible = String(f.get("weather", "")) == "rain"
 	if not Juice.instant:

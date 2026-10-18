@@ -151,7 +151,7 @@ func _show_beat() -> void:
 
 ## Рассказчик главы: на второй странице сцены рядом с текстом его портрет и имя.
 ## Акт III — брат Игнат из монастыря, акт IV — смотритель станции.
-const NARRATORS := {3: ["narr.ignat", "res://assets/folk/npc_abbot.png"], 4: ["narr.keeper", "res://assets/folk/npc_stationmaster.png"]}
+const NARRATORS := {2: ["npc.miller.name", ""], 3: ["narr.ignat", "res://assets/folk/npc_abbot.png"], 4: ["narr.keeper", "res://assets/folk/npc_stationmaster.png"]}
 
 
 func _show_narrator() -> void:
@@ -167,7 +167,7 @@ func _show_narrator() -> void:
 	var row := W.hbox(14)
 	row.name = "Narrator"
 	var pic := TextureRect.new()
-	pic.texture = load(String(n[1])) as Texture2D
+	pic.texture = load(String(n[1]) if not String(n[1]).is_empty() else Npc.sprite_path("miller")) as Texture2D   # мельник: своя картинка или запасная
 	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	pic.custom_minimum_size = Vector2(84, 154)
