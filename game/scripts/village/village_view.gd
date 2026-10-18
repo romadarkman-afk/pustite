@@ -246,6 +246,27 @@ func set_traces(blood: PackedVector2Array, trails: PackedVector2Array) -> void:
 		_refresh()
 
 
+## Станция (TASK-031): перрон из досок, шпалы и два рельса через всю карту. Под людьми и домами.
+func _draw_rails(mod: Color) -> void:
+	var y := def.rails_y
+	var x0 := def.ground_rect.position.x - 40.0
+	var x1 := def.ground_rect.end.x + 40.0
+	var plank := Color(0.42, 0.33, 0.24).lerp(mod, 0.25)
+	draw_rect(Rect2(x0, y - 34.0, x1 - x0, 20.0), Color(plank, 0.95))
+	for i in range(int((x1 - x0) / 26.0)):
+		draw_line(Vector2(x0 + i * 26.0, y - 34.0), Vector2(x0 + i * 26.0, y - 14.0), Color(0, 0, 0, 0.25), 1.2)
+	draw_rect(Rect2(x0, y - 15.0, x1 - x0, 3.0), Color(0.25, 0.2, 0.15, 0.9))
+	var sleeper := Color(0.3, 0.22, 0.16).lerp(mod, 0.2)
+	var x := x0
+	while x < x1:
+		draw_rect(Rect2(x, y - 4.0, 9.0, 22.0), sleeper)
+		x += 19.0
+	var steel := Color(0.62, 0.62, 0.66).lerp(mod, 0.3)
+	for ry: float in [y, y + 12.0]:
+		draw_line(Vector2(x0, ry), Vector2(x1, ry), Color(0.15, 0.15, 0.17), 3.6)
+		draw_line(Vector2(x0, ry - 1.0), Vector2(x1, ry - 1.0), steel, 1.6)
+
+
 ## Залитый дом (TASK-024): вода у стен, -1 — сухо.
 var flooded := -1
 
@@ -718,6 +739,8 @@ func _draw_traces(n: float) -> void:
 			var sp := def.puddle_spots[i]
 			var h := sp.z * pt.get_height() / pt.get_width()
 			_blit(self, pt, Rect2(sp.x - sp.z * 0.5, sp.y - h * 0.5, sp.z, h), i % 2 == 1, Color(mod, 0.92))
+	if def.rails_y >= 0.0:
+		_draw_rails(mod)
 	if flooded >= 0 and flooded < def.shelters.size():
 		# вода у залитого дома: тёмное пятно с отблеском, поверх земли и под людьми
 		var hd: HouseDef = def.shelters[flooded]

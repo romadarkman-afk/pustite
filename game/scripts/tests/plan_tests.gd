@@ -1499,3 +1499,112 @@ static func group_six(fails: PackedStringArray) -> int:
 		f.store_buffer(backup)
 		f.close()
 	return ok
+
+
+# =============================================================
+# Группа 7. TASK-031–035: станция, люди станции, список, последний поезд, финал
+# =============================================================
+static func group_seven(fails: PackedStringArray) -> int:
+	var ok := 0
+	var path := ProjectSettings.globalize_path(Save.SETTINGS_PATH)
+	var backup := FileAccess.get_file_as_bytes(path) if FileAccess.file_exists(path) else PackedByteArray()
+	var dead_before := Save.campaign_dead.duplicate()
+	var mem_before := Save.campaign_memory.duplicate(true)
+	Save.campaign_dead.assign([])
+	Save.campaign_memory.clear()
+
+	# TASK-031, 032: рельсы на карте станции; смотритель, рабочий депо и писарь в главах акта IV
+	var st := load(Campaign.MAPS["station"]) as VillageDef
+	var m1: Array = _act_two("a4c1", 7100)
+	var m2: Array = _act_two("a4c2", 7101)
+	var g1 := (m1[0] as Match).villagers.filter(func(v: Villager) -> bool: return v.guest_id == "worker")
+	var g2 := (m2[0] as Match).villagers.filter(func(v: Villager) -> bool: return v.guest_id == "clerk")
+	ok += SelfTest._expect(fails, st.rails_y > 0.0 and (m1[0] as Match).npc_id == "keeper" and g1.size() == 1 and g2.size() == 1,
+		"станция: нет рельсов, смотрителя, рабочего или писаря")
+	var gtexts := true
+	for v: Villager in [g1[0], g2[0]]:
+		for step in range(1, Guests.REVEAL_DAY + 1):
+			gtexts = gtexts and _no_tags(Guests.clue(v, step))
+		gtexts = gtexts and _no_tags(Guests.title(v)) and _no_tags(L.t("guest.%s.reveal_u" % v.guest_id, {"who": v}))
+	var opening := (m2[1] as Director).act_two_lines()
+	ok += SelfTest._expect(fails, gtexts and opening.size() >= 2 and opening.any(func(l: ChatLine) -> bool: return l.speaker != null and l.speaker.guest_id == "clerk"),
+		"люди станции: дыры в текстах или писарь молчит")
+	for snd: String in ["whistle", "rails", "typewriter", "train"]:
+		ok += SelfTest._expect(fails, ResourceLoader.exists("res://assets/sfx/%s.ogg" % snd), "нет звука %s" % snd)
+
+	# TASK-033, 034: список на поезд; союзник всегда есть и тайно вписывает упыря (или себя, если он сам упырь)
+	var list_bad := PackedStringArray()
+	var kinds := {}
+	for sd in range(30):
+		var mt: Array = _act_two("a4c3", 7200 + sd)
+		var tm: Match = mt[0]
+		var td: Director = mt[1]
+		td.plan_day()
+		td.act_two_lines()
+		var ally := tm.get_villager(td.ally_id)
+		if ally == null:
+			list_bad.append("%d: нет союзника" % sd)
+			continue
+		kinds["upyr" if ally.is_upyr else ("clerk" if ally.guest_id == "clerk" else "human")] = true
+		var secret := tm.train_list.filter(func(e: Dictionary) -> bool: return bool(e.secret))
+		if secret.size() != 1 or not tm.get_villager(int(secret[0].who)).is_upyr or int(secret[0].by) != ally.id:
+			list_bad.append("%d: тайной записи нет" % sd)
+		if tm.train_list.size() > tm.train_cap():
+			list_bad.append("%d: список больше мест" % sd)
+		var free: Array = tm.alive_bots().filter(func(v: Villager) -> bool: return not tm.on_train(v.id))
+		if free.size() >= 2 and tm.train_list.size() + 2 <= tm.train_cap():
+			var a: Villager = free[0]
+			var b: Villager = free[1]
+			if not tm.train_add(tm.player(), a) or tm.train_add(tm.player(), b):
+				list_bad.append("%d: игрок вписывает не одно имя в день" % sd)
+			tm.world.add(WorldLog.Kind.ADMIT, tm.day, a.id, 0, 0)
+			if not tm.train_strike(tm.player(), a) or tm.train_add(tm.player(), a):
+				list_bad.append("%d: вычеркнутого вписали обратно" % sd)
+			var l := td.on_struck(a)
+			if l == null or l.text != L.t("st.struck_door", {"me": a}):
+				list_bad.append("%d: вычеркнутый не вспомнил дверь" % sd)
+		var sc := Scenes.betrayal(tm, ally)
+		for f: Dictionary in sc.frames:
+			for ln: Dictionary in f.lines:
+				if not _no_tags(String(ln.text)):
+					list_bad.append("%d: дыра в сцене: %s" % [sd, ln.text])
+		td.betrayal_answer("expose" if sd % 2 == 0 else "cover")
+		if sd % 2 == 0 and tm.train_list.any(func(e: Dictionary) -> bool: return bool(e.secret)):
+			list_bad.append("%d: после «выдать» подпись осталась тайной" % sd)
+		if sd % 2 == 1 and td.scene_lines.is_empty():
+			list_bad.append("%d: прикрытый союзник молчит" % sd)
+	ok += SelfTest._expect(fails, list_bad.is_empty() and kinds.size() >= 2, "список и союзник: %s (виды союзника %s)" % [", ".join(list_bad.slice(0, 4)), str(kinds.keys())])
+
+	# TASK-035: финал — четыре концовки достижимы, голос за дверью по журналу, эпилог по всем жителям
+	var fm: Match = _act_two("a4c3", 7300)[0]
+	var endings := {}
+	endings[Campaign.final_ending("open", fm)] = true
+	fm.train_list.clear()
+	endings[Campaign.final_ending("train", fm)] = true
+	Save.campaign_dead.assign([3, 5, 6, 9, 10])
+	endings[Campaign.final_ending("train", fm)] = true
+	var up: Villager = fm.alive_bots().filter(func(v: Villager) -> bool: return v.is_upyr)[0]
+	fm.train_list.append({"who": up.id, "by": 0, "day": 1, "secret": false})
+	endings[Campaign.final_ending("train", fm)] = true
+	var all_ok := true
+	for e: String in Campaign.FINAL_ENDINGS:
+		all_ok = all_ok and endings.has(e) and Progress.ENDINGS.has(e) and _no_tags(L.t("ending." + e)) and _no_tags(L.t("fin." + e))
+	ok += SelfTest._expect(fails, all_ok, "финал: достижимы не все концовки %s" % str(endings.keys()))
+	var door := Scenes.final_door()
+	Save.campaign_dead.assign([])
+	var door_self := Scenes.final_door()
+	ok += SelfTest._expect(fails, String(door.voice) == L.names()[3][0] and String(door_self.voice).is_empty()
+		and String(door_self.frames[1].lines[0].text) == L.t("sc.final.voice_self"), "финал: голос за дверью не того, кого потеряли первым")
+	var epi := Campaign.epilogue_lines(fm, "final_upyr")
+	var epi_ok := epi.size() == L.names().size()
+	for line: String in epi:
+		epi_ok = epi_ok and _no_tags(line)
+	ok += SelfTest._expect(fails, epi_ok, "финал: эпилог не по всем жителям или с дырами")
+
+	Save.campaign_dead.assign(dead_before)
+	Save.campaign_memory.assign(mem_before)
+	if not backup.is_empty():
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		f.store_buffer(backup)
+		f.close()
+	return ok

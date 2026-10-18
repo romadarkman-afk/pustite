@@ -10,6 +10,10 @@ const LIST := {
 	"soldier": {"f": false, "age": 34, "persona": Voices.Persona.GRUFF, "upyr_in_campaign": false},
 	"widow": {"f": true, "age": 41, "persona": Voices.Persona.PIOUS, "upyr_in_campaign": false},
 	"merchant": {"f": false, "age": 52, "persona": Voices.Persona.CYNIC, "upyr_in_campaign": true},
+	## Люди станции (TASK-032), только в кампании: рабочий депо чинит паровоз, писарь пишет список на поезд
+	## и берёт за место деньги — это его тайна.
+	"worker": {"f": false, "age": 46, "persona": Voices.Persona.GRUFF, "upyr_in_campaign": false},
+	"clerk": {"f": false, "age": 38, "persona": Voices.Persona.CYNIC, "upyr_in_campaign": false},
 }
 const IDS: PackedStringArray = ["soldier", "widow", "merchant"]
 const QUICK_P := 0.3          ## в быстрой партии с такой вероятностью приезжает один гость

@@ -216,6 +216,12 @@ func chapter_card(res: Dictionary) -> PanelContainer:
 		var end := W.label(Campaign.act_ending(int(Game.chapter.get("act", 1))), &"Tale")
 		end.name = "ActEnd"
 		box.add_child(end)
+		# финал кампании (TASK-035): последняя ночь, выбор и эпилог
+		if id == "a4c3":
+			var fb := W.button(L.t("fin.btn"))
+			fb.name = "FinalNight"
+			fb.pressed.connect(func() -> void: _final_night(box, fb))
+			box.add_child(fb)
 		# разгадка «Пустой лодки» (TASK-018): только если игрок собрал достаточно находок
 		if id == "a1c3" and Campaign.boat_clues() >= Campaign.BOAT_SOLVED:
 			var b := Revelations.beat("boat_answer", m)
@@ -225,6 +231,34 @@ func chapter_card(res: Dictionary) -> PanelContainer:
 			var bx := W.label(String(b[1]), &"Tale")
 			bx.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			box.add_child(bx)
+	return card
+
+
+## Последняя ночь (TASK-035): сцена у двери, выбор, концовка в книгу концовок и эпилог по всем жителям.
+func _final_night(box: Control, btn: Button) -> void:
+	btn.disabled = true
+	var choice: String = await ScenePlayer.play(self, Scenes.final_door(), m)
+	if not is_instance_valid(box):
+		return
+	box.add_child(final_card(m, choice))
+
+
+static func final_card(mm: Match, choice: String) -> PanelContainer:
+	var ending := Campaign.final_ending("open" if choice == "open" else "train", mm)
+	if not Save.endings.has(ending):
+		Save.record_progress(0, [], PackedStringArray([ending]), PackedStringArray())
+	var card := W.panel(&"Sheet")
+	card.name = "FinalEnding"
+	var b := W.vbox(8)
+	card.add_child(b)
+	b.add_child(W.label(L.t("ending." + ending), &"Speaker"))
+	var t := W.label(L.t("fin." + ending), &"Tale")
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	b.add_child(t)
+	for line: String in Campaign.epilogue_lines(mm, ending):
+		var l := W.label(line, &"Small")
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b.add_child(l)
 	return card
 
 

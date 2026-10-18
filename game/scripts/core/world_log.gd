@@ -157,6 +157,8 @@ func campaign_records(m: Match, limit: int = 40) -> Array[Dictionary]:
 					out.append({"kind": "board_" + String(e.info.get("choice", "silent")), "who": -1, "day": e.day, "knew": []})
 				elif String(e.info.get("scene", "")) == "a2c3_miller":     # тайна мельника (TASK-022)
 					out.append({"kind": "miller_" + String(e.info.get("choice", "keep")), "who": -1, "day": e.day, "knew": []})
+				elif String(e.info.get("scene", "")) == "a4c3_betray":     # союзник на перроне (TASK-034)
+					out.append({"kind": "betray_" + String(e.info.get("choice", "cover")), "who": -1, "day": e.day, "knew": []})
 				elif String(e.info.get("scene", "")) == "a3c3_trial":      # суд в крипте (TASK-029)
 					out.append({"kind": "trial_" + String(e.info.get("choice", "won")), "who": -1, "day": e.day, "knew": []})
 				continue

@@ -463,6 +463,9 @@ func _say(who: Villager, bank: String, target: Villager = null, extra: Dictionar
 ## упыри — туда, где их пустит человек, которому верят.
 func plan_day() -> void:
 	bots_vouch()
+	if m.train_on:
+		secret_listing()                 # союзник вписывает первым, пока список пуст (TASK-034)
+	bots_list()
 	var counts: Array[int] = []
 	counts.resize(m.houses.size())
 	counts.fill(0)
@@ -743,6 +746,8 @@ func act_two_lines() -> Array[ChatLine]:
 						brains[b.id].private_delta[g.id] = brains[b.id].private_delta.get(g.id, 0.0) + W_STRANGER
 		"a2c3":
 			out.append(npc_line("miller", L.t("npc.miller.flood")))
+		"a4c1", "a4c2", "a4c3":
+			out.append_array(act_four_open())
 		"a3c1", "a3c2", "a3c3":
 			out.append_array(act_three_open())
 			var mc := Campaign.miller_choice() if chapter_id != "a3c3" else ""
@@ -811,6 +816,115 @@ func bots_vouch() -> void:
 			n += 1
 
 
+# =============================================================
+# Акт IV (TASK-032–034): люди станции, список на поезд, союзник
+# =============================================================
+const LIST_BOTS := 2
+var ally_id := -1                ## «Последний поезд»: союзник игрока (или писарь), который тайно вписал упыря
+
+
+## Первый день глав акта IV: смотритель, рабочий депо, писарь.
+func act_four_open() -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	out.append(npc_line("keeper", L.t("npc.keeper.open_" + chapter_id)))
+	for g: Villager in m.alive_bots():
+		if g.guest_id == "worker" and chapter_id == "a4c1":
+			out.append(ChatLine.say(g, L.t("st.worker.open", {"me": g})))
+		elif g.guest_id == "clerk" and chapter_id == "a4c2":
+			out.append(ChatLine.say(g, L.t("st.clerk.open", {"me": g})))
+	if m.train_on:
+		secret_listing()
+	return out
+
+
+## Союзник — тот, кто относится к игроку лучше всех. Если особых отношений нет, предаёт писарь.
+## Человек тайно вписывает упыря, чтобы тот его не тронул; упырь вписывает сам себя: весь акт он только играл друга.
+func pick_ally() -> Villager:
+	var best: Villager = null
+	var best_v := INF
+	var worst_v := -INF
+	for b: Villager in m.alive_bots():
+		var v := view(b, m.player())
+		worst_v = maxf(worst_v, v)
+		if b.guest_id.is_empty() and v < best_v:
+			best_v = v
+			best = b
+	if best == null or worst_v - best_v < 0.05:
+		for b: Villager in m.alive_bots():
+			if b.guest_id == "clerk":
+				return b
+	return best
+
+
+func secret_listing() -> void:
+	if ally_id >= 0:
+		return
+	var ally := pick_ally()
+	if ally == null:
+		return
+	ally_id = ally.id
+	m.betrayer_id = ally.id
+	var target: Villager = ally if ally.is_upyr else null
+	if target == null:
+		for u: Villager in m.alive_bots():
+			if u.is_upyr and u != ally:
+				target = u
+				break
+	if target != null:
+		m.train_add(ally, target, true)
+
+
+## Днём двое жителей вписывают в список тех, кому больше всех верят.
+func bots_list() -> void:
+	if not m.train_on:
+		return
+	var n := 0
+	for bot: Villager in _by_susp(m.alive_bots()):
+		if n >= LIST_BOTS or m.train_list.size() >= m.train_cap():
+			break
+		var best: Villager = null
+		for o: Villager in _others(bot):
+			if o.is_player or not o.alive or m.on_train(o.id) or m.train_struck.has(o.id):
+				continue
+			if best == null or view(bot, o) < view(bot, best):
+				best = o
+		if best != null and m.train_add(bot, best):
+			n += 1
+
+
+## Игрок вычеркнул жителя из списка: тот это запомнит. Открывал игроку дверь — скажет об этом.
+const W_STRUCK := 0.6
+
+
+func on_struck(v: Villager) -> ChatLine:
+	if v == null or not brains.has(v.id):
+		return null
+	brains[v.id].private_delta[0] = brains[v.id].private_delta.get(0, 0.0) + W_STRUCK
+	var opened := m.world.last(WorldLog.Kind.ADMIT, v.id, 0) != null
+	var l := ChatLine.say(v, L.t("st.struck_door" if opened else "st.struck", {"me": v}))
+	l.emotion = "angry"
+	return l
+
+
+## Ответ игрока союзнику на перроне: выдать деревне или прикрыть.
+func betrayal_answer(choice: String) -> void:
+	var a := m.get_villager(ally_id)
+	if a == null:
+		return
+	if choice == "expose":
+		_bump(a.id, 1.2)
+		for e: Dictionary in m.train_list:
+			e.secret = false                     # подпись в списке теперь видят все
+		var judge := _pick_bystander([a])
+		if judge != null:
+			scene_lines.append(_say(judge, "AGREE_ACCUSE", a))
+	else:
+		brains[a.id].private_delta[0] = brains[a.id].private_delta.get(0, 0.0) - 0.8
+		var l := ChatLine.say(a, L.t("st.covered", {"me": a}))
+		l.emotion = "relieved"
+		scene_lines.append(l)
+
+
 ## Память акта I в первой главе акта II (TASK-025): кто дожил и пришёл, говорит одну строку о том,
 ## что игрок сделал. Если никого из них нет в главе, один присылает письмо.
 func carry_lines() -> Array[ChatLine]:
@@ -844,6 +958,8 @@ func npc_answer(topic: String, id: String = "") -> String:
 	if int(m.npc_asked.get(id, 0)) == m.day:
 		return ""
 	m.npc_asked[id] = m.day
+	if id == "keeper":
+		return L.t("npc.keeper.a_%s_%s" % [topic, "list" if m.train_on else "early"]) if topic == "list" else L.t("npc.keeper.a_" + topic)
 	if id != "miller":
 		return act_three_answer(id, topic)
 	var key := "npc.miller.a_" + topic

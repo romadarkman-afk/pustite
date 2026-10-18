@@ -246,6 +246,37 @@ static func trial(m: Match) -> Dictionary:
 	return {"id": "a3c3_trial", "acquit": bool(t.acquit), "defenders": t.def.size(), "accusers": t.acc.size(), "frames": frames}
 
 
+## «Последний поезд» (TASK-034): утро после второй ночи. Смотритель показывает список: одна подпись — рука союзника.
+## Человек вписал упыря из страха, упырь вписал себя: весь акт он только играл друга. Выдать или прикрыть.
+static func betrayal(m: Match, ally: Villager) -> Dictionary:
+	var frames: Array = [
+		{"art": art("a4c3"), "light": "dawn", "weather": "fog", "lines": [{"text": L.t("sc.betray.1")}],
+		 "sound": [{"at": 0.0, "do": "silence"}, {"at": 0.4, "do": "play", "id": "typewriter", "vol": -8.0}]},
+		npc_frame("keeper", L.t("sc.betray.2", {"who": ally}), "dawn"),
+	]
+	var key := "sc.betray.upyr" if ally.is_upyr else ("sc.betray.clerk" if ally.guest_id == "clerk" else "sc.betray.human")
+	frames.append({"portrait": ally, "light": "dawn", "weather": "fog", "lines": [{"who": ally.name, "text": L.t(key, {"me": ally})}],
+		"sound": [{"at": 1.0, "do": "play", "id": "whistle", "vol": -14.0}]})
+	return {"id": "a4c3_betray", "ally": ally.id, "frames": frames, "choice": {"prompt": L.t("sc.betray.ask", {"who": ally}),
+		"options": [{"id": "expose", "text": L.t("sc.betray.c_expose")}, {"id": "cover", "text": L.t("sc.betray.c_cover")}]}}
+
+
+## Финал кампании (TASK-035): последняя ночь. Зовут с того берега голосом того, кого игрок потерял раньше всех.
+## Никого не потерял — своим собственным голосом, как на доске у часовни. Открыть и уйти или сесть на поезд.
+static func final_door() -> Dictionary:
+	var lost := Campaign.first_lost()
+	var voice := Revelations._person(lost, null).name if lost >= 0 else ""
+	var call := L.t("sc.final.voice", {"who": Revelations._person(lost, null), "me": Revelations._person(lost, null)}) if lost >= 0 else L.t("sc.final.voice_self")
+	return {"id": "final_door", "voice": voice, "frames": [
+		{"art": art("final_door"), "light": "night", "weather": "fog", "lines": [{"text": L.t("sc.final.1")}],
+		 "sound": [{"at": 0.0, "do": "silence", "fade": 1.0}, {"at": 1.5, "do": "play", "id": "knock", "vol": -4.0}]},
+		{"art": art("final_door"), "light": "night", "lines": [{"who": voice if not voice.is_empty() else L.t("sc.river.voice"), "text": call}]},
+		{"art": art("final_train"), "light": "dawn", "lines": [{"text": L.t("sc.final.2")}],
+		 "sound": [{"at": 0.2, "do": "play", "id": "train", "vol": -8.0}]},
+	], "choice": {"prompt": L.t("sc.final.ask"), "options": [
+		{"id": "open", "text": L.t("sc.final.c_open")}, {"id": "train", "text": L.t("sc.final.c_train")}]}, "restore_sound": false}
+
+
 ## Утро после утраты (TASK-014): кадры по предмету из истории того, кто остался, затем реплика реакции днём.
 static func grief(kin: Villager, lost: Villager) -> Dictionary:
 	var g := GriefReactions.scene_frames(kin, lost)

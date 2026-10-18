@@ -114,6 +114,12 @@ static func morning_scene(mm: Match, r: NightReport) -> Dictionary:
 	if ch == "a3c3" and not Game.scenes_done.has("crypt"):
 		Game.scenes_done["crypt"] = true
 		return Scenes.crypt(mm)
+	# акт IV (TASK-034): союзник на перроне
+	if ch == "a4c3" and not Game.scenes_done.has("betray") and mm.day >= 2 and Game.director != null:
+		var ally := mm.get_villager(Game.director.ally_id)
+		if ally != null and ally.alive:
+			Game.scenes_done["betray"] = true
+			return Scenes.betrayal(mm, ally)
 	if ch == "a3c3" and not Game.scenes_done.has("trial") and mm.day >= 2:
 		Game.scenes_done["trial"] = true
 		return Scenes.trial(mm)
@@ -149,6 +155,9 @@ static func scene_chosen(sc: Dictionary, choice: String) -> void:
 		"a2c3_miller":
 			if d != null and not choice.is_empty():
 				d.miller_answer(choice)
+		"a4c3_betray":
+			if d != null and not choice.is_empty():
+				d.betrayal_answer(choice)
 		"a3c3_trial":
 			if d != null:
 				d.trial_result(bool(sc.get("acquit", true)))

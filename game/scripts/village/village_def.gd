@@ -25,6 +25,8 @@ extends Resource
 @export var props: Array[Dictionary] = []
 ## Куда ложатся лужи в дождливую ночь (центр, ширина картинки на поле).
 @export var puddle_spots: PackedVector3Array = PackedVector3Array([Vector3(250, 452, 150), Vector3(492, 470, 130)])
+## Рельсы через всю карту (TASK-031): y верхнего рельса, < 0 — рельсов нет. Над ними перрон.
+@export var rails_y: float = -1.0
 ## Низкие дома (номера убежищ): в половодье их заливает (TASK-024).
 @export var low: PackedInt32Array = PackedInt32Array()
 ## Где может появиться ящик: края площади, в стороне от дел и табличек.

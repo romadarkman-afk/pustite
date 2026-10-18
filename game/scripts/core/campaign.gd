@@ -37,12 +37,12 @@ const CHAPTERS := {
 		"event": "moon", "goal": "people_win", "extra": ["no_wrong_exile", "guest_secret"], "guests": ["soldier", "merchant"],
 		"guest_roles": "random", "npc": "ignat", "npcs": ["anfisa"], "trial": true},
 	"a4c1": {"act": 4, "map": "station", "players": 9, "monsters": 2, "shelters": 3, "capacity": 3, "nights": 4,
-		"event": "rain", "goal": "people_win", "extra": ["survive", "inspect"], "guests": ["merchant"]},
+		"event": "rain", "goal": "people_win", "extra": ["survive", "inspect"], "guests": ["merchant", "worker"], "npc": "keeper"},
 	"a4c2": {"act": 4, "map": "station", "players": 10, "monsters": 3, "shelters": 4, "capacity": 2, "nights": 4,
-		"event": "fog", "goal": "exile_upyr_by_3", "extra": ["no_wrong_exile", "keep_couple"]},
+		"event": "fog", "goal": "exile_upyr_by_3", "extra": ["no_wrong_exile", "keep_couple"], "guests": ["clerk"], "npc": "keeper"},
 	"a4c3": {"act": 4, "map": "station", "players": 11, "monsters": 3, "shelters": 4, "capacity": 3, "nights": 5,
-		"event": "moon", "goal": "people_win", "extra": ["survive", "no_wrong_exile"], "guests": ["soldier", "widow", "merchant"],
-		"guest_roles": "random"},
+		"event": "moon", "goal": "people_win", "extra": ["survive", "no_wrong_exile"], "guests": ["soldier", "widow", "clerk"],
+		"guest_roles": "random", "npc": "keeper", "train": true},
 }
 const ORDER: PackedStringArray = ["a1c1", "a1c2", "a1c3", "a2c1", "a2c2", "a2c3", "a3c1", "a3c2", "a3c3", "a4c1", "a4c2", "a4c3"]
 const MAPS := {"mill": "res://config/village_mill.tres", "monastery": "res://config/village_monastery.tres",
@@ -65,7 +65,51 @@ static func setup_match(m: Match, ch: Dictionary) -> void:
 	m.vouch_on = bool(ch.get("vouch", false))
 	m.bell_on = bool(ch.get("bell", false))
 	m.trust_on = int(ch.get("act", 0)) == 3
+	m.train_on = bool(ch.get("train", false))
 	m.trust = trust_start(String(ch.get("id", "")))
+
+
+## Финал кампании (TASK-035). Кого игрок потерял раньше всех: первый номер в списке погибших насовсем, -1 — никого.
+static func first_lost() -> int:
+	return Save.campaign_dead[0] if not Save.campaign_dead.is_empty() else -1
+
+
+const FINAL_ENDINGS: PackedStringArray = ["final_shore", "final_upyr", "final_many", "final_few"]
+
+
+## Концовка из четырёх актов: открыл дверь — ушёл на тот берег; сел в поезд — с упырём в вагоне,
+## если тот остался в списке, иначе по тому, сколько людей дожило за всю кампанию.
+static func final_ending(choice: String, m: Match) -> String:
+	if choice == "open":
+		return "final_shore"
+	if m != null and not m.train_upyrs().is_empty():
+		return "final_upyr"
+	return "final_many" if Save.campaign_dead.size() <= 4 else "final_few"
+
+
+## Эпилог: по строке на каждого жителя кампании — кто сел в поезд, кто остался на станции, кого не стало.
+static func epilogue_lines(m: Match, ending: String) -> PackedStringArray:
+	var out := PackedStringArray()
+	var names := L.names()
+	for i in range(names.size()):
+		var p := Revelations._person(i, m)
+		if Save.campaign_dead.has(i):
+			out.append(L.t("fin.epi.dead", {"who": p}))
+			continue
+		var v: Villager = null
+		if m != null:
+			for x: Villager in m.villagers:
+				if x.story_id == i and x.guest_id.is_empty() and not x.is_player:
+					v = x
+		if v != null and not v.alive:
+			out.append(L.t("fin.epi.dead", {"who": p}))
+		elif ending == "final_shore":
+			out.append(L.t("fin.epi.left_behind", {"who": p}))
+		elif v != null and m.on_train(v.id):
+			out.append(L.t("fin.epi.upyr_car" if v.is_upyr else "fin.epi.train", {"who": p}))
+		else:
+			out.append(L.t("fin.epi.station", {"who": p}))
+	return out
 
 
 ## Доверие группы переходит из главы в главу акта III (TASK-030): последняя запись "trust" в памяти.

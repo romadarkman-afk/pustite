@@ -315,6 +315,8 @@ func _sync_traces(phase: Match.Phase) -> void:
 	village.set_traces(blood, trails)
 	village.set_rain(Game.m.night_event == Match.Event.RAIN and phase != Match.Phase.PROLOGUE and phase != Match.Phase.IDLE)
 	village.set_flood(Game.m.flooded_house)
+	if phase == Match.Phase.DAY and village.def != null and village.def.rails_y >= 0.0 and not Juice.instant and randf() < 0.6:
+		_whistle.call_deferred()                 # станция (TASK-031): редкий гудок вдали
 
 
 func _tween_to(obj: Object, prop: String, value: float, dur: float) -> void:
@@ -692,6 +694,12 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 # Ходьба и дела днём
 # =============================================================
 ## Игрок идёт в точку на поле (координаты экрана). Работу, если была, бросает.
+func _whistle() -> void:
+	await get_tree().create_timer(randf_range(4.0, 14.0)).timeout
+	if Game.m != null and Game.m.phase == Match.Phase.DAY:
+		Sfx.play(&"whistle", randf_range(0.92, 1.05), -16.0)
+
+
 func walk_player(global_pos: Vector2) -> void:
 	var cr := village.crowd
 	if not cr.figures.has(0):

@@ -93,7 +93,7 @@ const HERO_F := 102
 const HERO_HAT_IDS: PackedStringArray = ["top_hat", "beret", "straw", "ushanka", "flower", "jester"]
 ## Где фонарь на картинке героя: доля ширины от середины и доля высоты от земли.
 ## Гости кампании — свои картинки assets/folk/guest_<id>.png.
-const GUEST_SPRITES := {"soldier": 201, "widow": 202, "merchant": 203}
+const GUEST_SPRITES := {"soldier": 201, "widow": 202, "merchant": 203, "worker": 204, "clerk": 205}
 const HERO_LANTERN := {HERO_M: Vector2(0.41, 0.66), HERO_F: Vector2(0.40, 0.66)}
 static var _folk_tex: Dictionary = {}
 static var _hero_hat_tex: Dictionary = {}

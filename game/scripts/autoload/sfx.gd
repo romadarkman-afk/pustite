@@ -48,6 +48,10 @@ const LOOPS := {
 	&"amb_night": "res://assets/sfx/amb_night.ogg",
 	&"amb_dusk": "res://assets/sfx/amb_dusk.ogg",       # пролог: ветер без сверчков
 	&"amb_river": "res://assets/sfx/amb_river.ogg",     # сцена у реки (глава «Стук»)
+	&"whistle": "res://assets/sfx/whistle.ogg",         # станция (TASK-031): гудок вдали
+	&"rails": "res://assets/sfx/rails.ogg",             # лязг рельсов
+	&"typewriter": "res://assets/sfx/typewriter.ogg",   # список на поезд (TASK-033)
+	&"train": "res://assets/sfx/train.ogg",             # подходящий поезд (TASK-034, 035)
 	&"heartbeat": "res://assets/sfx/heartbeat.ogg",
 	&"menu": "res://assets/music/menu.ogg",
 	&"day": "res://assets/music/day.ogg",

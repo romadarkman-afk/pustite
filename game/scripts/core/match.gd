@@ -199,6 +199,13 @@ var trust := TRUST_START
 var trust_mute_day := -1            ## в этот день голос игрока не считается
 var trust_log: Array[Dictionary] = []   ## {"day", "d", "why"} — для проверок и разбора
 var player_on_trial := false        ## «Крипта»: Игнат судит игрока (TASK-029)
+## Акт IV (TASK-033, 034): список на поезд. Ставится до start().
+var train_on := false
+var train_list: Array[Dictionary] = []   ## {"who": id, "by": id, "day": n, "secret": bool}
+var train_struck: Array[int] = []        ## кого вычеркнули: в список больше не вернуть
+var train_write_day := 0                 ## в какой день игрок уже вписал имя
+var train_strike_day := 0                ## в какой день игрок уже вычеркнул
+var betrayer_id := -1                    ## «Последний поезд»: кто тайно вписал упыря
 const SEND_BACK_HUMAN := 0.3       ## человек тоже иногда передумывает: по возвращению упыря не узнать наверняка
 
 ## Обещания (TASK-004). open — «открою тебе, если постучишь»: обещавший держит дверь и пускает.
@@ -410,6 +417,11 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	last_bells.clear()
 	trust_mute_day = -1
 	trust_log.clear()
+	train_list.clear()
+	train_struck.clear()
+	train_write_day = 0
+	train_strike_day = 0
+	betrayer_id = -1
 	if village == null:
 		village = load(DEFAULT_VILLAGE) as VillageDef
 	houses = L.houses(village.houses_key).slice(0, config.shelters)
@@ -873,6 +885,63 @@ func _night_trust(r: NightReport) -> void:
 		trust_add(-1, "upyr_in")
 	elif saved > 0 and r.deaths().filter(func(e: NightReport.Entry) -> bool: return e.house == seat.house).is_empty():
 		trust_add(1, "saved")
+
+
+# =============================================================
+# Акт IV: список на поезд (TASK-033)
+# =============================================================
+## Мест в поезде: на четверых меньше, чем было людей в начале главы. Игрок едет всегда.
+func train_cap() -> int:
+	return maxi(3, config.players - 4)
+
+
+func on_train(id: int) -> bool:
+	for e: Dictionary in train_list:
+		if int(e.who) == id:
+			return true
+	return false
+
+
+## Вписать в список. Игрок — одно имя в день. Тайная запись не показывает, кто писал.
+func train_add(by: Villager, who: Villager, secret: bool = false) -> bool:
+	if not train_on or by == null or who == null or who.is_player or not who.alive or on_train(who.id):
+		return false
+	if train_struck.has(who.id) or train_list.size() >= train_cap():
+		return false
+	if by.is_player and train_write_day == day:
+		return false
+	train_list.append({"who": who.id, "by": by.id, "day": day, "secret": secret})
+	if by.is_player:
+		train_write_day = day
+	if not secret:
+		clues.add("vouch", who.id, L.t("clue.train", {"me": by, "who": who}), {"source": by.id})
+	return true
+
+
+## Вычеркнуть из списка. Игрок — одного в день; вычеркнутого обратно не впишут.
+func train_strike(by: Villager, who: Villager) -> bool:
+	if not train_on or by == null or who == null or not on_train(who.id):
+		return false
+	if by.is_player and train_strike_day == day:
+		return false
+	for i in range(train_list.size()):
+		if int(train_list[i].who) == who.id:
+			train_list.remove_at(i)
+			break
+	train_struck.append(who.id)
+	if by.is_player:
+		train_strike_day = day
+	return true
+
+
+## Кто из живых упырей в списке: поезд придёт с ними.
+func train_upyrs() -> Array[Villager]:
+	var out: Array[Villager] = []
+	for e: Dictionary in train_list:
+		var v := get_villager(int(e.who))
+		if v != null and v.alive and v.is_upyr:
+			out.append(v)
+	return out
 
 
 ## Суд проигран (TASK-029): игрока изгоняют утром, глава идёт без него.

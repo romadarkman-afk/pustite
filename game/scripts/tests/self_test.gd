@@ -4872,6 +4872,7 @@ static func diary() -> void:
 	ok += PlanTests.group_four(fails)
 	ok += PlanTests.group_five(fails)
 	ok += PlanTests.group_six(fails)
+	ok += PlanTests.group_seven(fails)
 
 	# 2. Экран: кнопка «Дневник», карточка на каждого, всё в кадре, закрывается
 	Save.set_difficulty("normal")

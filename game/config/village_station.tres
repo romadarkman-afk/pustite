@@ -122,4 +122,5 @@ houses_key = "houses_station"
 square_center = Vector2(360, 392)
 square_radii = Vector2(270, 100)
 river = true
+rails_y = 530.0
 jobs = Array[ExtResource("3_job")]([SubResource("job_water"), SubResource("job_wood"), SubResource("job_lamp"), SubResource("job_fish")])

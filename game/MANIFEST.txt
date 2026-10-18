@@ -82,6 +82,7 @@ scripts/ui/journal_sheet.gd
 scripts/ui/phase_clock.gd
 scripts/ui/safe_frame.gd
 scripts/ui/scene_player.gd
+scripts/ui/train_sheet.gd
 scripts/ui/trust_faces.gd
 scripts/ui/vouch_sheet.gd
 scripts/ui/clue_book.gd

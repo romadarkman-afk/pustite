@@ -16,6 +16,10 @@ const DEFS := {
 	"anfisa": {"name": "npc.anfisa.name", "sprite": "res://assets/folk/npc_nun.png",
 		"fallback": "res://assets/folk/npc_nun.png", "spot": Vector2(296, 288),
 		"topics": ["crossed", "heal", "night"]},
+	## Акт IV (TASK-032): смотритель станции держит ключ от телеграфа и ведёт список на поезд.
+	"keeper": {"name": "npc.keeper.name", "sprite": "res://assets/folk/npc_stationmaster.png",
+		"fallback": "res://assets/folk/npc_stationmaster.png", "spot": Vector2(488, 266),
+		"topics": ["list", "train", "night"]},
 }
 const LABEL_SIZE := 15
 

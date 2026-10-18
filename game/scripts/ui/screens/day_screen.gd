@@ -228,6 +228,9 @@ func npc_actions(id: String = "") -> void:
 	if topics[i] == "book":
 		VouchSheet.open(self, m, director)      # книга у ворот: смотреть можно всегда, вопрос не тратится
 		return
+	if topics[i] == "list" and m.train_on:
+		TrainSheet.open(self, m, director)      # список на поезд (TASK-033)
+		return
 	if int(m.npc_asked.get(id, 0)) == m.day:
 		Nav.toast(L.t("npc.busy", {"name": Npc.display_name(id)}))
 		return
@@ -261,6 +264,10 @@ func person_actions(v: Villager) -> void:
 	if m.plant_chapter == "a1c3" and not m.send_used:       # «Прощание»: лодка за реку, одна за главу (TASK-020)
 		send_index = opts.size()
 		opts.append(L.t("day.p_send"))
+	var train_index := -1
+	if m.train_on:                                            # «Последний поезд»: список (TASK-033)
+		train_index = opts.size()
+		opts.append(L.t("day.p_list_strike" if m.on_train(v.id) else "day.p_list_write"))
 	var vouch_index := -1
 	if m.vouch_on and m.vouch_day != m.day:                  # «Ворота»: вписать имя в книгу (TASK-026)
 		vouch_index = opts.size()
@@ -282,6 +289,10 @@ func person_actions(v: Villager) -> void:
 		return
 	if i == promise_index:
 		promise_actions(v)
+		return
+	if i == train_index and train_index >= 0:
+		if not TrainSheet.apply(m, director, "strike" if m.on_train(v.id) else "write", v):
+			Nav.toast(L.t("list.cant"))
 		return
 	if i == vouch_index and vouch_index >= 0:
 		VouchSheet.confirm(self, m, director, v)

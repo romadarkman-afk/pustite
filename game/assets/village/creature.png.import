@@ -2,8 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://2jq74zolqry03"
-path="res://.godot/imported/creature.png-8320f202ff12b7961156832254e37002.ctex"
+uid="uid://hv40l8tsdupq"
+path="res://.godot/imported/creature.png-f10558350a05c4dda2f8079448c321f4.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://assets/village/creature.png"
-dest_files=["res://.godot/imported/creature.png-8320f202ff12b7961156832254e37002.ctex"]
+dest_files=["res://.godot/imported/creature.png-f10558350a05c4dda2f8079448c321f4.ctex"]
 
 [params]
 
@@ -21,8 +21,8 @@ compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
-normal_map=0
-channel_pack=0
+compress/normal_map=0
+compress/channel_pack=0
 mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
