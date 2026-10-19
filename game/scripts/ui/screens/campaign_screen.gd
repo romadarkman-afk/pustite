@@ -25,6 +25,24 @@ func build() -> void:
 	W.clear(footer)
 	body.add_child(W.label(L.t("camp.title"), &"Title"))
 	body.add_child(W.label(L.t("camp.intro"), &"Tale"))
+	var cover := TextureRect.new()
+	cover.name = "CampaignCover"
+	cover.texture = preload("res://assets/ui/campaign_cover.png")
+	cover.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	cover.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	cover.custom_minimum_size = Vector2(0, 190)
+	cover.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_child(cover)
+	var map := TextureRect.new()
+	map.name = "CampaignMap"
+	map.texture = preload("res://assets/ui/campaign_map.png")
+	map.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	map.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	map.custom_minimum_size = Vector2(0, 320)
+	map.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	map.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_child(map)
 	for act: Dictionary in Campaign.ACTS:
 		var aid := int(act.id)
 		var head := W.label(L.t("camp.act%d" % aid), &"Speaker")

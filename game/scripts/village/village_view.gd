@@ -46,6 +46,7 @@ var _smoke: Node2D                         ## дым из труб
 var _field := Rect2()                      ## где поле на экране (для веток)
 var blood_spots := PackedVector2Array()    ## утром: где ночью погибли (до следующей ночи)
 var trail_doors := PackedVector2Array()    ## утром: к каким дверям из леса ведут следы
+var loss_houses: Dictionary = {}            ## дом -> 1 память о погибшем, 2 изгнание
 var rain := false                          ## лужи после дождливой ночи
 
 ## Камера. Днём приближена и следует за игроком по горизонтали; в остальных фазах
@@ -60,6 +61,8 @@ var jobs_layer: JobLayer
 var _tw_frame: Tween
 var _tw_night: Tween
 var _t: float = 0.0
+var _vignette: Sprite2D
+var _unease := 0.0
 
 
 func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
@@ -95,7 +98,27 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	jobs_layer.view = self
 	jobs_layer.visible = false
 	add_child(jobs_layer)
+	_vignette = Sprite2D.new()
+	_vignette.name = "NightVignette"
+	_vignette.texture = _make_vignette()
+	_vignette.position = LOGICAL * 0.5
+	_vignette.scale = LOGICAL / 128.0
+	add_child(_vignette)
 	set_open_count(open)
+
+
+func _make_vignette() -> Texture2D:
+	var img := Image.create(128, 128, false, Image.FORMAT_RGBA8)
+	for y in range(128):
+		for x in range(128):
+			var d := Vector2((float(x) - 63.5) / 64.0, (float(y) - 63.5) / 64.0).length()
+			var a := pow(clampf((d - 0.45) / 0.6, 0.0, 1.0), 1.8) * 0.72
+			img.set_pixel(x, y, Color(0.035, 0.04, 0.075, a))
+	return ImageTexture.create_from_image(img)
+
+
+func set_unease(day: int) -> void:
+	_unease = clampf(0.45 + 0.1 * float(day - 1), 0.45, 0.9) if day > 0 else 0.0
 
 
 ## Другая карта (акт II — мельница): земля, дома, фонари, тени и предметы строятся заново.
@@ -105,6 +128,7 @@ func set_village(village: VillageDef, open: int, names: PackedStringArray) -> vo
 		set_open_count(open)
 		return
 	def = village
+	loss_houses.clear()
 	_load_art(_art_locale)
 	for l: PointLight2D in _lamp_lights:
 		l.queue_free()
@@ -164,6 +188,13 @@ func set_mood(v: float, dur: float) -> void:
 		return
 	_tw_night = create_tween().set_trans(Tween.TRANS_SINE)
 	_tw_night.tween_property(self, "night", v, dur)
+
+
+func set_loss_houses(houses: Dictionary) -> void:
+	if loss_houses == houses:
+		return
+	loss_houses = houses.duplicate()
+	_refresh()
 
 
 ## Вписать полосу с домами в прямоугольник поля. vp_w — ширина экрана.
@@ -364,6 +395,8 @@ func band_global_rect() -> Rect2:
 func _process(delta: float) -> void:
 	_follow_step(delta)
 	_t += delta
+	if _vignette != null:
+		_vignette.modulate.a = night * _unease
 	for i in range(_fog_bands.size()):
 		var b := _fog_bands[i]
 		b.region_rect.position.x = fposmod(b.region_rect.position.x + delta * (9.0 if i == 0 else -6.0) / b.scale.x, 4096.0)
@@ -496,6 +529,26 @@ func _paint_shelter(ci: CanvasItem, i: int) -> void:
 	var h: HouseDef = def.shelters[i]
 	var n := _nq()
 	_draw_house(ci, h, 1 if i < open_count else 2, n, _lit(h, n), talismans[i] if i < talismans.size() else 2)
+	var loss := int(loss_houses.get(i, 0))
+	if loss > 0:
+		var still_lived_in := false
+		if Game.m != null:
+			for resident: Villager in Game.m.villagers:
+				if resident.alive and not resident.departed and resident.night_house == i:
+					still_lived_in = true
+					break
+		if not still_lived_in:
+			var art := _art(h)
+			_blit(ci, _tex[art[0] + "_day"], house_rect(h), _flip(h), Color(0.07, 0.09, 0.13, 0.56))
+		var door := door_rect(h)
+		if loss == 1:
+			# Траурная лента видна даже в занятом доме.
+			ci.draw_line(door.position + Vector2(-3, 1), door.position + Vector2(6, 17), Color("16161c"), 5.0)
+			ci.draw_line(door.position + Vector2(6, 1), door.position + Vector2(-3, 17), Color("292833"), 4.0)
+		else:
+			# После изгнания дверь оставили приоткрытой.
+			ci.draw_colored_polygon(PackedVector2Array([door.position, door.position + Vector2(door.size.x * 0.6, 3), door.position + Vector2(door.size.x * 0.5, door.size.y), Vector2(door.position.x, door.end.y)]), Color("100e13"))
+			ci.draw_line(door.position + Vector2(door.size.x * 0.6, 3), door.position + Vector2(door.size.x * 0.5, door.size.y), Color("856849"), 2.0)
 	if i == selected_house and i < open_count:
 		Art._outline(ci, Art.rrect(house_rect(h).grow(6.0), 12), ThemeFactory.LAMP, 3.5)
 
@@ -739,7 +792,7 @@ func _draw_traces(n: float) -> void:
 			var sp := def.puddle_spots[i]
 			var h := sp.z * pt.get_height() / pt.get_width()
 			_blit(self, pt, Rect2(sp.x - sp.z * 0.5, sp.y - h * 0.5, sp.z, h), i % 2 == 1, Color(mod, 0.92))
-	if def.rails_y >= 0.0:
+	if def.rails_y >= 0.0 and def.ground != "ground_station":
 		_draw_rails(mod)
 	if flooded >= 0 and flooded < def.shelters.size():
 		# вода у залитого дома: тёмное пятно с отблеском, поверх земли и под людьми

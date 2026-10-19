@@ -10,6 +10,7 @@ var mat: ShaderMaterial
 var _door_art: Control
 var _door_closed: TextureRect
 var _door_open: TextureRect
+var _candle: DoorCandle
 var _art_tween: Tween
 var _pose_tween: Tween
 
@@ -31,6 +32,8 @@ func _ready() -> void:
 	_door_open = _door_layer(load(DOOR_OPEN_PATH) as Texture2D, "Open")
 	_door_art.add_child(_door_closed)
 	_door_art.add_child(_door_open)
+	_candle = DoorCandle.new()
+	_door_art.add_child(_candle)
 	_door_open.modulate.a = 0.0
 
 	var fnl := FastNoiseLite.new()
@@ -92,6 +95,19 @@ func door(open_amount: float, dur: float = 0.7) -> void:
 	_fade_door_art(1.0, dur)
 
 
+func set_door_place(ground: String) -> void:
+	var tint := Color.WHITE
+	match ground:
+		"ground_mill":
+			tint = Color(0.82, 0.91, 1.0)
+		"ground_monastery":
+			tint = Color(0.98, 0.88, 0.76)
+		"ground_station":
+			tint = Color(0.78, 0.84, 0.91)
+	_door_closed.modulate = Color(tint.r, tint.g, tint.b, _door_closed.modulate.a)
+	_door_open.modulate = Color(tint.r, tint.g, tint.b, _door_open.modulate.a)
+
+
 func _set_door_pose(open_amount: float, dur: float) -> void:
 	var mix_open: float = clampf((open_amount - 0.07) / 0.28, 0.0, 1.0)
 	if _pose_tween != null and _pose_tween.is_running():
@@ -124,6 +140,7 @@ func _fade_door_art(alpha: float, dur: float) -> void:
 
 
 func knock() -> void:
+	_candle.flare()
 	mat.set_shader_parameter("knock", 1.0)
 	_to("knock", 0.0, 0.28)
 

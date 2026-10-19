@@ -79,11 +79,20 @@ static func refused(screen: Control) -> void:
 
 ## Бег на колокол: где-то в лесу кричат.
 static func run(screen: Control) -> void:
+	if Game.m != null and Game.m.day >= 2 and rng.randf() < 0.2 and not Game.scenes_done.has("false_knock"):
+		Game.scenes_done["false_knock"] = true
+		_false_knock(screen)
 	if rng.randf() >= RUN_CRY_P:
 		return
 	await Juice.wait(rng.randf_range(2.0, 4.0))
 	if _alive(screen):
 		Sfx.play(&"cry_far", rng.randf_range(0.85, 1.1), -10.0)
+
+
+static func _false_knock(screen: Control) -> void:
+	await Juice.wait(rng.randf_range(2.0, 3.5))
+	if _alive(screen):
+		Sfx.play(&"knock", rng.randf_range(0.88, 1.02), -13.0)
 
 
 ## Утро: как погиб — так и звучит. Улица — крик, в доме — хрип, тварь — рык, Подражатель — плач.

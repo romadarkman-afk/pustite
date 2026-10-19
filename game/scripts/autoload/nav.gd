@@ -213,6 +213,7 @@ func show(s: Screen) -> void:
 	s.intent.connect(handle_intent.bind(s))
 	host.show_screen(s)
 	if s.door_open() >= 0.0:
+		atmos.set_door_place(Game.m.village.ground if Game.m != null else "")
 		atmos.door(s.door_open())
 	else:
 		var md := s.mood()
@@ -313,6 +314,13 @@ func _sync_traces(phase: Match.Phase) -> void:
 			elif e.who != null:
 				blood.append(village.street_point(e.who.id))
 	village.set_traces(blood, trails)
+	var losses := {}
+	if after_night:
+		for villager: Villager in Game.m.villagers:
+			if villager.alive or villager.night_house < 0 or villager.night_house >= village.def.shelters.size():
+				continue
+			losses[villager.night_house] = 2 if villager.exiled else 1
+	village.set_loss_houses(losses)
 	village.set_rain(Game.m.night_event == Match.Event.RAIN and phase != Match.Phase.PROLOGUE and phase != Match.Phase.IDLE)
 	village.set_flood(Game.m.flooded_house)
 	if phase == Match.Phase.DAY and village.def != null and village.def.rails_y >= 0.0 and not Juice.instant and randf() < 0.6:
@@ -339,6 +347,7 @@ func _home_village() -> void:
 	_populated_for = null
 	village.set_village(default_village, Save.config.shelters, L.houses())
 	village.set_traces(PackedVector2Array(), PackedVector2Array())
+	village.set_loss_houses({})
 	village.set_rain(false)
 	village.set_flood(-1)
 
@@ -357,6 +366,7 @@ func _on_phase(phase: Match.Phase) -> void:
 	var night_phase := phase == Match.Phase.NIGHT or phase == Match.Phase.DOOR
 	var fueled := 0 if Game.m.night_event == Match.Event.RAIN else roundi(Game.m.supplies() * village.def.lamps.size())
 	village.set_lamps_fueled(fueled if night_phase else 99)
+	village.set_unease(Game.m.day if night_phase else 0)
 	_sync_traces(phase)
 	# метка «Вы»: в первых трёх партиях всегда, потом — только в прологе
 	village.crowd.set_player_highlight(phase == Match.Phase.PROLOGUE or int(Save.stats["games"]) < 3)

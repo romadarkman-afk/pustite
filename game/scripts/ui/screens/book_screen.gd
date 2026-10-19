@@ -3,6 +3,14 @@ extends Screen
 ## Книга посёлка (Task 62): уровень, судьбы всех, кого встречал, найденные концовки и достижения.
 ## Пустые страницы видны: что ещё можно найти.
 
+const ACH_ICONS := {
+	"night1": "moon", "open_door": "door", "closed_door": "lock", "instinct": "mark_eye",
+	"mistake": "skull", "mourning": "quiet", "last_one": "alone", "debtor": "pact",
+	"oil": "street", "forest_call": "fog", "guest_secret": "mimic", "three_stars": "safe",
+	"act1": "bell", "act2": "rain", "dark_side": "fang", "whole_family": "people",
+	"act3": "talisman", "act4": "street_ok"
+}
+
 
 func screen_id() -> String:
 	return "book"
@@ -59,7 +67,7 @@ func build() -> void:
 		var got := Save.achievements.has(id)
 		var box := W.vbox(2)
 		box.name = "Ach_" + id
-		box.add_child(W.icon_line("street_ok" if got else "lock", L.t("ach.%s.name" % id), &"Body" if got else &"Hint", 32,
+		box.add_child(W.icon_line(String(ACH_ICONS.get(id, "info")) if got else "lock", L.t("ach.%s.name" % id), &"Body" if got else &"Hint", 32,
 			ThemeFactory.LAMP if got else Color(0, 0, 0, 0)))
 		box.add_child(W.label(L.t("ach.%s.desc" % id), &"Small"))
 		body.add_child(box)

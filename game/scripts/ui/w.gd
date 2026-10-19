@@ -141,8 +141,11 @@ static func wrap(b: Button) -> Button:
 
 ## Портрет жителя с поля: та же картинка, что на площади (у героя — с шапкой). name = "Portrait".
 static func portrait(v: Villager, sz: Vector2 = Vector2(70, 128), tint: Color = Color(1, 1, 1)) -> TextureRect:
-	var p := TextureRect.new()
+	var p := LivingPortrait.new()
 	p.name = "Portrait"
+	p.active = v != null and v.alive
+	if v != null and Game.m != null and Game.m.feelings != null:
+		p.state = Game.m.feelings.main(v.id)
 	var figure: VillagerFigure = null
 	if v != null and Nav.village != null and Nav.village.crowd != null:
 		figure = Nav.village.crowd.figures.get(v.id)

@@ -124,3 +124,6 @@ scripts/village/village_view.gd
 scripts/village/villager_figure.gd
 shaders/atmos.gdshader
 shaders/lantern_tint.gdshader
+scripts/ui/widgets/door_candle.gd
+scripts/ui/widgets/living_portrait.gd
+tools/check_pair.gd

@@ -24,7 +24,7 @@ func min_content_ratio() -> float:
 
 ## Сумерки длинные: окна загораются по одному, в конце в лесу появляются глаза.
 func mood_duration() -> float:
-	return 1.8
+	return 3.2
 
 
 func title() -> String:
