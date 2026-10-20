@@ -2471,6 +2471,14 @@ static func difficulty() -> void:
 	Nav.show_settings()
 	await _settle(tree)
 	var st := Nav.host.current as SettingsScreen
+	var game_tab: Button = null
+	for c: Control in _controls(st):
+		if c is Button and c.name == "Tab_game":
+			game_tab = c
+			break
+	if game_tab != null:
+		game_tab.pressed.emit()
+		await _frames(tree, 2)
 	var hard_b := _find_button(st, "Сложная")
 	if hard_b != null:
 		hard_b.pressed.emit()
