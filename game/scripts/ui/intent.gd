@@ -12,6 +12,7 @@ const ACCUSE := &"accuse"
 const INVITE := &"invite"
 const ASK := &"ask"
 const PERSONAL_TALK := &"personal_talk"
+const COMFORT_MOURNER := &"comfort_mourner" ## поддержать скорбящего жителя: {id, choice}
 const DEFEND := &"defend"
 const END_DAY := &"end_day"
 const VOTE := &"vote"

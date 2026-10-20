@@ -4868,6 +4868,24 @@ static func diary() -> void:
 	token_test.day += 1
 	token_ok = token_ok and token_test.spend_question_token() and token_test.question_tokens == 1
 	ok += _expect(fails, token_ok, "жетоны не ограничены тремя или тратятся чаще одного раза за ночь")
+	var grief_match := Match.new()
+	var grief_dir := Director.new()
+	grief_match.start(c, 23)
+	grief_dir.attach(grief_match)
+	var mourner: Villager = grief_match.alive_bots()[0]
+	var lost: Villager = grief_match.alive_bots()[1]
+	mourner.grief_for = lost.id
+	mourner.grief_days = 2
+	var trust_before := grief_match.feelings.get_f(mourner.id, Feelings.F.TRUST)
+	var bond_before: float = grief_dir.brains[mourner.id].private_delta.get(0, 0.0)
+	var comfort_lines := grief_dir.comfort_mourner(mourner.id, 0)
+	var comfort_event := grief_match.world.last(WorldLog.Kind.CHOICE, grief_match.player().id, mourner.id)
+	ok += _expect(fails, comfort_lines.size() == 2 and mourner.grief_comforted and comfort_event != null,
+		"поддержка скорбящего не создаёт диалог, блокировку повтора или запись выбора")
+	ok += _expect(fails, grief_match.feelings.get_f(mourner.id, Feelings.F.TRUST) > trust_before
+		and float(grief_dir.brains[mourner.id].private_delta.get(0, 0.0)) < bond_before
+		and grief_dir.comfort_mourner(mourner.id, 1).is_empty(),
+		"разговор не меняет доверие или повторно поддерживает ту же утрату")
 	m0.begin_day()
 	var bots := m0.alive_bots()
 	var liar: Villager = bots[0]
@@ -5876,6 +5894,15 @@ static func loc() -> void:
 				texts.append(SocialContent.person_title(speaker))
 				for chapter in range(3):
 					texts.append(SocialContent.personal_chapter(speaker, chapter))
+		texts.append(SocialContent.mourning_action())
+		for mourner_test: Villager in [bm, bf]:
+			var grief_lost: Villager = bf if mourner_test == bm else bm
+			texts.append(SocialContent.mourning_title(mourner_test))
+			for option: String in SocialContent.mourning_options(mourner_test, grief_lost):
+				texts.append(option)
+			for choice in range(3):
+				texts.append(SocialContent.mourning_line("player", choice, mourner_test, grief_lost))
+				texts.append(SocialContent.mourning_line("reply", choice, mourner_test, grief_lost))
 		texts.append(SocialContent.village_intro(m))
 		# задача 65: истории, пара, осмотр у двери и мелочи интерфейса на всех языках, не по-английски
 		for beat: Array in SocialContent.opening_beats(m):

@@ -1634,6 +1634,7 @@ func _apply_grief(r: NightReport) -> void:
 				continue
 			kin.grief_for = lost.id
 			kin.grief_days = GRIEF_DAYS
+			kin.grief_comforted = false
 			griefs += 1
 			kin.blame_id = -1
 			kin.blame_via = -1

@@ -615,6 +615,9 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 				Game.personal_talk(int(data.id), int(data.choice))
 				if Game.first_contact:
 					(sender as DayScreen).contact_done()
+		Intent.COMFORT_MOURNER:
+			if sender is DayScreen:
+				Game.comfort_mourner(int(data.id), int(data.choice))
 		Intent.QUESTION_REPLY:
 			if sender is DayScreen:
 				Game.answer_question(int(data.id), String(data.answer), int(data.answer_kind), String(data.get("kind", "")))

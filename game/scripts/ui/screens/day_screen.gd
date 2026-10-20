@@ -260,6 +260,10 @@ func person_actions(v: Villager) -> void:
 		opts.append(L.t("day.p_elder", {"who": v}))
 	var promise_index := opts.size()
 	opts.append(L.t("day.p_promise"))
+	var comfort_index := -1
+	if v.grief_days > 0 and not v.grief_comforted and m.get_villager(v.grief_for) != null:
+		comfort_index = opts.size()
+		opts.append(SocialContent.mourning_action())
 	var send_index := -1
 	if m.plant_chapter == "a1c3" and not m.send_used:       # «Прощание»: лодка за реку, одна за главу (TASK-020)
 		send_index = opts.size()
@@ -287,6 +291,9 @@ func person_actions(v: Villager) -> void:
 	if i == personal_index:
 		_personal_talk(v)
 		return
+	if i == comfort_index and comfort_index >= 0:
+		_mourning_actions(v)
+		return
 	if i == promise_index:
 		promise_actions(v)
 		return
@@ -307,6 +314,16 @@ func person_actions(v: Villager) -> void:
 		1: _pick_house_for(v)
 		2: emit_intent(Intent.ASK, {"id": v.id})
 		3: emit_intent(Intent.ELDER, {"id": v.id})
+
+
+func _mourning_actions(v: Villager) -> void:
+	var lost := m.get_villager(v.grief_for)
+	if lost == null or v.grief_comforted:
+		return
+	var options := SocialContent.mourning_options(v, lost)
+	var choice: int = await ActionSheet.ask(self, SocialContent.mourning_title(v), options)
+	if choice >= 0 and is_inside_tree() and m != null and m.phase == Match.Phase.DAY:
+		emit_intent(Intent.COMFORT_MOURNER, {"id": v.id, "choice": choice})
 
 
 func _personal_talk(v: Villager) -> void:

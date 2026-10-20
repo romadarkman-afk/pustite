@@ -1991,6 +1991,33 @@ func answer_grief(asker: Villager, answer_kind: int) -> Array[ChatLine]:
 	return out
 
 
+## Поддержка скорбящего жителя. Один разговор на одну утрату; выбор меняет личное доверие.
+func comfort_mourner(vid: int, choice: int) -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	var mourner := m.get_villager(vid) if m != null else null
+	if mourner == null or mourner.is_player or not mourner.alive or mourner.grief_days <= 0 \
+		or mourner.grief_comforted or not brains.has(vid) or choice < 0 or choice > 2:
+		return out
+	var lost := m.get_villager(mourner.grief_for)
+	if lost == null:
+		return out
+	mourner.grief_comforted = true
+	var bond_delta: float = [-0.45, -0.3, -0.15][choice]
+	brains[vid].private_delta[0] = brains[vid].private_delta.get(0, 0.0) + bond_delta
+	m.feelings.add(vid, Feelings.F.TRUST, [0.3, 0.2, 0.1][choice])
+	if choice == 0:
+		m.feelings.add(vid, Feelings.F.RAGE, -0.15)
+	var me := m.player()
+	var line := ChatLine.say(me, SocialContent.mourning_line("player", choice, mourner, lost))
+	out.append(line)
+	var reply := ChatLine.say(mourner, SocialContent.mourning_line("reply", choice, mourner, lost))
+	reply.emotion = "sad" if choice == 2 else "relieved"
+	out.append(reply)
+	m.world.add(WorldLog.Kind.CHOICE, m.day, me.id, mourner.id, -1, [me.id, mourner.id], false,
+		{"kind": "mourning_support", "choice": choice, "lost": lost.id})
+	return out
+
+
 # =============================================================
 # Кампания: что жители помнят из прошлых глав (TASK-007, TASK-010)
 # =============================================================

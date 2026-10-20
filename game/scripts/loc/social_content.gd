@@ -854,6 +854,72 @@ static func narrative_ui(key: String) -> String:
 	return String((ru if L.code == "ru" else en).get(key, key))
 
 
+const MOURNING_UI := {
+	"ru": {"action": "Поддержать в трауре", "title": "{who} переживает утрату. Как ответить?",
+		"options": ["Выслушать", "Помочь с вещами", "Побыть рядом молча"],
+		"player": ["Я тебя выслушаю.", "Могу помочь разобрать оставшиеся вещи.", "Я побуду рядом молча."],
+		"reply": ["Спасибо. Мне трудно говорить об этом вслух.", "Я пока не могу разбирать вещи. Останься со мной.", "Посиди ещё немного. Сейчас тишина легче слов."]},
+	"en": {"action": "Offer support", "title": "{who} is grieving. What will you say?",
+		"options": ["Listen", "Help with their belongings", "Stay quietly"],
+		"player": ["I'm here. I'll listen.", "I can help sort through what they left behind.", "I'll stay with you in silence."],
+		"reply": ["Thank you. I haven't been able to say this aloud.", "I'm not ready to sort through their things. Stay with me.", "Sit with me a little longer. Silence is easier than words."]},
+	"de": {"action": "Trost anbieten", "title": "{who} trauert. Was sagst du?",
+		"options": ["Zuhören", "Bei den Sachen helfen", "Still dableiben"],
+		"player": ["Ich höre dir zu.", "Ich kann dir helfen, die Sachen zu ordnen.", "Ich bleibe still bei dir."],
+		"reply": ["Danke. Ich konnte bisher nicht darüber sprechen.", "Ich bin noch nicht bereit, die Sachen durchzusehen. Bleib bei mir.", "Bleib noch etwas. Schweigen ist heute leichter als Worte."]},
+	"fr": {"action": "Réconforter", "title": "{who} est en deuil. Que répondre ?",
+		"options": ["Écouter", "Aider avec ses affaires", "Rester en silence"],
+		"player": ["Je t'écoute.", "Je peux t'aider à trier ses affaires.", "Je reste avec toi en silence."],
+		"reply": ["Merci. Je n'arrivais pas à en parler à voix haute.", "Je ne suis pas prêt{me:|e} à ranger ses affaires. Reste avec moi.", "Reste encore un peu. Aujourd'hui, le silence est plus doux que les mots."]},
+	"es": {"action": "Ofrecer apoyo", "title": "{who} está de duelo. ¿Qué respondes?",
+		"options": ["Escuchar", "Ayudar con sus cosas", "Acompañar en silencio"],
+		"player": ["Estoy aquí. Te escucho.", "Puedo ayudarte a ordenar sus cosas.", "Me quedaré contigo en silencio."],
+		"reply": ["Gracias. No había podido decirlo en voz alta.", "Aún no estoy list{me:o|a} para ordenar sus cosas. Quédate conmigo.", "Quédate un poco más. Hoy el silencio es más fácil que hablar."]},
+	"pt": {"action": "Oferecer apoio", "title": "{who} está de luto. O que você responde?",
+		"options": ["Escutar", "Ajudar com os pertences", "Ficar em silêncio"],
+		"player": ["Estou aqui. Vou escutar.", "Posso ajudar a separar as coisas que ficaram.", "Vou ficar aqui com você, em silêncio."],
+		"reply": ["Agradeço. Eu ainda não conseguia falar disso em voz alta.", "Ainda não estou pront{me:o|a} para mexer nas coisas. Fica comigo.", "Fica mais um pouco. Hoje o silêncio é mais fácil que as palavras."]},
+	"tr": {"action": "Yanında ol", "title": "{who} yas tutuyor. Ne söyleyeceksin?",
+		"options": ["Dinle", "Eşyalarına yardım et", "Sessizce yanında kal"],
+		"player": ["Buradayım, seni dinliyorum.", "Kalan eşyaları toplamana yardım edebilirim.", "Sessizce yanında kalacağım."],
+		"reply": ["Sağ ol. Bunu sesli söyleyemiyordum.", "Eşyaları toplamaya hazır değilim. Yanımda kal.", "Biraz daha otur. Bugün sessizlik sözlerden kolay."]},
+	"hi": {"action": "साथ दें", "title": "{who} शोक में है। तुम क्या कहोगे?",
+		"options": ["बात सुनें", "सामान में मदद करें", "चुपचाप साथ रहें"],
+		"player": ["मैं यहाँ हूँ।", "बची हुई चीज़ें समेटने में मदद कर सकता हूँ।", "मैं चुपचाप साथ रहूँगा।"],
+		"reply": ["धन्यवाद। इस बारे में बोलना मेरे लिए मुश्किल था।", "मैं अभी सामान समेटने के लिए तैयार नहीं हूँ। मेरे साथ रहो।", "थोड़ी देर और बैठो। आज चुप्पी शब्दों से आसान है।"]},
+	"vi": {"action": "Ở bên an ủi", "title": "{who} đang chịu tang. Bạn sẽ nói gì?",
+		"options": ["Lắng nghe", "Giúp thu dọn đồ", "Ở lại trong im lặng"],
+		"player": ["Mình ở đây, cứ nói đi.", "Mình có thể giúp dọn những món đồ còn lại.", "Mình sẽ ngồi đây cùng bạn, không nói gì."],
+		"reply": ["Cảm ơn. Mình vẫn chưa thể nói chuyện này thành lời.", "Mình chưa sẵn sàng dọn đồ. Ở lại với mình nhé.", "Ngồi thêm một chút. Hôm nay im lặng dễ chịu hơn lời nói."]},
+	"zh": {"action": "安慰", "title": "{who}正在哀悼。你会怎么回应？",
+		"options": ["听他说", "帮忙整理遗物", "安静地陪着"],
+		"player": ["我在听。", "我可以帮你整理留下的东西。", "我会安静地陪着你。"],
+		"reply": ["谢谢。我一直没能把这些话说出口。", "我还没准备好整理遗物。陪陪我。", "再坐一会儿吧。今天沉默比说话容易。"]}
+}
+
+
+static func mourning_action() -> String:
+	return String(MOURNING_UI.get(L.code, MOURNING_UI.en).action)
+
+
+static func mourning_title(mourner: Villager) -> String:
+	return L.fill(String(MOURNING_UI.get(L.code, MOURNING_UI.en).title), {"who": mourner, "me": mourner})
+
+
+static func mourning_options(mourner: Villager, lost: Villager) -> PackedStringArray:
+	var out := PackedStringArray()
+	for text: String in MOURNING_UI.get(L.code, MOURNING_UI.en).options:
+		out.append(L.fill(text, {"me": mourner, "lost": lost}))
+	return out
+
+
+static func mourning_line(kind: String, choice: int, mourner: Villager, lost: Villager) -> String:
+	var lines: Array = MOURNING_UI.get(L.code, MOURNING_UI.en).get(kind, [])
+	if choice < 0 or choice >= lines.size():
+		return ""
+	return L.fill(String(lines[choice]), {"me": mourner, "who": mourner, "lost": lost})
+
+
 static func has_bank(bank_id: String) -> bool:
 	var accusations: Dictionary = _data().accusations
 	return accusations.has(bank_id)

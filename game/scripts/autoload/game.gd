@@ -587,6 +587,16 @@ func personal_talk(vid: int, choice: int) -> void:
 	_post_all(lines)
 
 
+func comfort_mourner(vid: int, choice: int) -> void:
+	if m == null or m.phase != Match.Phase.DAY or not m.player().alive or director == null:
+		return
+	var lines := director.comfort_mourner(vid, choice)
+	if lines.is_empty():
+		return
+	_post_all(lines)
+	marks_changed.emit()
+
+
 func answer_question(vid: int, answer: String, answer_kind: int, question_kind: String = "") -> void:
 	if m == null or m.phase != Match.Phase.DAY or answer.strip_edges().is_empty():
 		return
