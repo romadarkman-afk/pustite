@@ -203,6 +203,8 @@ func show_howto(then_play: bool) -> void:
 func show(s: Screen) -> void:
 	Diag.step("экран: %s" % s.screen_id())
 	Sfx.set_ambience(s.ambience())
+	Sfx.set_place_layer(Game.m.village.ground if Game.m != null else "",
+		Game.m.village.river if Game.m != null else false, s.ambience())
 	Sfx.set_music(s.music())
 	Sfx.heartbeat(s.heart())
 	bubbles.clear()

@@ -1,6 +1,6 @@
 extends Node
 ## Звук: одиночные звуки, фон (ветер, сверчки), музыка и сердцебиение.
-## Эффекты и дневная музыка синтезированы tools/make_sfx.py; menu/night — отдельные петли в assets/music/.
+## Основные фоновые дорожки и голоса взяты из записей CC0 (см. AUDIO_SOURCES.md).
 ##
 ## Каналы громкости: Music, Sfx, Ambience — каждый отдельно в настройках.
 ## Свёрнута игра — все каналы заглушены, вернулась — звук возвращается.
@@ -14,7 +14,8 @@ const SOUNDS := {
 	&"bell": "res://assets/sfx/bell.ogg",
 	&"tick": "res://assets/sfx/tick.ogg",
 	&"death": "res://assets/sfx/death.ogg",
-	&"human_cry": "res://assets/sfx/human_cry.wav",
+	&"human_cry_m": "res://assets/sfx/human_cry.wav",
+	&"human_cry_f": "res://assets/sfx/human_cry_f.ogg",
 	&"upyr_cry": "res://assets/sfx/upyr_cry.wav",
 	&"exile": "res://assets/sfx/exile.ogg",
 	&"win": "res://assets/sfx/win.ogg",
@@ -74,9 +75,13 @@ var heart_on := false
 var _streams: Dictionary = {}
 var _pool: Array[AudioStreamPlayer] = []
 var _next := 0
-var _music: AudioStreamPlayer
+var _music: Array[AudioStreamPlayer] = []
+var _music_i := 0
 var _amb: Array[AudioStreamPlayer] = []
 var _amb_i := 0
+var _place: AudioStreamPlayer
+var _place_name: StringName = &""
+var _place_generation := 0
 var _heart: AudioStreamPlayer
 var _muted_by_os := false
 var _tw: Dictionary = {}
@@ -102,8 +107,9 @@ func _ready() -> void:
 		p.bus = &"Sfx"
 		add_child(p)
 		_pool.append(p)
-	_music = _player(&"Music")
+	_music = [_player(&"Music"), _player(&"Music")]
 	_amb = [_player(&"Ambience"), _player(&"Ambience")]
+	_place = _player(&"Ambience")
 	_heart = _player(&"Sfx")
 	_heart.stream = _streams[&"heartbeat"]
 
@@ -157,11 +163,11 @@ func voice(speaker_id: int, female: bool, text_len: int, mood: String = "") -> v
 	for i in range(n):
 		if i > 0:
 			await get_tree().create_timer(gap).timeout
-		play(&"blip", base * (1.0 + 0.09 * sin(float(i) * 2.3 + speaker_id)), -6.0)
+		play(&"blip", base * (1.0 + 0.09 * sin(float(i) * 2.3 + speaker_id)), -15.0)
 
 
 ## Фон: «amb_day», «amb_night» или "" (тишина). Плавная смена за fade секунд.
-func set_ambience(n: StringName, fade: float = 1.5) -> void:
+func set_ambience(n: StringName, fade: float = 2.8) -> void:
 	if n == ambience_name:
 		return
 	ambience_name = n
@@ -171,31 +177,66 @@ func set_ambience(n: StringName, fade: float = 1.5) -> void:
 	var cur := _amb[_amb_i]
 	_fade(old, -80.0, fade, true)
 	if n != &"" and has_sound(n):
+		cur.stop()
 		cur.stream = _streams[n]
 		cur.volume_db = -80.0
 		cur.play()
 		_fade(cur, -4.0, fade, false)
 
 
+## Второй тихий слой по месту действия. Вместе с двумя каналами музыки и фона
+## и сердцебиением одновременно работают не более шести длинных потоков.
+func set_place_layer(ground: String, river: bool, primary: StringName, fade: float = 2.8) -> void:
+	var n: StringName = &""
+	var level := -20.0
+	if primary != &"":
+		if ground == "ground_station":
+			n = &"rails"
+			level = -24.0
+		elif river:
+			n = &"amb_river"
+			level = -18.0
+		elif ground == "ground_monastery":
+			n = &"amb_dusk"
+			level = -23.0
+	if n == primary:
+		n = &""
+	if n == _place_name:
+		return
+	_place_name = n
+	_place_generation += 1
+	var generation := _place_generation
+	_note(StringName("слой:" + String(n)))
+	if _place.playing:
+		_fade(_place, -80.0, fade * 0.5, true)
+		await get_tree().create_timer(0.001 if Juice.instant else fade * 0.5).timeout
+		if generation != _place_generation:
+			return
+	if n == &"" or not has_sound(n):
+		return
+	_place.stream = _streams[n]
+	_place.volume_db = -80.0
+	_place.play()
+	_fade(_place, level, fade * 0.5, false)
+
+
 ## Музыка: «menu», «day», «night» или "" (тишина).
-func set_music(n: StringName, fade: float = 1.2) -> void:
+func set_music(n: StringName, fade: float = 2.8) -> void:
 	if n == music_name:
 		return
 	music_name = n
 	_note(StringName("музыка:" + String(n)))
+	var old := _music[_music_i]
+	_music_i = 1 - _music_i
+	var cur := _music[_music_i]
+	_fade(old, -80.0, fade, true)
 	if n == &"" or not has_sound(n):
-		_fade(_music, -80.0, fade, true)
 		return
-	if _music.playing and _music.stream != _streams[n]:
-		var t := _fade(_music, -80.0, fade * 0.5, true)
-		await t.finished
-		if music_name != n:
-			return
-	_music.stream = _streams[n]
-	if not _music.playing:
-		_music.volume_db = -80.0
-		_music.play()
-	_fade(_music, _music_target_db(), fade, false)
+	cur.stop()
+	cur.stream = _streams[n]
+	cur.volume_db = -80.0
+	cur.play()
+	_fade(cur, _music_target_db(), fade, false)
 
 
 ## Сердцебиение: у двери и в последние секунды.
@@ -211,11 +252,15 @@ func heartbeat(on: bool) -> void:
 			_heart.volume_db = -80.0
 			_heart.play()
 		_fade(_heart, -3.0, 0.8, false)
-		_fade(_music, _music_target_db(), 0.8, false)
+		for p: AudioStreamPlayer in _music:
+			if p.playing:
+				_fade(p, _music_target_db(), 0.8, false)
 	else:
 		_fade(_heart, -80.0, 0.8, true)
 		set_heartbeat_pace(1.0)
-		_fade(_music, _music_target_db(), 0.8, false)
+		for p: AudioStreamPlayer in _music:
+			if p.playing:
+				_fade(p, _music_target_db(), 0.8, false)
 
 
 ## Несколько ударов подряд немного ускоряют пульс; скорость не зависит от того, кого стучит.

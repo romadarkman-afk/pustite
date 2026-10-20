@@ -238,7 +238,7 @@ func _reveal(r: NightReport) -> void:
 			# утрата: тишина вместо музыки, крик, долгая пауза — строку не пролистнуть за полсекунды
 			Juice.haptic(Juice.Haptic.DEATH)
 			Sfx.play(&"death")
-			Sfx.play(&"human_cry", 0.9 + randf() * 0.18, -5.0)
+			Sfx.play(&"human_cry_f" if lost.female else &"human_cry_m", 0.96 + randf() * 0.08, -8.0)
 			Sfx.play(Dread.death_sound(l[5]), 1.0, -9.0)
 			death_fx.emit()
 			Juice.shake(self, 8.0, 0.25)
@@ -246,7 +246,7 @@ func _reveal(r: NightReport) -> void:
 		elif l[2]:
 			Juice.haptic(Juice.Haptic.DEATH)
 			Sfx.play(&"death")
-			Sfx.play(&"human_cry", 0.9 + randf() * 0.18, -5.0)
+			Sfx.play(&"human_cry_f" if m.player().female else &"human_cry_m", 0.96 + randf() * 0.08, -8.0)
 			death_fx.emit()
 			Juice.shake(self, 8.0, 0.25)
 			await Juice.wait(0.7)
