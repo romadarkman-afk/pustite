@@ -6283,10 +6283,12 @@ static func cosmetics() -> void:
 	await _frames(tree, 3)
 	Nav.frame.refresh()
 	var stats0 := Save.stats.duplicate()
+	var achievements0 := Save.achievements.duplicate()
 	var bonds0: Dictionary[String, int] = Save.anchor_bonds.duplicate()
 	Save.stats["wins"] = 0
 	Save.daily_wins = 0
 	Save.daily_best = 0
+	Save.achievements.clear()
 	Save.anchor_bonds = {"0": 0, "1": 0, "2": 0}
 	Save.lantern = "classic"
 	Save.hat = "own"
@@ -6394,6 +6396,7 @@ static func cosmetics() -> void:
 	Save.stats = stats0
 	Save.daily_wins = 0
 	Save.daily_best = 0
+	Save.achievements = achievements0
 	Save.anchor_bonds = bonds0
 	Save.lantern = "classic"
 	Save.hat = "own"
