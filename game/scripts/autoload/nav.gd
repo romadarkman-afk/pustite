@@ -917,7 +917,6 @@ func _on_back() -> void:
 func relocalize() -> void:
 	village.titles = L.houses(village.def.houses_key)
 	village.crowd.book = L.looks()
-	village.set_art_locale(L.code)
 	_home_village()
 	village.queue_redraw()
 	ThemeFactory.refresh_fonts()

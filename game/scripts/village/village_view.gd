@@ -35,7 +35,6 @@ var _lamp_glows: Array[Sprite2D] = []
 var _house_glows: Array[Sprite2D] = []
 var _lamp_lights: Array[PointLight2D] = []
 var _tex: Dictionary = {}                  ## имя картинки -> Texture2D
-var _art_locale: String = ""             ## страна для региональных спрайтов
 var _props: Array[VillageProp] = []        ## дома, колодец, фонари и реквизит — в слое толпы
 var _labels: Node2D                        ## таблички убежищ — над толпой
 var _occluders: Array[LightOccluder2D] = []
@@ -69,7 +68,7 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	def = village
 	titles = names
 	_font = ThemeFactory.font_bold()
-	_load_art(L.code)
+	_load_art()
 	_backdrop = Backdrop.new()
 	_backdrop.view = self
 	add_child(_backdrop)
@@ -129,7 +128,7 @@ func set_village(village: VillageDef, open: int, names: PackedStringArray) -> vo
 		return
 	def = village
 	loss_houses.clear()
-	_load_art(_art_locale)
+	_load_art()
 	for l: PointLight2D in _lamp_lights:
 		l.queue_free()
 	_lamp_lights.clear()
@@ -607,40 +606,14 @@ const MAP_FILES: PackedStringArray = ["sky_day.jpg", "sky_dusk.jpg", "sky_night.
 const CHIMNEY := {HouseDef.Kind.HOME: Vector2(0.62, 0.05), HouseDef.Kind.CHURCH: Vector2(0.76, 0.39), HouseDef.Kind.GARAGE: Vector2(0.72, 0.04)}
 
 
-## Немецкий и французский наборы хранятся отдельно. Отсутствующий ресурс
-## берётся из общей русской деревни, поэтому набор можно добавлять частями.
-func set_art_locale(locale_code: String) -> void:
-	if locale_code == _art_locale:
-		return
-	_load_art(locale_code)
-	_refresh()
-
-
-func _load_art(locale_code: String) -> void:
-	_art_locale = locale_code
-	var regional_dir := _regional_art_dir(locale_code)
+## Фоны и графика общие для всех языков. Локаль меняет только текст.
+func _load_art() -> void:
 	for f: String in ART_FILES:
-		_tex[f] = _load_art_texture(regional_dir, f, ".png")
+		_tex[f] = load(ART_DIR + f + ".png") as Texture2D
 	for g: String in GROUND_FILES:
-		_tex[g] = _load_art_texture(regional_dir, g.replace("ground", def.ground if def != null else "ground"), ".jpg")
+		_tex[g] = load(ART_DIR + g.replace("ground", def.ground if def != null else "ground") + ".jpg") as Texture2D
 	for f: String in MAP_FILES:
 		_tex[f.get_basename()] = load(ART_DIR + f) as Texture2D
-
-
-func _regional_art_dir(locale_code: String) -> String:
-	if locale_code == "de" or locale_code == "fr":
-		return ART_DIR + "regions/" + locale_code + "/"
-	return ""
-
-
-func _load_art_texture(regional_dir: String, file_name: String, extension: String) -> Texture2D:
-	if not regional_dir.is_empty():
-		var regional_path := regional_dir + file_name + extension
-		if ResourceLoader.exists(regional_path):
-			var regional_texture := load(regional_path) as Texture2D
-			if regional_texture != null:
-				return regional_texture
-	return load(ART_DIR + file_name + extension) as Texture2D
 
 
 ## Дома слева от площади смотрят дверью вправо, к площади: картинку отражаем.

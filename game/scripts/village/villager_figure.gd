@@ -63,11 +63,12 @@ var _door_rig: Polygon2D
 var _door_shadow: Polygon2D
 var _door_base := PackedVector2Array()
 var _door_weights := PackedFloat32Array()
+var _left_wrist_weights := PackedFloat32Array()
 
 ## Жизнь на площади (задача 44): между репликами житель что-то делает — чешет затылок,
 ## смотрит на небо, потягивается, скрещивает руки, переминается. Включает толпа, только днём.
 ## Поза меняется в начале и в конце действия (у «почесать» — ещё раз посередине): две-три перерисовки.
-const FIDGETS: PackedStringArray = ["scratch", "sky", "stretch", "arms", "shift"]
+const FIDGETS: PackedStringArray = ["scratch", "sky", "stretch", "arms", "shift", "listen", "warm"]
 var fidgets_on := false
 var fidget: String = ""
 var fidget_count := 0          ## сколько действий сделал — для самотеста
@@ -739,8 +740,10 @@ func _process(delta: float) -> void:
 				return
 			if _walk_weight > 0.01:
 				_anim_step(delta)
+			elif fidget != "":
+				_anim_step(delta)
 			var s := sin(_t * 1.7 + _phase)
-			var breath_size := 0.004
+			var breath_size := 0.0055
 			body.scale = Vector2(_face, 1.0 + breath_size * s)
 			var chill_speed := 2.4
 			var chill_size := 0.12
@@ -780,13 +783,14 @@ func _fidget_step(delta: float) -> void:
 func _fidget_pose(pose: Dictionary) -> String:
 	match fidget:
 		"scratch":
-			var up := _fidget_t > _fidget_len * 0.5
-			pose["arm_r"] = 2.75 if up else 2.55
-			pose["tilt"] = 0.12
+			var progress := 1.0 - _fidget_t / maxf(_fidget_len, 0.01)
+			var reach := smoothstep(0.04, 0.3, progress) * (1.0 - smoothstep(0.68, 0.96, progress))
+			pose["arm_r"] = lerpf(0.12, 2.75, reach)
+			pose["tilt"] = 0.12 * reach
 			return "confused"
 		"sky":
-			pose["look"] = Vector2(0.2, -1.0)
-			pose["tilt"] = -0.14
+			pose["look"] = Vector2(sin(_t * 1.2 + _phase) * 0.3, -1.0)
+			pose["tilt"] = -0.14 + sin(_t * 0.9 + _phase) * 0.025
 			return ""
 		"stretch":
 			pose["arm_l"] = 2.85
@@ -798,10 +802,19 @@ func _fidget_pose(pose: Dictionary) -> String:
 			pose["arm_r"] = 1.15
 			return ""
 		"shift":
-			pose["walk"] = 0.2
+			pose["walk"] = fmod((1.0 - _fidget_t / maxf(_fidget_len, 0.01)) * 0.5, 1.0)
 			pose["amp"] = 0.45
 			pose["lean"] = 0.05
 			return ""
+		"listen":
+			pose["look"] = Vector2(0.7 * _face, -0.15)
+			pose["tilt"] = 0.08 + sin(_t * 2.0 + _phase) * 0.02
+			return "suspicious"
+		"warm":
+			pose["arm_l"] = 1.15 + sin(_t * 5.0 + _phase) * 0.07
+			pose["arm_r"] = 1.15 - sin(_t * 5.0 + _phase) * 0.07
+			pose["shiver"] = true
+			return "cold"
 	return ""
 
 
@@ -1112,6 +1125,7 @@ func _build_sprite_rig(tex: Texture2D, h: float, w: float) -> void:
 		var faces: Array = []
 		_door_base.clear()
 		_door_weights.clear()
+		_left_wrist_weights.clear()
 		var hands := {1: Vector2(0.71, 0.47), 2: Vector2(0.87, 0.48), 3: Vector2(0.76, 0.47),
 			4: Vector2(0.9, 0.49), 5: Vector2(0.84, 0.53), 6: Vector2(0.78, 0.5),
 			7: Vector2(0.88, 0.51), 8: Vector2(0.91, 0.5), 9: Vector2(0.7, 0.47),
@@ -1126,6 +1140,8 @@ func _build_sprite_rig(tex: Texture2D, h: float, w: float) -> void:
 				uv.append(Vector2(x * tex.get_width(), y * tex.get_height()))
 				var distance := Vector2((x - wrist.x) / 0.18, (y - wrist.y) / 0.15)
 				_door_weights.append(exp(-distance.length_squared() * 2.0))
+				var left_distance := Vector2((x - 0.16) / 0.18, (y - 0.49) / 0.15)
+				_left_wrist_weights.append(exp(-left_distance.length_squared() * 2.0))
 		for row in range(13):
 			for column in range(9):
 				var corner := row * 10 + column
@@ -1143,18 +1159,28 @@ func _draw_field_rig(tex: Texture2D, h: float, w: float, pose: Dictionary) -> vo
 	_build_sprite_rig(tex, h, w)
 	var points := _door_base.duplicate()
 	var stride := sin(_walk * TAU) * _walk_weight
+	var body_bob := absf(stride) * 2.6
 	var work_motion := sin(float(pose.get("work", 0.0)) * TAU) if pose.has("work") else 0.0
 	for i in range(points.size()):
 		var base := _door_base[i]
 		var y := 1.0 + base.y / h
 		var x := base.x / w
 		var side := tanh(x * 16.0)
-		var leg := smoothstep(0.58, 0.98, y)
-		points[i].x += stride * side * leg * 3.4
-		points[i].y -= maxf(0.0, stride * side) * leg * 1.35
+		var leg := smoothstep(0.56, 0.94, y)
+		var lifted_foot := maxf(0.0, stride * side)
+		points[i].x += stride * side * leg * 9.0
+		points[i].y -= lifted_foot * leg * 4.5
+		var upper_body := 1.0 - smoothstep(0.56, 0.88, y)
+		points[i].y -= body_bob * upper_body
 		var sleeve := exp(-pow((y - 0.49) / 0.16, 2.0)) * smoothstep(0.12, 0.38, absf(x))
-		points[i].x -= stride * side * sleeve * 1.4
+		points[i].x -= stride * side * sleeve * 4.0
 		points[i].y += work_motion * sleeve * 1.8
+		var arm_len := h * 0.19
+		var right_angle := float(pose.get("arm_r", 0.12 - stride * 0.48))
+		var left_angle := float(pose.get("arm_l", 0.12 + stride * 0.48))
+		var right_shift := Vector2(sin(right_angle) - sin(0.12), cos(right_angle) - cos(0.12)) * arm_len
+		var left_shift := Vector2(sin(left_angle) - sin(0.12), cos(left_angle) - cos(0.12)) * arm_len
+		points[i] += right_shift * _door_weights[i] + left_shift * _left_wrist_weights[i]
 	_door_rig.polygon = points
 	_door_rig.position = Vector2.ZERO
 	_door_rig.rotation = _render_tilt
