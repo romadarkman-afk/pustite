@@ -2824,6 +2824,15 @@ static func sound() -> void:
 		if not Sfx.has_sound(k):
 			missing.append(String(k))
 	ok += _expect(fails, missing.is_empty(), "не загрузились звуки: %s" % ", ".join(missing))
+	for layer: Dictionary in [
+		{"ground": "ground_mill", "sound": &"amb_river"},
+		{"ground": "ground_monastery", "sound": &"amb_dusk"},
+		{"ground": "ground_station", "sound": &"rails"},
+	]:
+		await Sfx.set_place_layer(String(layer.ground), false, &"amb_day", 0.01)
+		ok += _expect(fails, Sfx._place_name == StringName(layer.sound),
+			"место %s получило слой %s, ожидался %s" % [layer.ground, Sfx._place_name, layer.sound])
+	await Sfx.set_place_layer("", false, &"", 0.01)
 	var not_loop := PackedStringArray()
 	for k: StringName in Sfx.LOOPS.keys():
 		var st := Sfx._streams.get(k) as AudioStream
@@ -2873,7 +2882,8 @@ static func sound() -> void:
 	# 4. Меню и кнопки
 	Nav.show_menu()
 	await _settle(tree)
-	ok += _expect(fails, Sfx.music_name == &"menu" and Sfx.ambience_name == &"amb_night", "в меню не музыка и ночной фон (%s / %s)" % [Sfx.music_name, Sfx.ambience_name])
+	ok += _expect(fails, Sfx.music_name == &"" and Sfx.ambience_name == &"amb_night", "в меню играет музыка или нет ночного фона (%s / %s)" % [Sfx.music_name, Sfx.ambience_name])
+	ok += _expect(fails, _all_text(Nav.host.current).contains(L.t("menu.case_file")), "в меню нет отметки о деле 1894 года")
 	ok += _expect(fails, Nav.village.crowd.figures.size() == 5 and bool(Nav._menu_horror.call("is_menu_active")),
 		"в меню нет живой толпы или ночной звуковой контроллер выключен")
 	var menu_idle_ok := true
@@ -2888,6 +2898,12 @@ static func sound() -> void:
 	await _frames(tree, 2)
 	ok += _expect(fails, Sfx.played.has(&"tap"), "кнопка нажалась без щелчка")
 	ok += _expect(fails, bool(Nav._menu_horror.call("is_menu_active")), "смена сложности неожиданно выключила звук меню")
+	Sfx.played.clear()
+	Nav._new_game_audio_cue()
+	ok += _expect(fails, Sfx.played.has(&"latch") and Sfx.music_name == &"" and Sfx.ambience_name == &"",
+		"начало новой игры без металлического засова и короткой тишины")
+	Nav.show_menu()
+	await _settle(tree)
 	Nav.show_settings()
 	await _settle(tree)
 	ok += _expect(fails, not bool(Nav._menu_horror.call("is_menu_active")), "ночной звуковой контроллер остался включён после выхода из меню")
@@ -2907,7 +2923,7 @@ static func sound() -> void:
 		Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
 		await _settle(tree)
 		if attempt == 0:
-			ok += _expect(fails, Sfx.ambience_name == &"amb_day" and Sfx.music_name == &"day", "днём не дневной фон и музыка (%s / %s)" % [Sfx.ambience_name, Sfx.music_name])
+			ok += _expect(fails, Sfx.ambience_name == &"amb_day" and Sfx.music_name == &"", "днём не дневной фон без музыки (%s / %s)" % [Sfx.ambience_name, Sfx.music_name])
 			Sfx.played.clear()
 			Game.say("Проверка голоса.")
 			await _frames(tree, 30)
@@ -2920,8 +2936,8 @@ static func sound() -> void:
 			Game.proceed()
 			await _settle(tree)
 		if attempt == 0:
-			ok += _expect(fails, Sfx.played.has(&"bell") and Sfx.ambience_name == &"amb_night" and Sfx.music_name == &"night",
-				"ночь без колокола, ночного фона или музыки (%s / %s)" % [Sfx.ambience_name, Sfx.music_name])
+			ok += _expect(fails, Sfx.played.has(&"bell") and Sfx.ambience_name == &"amb_night" and Sfx.music_name == &"",
+				"ночь без колокола и фонового звука или с музыкой (%s / %s)" % [Sfx.ambience_name, Sfx.music_name])
 		if not Game.m.player().alive:
 			continue
 		Sfx.played.clear()
@@ -2930,6 +2946,7 @@ static func sound() -> void:
 		if Game.m.phase != Match.Phase.DOOR:
 			continue
 		ok += _expect(fails, Sfx.heart_on, "у двери не бьётся сердце")
+		ok += _expect(fails, Sfx.music_name == &"night", "у двери не включилась тревожная музыкальная дорожка")
 		if Game.door_role() == Match.DoorRole.GUEST:
 			Nav.handle_intent(Intent.PLEA, {"plea": "beg"}, Nav.host.current)
 			await _frames(tree, 6)
@@ -5483,8 +5500,7 @@ static func recap() -> void:
 		"нет заставки финала с картинкой, которая проплывает по экрану")
 	ok += _expect(fails, not end_s.slide_text(0).contains("{") and not end_s.slide_text(1).contains("{") and not end_s.slide_text(1).is_empty(),
 		"в слайдах финала метка подстановки")
-	ok += _expect(fails, end_s.music() == (&"end_dawn" if m.winner == Match.Team.PEOPLE else &"end_dark") and Sfx.has_sound(end_s.music()),
-		"у финала нет своей музыки")
+	ok += _expect(fails, end_s.music() == &"", "музыка финала не отключена")
 	end_s.close_slides()
 	await _frames(tree, 3)
 	ok += _expect(fails, end_s.slides == null and not is_instance_valid(sl), "заставка финала не закрывается")

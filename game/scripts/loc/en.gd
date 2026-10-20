@@ -467,6 +467,7 @@ func data() -> Dictionary:
 		"game.title": "Let Me In",
 		"menu.tale": "At night, no one survives outside.\nThere are fewer shelters than people.\n\nSomeone stands at the door and begs to be let in. Someone inside decides.",
 		"menu.hint": "Vampires walk among you. They don't even know each other.",
+		"menu.case_file": "County Gendarmerie · 1894",
 		"menu.modes": "Game modes",
 		"menu.mode_campaign": "Campaign",
 		"menu.mode_campaign_desc": "Story chapters with lasting consequences",

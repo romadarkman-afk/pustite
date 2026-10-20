@@ -357,7 +357,7 @@ func ending_card(people_won: bool, won: bool) -> PanelContainer:
 	return card
 
 
-## Заставка финала: картинка исхода медленно проплывает, два слайда с текстом, своя музыка.
+## Заставка финала: картинка исхода медленно проплывает, два слайда с текстом и звуком сцены.
 ## Тап — пропустить. Через два слайда закрывается сама.
 func open_slides() -> Control:
 	var people_won := m.winner == Match.Team.PEOPLE
@@ -491,7 +491,7 @@ func close_slides() -> void:
 
 
 func music() -> StringName:
-	return &"end_dawn" if m != null and m.winner == Match.Team.PEOPLE else &"end_dark"
+	return &""
 
 
 ## Разоблачение упырей: портрет наливается кровью, упырь говорит последнее слово.

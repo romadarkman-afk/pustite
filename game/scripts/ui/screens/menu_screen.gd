@@ -32,6 +32,9 @@ func build() -> void:
 		L.t("menu.tale"),
 		&"Tale"))
 	body.add_child(W.gap(6))
+	var case_file := W.label(L.t("menu.case_file"), &"Hint")
+	case_file.add_theme_font_size_override("font_size", ThemeFactory.fs(17))
+	body.add_child(case_file)
 	body.add_child(W.label(L.t("menu.hint"), &"Hint"))
 	var name_button := W.wrap(W.button(SocialContent.player_name_label(Save.player_display_name()), &"Row"))
 	name_button.name = "PlayerName"

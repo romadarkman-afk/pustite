@@ -461,6 +461,7 @@ func data() -> Dictionary:
 		"game.title": "Me deixa entrar",
 		"menu.tale": "De noite, ninguém sobrevive na rua.\nTem menos abrigos do que gente.\n\nAlguém está na porta pedindo pra entrar. Alguém lá dentro decide.",
 		"menu.hint": "Os lobisomens estão entre vocês. Nem eles se conhecem.",
+		"menu.case_file": "Gendarmaria do distrito · 1894",
 		"menu.modes": "Modo de jogo",
 		"menu.mode_campaign": "Campanha",
 		"menu.mode_campaign_desc": "Capítulos com história e consequências",

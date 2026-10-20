@@ -468,6 +468,7 @@ func data() -> Dictionary:
 		"game.title": "Lass mich rein",
 		"menu.tale": "Nachts überlebt draußen niemand.\nEs gibt weniger Unterkünfte als Menschen.\n\nJemand steht an der Tür und bittet um Einlass. Jemand drinnen entscheidet.",
 		"menu.hint": "Werwölfe sind unter euch. Sie kennen sich nicht einmal untereinander.",
+		"menu.case_file": "Kreisgendarmerie · 1894",
 		"menu.modes": "Spielmodus",
 		"menu.mode_campaign": "Kampagne",
 		"menu.mode_campaign_desc": "Story-Kapitel mit Folgen",

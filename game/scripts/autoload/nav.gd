@@ -548,6 +548,7 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 		_hint_done(sender, action)
 	match action:
 		Intent.START:
+			_new_game_audio_cue()
 			_apply_settings(data)
 			if Campaign.is_new() and int(Save.stats["games"]) == 0:
 				start_chapter("a1c1")     # новичок: сразу первая глава, стук через несколько секунд
@@ -556,6 +557,7 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			else:
 				start_match()
 		Intent.START_SOLO:
+			_new_game_audio_cue()
 			_apply_settings(data)
 			if not Save.howto_seen:
 				show_howto(true)
@@ -746,6 +748,12 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 				(sender as DayScreen).marks_legend()     # тап по своей голове и значкам: что они значат
 			elif v.is_player and sender is DayScreen and Game.m.phase == Match.Phase.DAY:
 				walk_player(data.pos)                    # палец у ног — это шаг, а не вопрос
+
+
+func _new_game_audio_cue() -> void:
+	Sfx.set_music(&"", 0.2)
+	Sfx.set_ambience(&"", 0.2)
+	Sfx.play(&"latch", 0.9, -5.0)
 
 
 # =============================================================

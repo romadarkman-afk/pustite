@@ -463,6 +463,7 @@ func data() -> Dictionary:
 		"game.title": "Déjame entrar",
 		"menu.tale": "De noche nadie sobrevive en la calle.\nHay menos refugios que gente.\n\nAlguien está en la puerta y ruega que lo dejen entrar. Alguien adentro decide.",
 		"menu.hint": "Los vampiros están entre ustedes. Ni siquiera se conocen entre ellos.",
+		"menu.case_file": "Gendarmería del distrito · 1894",
 		"menu.modes": "Modo de juego",
 		"menu.mode_campaign": "Campaña",
 		"menu.mode_campaign_desc": "Capítulos con una historia común y consecuencias",

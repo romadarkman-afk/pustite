@@ -237,6 +237,9 @@ func set_place_layer(ground: String, river: bool, primary: StringName, fade: flo
 		if ground == "ground_station":
 			n = &"rails"
 			level = -24.0
+		elif ground == "ground_mill":
+			n = &"amb_river" # вода под мельничным колесом
+			level = -22.0
 		elif river:
 			n = &"amb_river"
 			level = -18.0

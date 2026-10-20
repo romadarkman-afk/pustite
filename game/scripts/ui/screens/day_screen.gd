@@ -405,7 +405,7 @@ func ambience() -> StringName:
 
 
 func music() -> StringName:
-	return &"day"
+	return &""
 
 
 ## Что значат значки над жителями. Сверху — что посёлок знает про тебя самого.

@@ -505,6 +505,7 @@ func data() -> Dictionary:
 		"game.title": "Al Beni İçeri",
 		"menu.tale": "Gece sokakta kimse sağ kalmaz.\nSığınak, insandan az.\n\nBiri kapıda durmuş, içeri alınmak için yalvarıyor. İçerideki biri karar veriyor.",
 		"menu.hint": "Hortlaklar aranızda. Birbirlerini bile tanımıyorlar.",
+		"menu.case_file": "İlçe jandarması · 1894",
 		"menu.modes": "Oyun modu",
 		"menu.mode_campaign": "Kampanya",
 		"menu.mode_campaign_desc": "Sonuçları olan hikâye bölümleri",

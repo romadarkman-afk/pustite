@@ -478,6 +478,7 @@ func data() -> Dictionary:
 		"game.title": "Laissez-moi entrer",
 		"menu.tale": "La nuit, personne ne survit dehors.\nIl y a moins d'abris que de gens.\n\nQuelqu'un est à la porte et supplie qu'on lui ouvre. Quelqu'un à l'intérieur décide.",
 		"menu.hint": "Les loups-garous sont parmi vous. Ils ne se connaissent même pas entre eux.",
+		"menu.case_file": "Gendarmerie du district · 1894",
 		"menu.modes": "Mode de jeu",
 		"menu.mode_campaign": "Campagne",
 		"menu.mode_campaign_desc": "Des chapitres avec une histoire et des conséquences",

@@ -461,6 +461,7 @@ func data() -> Dictionary:
 		"game.title": "Cho Tôi Vào",
 		"menu.tale": "Ban đêm không ai sống nổi ngoài đường.\nChỗ trú ít hơn số người.\n\nCó người đứng trước cửa xin vào. Người bên trong quyết định.",
 		"menu.hint": "Ma cà rồng ở ngay giữa các bạn. Chúng còn không biết nhau.",
+		"menu.case_file": "Hiến binh huyện · 1894",
 		"menu.modes": "Chế độ chơi",
 		"menu.mode_campaign": "Chiến dịch",
 		"menu.mode_campaign_desc": "Các chương truyện có hậu quả lâu dài",

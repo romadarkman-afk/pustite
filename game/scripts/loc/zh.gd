@@ -471,6 +471,7 @@ func data() -> Dictionary:
 		"game.title": "让我进去",
 		"menu.tale": "夜里，外面没人活得下来。\n屋子比人少。\n\n有人站在门外求着进去。屋里的人来决定。",
 		"menu.hint": "僵尸就在你们中间。他们彼此也不认识。",
+		"menu.case_file": "县宪兵队 · 1894",
 		"menu.modes": "游戏模式",
 		"menu.mode_campaign": "战役",
 		"menu.mode_campaign_desc": "有连续剧情和后果的章节",
