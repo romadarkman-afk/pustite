@@ -27,7 +27,7 @@ func build() -> void:
 	body.add_child(W.label(L.t("camp.intro"), &"Tale"))
 	var cover := TextureRect.new()
 	cover.name = "CampaignCover"
-	cover.texture = preload("res://assets/ui/campaign_cover.png")
+	cover.texture = load("res://assets/ui/campaign_cover.png") as Texture2D
 	cover.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	cover.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	cover.custom_minimum_size = Vector2(0, 190)
@@ -36,7 +36,7 @@ func build() -> void:
 	body.add_child(cover)
 	var map := TextureRect.new()
 	map.name = "CampaignMap"
-	map.texture = preload("res://assets/ui/campaign_map.png")
+	map.texture = load("res://assets/ui/campaign_map.png") as Texture2D
 	map.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	map.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	map.custom_minimum_size = Vector2(0, 320)
