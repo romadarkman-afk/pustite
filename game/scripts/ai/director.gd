@@ -1071,6 +1071,25 @@ func memory_answer(g: Villager, seat: Match.Seat) -> Dictionary:
 	return {"text": L.t("door.mem_promise", {"me": g}), "ok": true}
 
 
+## Вопрос за жетон: стресс сбивает людей, а упырь иногда угадывает чужое воспоминание.
+## Ответ даёт вероятностную зацепку и не подтверждает роль сам по себе.
+func token_memory_answer(g: Villager, seat: Match.Seat) -> String:
+	var kind := shared_memory(g)
+	if kind.is_empty():
+		return ""
+	var correct := L.t("door.mem_promise", {"me": g})
+	if kind == "story":
+		var fact := SocialContent.story(g.story_id, g) if g.story_id >= 0 and g.guest_id.is_empty() else Guests.story(g)
+		correct = L.t("door.mem_story", {"text": fact.get_slice(".", 0)})
+	var ar := RandomNumberGenerator.new()
+	ar.seed = hash("token-memory:%d:%d:%d" % [m.day, g.id, m.case_id])
+	var creature := g.is_upyr or (seat != null and g == seat.mimic)
+	var truth_chance := 0.45 if creature else 0.75
+	if ar.randf() < truth_chance:
+		return correct
+	return L.fill(Phrases.pick("MEM_WRONG", ar, {"me": g}), {})
+
+
 # =============================================================
 # Прощание (TASK-020)
 # =============================================================

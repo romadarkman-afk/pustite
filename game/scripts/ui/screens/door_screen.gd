@@ -185,7 +185,7 @@ func _build_host() -> void:
 		ask.name = "Ask_%d" % g.id
 		ask.custom_minimum_size = Vector2(0, ThemeFactory.TOUCH)
 		var aid := g.id
-		ask.pressed.connect(func() -> void: ask_who(aid))
+		ask.pressed.connect(func() -> void: choose_question(aid))
 		_ask_rows[g.id] = ask
 		texts.add_child(ask)
 		var observation := W.label("", &"Hint")
@@ -256,6 +256,46 @@ func _idle_knock() -> void:
 
 
 ## «Кто там?» (TASK-013): один вопрос за ночь. Ответ зависит от того, кто стучит, но не выдаёт его наверняка.
+func choose_question(gid: int) -> void:
+	if _asked or is_locked():
+		return
+	var g := m.get_villager(gid)
+	var can_ask_past := m.question_tokens > 0 and m.question_used_day != m.day \
+		and m.night_event != Match.Event.FOG and director != null and not director.shared_memory(g).is_empty()
+	if not can_ask_past:
+		ask_who(gid)
+		return
+	var options := PackedStringArray([L.t("door.ask_choice_who"), L.t("door.ask_choice_past", {"n": m.question_tokens})])
+	var choice: int = await ActionSheet.ask(self, L.t("door.ask_choice"), options)
+	if not is_instance_valid(self) or is_locked():
+		return
+	if choice == 0:
+		ask_who(gid)
+	elif choice == 1:
+		ask_past(gid)
+
+
+## Жетон позволяет проверить общую память с посетителем. Ответ ненадёжен и звучит как обычная реплика.
+func ask_past(gid: int) -> void:
+	if _asked or is_locked() or director == null:
+		return
+	var g := m.get_villager(gid)
+	if g == null or director.shared_memory(g).is_empty() or not m.spend_question_token():
+		return
+	_asked = true
+	_touched = true
+	var note: Label = _observations.get(gid)
+	if is_instance_valid(note):
+		var answer := director.token_memory_answer(g, seat)
+		note.text = answer if note.text.is_empty() else note.text + "\n" + answer
+		note.visible = true
+	for b: Button in _ask_rows.values():
+		b.disabled = true
+	var figure: VillagerFigure = _visitor_figures.get(gid)
+	if is_instance_valid(figure):
+		figure.knock()
+
+
 func ask_who(gid: int) -> void:
 	if _asked or is_locked():
 		return

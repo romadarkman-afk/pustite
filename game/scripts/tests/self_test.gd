@@ -4860,6 +4860,14 @@ static func diary() -> void:
 	var d0 := Director.new()
 	m0.start(c, 21)
 	d0.attach(m0)
+	var token_test := Match.new()
+	token_test.start(c, 22)
+	var token_ok := token_test.earn_question_token() and token_test.earn_question_token() and token_test.earn_question_token()
+	token_ok = token_ok and not token_test.earn_question_token() and token_test.question_tokens == Match.QUESTION_TOKEN_MAX
+	token_ok = token_ok and token_test.spend_question_token() and not token_test.spend_question_token() and token_test.question_tokens == 2
+	token_test.day += 1
+	token_ok = token_ok and token_test.spend_question_token() and token_test.question_tokens == 1
+	ok += _expect(fails, token_ok, "жетоны не ограничены тремя или тратятся чаще одного раза за ночь")
 	m0.begin_day()
 	var bots := m0.alive_bots()
 	var liar: Villager = bots[0]
@@ -6232,6 +6240,7 @@ static func cosmetics() -> void:
 	ok += _expect(fails, open0.size() == 6 and open0.has("lantern:classic") and open0.has("hat:own") and open0.has("brooch:seal"), "с нуля неверный набор: %s" % ", ".join(open0))
 	ok += _expect(fails, not Save.wear("lantern", "copper") and Save.lantern == "classic", "закрытый фонарь надевается")
 	ok += _expect(fails, not Cosmetics.is_open(Cosmetics.item("hat", "flower")) and Cosmetics.is_open(Cosmetics.item("hat", "flower"), {"bond": 6}), "венок не открывается доверием к постоянным жителям")
+	ok += _expect(fails, Cosmetics.is_open(Cosmetics.item("hat", "flower"), {"saved_bond": 1}), "спасение близкого не открывает венок")
 	ok += _expect(fails, Cosmetics.is_open(Cosmetics.item("hat", "flower"), {"streak": 5}) and not Cosmetics.is_open(Cosmetics.item("hat", "flower"), {"streak": 4}), "венок, открытый прежней серией из пяти дней, потерян")
 	for it: Dictionary in Cosmetics.LANTERNS + Cosmetics.HATS:
 		if not it.need.is_empty() and Cosmetics.need_text(it) == "":

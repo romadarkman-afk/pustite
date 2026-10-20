@@ -40,7 +40,7 @@ static func item(kind: String, id: String) -> Dictionary:
 ## Сколько у игрока того, чем открываются вещи.
 static func progress() -> Dictionary:
 	return {"wins": int(Save.stats.get("wins", 0)), "daily": Save.daily_wins, "streak": Save.daily_best,
-		"bond": Save.total_anchor_bond()}
+		"bond": Save.total_anchor_bond(), "saved_bond": 1 if Save.achievements.has("saved_bond") else 0}
 
 
 static func is_open(it: Dictionary, prog: Dictionary = {}) -> bool:
@@ -48,6 +48,8 @@ static func is_open(it: Dictionary, prog: Dictionary = {}) -> bool:
 		prog = progress()
 	# Венок, открытый по прежнему условию серии из пяти дней, остаётся доступен.
 	if String(it.id) == "flower" and int(prog.get("streak", 0)) >= 5:
+		return true
+	if String(it.id) == "flower" and int(prog.get("saved_bond", 0)) > 0:
 		return true
 	for k: String in it.need:
 		if int(prog.get(k, 0)) < int(it.need[k]):

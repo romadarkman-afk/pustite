@@ -129,6 +129,9 @@ var tunnel_log: Array[Array] = []   ## этой ночью: [житель, от�
 ## Дневник (задача 34): что было каждой ночью. {"day", "where": {id: дом, -1 — улица}, "said": {id: дом}, "dead": [id]}
 var history: Array[Dictionary] = []
 var door_inspections: Array[Dictionary] = [] ## осмотры у двери: день, житель и неоднозначная примета
+var question_tokens: int = 0             ## жетоны за проверенные противоречия; один вопрос у двери за ночь
+var question_used_day: int = -1
+const QUESTION_TOKEN_MAX := 3
 var _night_ids: Array[int] = []     ## кто был жив, когда началась ночь
 var player_seen: Dictionary[int, int] = {}   ## что игрок-старожил увидел на рисунках: id -> 1 упырь, 0 человек
 
@@ -457,6 +460,8 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	meeting_used.clear()
 	history.clear()
 	door_inspections.clear()
+	question_tokens = 0
+	question_used_day = -1
 	player_seen.clear()
 	player_admits.clear()
 	player_votes.clear()
@@ -1177,6 +1182,21 @@ func record_door_inspection(v: Villager, tell: StringName, house: int = -1, mimi
 		if int(record.get("day", -1)) == day and int(record.get("villager", -1)) == v.id:
 			return
 	door_inspections.append({"day": day, "villager": v.id, "name": v.name, "tell": String(tell), "house": house, "mimic": mimic})
+
+
+func earn_question_token() -> bool:
+	if question_tokens >= QUESTION_TOKEN_MAX:
+		return false
+	question_tokens += 1
+	return true
+
+
+func spend_question_token() -> bool:
+	if question_tokens <= 0 or question_used_day == day:
+		return false
+	question_tokens -= 1
+	question_used_day = day
+	return true
 
 
 func door_sign_for(visitor: Villager, seat: Seat) -> StringName:

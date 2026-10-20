@@ -538,6 +538,9 @@ func confront(a_id: String, b_id: String) -> void:
 	line.about = t
 	m.post(line)
 	var replies := director.confront(a, b)
+	var key := Clues.pair_key(a, b)
+	if not replies.is_empty() and m.clues.asked.has(key) and m.earn_question_token():
+		m.post(ChatLine.system(L.t("clue.token", {"n": m.question_tokens})))
 	marks_changed.emit()
 	_feed(replies)
 
