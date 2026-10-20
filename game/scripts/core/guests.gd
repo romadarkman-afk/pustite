@@ -16,6 +16,7 @@ const LIST := {
 	"clerk": {"f": false, "age": 38, "persona": Voices.Persona.CYNIC, "upyr_in_campaign": false},
 }
 const IDS: PackedStringArray = ["soldier", "widow", "merchant"]
+const BOOK_IDS: PackedStringArray = ["soldier", "widow", "merchant", "worker", "clerk"]
 const QUICK_P := 0.3          ## в быстрой партии с такой вероятностью приезжает один гость
 const REVEAL_DAY := 3         ## на какое утро тайна раскрывается целиком
 const W_REVEAL_UPYR := 1.6    ## разгадка упыря: подозрение посёлка растёт

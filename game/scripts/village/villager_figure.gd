@@ -1159,7 +1159,7 @@ func _draw_field_rig(tex: Texture2D, h: float, w: float, pose: Dictionary) -> vo
 	_build_sprite_rig(tex, h, w)
 	var points := _door_base.duplicate()
 	var stride := sin(_walk * TAU) * _walk_weight
-	var body_bob := absf(stride) * 2.6
+	var body_bob := absf(stride) * 0.05
 	var work_motion := sin(float(pose.get("work", 0.0)) * TAU) if pose.has("work") else 0.0
 	for i in range(points.size()):
 		var base := _door_base[i]

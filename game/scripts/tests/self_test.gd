@@ -1137,11 +1137,12 @@ static func _guests_progress_checks(tree: SceneTree, fails: PackedStringArray) -
 	Save.campaign_reset()
 
 	# 62: опыт, уровень, книга, концовки, достижения
-	var keep := [Save.xp, Save.achievements.duplicate(), Save.book.duplicate(), Save.endings.duplicate()]
+	var keep := [Save.xp, Save.achievements.duplicate(), Save.book.duplicate(), Save.endings.duplicate(), Save.storybook.duplicate()]
 	Save.xp = 0
 	Save.achievements.clear()
 	Save.book.clear()
 	Save.endings.clear()
+	Save.storybook.clear()
 	ok += _expect(fails, Progress.level_of(0) == 1 and Progress.level_of(99) == 1 and Progress.level_of(100) == 2 and not Progress.title(5).is_empty(),
 		"уровни посёлка считаются неверно")
 	var mp := Match.new()
@@ -1160,6 +1161,15 @@ static func _guests_progress_checks(tree: SceneTree, fails: PackedStringArray) -
 	ok += _expect(fails, Progress.book_entry("n%d" % dead_bot.story_id)[0] == 1 and Progress.book_entry("n%d" % dead_bot.story_id)[1] == 1
 		and Save.endings.has("people") and Save.achievements.has("night1") and (pr.new_ach as PackedStringArray).has("night1"),
 		"книга, концовки или достижения не записались")
+	var saved_story_key := Progress.story_key(dead_bot)
+	Save.remember_story(saved_story_key, 0, false)
+	Save.remember_story(saved_story_key, 2, false)
+	Save.remember_story(saved_story_key, 1, false)
+	var guest_book_ids := PackedStringArray()
+	for entry: Array in Progress.book_people():
+		guest_book_ids.append(String(entry[0]))
+	ok += _expect(fails, Save.storybook.get(saved_story_key, -1) == 2 and guest_book_ids.has("gworker") and guest_book_ids.has("gclerk"),
+		"страницы истории не сохраняются по прогрессу или кампанийные гости отсутствуют в книге")
 	Game.progress_result = pr
 	gm.phase = Match.Phase.OVER
 	gm.winner = Match.Team.PEOPLE
@@ -1173,11 +1183,13 @@ static func _guests_progress_checks(tree: SceneTree, fails: PackedStringArray) -
 	var person := bk.find_child("Person_n%d" % dead_bot.story_id, true, false)
 	ok += _expect(fails, bk is BookScreen and person != null and _all_text(person).contains(dead_bot.name)
 		and bk.find_child("Ending_people", true, false) != null and bk.find_child("Ach_night1", true, false) != null
-		and not _all_text(bk).contains("{"), "Книга посёлка: нет жителей, концовок или достижений")
+		and bk.find_child("Story_%s_2" % saved_story_key, true, false) != null
+		and not _all_text(bk).contains("{"), "Книга посёлка: нет жителей, историй, концовок или достижений")
 	Save.xp = int(keep[0])
 	Save.achievements = keep[1]
 	Save.book.assign(keep[2])
 	Save.endings = keep[3]
+	Save.storybook = keep[4]
 	Save.flush()
 	Game.progress_result = {}
 	return ok

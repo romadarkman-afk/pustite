@@ -184,6 +184,10 @@ static func book_people() -> Array:
 	var names := L.names()
 	for i in range(names.size()):
 		out.append(["n%d" % i, String(names[i][0])])
-	for g: String in Guests.IDS:
+	for g: String in Guests.BOOK_IDS:
 		out.append(["g" + g, Guests.name_of(g)])
 	return out
+
+
+static func story_key(v: Villager) -> String:
+	return "g" + v.guest_id if not v.guest_id.is_empty() else "n%d" % v.story_id

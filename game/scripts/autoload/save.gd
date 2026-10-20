@@ -45,6 +45,7 @@ var campaign_dead_guests: PackedStringArray = []  ## кампания: гост�
 var xp: int = 0                                   ## опыт за все партии (Progress)
 var achievements: PackedStringArray = []          ## полученные достижения
 var book: Dictionary[String, String] = {}         ## Книга посёлка: житель -> "встречали,погиб,упырь"
+var storybook: Dictionary[String, int] = {}        ## услышанные главы историй жителей и гостей: ключ -> 0..2
 var endings: PackedStringArray = []               ## найденные концовки (Progress.ENDINGS)
 var hints_seen: Dictionary = {}       ## id подсказки -> true: больше не показывать
 var stats: Dictionary[String, int] = {
@@ -131,6 +132,13 @@ func load_all() -> void:
 			var kv := part.split("=")
 			if kv.size() == 2:
 				book[kv[0]] = kv[1]
+	storybook.clear()
+	if has:
+		var saved_stories: Variant = cf.get_value("progress", "storybook", {})
+		if saved_stories is Dictionary:
+			for key: Variant in saved_stories:
+				if String(key).begins_with("n") or String(key).begins_with("g"):
+					storybook[String(key)] = clampi(int(saved_stories[key]), 0, 2)
 	anchor_bonds.clear()
 	for i in range(3):
 		anchor_bonds[str(i)] = clampi(int(cf.get_value("relationships", str(i), 0)), -3, 3) if has else 0
@@ -377,6 +385,7 @@ func flush() -> void:
 	for k: String in book:
 		bk.append("%s=%s" % [k, book[k]])
 	cf.set_value("progress", "book", ";".join(bk))
+	cf.set_value("progress", "storybook", storybook)
 	cf.save(SETTINGS_PATH)
 
 
@@ -421,6 +430,20 @@ func record_progress(gained: int, fates: Array, ends: PackedStringArray, new_ach
 		if not achievements.has(a):
 			achievements.append(a)
 	flush()
+
+
+## История открывается в Книге, когда игрок впервые слышит её страницу.
+## write=false нужен для пачки страниц вступления, чтобы сохранить их одним вызовом.
+func remember_story(key: String, step: int, write: bool = true) -> bool:
+	if key.is_empty() or step < 0:
+		return false
+	var value := clampi(step, 0, 2)
+	if storybook.get(key, -1) >= value:
+		return false
+	storybook[key] = value
+	if write:
+		flush()
+	return true
 
 
 func campaign_begin() -> void:

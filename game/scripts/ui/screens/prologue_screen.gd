@@ -233,6 +233,12 @@ func _advance() -> void:
 		_beat = last + 1
 		_beat_card.visible = false
 		_cast.visible = true
+		var changed := false
+		for resident: Villager in m.villagers:
+			if not resident.is_player:
+				changed = Save.remember_story(Progress.story_key(resident), 0, false) or changed
+		if changed:
+			Save.flush()
 		_go.text = L.t("prologue.go")
 		_go.disabled = true
 		_reveal(_reveal_nodes)

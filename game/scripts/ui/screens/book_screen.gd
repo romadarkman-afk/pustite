@@ -38,13 +38,27 @@ func build() -> void:
 	for p: Array in Progress.book_people():
 		var e := Progress.book_entry(String(p[0]))
 		var line: Control
-		if e[0] == 0:
+		var story_step := int(Save.storybook.get(String(p[0]), -1))
+		if e[0] == 0 and story_step < 0:
 			line = W.icon_line("info", L.t("book.unknown"), &"Hint", 32)
+		elif e[0] == 0:
+			line = W.icon_line("people", String(p[1]), &"Small", 32)
 		else:
 			line = W.icon_line("skull" if e[1] > 0 else "people",
 				String(p[1]) + ": " + L.t("book.stats", {"m": e[0], "d": e[1], "u": e[2]}), &"Small", 32)
 		line.name = "Person_" + String(p[0])
 		body.add_child(line)
+		if story_step >= 0:
+			var story_card := W.panel(&"Card")
+			story_card.name = "Story_" + String(p[0])
+			var story_box := W.vbox(5)
+			story_card.add_child(story_box)
+			for step in range(story_step + 1):
+				var page := W.label(_archive_story(String(p[0]), String(p[1]), step), &"Small")
+				page.name = "Story_%s_%d" % [String(p[0]), step]
+				page.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				story_box.add_child(page)
+			body.add_child(story_card)
 		# память кампании (TASK-002): что было между игроком и этим жителем
 		if String(p[0]).begins_with("n"):
 			var k := 0
@@ -75,3 +89,21 @@ func build() -> void:
 	var back := W.button(L.t("ui.back"), &"Ghost")
 	back.pressed.connect(func() -> void: emit_intent(Intent.BACK))
 	footer.add_child(back)
+
+
+static func _archive_story(key: String, name: String, step: int) -> String:
+	var person := Villager.new(-1, name, false)
+	if key.begins_with("g"):
+		var guest_id := key.substr(1)
+		var data: Dictionary = Guests.LIST.get(guest_id, {})
+		person.guest_id = guest_id
+		person.female = bool(data.get("f", false))
+		person.age = int(data.get("age", 34))
+		return SocialContent.story(-1, person) if step == 0 else SocialContent.personal_chapter(person, step - 1)
+	var story_id := int(key.substr(1))
+	person.story_id = story_id
+	person.age = SocialContent.story_age(story_id)
+	var names := L.names()
+	if story_id >= 0 and story_id < names.size():
+		person.female = bool(names[story_id][1])
+	return SocialContent.story(story_id, person) if step == 0 else SocialContent.personal_chapter(person, step - 1)
