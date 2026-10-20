@@ -6066,6 +6066,15 @@ static func access() -> void:
 	Nav.show_settings()
 	await _settle(tree)
 	var ss := Nav.host.current as SettingsScreen
+	var game_tab: Button = null
+	for c: Control in _controls(ss):
+		if c is Button and c.name == "Tab_game":
+			game_tab = c
+			break
+	if game_tab != null:
+		game_tab.pressed.emit()
+		await _settle(tree)
+	ss = Nav.host.current as SettingsScreen
 	var row := ss.find_child("TextSizes", true, false) as HBoxContainer
 	ok += _expect(fails, row != null and row.get_child_count() == 3, "в настройках нет трёх размеров текста")
 	var sizes: Array[int] = []
@@ -6076,8 +6085,12 @@ static func access() -> void:
 		await _settle(tree)
 		ss = Nav.host.current as SettingsScreen
 		row = ss.find_child("TextSizes", true, false) as HBoxContainer
-		var probe := ss.body.get_child(0) as Label
-		sizes.append(probe.get_theme_font_size("font_size"))
+		var probe: Label = null
+		for control: Control in _controls(ss.body):
+			if control is Label:
+				probe = control
+				break
+		sizes.append(probe.get_theme_font_size("font_size") if probe != null else 0)
 		var on := (row.get_child(i) as Button).theme_type_variation == &"RowOn"
 		ok += _expect(fails, Save.text_size == i and on, "размер %d не выбран или не подсвечен" % i)
 	ok += _expect(fails, sizes.size() == 3 and sizes[0] < sizes[1] and sizes[1] < sizes[2], "текст не растёт по ступеням: %s" % str(sizes))
