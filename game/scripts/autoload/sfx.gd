@@ -59,6 +59,7 @@ const LOOPS := {
 	&"night": "res://assets/music/night.ogg",
 	&"end_dawn": "res://assets/music/end_dawn.ogg",     # итог: люди дожили (tools/make_end_music.py)
 	&"end_dark": "res://assets/music/end_dark.ogg",     # итог: посёлок пал
+	&"river_theme": "res://assets/music/river_theme.wav",
 }
 ## Звук с вариантами: каждый раз случайный из списка, в журнал пишется общее имя.
 const VARIANTS := {&"reveal": [&"reveal", &"reveal_2", &"reveal_3"]}
@@ -98,9 +99,11 @@ func _ready() -> void:
 	for k: StringName in SOUNDS:
 		_streams[k] = load(SOUNDS[k])
 	for k: StringName in LOOPS:
-		var s := load(LOOPS[k]) as AudioStreamOggVorbis
-		if s != null:
-			s.loop = true
+		var s := load(LOOPS[k]) as AudioStream
+		if s is AudioStreamOggVorbis:
+			(s as AudioStreamOggVorbis).loop = true
+		elif s is AudioStreamWAV:
+			(s as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_FORWARD
 		_streams[k] = s
 	for i in range(POOL):
 		var p := AudioStreamPlayer.new()

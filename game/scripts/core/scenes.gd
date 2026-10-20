@@ -22,10 +22,13 @@ static func river(m: Match) -> Dictionary:
 	return {
 		"id": "a1c1_river",
 		"frames": [
-			{"art": art("river"), "zoom": [1.0, 1.1], "light": "dusk", "weather": "fog",
-			 "lines": [{"text": L.t("sc.river.1")}, {"who": L.t("sc.river.voice"), "text": L.t("sc.river.2", {"name": me}), "pause": 0.6}],
-			 "sound": [{"at": 0.0, "do": "silence", "fade": 0.4}, {"at": 0.2, "do": "amb", "id": "amb_river", "fade": 1.0},
-				{"at": 1.6, "do": "play", "id": "call_far", "vol": -6.0}]},
+			{"art": art("a1c1"), "zoom": [1.0, 1.08], "light": "dusk", "weather": "fog",
+			 "lines": [{"text": L.t("sc.river.1")}],
+			 "sound": [{"at": 0.0, "do": "silence", "fade": 0.4}, {"at": 0.1, "do": "music", "id": "river_theme", "fade": 1.8},
+				{"at": 0.2, "do": "amb", "id": "amb_river", "fade": 1.0}]},
+			{"art": art("river"), "zoom": [1.04, 1.12], "light": "dusk", "weather": "fog",
+			 "lines": [{"who": L.t("sc.river.voice"), "text": L.t("sc.river.2", {"name": me}), "pause": 0.6}],
+			 "sound": [{"at": 0.8, "do": "play", "id": "call_far", "vol": -6.0}]},
 			{"portrait": ferry, "light": "night", "weather": "fog",
 			 "lines": [{"who": ferry_name, "text": L.t("sc.river.3", {"me": ferry if ferry != null else m.player()})}]},
 		],

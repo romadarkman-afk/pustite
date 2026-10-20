@@ -43,7 +43,11 @@ static func play(parent: Control, sc: Dictionary, mm: Match = null) -> String:
 	var p := ScenePlayer.new()
 	p.scene = sc
 	p.m = mm
-	parent.add_child(p)
+	parent.add_child.call_deferred(p)
+	await p.tree_entered
+	await parent.get_tree().process_frame
+	if not is_instance_valid(p):
+		return ""
 	p._build()
 	var c: String = await p.finished
 	return c

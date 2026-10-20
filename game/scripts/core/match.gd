@@ -242,6 +242,10 @@ func player() -> Villager:
 	return villagers[0]
 
 
+func opening_night_protects(v: Villager) -> bool:
+	return chapter_id == "a1c1" and day == 1 and v != null and v.is_player
+
+
 func get_villager(vid: int) -> Villager:
 	for v: Villager in villagers:
 		if v.id == vid:
@@ -1262,7 +1266,10 @@ func resolve_night() -> NightReport:
 	for s: Seat in seats:
 		for v: Villager in s.turned_away():
 			v.night_house = -1
-			if v.is_upyr:
+			if opening_night_protects(v):
+				r.add(NightReport.Kind.SURVIVED_STREET, v, s.house)
+				_log("night", "log.street_ok", {"who": v})
+			elif v.is_upyr:
 				r.add(NightReport.Kind.SURVIVED_STREET, v, s.house)
 				_log("night", "log.street_upyr", {"who": v, "house": house_name(s.house)})
 			elif rng.randf() < p_out:
@@ -1279,7 +1286,7 @@ func resolve_night() -> NightReport:
 		if w == null or not w.alive:
 			continue
 		var ew: NightReport.Entry
-		if not w.is_upyr and rng.randf() < p_out:
+		if not opening_night_protects(w) and not w.is_upyr and rng.randf() < p_out:
 			w.alive = false
 			ew = r.add(NightReport.Kind.KILLED_STREET, w, -1)
 			_log("night", "log.river_dead", {"who": w})
@@ -1300,7 +1307,7 @@ func resolve_night() -> NightReport:
 			continue
 		var inside3: Array[Villager] = []
 		for v: Villager in s.inside():
-			if v.alive:
+			if v.alive and not opening_night_protects(v):
 				inside3.append(v)
 		if inside3.is_empty() or rng.randf() >= MIMIC_KILL:
 			var es := r.add(NightReport.Kind.MIMIC_SPARED, null, s.house)
@@ -1329,7 +1336,9 @@ func resolve_night() -> NightReport:
 			continue
 		if inside.size() == 1:
 			var lone: Villager = inside[0]
-			if lone.is_upyr:
+			if opening_night_protects(lone):
+				r.add(NightReport.Kind.SURVIVED_ALONE, lone, s.house)
+			elif lone.is_upyr:
 				r.add(NightReport.Kind.SURVIVED_ALONE, lone, s.house)
 			elif rng.randf() < alone_death_chance(s.house, p_out):
 				lone.alive = false
@@ -1344,7 +1353,7 @@ func resolve_night() -> NightReport:
 		for v: Villager in inside:
 			if v.is_upyr and not was_fed.has(v.id):
 				hungry.append(v)
-			elif not v.is_upyr:
+			elif not v.is_upyr and not opening_night_protects(v):
 				humans.append(v)
 
 		if not hungry.is_empty() and not humans.is_empty():
@@ -1375,7 +1384,7 @@ func resolve_night() -> NightReport:
 			continue
 		var prey: Array[Villager] = []
 		for v: Villager in inside2:
-			if v.alive and not v.is_upyr:
+			if v.alive and not v.is_upyr and not opening_night_protects(v):
 				prey.append(v)
 		if prey.is_empty() or rng.randf() >= CREATURE_KILL:
 			continue

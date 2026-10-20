@@ -25,24 +25,18 @@ func build() -> void:
 	W.clear(footer)
 	body.add_child(W.label(L.t("camp.title"), &"Title"))
 	body.add_child(W.label(L.t("camp.intro"), &"Tale"))
+	var chapter := Campaign.current()
 	var cover := TextureRect.new()
 	cover.name = "CampaignCover"
-	cover.texture = load("res://assets/ui/campaign_cover.png") as Texture2D
+	var cover_path := Campaign.ART % chapter
+	if ResourceLoader.exists(cover_path):
+		cover.texture = load(cover_path) as Texture2D
 	cover.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	cover.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	cover.custom_minimum_size = Vector2(0, 190)
+	cover.custom_minimum_size = Vector2(0, 184)
 	cover.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.add_child(cover)
-	var map := TextureRect.new()
-	map.name = "CampaignMap"
-	map.texture = load("res://assets/ui/campaign_map.png") as Texture2D
-	map.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	map.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	map.custom_minimum_size = Vector2(0, 320)
-	map.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	map.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	body.add_child(map)
 	for act: Dictionary in Campaign.ACTS:
 		var aid := int(act.id)
 		var head := W.label(L.t("camp.act%d" % aid), &"Speaker")
@@ -89,15 +83,32 @@ func _chapter_row(id: String, n: int) -> Control:
 	var text := L.t("camp.chapter", {"n": n, "title": L.t("camp.%s.title" % id)})
 	if stars > 0:
 		text += "  " + Campaign.stars_text(stars)
-	var box := W.vbox(6)
+	var box := W.panel(&"Sheet")
+	box.name = "ChapterCard_" + id
+	var row := W.hbox(12)
+	var art_path := Campaign.ART % id
+	if ResourceLoader.exists(art_path):
+		var art := TextureRect.new()
+		art.name = "ChapterArt_" + id
+		art.texture = load(art_path) as Texture2D
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		art.custom_minimum_size = Vector2(92, 68)
+		art.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(art)
+	var copy := W.vbox(5)
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var b := W.wrap(W.button(text, &"RowOn" if open and stars == 0 else &"Row"))
 	b.name = "Chapter_" + id
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.disabled = not open
 	b.pressed.connect(func() -> void: emit_intent(Intent.PLAY_CHAPTER, {"id": id}))
-	box.add_child(b)
+	copy.add_child(b)
 	# описание — подписью под кнопкой: длинная строка на любом языке переносится как обычный текст
-	box.add_child(W.label(L.t("camp.%s.desc" % id) if open else L.t("camp.locked"), &"Small"))
+	copy.add_child(W.label(L.t("camp.%s.desc" % id) if open else L.t("camp.locked"), &"Small"))
+	row.add_child(copy)
+	box.add_child(row)
 	return box
 
 

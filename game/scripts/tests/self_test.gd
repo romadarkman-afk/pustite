@@ -963,6 +963,7 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 		await _settle(tree)
 	var mo := Nav.host.current
 	ok += _expect(fails, mo is MorningScreen and mo.find_child("Goals", true, false) != null, "после первой ночи не видно целей главы")
+	ok += _expect(fails, Game.m.player().alive, "игрок погиб в первую ночь стартовой главы")
 	ok += _expect(fails, Campaign.goal_done(Game.m, "admit_night1"), "впустил в первую ночь, а цель не засчитана")
 
 	# итог главы: пройдена — звёзды, погибшие насовсем, следующая открыта
@@ -1004,7 +1005,9 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 	var b1 := cs.find_child("Chapter_a1c1", true, false) as Button
 	var b3 := cs.find_child("Chapter_a1c3", true, false) as Button
 	ok += _expect(fails, b1 != null and not b1.disabled and b3 != null and b3.disabled and cs.find_child("Soon_4", true, false) == null and cs.find_child("Chapter_a4c3", true, false) != null and cs.find_child("Chapter_a2c1", true, false) != null
-		and cs.find_child("Fallen", true, false) != null, "экран глав: не видно открытых, закрытых, будущих актов или погибших")
+		and cs.find_child("Fallen", true, false) != null and cs.find_child("CampaignCover", true, false) != null
+		and cs.find_child("CampaignMap", true, false) == null and cs.find_child("ChapterArt_a1c1", true, false) != null,
+		"экран глав: не видно истории глав или есть лишняя карта")
 	var none_lost: Array[int] = []
 	Save.record_chapter("a1c2", 3, none_lost)
 	Save.record_chapter("a1c3", 1, none_lost)
@@ -2823,8 +2826,10 @@ static func sound() -> void:
 	ok += _expect(fails, missing.is_empty(), "не загрузились звуки: %s" % ", ".join(missing))
 	var not_loop := PackedStringArray()
 	for k: StringName in Sfx.LOOPS.keys():
-		var st := Sfx._streams.get(k) as AudioStreamOggVorbis
-		if st == null or not st.loop:
+		var st := Sfx._streams.get(k) as AudioStream
+		var looped := st is AudioStreamOggVorbis and (st as AudioStreamOggVorbis).loop
+		looped = looped or (st is AudioStreamWAV and (st as AudioStreamWAV).loop_mode == AudioStreamWAV.LOOP_FORWARD)
+		if not looped:
 			not_loop.append(String(k))
 	ok += _expect(fails, not_loop.is_empty(), "не зациклены: %s" % ", ".join(not_loop))
 	for b: StringName in Sfx.BUSES:
