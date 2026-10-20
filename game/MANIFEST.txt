@@ -79,6 +79,7 @@ scripts/ui/howto_art.gd
 scripts/ui/info_sheet.gd
 scripts/ui/intent.gd
 scripts/ui/journal_sheet.gd
+scripts/ui/night_horror_audio.gd
 scripts/ui/phase_clock.gd
 scripts/ui/safe_frame.gd
 scripts/ui/scene_player.gd
