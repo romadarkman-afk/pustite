@@ -189,6 +189,14 @@ func set_mood(v: float, dur: float) -> void:
 	_tw_night.tween_property(self, "night", v, dur)
 
 
+## На главном экране оставляем открытое небо; еловая рамка нужна только игровым сценам.
+func set_branches_visible(v: bool) -> void:
+	if _branches == null:
+		return
+	_branches.visible = v
+	_branches.queue_redraw()
+
+
 func set_loss_houses(houses: Dictionary) -> void:
 	if loss_houses == houses:
 		return
@@ -1234,14 +1242,14 @@ class Backdrop extends Node2D:
 			var h := SKY_W * tex.get_height() / tex.get_width()
 			draw_rect(Rect2(-3000, bottom - h - 3000, 6720, 3002), Color(SKY_TOP[l[0]], a))
 			_strip(tex, bottom - h, SKY_W, h, Color(1, 1, 1, a))
-		# дальний лес: низ картинки уходит под верх земли
+		# Дальний лес ниже в кадре, чтобы над верхушками оставалось чистое небо.
 		for i in range(2):
 			var a := clampf(1.0 - (n - 0.3) * 1.6, 0.0, 1.0) if i == 0 else clampf(n * 1.6, 0.0, 1.0)
 			if a <= 0.0:
 				continue
 			var tex: Texture2D = view._tex["treeline_day" if i == 0 else "treeline_night"]
 			var h := TREE_W * tex.get_height() / tex.get_width()
-			_strip(tex, gy + h * 0.34 - h, TREE_W, h, Color(1, 1, 1, a))
+			_strip(tex, gy + h * 0.5 - h, TREE_W, h, Color(1, 1, 1, a))
 		var forest := FOREST_DAY.lerp(FOREST_NIGHT, n)
 		draw_rect(Rect2(-3000, gy + 50.0, 6720, 60.0), forest)
 

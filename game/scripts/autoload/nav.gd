@@ -361,6 +361,7 @@ func _home_village() -> void:
 	village.crowd.clear()
 	_menu_preview = null
 	_populated_for = null
+	village.set_branches_visible(true)
 	village.set_village(default_village, Save.config.shelters, L.houses())
 	village.set_traces(PackedVector2Array(), PackedVector2Array())
 	village.set_loss_houses({})
@@ -372,6 +373,7 @@ func _home_village() -> void:
 ## лампы и плавные idle-позы, что и игровое поле; подписи скрыты, чтобы не спорить с меню.
 func _menu_village() -> void:
 	_home_village()
+	village.set_branches_visible(false)
 	var preview_config := Save.config.duplicate() as GameConfig
 	preview_config.players = 5
 	preview_config.monsters = 1
@@ -551,6 +553,12 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 				start_chapter("a1c1")     # новичок: сразу первая глава, стук через несколько секунд
 			elif not Save.howto_seen:
 				show_howto(true)          # первая партия: сначала «Как играть»
+			else:
+				start_match()
+		Intent.START_SOLO:
+			_apply_settings(data)
+			if not Save.howto_seen:
+				show_howto(true)
 			else:
 				start_match()
 		Intent.OPEN_HOWTO:

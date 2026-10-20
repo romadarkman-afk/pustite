@@ -11,7 +11,7 @@ const SPLASH: Texture2D = preload("res://assets/splash.png")
 const MENU_PRELOAD: Array[String] = [
 	"res://scripts/ui/screens/menu_screen.gd",
 	"res://fonts/Nunito.ttf",
-	"res://assets/music/menu.ogg",
+	"res://assets/music/menu_theme.wav",
 ]
 
 var open: float = 0.0          ## насколько приоткрыта щель, 0..1

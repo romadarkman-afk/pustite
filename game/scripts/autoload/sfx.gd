@@ -54,7 +54,7 @@ const LOOPS := {
 	&"typewriter": "res://assets/sfx/typewriter.ogg",   # список на поезд (TASK-033)
 	&"train": "res://assets/sfx/train.ogg",             # подходящий поезд (TASK-034, 035)
 	&"heartbeat": "res://assets/sfx/heartbeat.ogg",
-	&"menu": "res://assets/music/menu.ogg",
+	&"menu": "res://assets/music/menu_theme.wav",
 	&"day": "res://assets/music/day.ogg",
 	&"night": "res://assets/music/night.ogg",
 	&"end_dawn": "res://assets/music/end_dawn.ogg",     # итог: люди дожили (tools/make_end_music.py)

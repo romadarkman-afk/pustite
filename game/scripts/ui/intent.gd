@@ -4,6 +4,7 @@ extends RefCounted
 ## опечатка в имени ловится при компиляции, а не на устройстве.
 
 const START := &"start"
+const START_SOLO := &"start_solo" ## свободная партия против ботов; прогресс кампании не меняется
 const OPEN_SETTINGS := &"open_settings"
 const EXIT := &"exit"
 const BACK := &"back"

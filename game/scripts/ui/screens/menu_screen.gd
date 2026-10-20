@@ -7,7 +7,7 @@ func screen_id() -> String:
 
 
 func field_ratio() -> float:
-	return 0.38 / ThemeFactory.text_scale     # крупный текст: посёлок ниже, кнопки видны без прокрутки
+	return 0.32 / ThemeFactory.text_scale     # оставляем место трём режимам игры
 
 
 func mood() -> Vector2:
@@ -39,10 +39,27 @@ func build() -> void:
 	name_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	name_button.pressed.connect(func() -> void: emit_intent(Intent.SET_PLAYER_NAME))
 	body.add_child(name_button)
-	# кампания — рядом с «Играть», под пальцем; глава и звёзды — на экране глав
-	var camp := W.button(L.t("menu.load"), &"RowOn")
+
+	body.add_child(W.label(L.t("menu.modes"), &"Speaker"))
+	var camp := W.wrap(W.button(L.t("menu.mode_campaign"), &"Row"))
 	camp.name = "Campaign"
+	camp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	camp.pressed.connect(func() -> void: emit_intent(Intent.OPEN_CAMPAIGN))
+	body.add_child(camp)
+	body.add_child(W.label(L.t("menu.mode_campaign_desc"), &"Small"))
+	var start := W.wrap(W.button(L.t("menu.mode_solo"), &"Primary"))
+	start.name = "Start"
+	start.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	start.pressed.connect(func() -> void: emit_intent(Intent.START_SOLO))
+	body.add_child(start)
+	body.add_child(W.label(L.t("menu.mode_solo_desc"), &"Small"))
+	var online := W.wrap(W.button(L.t("menu.mode_online"), &"Row"))
+	online.name = "OnlineSoon"
+	online.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	online.disabled = true
+	body.add_child(online)
+	body.add_child(W.label(L.t("menu.mode_online_desc"), &"Small"))
+
 	var dbs: Array[Button] = []
 	var custom_b: Button = null
 	for d: String in ["easy", "normal", "hard", "custom"]:
@@ -79,30 +96,25 @@ func build() -> void:
 	settings.pressed.connect(func() -> void: emit_intent(Intent.OPEN_SETTINGS))
 	body.add_child(W.fit_row([how, lb, custom_b, wardrobe, book, settings] as Array[Button]))
 
-	footer.add_child(daily_button())        # испытание дня — на виду, рядом с «Играть»
+	footer.add_child(daily_button())        # испытание дня — на виду, рядом с режимами
 	footer.add_child(W.fit_row(dbs))
-	# «Играть» — самая нижняя, под большим пальцем; строка о партии — над ступенями сложности
-	var start := W.button(L.t("menu.play"))
-	start.name = "Start"
-	var action := Intent.START
-	var action_data := {}
-	var start_label := L.t("menu.new_game")
+	var footer_actions: Array[Button] = []
 	if not Campaign.is_new():
 		var chapter := Campaign.current()
-		start_label = L.t("camp.continue", {"title": L.t("camp.%s.title" % chapter)})
-		start.text = start_label
-		start.name = "Continue"
-		action = Intent.PLAY_CHAPTER
-		action_data = {"id": chapter}
-	start.pressed.connect(func() -> void: emit_intent(action, action_data))
+		var resume := W.wrap(W.button(L.t("camp.continue", {"title": L.t("camp.%s.title" % chapter)}), &"RowOn"))
+		resume.name = "Continue"
+		resume.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		resume.pressed.connect(func() -> void: emit_intent(Intent.PLAY_CHAPTER, {"id": chapter}))
+		footer_actions.append(resume)
 	var exit := W.button(L.t("ui.exit"), &"Ghost")
 	exit.name = "Exit"
 	exit.pressed.connect(func() -> void:
 		var choice: int = await ActionSheet.ask(self, L.t("menu.exit_confirm"), PackedStringArray([L.t("ui.exit"), L.t("ui.back")]))
 		if choice == 0:
 			emit_intent(Intent.EXIT))
-	footer.add_child(W.fit_row([camp, start, exit] as Array[Button]))
-	start.call_deferred("grab_focus")
+	footer_actions.append(exit)
+	footer.add_child(W.fit_row(footer_actions))
+	(start if Campaign.is_new() else footer_actions[0]).call_deferred("grab_focus")
 	_diff_note = W.label("", &"Small")
 	body.add_child(_diff_note)          # над кнопкой «Играть»: при крупном тексте подвал не съедает экран
 	refresh(difficulty, cfg)
