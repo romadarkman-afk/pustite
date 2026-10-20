@@ -11,7 +11,7 @@ kind = 0
 pos = Vector2(128, 312)
 size = Vector2(118, 92)
 art = "station_house"
-art_door = Rect2(0.20, 0.57, 0.16, 0.37)
+art_door = Rect2(0.26, 0.55, 0.16, 0.29)
 
 [sub_resource type="Resource" id="house_1"]
 script = ExtResource("2_house")
@@ -21,7 +21,7 @@ pos = Vector2(592, 312)
 size = Vector2(142, 100)
 art = "station_water"
 art_w = 1.1
-art_door = Rect2(0.27, 0.73, 0.12, 0.20)
+art_door = Rect2(0.21, 0.59, 0.28, 0.32)
 
 [sub_resource type="Resource" id="house_2"]
 script = ExtResource("2_house")
@@ -31,7 +31,7 @@ pos = Vector2(360, 232)
 size = Vector2(96, 104)
 art = "station_warehouse"
 art_w = 1.65
-art_door = Rect2(0.14, 0.48, 0.35, 0.31)
+art_door = Rect2(0.15, 0.40, 0.27, 0.47)
 
 [sub_resource type="Resource" id="house_3"]
 script = ExtResource("2_house")
@@ -41,7 +41,7 @@ pos = Vector2(178, 486)
 size = Vector2(122, 58)
 art = "station_hut"
 art_w = 1.2
-art_door = Rect2(0.21, 0.48, 0.16, 0.31)
+art_door = Rect2(0.22, 0.52, 0.24, 0.32)
 
 [sub_resource type="Resource" id="house_4"]
 script = ExtResource("2_house")
@@ -51,7 +51,7 @@ pos = Vector2(552, 486)
 size = Vector2(128, 72)
 art = "station_wagon"
 art_w = 1.4
-art_door = Rect2(0.16, 0.37, 0.16, 0.32)
+art_door = Rect2(0.11, 0.35, 0.17, 0.38)
 
 [sub_resource type="Resource" id="house_5"]
 script = ExtResource("2_house")

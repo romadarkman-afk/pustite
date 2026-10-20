@@ -39,7 +39,9 @@ static func has_def(id: String) -> bool:
 static func sprite_path(id: String) -> String:
 	var d: Dictionary = DEFS.get(id, {})
 	var own := String(d.get("sprite", ""))
-	return own if ResourceLoader.exists(own) else String(d.get("fallback", ""))
+	var selected := own if ResourceLoader.exists(own) else String(d.get("fallback", ""))
+	var realistic := "res://assets/folk/realistic/" + selected.get_file()
+	return realistic if ResourceLoader.exists(realistic) else selected
 
 
 static func display_name(id: String) -> String:
@@ -77,12 +79,14 @@ func _draw() -> void:
 	var w := h * _tex.get_width() / _tex.get_height()
 	draw_colored_polygon(_ellipse(Vector2(0, 1.5), Vector2(w * 0.42, 4.5)), Color(0, 0, 0, 0.28))
 	draw_texture_rect(_tex, Rect2(-w * 0.5, -h, w, h), false)
-	# фонарь в руке: тёплое пятно и стекло
-	var lamp := Vector2(w * 0.42, -h * 0.42 + sin(_t * 1.7) * 1.2)
+	# У мельника фонарь уже в руке на реалистичном спрайте. Для остальных хозяев места
+	# оставляем компактный игровой фонарь, чтобы не рисовать второй поверх изображения.
+	var lamp := Vector2(-w * 0.35, -h * 0.40) if npc_id == "miller" else Vector2(w * 0.42, -h * 0.42 + sin(_t * 1.7) * 1.2)
 	for i in range(4):
-		draw_circle(lamp, 16.0 - i * 3.5, Color(1.0, 0.78, 0.4, 0.05 + i * 0.03))
-	draw_rect(Rect2(lamp - Vector2(3.5, 5), Vector2(7, 10)), Color(1.0, 0.82, 0.45, 0.95))
-	draw_rect(Rect2(lamp - Vector2(3.5, 5), Vector2(7, 10)), Art.INK, false, 1.4)
+		draw_circle(lamp, 15.0 - i * 3.2, Color(1.0, 0.68, 0.34, 0.035 + i * 0.025))
+	if npc_id != "miller":
+		draw_rect(Rect2(lamp - Vector2(3.5, 5), Vector2(7, 10)), Color(1.0, 0.82, 0.45, 0.95))
+		draw_rect(Rect2(lamp - Vector2(3.5, 5), Vector2(7, 10)), Art.INK, false, 1.4)
 	# имя в золотой рамке: хозяин места, не житель
 	var lr := label_rect_local()
 	var gold := ThemeFactory.LAMP

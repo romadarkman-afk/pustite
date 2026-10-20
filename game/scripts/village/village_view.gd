@@ -12,6 +12,7 @@ const BAND := Rect2(0, 120, 720, 400)    ## полоса с домами — е�
 const SIDE_VISIBLE := 0.88
 const SKY_SHARE := 0.75                   ## какая доля лишней высоты поля уходит в небо
 const SAFE_X := Vector2(84, 624)          ## куда можно ставить жителей: слева половина имени, справа колонка отметок
+static var _shadow_outline_cache: Dictionary = {}
 
 var def: VillageDef
 var open_count: int = 2
@@ -35,6 +36,7 @@ var _lamp_glows: Array[Sprite2D] = []
 var _house_glows: Array[Sprite2D] = []
 var _lamp_lights: Array[PointLight2D] = []
 var _tex: Dictionary = {}                  ## имя картинки -> Texture2D
+var _realistic: Dictionary = {}             ## новые спрайты уже содержат мягкую контактную тень
 var _props: Array[VillageProp] = []        ## дома, колодец, фонари и реквизит — в слое толпы
 var _labels: Node2D                        ## таблички убежищ — над толпой
 var _occluders: Array[LightOccluder2D] = []
@@ -449,17 +451,17 @@ func _draw() -> void:
 	var n := _q if _q >= 0.0 else night
 	var k := Art.ink(n)
 
-	# небо и дальний лес рисует Backdrop (он за посёлком и сдвигается медленнее камеры).
-	# Земля — картинка: площадь, тропы, река, лес по верхнему краю; ночью её сменяет ночная
-	# картинка того же места. Верх земли тонет в нижнем крае дальнего леса.
+	# Небо и дальний лес рисует Backdrop (он за посёлком и сдвигается медленнее камеры).
+	# Земля содержит площадку и окружение. Варианты актов сохраняют те же ориентиры.
 	var gr := def.ground_rect
 	var forest := Backdrop.FOREST_DAY.lerp(Backdrop.FOREST_NIGHT, n)
 	draw_rect(Rect2(-2000, gr.position.y + 40.0, 4720, 3000), Color("4a4636").lerp(Color("1c2430"), n))
 	draw_texture_rect(_tex.ground_day, gr, false)
 	if n > 0.0:
 		draw_texture_rect(_tex.ground_night, gr, false, Color(1, 1, 1, n))
-	Art.vgrad(self, Rect2(gr.position.x, gr.position.y, gr.size.x, 40.0), Color(forest, 0.75), Color(forest, 0.0))
-	# шов между дальним лесом и землёй прячет полоса дымки
+	if not _tex.has("real_sky_day"):
+		Art.vgrad(self, Rect2(gr.position.x, gr.position.y, gr.size.x, 40.0), Color(forest, 0.75), Color(forest, 0.0))
+	# На реалистичных фонах стык закрывает лёгкая приземная дымка.
 	var mist := Color8(118, 128, 140).lerp(Color8(44, 54, 76), n)
 	Art.vgrad(self, Rect2(-2000, gr.position.y - 34.0, 4720, 36.0), Color(mist, 0.0), Color(mist, 0.6))
 	Art.vgrad(self, Rect2(-2000, gr.position.y + 2.0, 4720, 48.0), Color(mist, 0.6), Color(mist, 0.0))
@@ -508,7 +510,11 @@ func _build_props() -> void:
 	for pr: Dictionary in def.props:
 		var id := String(pr.id)
 		if not _tex.has(id):
-			_tex[id] = load(ART_DIR + id + ".png") as Texture2D
+			var realistic_prop := REALISTIC_ART_DIR + id + ".png"
+			var has_realistic := ResourceLoader.exists(realistic_prop)
+			_realistic[id] = has_realistic
+			var prop_path := realistic_prop if has_realistic else ART_DIR + id + ".png"
+			_tex[id] = load(prop_path) as Texture2D
 		var at: Vector2 = pr.pos
 		var pw := float(pr.get("w", 60.0))
 		var fl := bool(pr.get("flip", false))
@@ -517,9 +523,9 @@ func _build_props() -> void:
 		var jp := j.pos
 		match j.kind:
 			JobDef.Kind.WOOD:
-				_add_prop(jp + Vector2(36, 4), func(ci: CanvasItem) -> void: _prop(ci, _tex.woodpile, jp + Vector2(36, 4), 76.0, _nq()))
+				_add_prop(jp + Vector2(36, 4), func(ci: CanvasItem) -> void: _prop(ci, _tex.woodpile, jp + Vector2(36, 4), 76.0, _nq(), bool(_realistic.get("woodpile", false))))
 			JobDef.Kind.LAMP:
-				_add_prop(jp + Vector2(-30, 3), func(ci: CanvasItem) -> void: _prop(ci, _tex.barrel, jp + Vector2(-30, 3), 30.0, _nq()))
+				_add_prop(jp + Vector2(-30, 3), func(ci: CanvasItem) -> void: _prop(ci, _tex.barrel, jp + Vector2(-30, 3), 30.0, _nq(), bool(_realistic.get("barrel", false))))
 
 
 func _add_prop(at: Vector2, paint: Callable, depth: int = 0) -> void:
@@ -590,6 +596,7 @@ func _draw_plaques() -> void:
 
 const PLAQUE_SIZE := 14
 const ART_DIR := "res://assets/village/"
+const REALISTIC_ART_DIR := "res://assets/village/realistic/"
 ## Вид дома -> [картинка, ширина на поле в долях h.size.x, дверь на картинке в долях].
 ## Картинка ставится так, чтобы низ двери пришёлся в h.pos: туда же встаёт очередь.
 const HOUSE_ART := {
@@ -617,11 +624,22 @@ const CHIMNEY := {HouseDef.Kind.HOME: Vector2(0.62, 0.05), HouseDef.Kind.CHURCH:
 ## Фоны и графика общие для всех языков. Локаль меняет только текст.
 func _load_art() -> void:
 	for f: String in ART_FILES:
-		_tex[f] = load(ART_DIR + f + ".png") as Texture2D
+		var realistic_path := REALISTIC_ART_DIR + f + ".png"
+		var has_realistic := ResourceLoader.exists(realistic_path)
+		_realistic[f] = has_realistic
+		var source_path := realistic_path if has_realistic else ART_DIR + f + ".png"
+		_tex[f] = load(source_path) as Texture2D
 	for g: String in GROUND_FILES:
-		_tex[g] = load(ART_DIR + g.replace("ground", def.ground if def != null else "ground") + ".jpg") as Texture2D
+		var ground_name := g.replace("ground", def.ground if def != null else "ground")
+		var realistic_ground := REALISTIC_ART_DIR + ground_name + ".jpg"
+		var ground_path := realistic_ground if ResourceLoader.exists(realistic_ground) else ART_DIR + ground_name + ".jpg"
+		_tex[g] = load(ground_path) as Texture2D
 	for f: String in MAP_FILES:
 		_tex[f.get_basename()] = load(ART_DIR + f) as Texture2D
+	for f: String in ["sky_day", "sky_dusk", "sky_night"]:
+		var realistic_sky := REALISTIC_ART_DIR + f + ".jpg"
+		if ResourceLoader.exists(realistic_sky):
+			_tex["real_" + f] = load(realistic_sky) as Texture2D
 
 
 ## Дома слева от площади смотрят дверью вправо, к площади: картинку отражаем.
@@ -634,8 +652,12 @@ func _art(h: HouseDef) -> Array:
 	if not h.art.is_empty():
 		var key := "maps/" + h.art
 		if not _tex.has(key + "_day"):
-			_tex[key + "_day"] = load(ART_DIR + key + "_day.png") as Texture2D
-			var np := ART_DIR + key + "_night.png"
+			var realistic_day := REALISTIC_ART_DIR + key + "_day.png"
+			var has_realistic := ResourceLoader.exists(realistic_day)
+			_realistic[key] = has_realistic
+			var day_path := realistic_day if has_realistic else ART_DIR + key + "_day.png"
+			_tex[key + "_day"] = load(day_path) as Texture2D
+			var np := (REALISTIC_ART_DIR if has_realistic else ART_DIR) + key + "_night.png"
 			_tex[key + "_night"] = load(np) as Texture2D if ResourceLoader.exists(np) else null
 		return [key, h.art_w, h.art_door]
 	return HOUSE_ART.get(h.kind, HOUSE_ART[HouseDef.Kind.HOME])
@@ -683,14 +705,16 @@ func _decor_prop(ci: CanvasItem, id: String, p: Vector2, w: float, flip: bool, n
 	if tex == null:
 		return
 	var h := w * tex.get_height() / tex.get_width()
-	ci.draw_colored_polygon(Art.ellipse(p + Vector2(0, -4), Vector2(w * 0.44, 6)), Color(0, 0, 0, 0.2))
+	if not bool(_realistic.get(id, false)):
+		ci.draw_colored_polygon(Art.ellipse(p + Vector2(0, -4), Vector2(w * 0.44, 6)), Color(0, 0, 0, 0.2))
 	_blit(ci, tex, Rect2(p.x - w * 0.5, p.y - h, w, h), flip, _night_mod(n).darkened(0.06))
 
 
 ## Реквизит: низ по центру в точке p, ширина w.
-func _prop(ci: CanvasItem, tex: Texture2D, p: Vector2, w: float, n: float) -> void:
+func _prop(ci: CanvasItem, tex: Texture2D, p: Vector2, w: float, n: float, baked_shadow: bool = false) -> void:
 	var h := w * tex.get_height() / tex.get_width()
-	ci.draw_colored_polygon(Art.ellipse(p + Vector2(0, -3), Vector2(w * 0.46, 6)), Color(0, 0, 0, 0.2))
+	if not baked_shadow:
+		ci.draw_colored_polygon(Art.ellipse(p + Vector2(0, -3), Vector2(w * 0.46, 6)), Color(0, 0, 0, 0.2))
 	_blit(ci, tex, Rect2(p.x - w * 0.5, p.y - h, w, h), false, _night_mod(n))
 
 
@@ -700,7 +724,8 @@ func _draw_house(ci: CanvasItem, h: HouseDef, state: int, n: float, lit: float, 
 	var a := _art(h)
 	var r := house_rect(h)
 	var flip := _flip(h)
-	ci.draw_colored_polygon(Art.ellipse(Vector2(r.get_center().x, h.pos.y + 2.0), Vector2(r.size.x * 0.5, 11)), Color(0, 0, 0, 0.2))
+	if not bool(_realistic.get(a[0], false)):
+		ci.draw_colored_polygon(Art.ellipse(Vector2(r.get_center().x, h.pos.y + 2.0), Vector2(r.size.x * 0.5, 11)), Color(0, 0, 0, 0.2))
 	var mod := _night_mod(n)
 	if state == 2:
 		mod = mod.darkened(0.32)
@@ -907,12 +932,52 @@ func _build_lights() -> void:
 	for h: HouseDef in def.shelters + def.decor:
 		var occ := LightOccluder2D.new()
 		var poly := OccluderPolygon2D.new()
-		var hr := house_rect(h).grow_individual(-0.15 * house_rect(h).size.x, -0.3 * house_rect(h).size.y, -0.15 * house_rect(h).size.x, 0.0)
-		poly.polygon = PackedVector2Array([hr.position, Vector2(hr.end.x, hr.position.y),
-			Vector2(hr.end.x, h.pos.y - 2), Vector2(hr.position.x, h.pos.y - 2)])
+		var hr := house_rect(h)
+		var art := _art(h)
+		var building: Texture2D = _tex[art[0] + "_day"]
+		var outline := _house_shadow_outline(art[0], building)
+		if outline.size() >= 3:
+			var sx := hr.size.x / building.get_width()
+			var sy := hr.size.y / building.get_height()
+			var points := PackedVector2Array()
+			for point: Vector2 in outline:
+				var px := building.get_width() - point.x if _flip(h) else point.x
+				points.append(Vector2(px * sx, point.y * sy))
+			poly.polygon = points
+			occ.position = hr.position
+		else:
+			var body := hr.grow_individual(-0.15 * hr.size.x, -0.3 * hr.size.y, -0.15 * hr.size.x, 0.0)
+			poly.polygon = PackedVector2Array([body.position, Vector2(body.end.x, body.position.y),
+				Vector2(body.end.x, h.pos.y - 2), Vector2(body.position.x, h.pos.y - 2)])
 		occ.occluder = poly
 		add_child(occ)
 		_occluders.append(occ)
+
+
+func _house_shadow_outline(art_id: String, tex: Texture2D) -> PackedVector2Array:
+	if _shadow_outline_cache.has(art_id):
+		return _shadow_outline_cache[art_id]
+	var result := PackedVector2Array()
+	if tex == null:
+		_shadow_outline_cache[art_id] = result
+		return result
+	var bitmap := BitMap.new()
+	bitmap.create_from_image_alpha(tex.get_image(), 0.75)
+	var bounds := Rect2i(0, 0, tex.get_width(), tex.get_height())
+	var contours := bitmap.opaque_to_polygons(bounds, 8.0)
+	var largest_area := 0.0
+	for contour: PackedVector2Array in contours:
+		if contour.size() < 3:
+			continue
+		var area := 0.0
+		for i in range(contour.size()):
+			area += contour[i].cross(contour[(i + 1) % contour.size()])
+		area = absf(area) * 0.5
+		if area > largest_area:
+			largest_area = area
+			result = contour
+	_shadow_outline_cache[art_id] = result
+	return result
 
 
 func lamp_lights() -> Array[PointLight2D]:
@@ -1131,6 +1196,7 @@ func _half_ellipse(base: Vector2, r: Vector2, seg: int = 24) -> PackedVector2Arr
 ## Отдельный слой — ради них посёлок не перерисовывается.
 class Eyes extends Node2D:
 	const CREATURE_PATH := "res://assets/village/creature.png"
+	const REALISTIC_CREATURE_PATH := "res://assets/village/realistic/creature.png"
 	const SPOTS := [Vector2(160, 158), Vector2(300, 176), Vector2(432, 178), Vector2(640, 162), Vector2(28, 330)]
 	var creature_tex: Texture2D
 	var night: float = 0.0
@@ -1141,7 +1207,8 @@ class Eyes extends Node2D:
 	var _peek_left := 0.0
 
 	func _ready() -> void:
-		creature_tex = load(CREATURE_PATH) as Texture2D
+		var sprite_path := REALISTIC_CREATURE_PATH if ResourceLoader.exists(REALISTIC_CREATURE_PATH) else CREATURE_PATH
+		creature_tex = load(sprite_path) as Texture2D
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 23
 		for i in range(SPOTS.size()):
@@ -1233,25 +1300,36 @@ class Backdrop extends Node2D:
 		var gy := view.def.ground_rect.position.y
 		var bottom := gy + 10.0
 		# сумерки: день → сумерки к середине, сумерки → ночь ко второй половине
-		var layers := [["sky_day", 1.0], ["sky_dusk", clampf(n * 2.2, 0.0, 1.0)], ["sky_night", clampf((n - 0.5) * 2.2, 0.0, 1.0)]]
-		for l: Array in layers:
-			var a: float = l[1]
-			if a <= 0.0:
-				continue
-			var tex: Texture2D = view._tex[l[0]]
-			var h := SKY_W * tex.get_height() / tex.get_width()
-			draw_rect(Rect2(-3000, bottom - h - 3000, 6720, 3002), Color(SKY_TOP[l[0]], a))
-			_strip(tex, bottom - h, SKY_W, h, Color(1, 1, 1, a))
-		# Дальний лес ниже в кадре, чтобы над верхушками оставалось чистое небо.
-		for i in range(2):
-			var a := clampf(1.0 - (n - 0.3) * 1.6, 0.0, 1.0) if i == 0 else clampf(n * 1.6, 0.0, 1.0)
-			if a <= 0.0:
-				continue
-			var tex: Texture2D = view._tex["treeline_day" if i == 0 else "treeline_night"]
-			var h := TREE_W * tex.get_height() / tex.get_width()
-			_strip(tex, gy + h * 0.5 - h, TREE_W, h, Color(1, 1, 1, a))
-		var forest := FOREST_DAY.lerp(FOREST_NIGHT, n)
-		draw_rect(Rect2(-3000, gy + 50.0, 6720, 60.0), forest)
+		var realistic := view._tex.has("real_sky_day") and view._tex.has("real_sky_dusk") and view._tex.has("real_sky_night")
+		if realistic:
+			var realistic_layers := [["real_sky_day", 1.0], ["real_sky_dusk", clampf(n * 2.2, 0.0, 1.0)], ["real_sky_night", clampf((n - 0.5) * 2.2, 0.0, 1.0)]]
+			for l: Array in realistic_layers:
+				var a: float = l[1]
+				if a <= 0.0:
+					continue
+				var tex: Texture2D = view._tex[l[0]]
+				var h := SKY_W * tex.get_height() / tex.get_width()
+				_strip(tex, bottom - h, SKY_W, h, Color(1, 1, 1, a))
+		else:
+			var layers := [["sky_day", 1.0], ["sky_dusk", clampf(n * 2.2, 0.0, 1.0)], ["sky_night", clampf((n - 0.5) * 2.2, 0.0, 1.0)]]
+			for l: Array in layers:
+				var a: float = l[1]
+				if a <= 0.0:
+					continue
+				var tex: Texture2D = view._tex[l[0]]
+				var h := SKY_W * tex.get_height() / tex.get_width()
+				draw_rect(Rect2(-3000, bottom - h - 3000, 6720, 3002), Color(SKY_TOP[l[0]], a))
+				_strip(tex, bottom - h, SKY_W, h, Color(1, 1, 1, a))
+			# Дальний лес ниже в кадре, чтобы над верхушками оставалось чистое небо.
+			for i in range(2):
+				var a := clampf(1.0 - (n - 0.3) * 1.6, 0.0, 1.0) if i == 0 else clampf(n * 1.6, 0.0, 1.0)
+				if a <= 0.0:
+					continue
+				var tex: Texture2D = view._tex["treeline_day" if i == 0 else "treeline_night"]
+				var h := TREE_W * tex.get_height() / tex.get_width()
+				_strip(tex, gy + h * 0.5 - h, TREE_W, h, Color(1, 1, 1, a))
+			var forest := FOREST_DAY.lerp(FOREST_NIGHT, n)
+			draw_rect(Rect2(-3000, gy + 50.0, 6720, 60.0), forest)
 
 	## Полоса картинки по всей ширине, копии через одну отражены — шов не виден.
 	func _strip(tex: Texture2D, y: float, w: float, h: float, mod: Color) -> void:

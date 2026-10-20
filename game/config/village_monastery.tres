@@ -12,7 +12,7 @@ pos = Vector2(84, 300)
 size = Vector2(130, 70)
 art = "cells"
 art_w = 1.85
-art_door = Rect2(0.1, 0.62, 0.08, 0.24)
+art_door = Rect2(0.10, 0.50, 0.17, 0.34)
 
 [sub_resource type="Resource" id="house_1"]
 script = ExtResource("2_house")
@@ -22,7 +22,7 @@ pos = Vector2(636, 302)
 size = Vector2(120, 80)
 art = "refectory"
 art_w = 1.75
-art_door = Rect2(0.22, 0.62, 0.1, 0.26)
+art_door = Rect2(0.26, 0.48, 0.14, 0.31)
 art_chimney = Vector2(0.6, 0.06)
 
 [sub_resource type="Resource" id="house_2"]
@@ -33,7 +33,7 @@ pos = Vector2(376, 214)
 size = Vector2(110, 96)
 art = "cathedral"
 art_w = 1.9
-art_door = Rect2(0.15, 0.64, 0.12, 0.28)
+art_door = Rect2(0.19, 0.63, 0.19, 0.26)
 
 [sub_resource type="Resource" id="house_3"]
 script = ExtResource("2_house")
@@ -43,7 +43,7 @@ pos = Vector2(104, 500)
 size = Vector2(110, 64)
 art = "crypt"
 art_w = 1.75
-art_door = Rect2(0.2, 0.3, 0.22, 0.48)
+art_door = Rect2(0.24, 0.27, 0.24, 0.54)
 
 [sub_resource type="Resource" id="house_4"]
 script = ExtResource("2_house")
@@ -53,7 +53,7 @@ pos = Vector2(612, 506)
 size = Vector2(90, 110)
 art = "belltower"
 art_w = 1.5
-art_door = Rect2(0.29, 0.8, 0.11, 0.15)
+art_door = Rect2(0.23, 0.66, 0.18, 0.23)
 
 [sub_resource type="Resource" id="house_5"]
 script = ExtResource("2_house")
