@@ -380,12 +380,16 @@ func show_inspection(gid: int, tell: StringName) -> void:
 					break
 		var known := DiarySheet.facts(m, director, identity)
 		var details := PackedStringArray([L.fill(SocialContent.door_sign(tell, m.day * 31 + identity.id * 7), {"who": identity})])
+		var remembered := remembered_story(identity)
+		if not remembered.is_empty():
+			details.append(remembered)
 		# биография одна и та же каждую ночь: у двери полезнее то, что было в эту партию
 		var fixed := PackedStringArray()
+		var known_story_step := maxi(identity.story_step, int(Save.storybook.get(Progress.story_key(identity), -1)))
 		if not identity.is_player and identity.story_id >= 0:
 			fixed.append(SocialContent.person_title(identity))
 			fixed.append(SocialContent.story(identity.story_id, identity))
-			for step in range(1, identity.story_step + 1):
+			for step in range(1, known_story_step + 1):
 				fixed.append(SocialContent.personal_chapter(identity, step))
 		var fresh := PackedStringArray()
 		for fact: String in known:
@@ -411,6 +415,16 @@ func show_inspection(gid: int, tell: StringName) -> void:
 		if not _inspected.has(other_id):
 			other.text = "%s · %d" % [SocialContent.door_ui("inspect"), _inspection_left]
 			other.disabled = _inspection_left <= 0
+
+
+static func remembered_story(identity: Villager) -> String:
+	if identity == null or identity.is_player:
+		return ""
+	var step := maxi(identity.story_step, int(Save.storybook.get(Progress.story_key(identity), -1)))
+	if step < 2:
+		return ""
+	var text := SocialContent.personal_chapter(identity, step - 1)
+	return L.fill(SocialContent.door_ui("remembered"), {"text": text}) if not text.is_empty() else ""
 
 
 func _finish_host(ids: Array[int]) -> void:

@@ -312,6 +312,16 @@ static func flow() -> void:
 			story_bonus = int(xp_line[1])
 			story_bonus_pages = int(xp_line[2])
 	talk_ok = talk_ok and full_a.story_pages_found.size() == 2 and story_bonus == 16 and story_bonus_pages == 2
+	var remembered_key := Progress.story_key(person)
+	var had_remembered := Save.storybook.has(remembered_key)
+	var old_remembered := int(Save.storybook.get(remembered_key, -1))
+	Save.storybook[remembered_key] = 2
+	var door_memory := DoorScreen.remembered_story(person)
+	talk_ok = talk_ok and door_memory.contains(SocialContent.personal_chapter(person, 1))
+	if had_remembered:
+		Save.storybook[remembered_key] = old_remembered
+	else:
+		Save.storybook.erase(remembered_key)
 	for v: Villager in full_a.alive_bots():
 		if v.partner_id >= 0:
 			full_a.get_villager(v.partner_id).alive = false

@@ -502,16 +502,16 @@ const EXTRA := {
 
 
 const DOOR_UI := {
-	"ru": {"inspect": "Осмотреть", "done": "Осмотрено", "limit": "Внимательно осмотреть можно двоих. Примета может обмануть.", "record": "У двери, ночь {n}: {text}", "case_recap": "Дело «{case}». Осмотрено стучащих: {n}."},
-	"en": {"inspect": "Inspect", "done": "Inspected", "limit": "You can inspect two visitors. A sign can mislead you.", "record": "At the door, night {n}: {text}", "case_recap": "Case: “{case}”. Visitors inspected: {n}."},
-	"de": {"inspect": "Prüfen", "done": "Geprüft", "limit": "Du kannst zwei Besucher prüfen. Ein Merkmal kann täuschen.", "record": "An der Tür, Nacht {n}: {text}", "case_recap": "Fall: „{case}“. Untersuchte Besucher: {n}."},
-	"fr": {"inspect": "Observer", "done": "Observé", "limit": "Tu peux examiner deux visiteurs. Un signe peut tromper.", "record": "À la porte, nuit {n} : {text}", "case_recap": "Affaire : « {case} ». Visiteurs examinés : {n}."},
-	"es": {"inspect": "Observar", "done": "Observado", "limit": "Puedes observar a dos visitantes. Una señal puede engañar.", "record": "En la puerta, noche {n}: {text}", "case_recap": "Caso: «{case}». Visitantes observados: {n}."},
-	"pt": {"inspect": "Examinar", "done": "Examinado", "limit": "Você pode examinar dois visitantes. Um sinal pode enganar.", "record": "À porta, noite {n}: {text}", "case_recap": "Caso: “{case}”. Visitantes examinados: {n}."},
-	"tr": {"inspect": "İncele", "done": "İncelendi", "limit": "İki ziyaretçiyi inceleyebilirsin. Bir işaret yanıltabilir.", "record": "Kapıda, {n}. gece: {text}", "case_recap": "Dosya: “{case}”. İncelenen ziyaretçi: {n}."},
-	"hi": {"inspect": "जाँचें", "done": "जाँचा", "limit": "दो आगंतुकों की जाँच कर सकते हो। कोई संकेत भटका सकता है।", "record": "दरवाज़े पर, रात {n}: {text}", "case_recap": "मामला: “{case}”. जाँचे गए आगंतुक: {n}।"},
-	"vi": {"inspect": "Quan sát", "done": "Đã xem", "limit": "Bạn có thể xem xét hai người. Một dấu hiệu có thể đánh lừa.", "record": "Ở cửa, đêm {n}: {text}", "case_recap": "Vụ việc: “{case}”. Số người đã xem xét: {n}."},
-	"zh": {"inspect": "查看", "done": "已查看", "limit": "你可以仔细观察两位来客。线索可能会误导你。", "record": "门前，第{n}夜：{text}", "case_recap": "案件：“{case}”。查看的来客：{n}位。"}
+	"ru": {"inspect": "Осмотреть", "done": "Осмотрено", "limit": "Внимательно осмотреть можно двоих. Примета может обмануть.", "record": "У двери, ночь {n}: {text}", "case_recap": "Дело «{case}». Осмотрено стучащих: {n}.", "remembered": "Из прошлого разговора: {text}"},
+	"en": {"inspect": "Inspect", "done": "Inspected", "limit": "You can inspect two visitors. A sign can mislead you.", "record": "At the door, night {n}: {text}", "case_recap": "Case: “{case}”. Visitors inspected: {n}.", "remembered": "From your earlier conversation: {text}"},
+	"de": {"inspect": "Prüfen", "done": "Geprüft", "limit": "Du kannst zwei Besucher prüfen. Ein Merkmal kann täuschen.", "record": "An der Tür, Nacht {n}: {text}", "case_recap": "Fall: „{case}“. Untersuchte Besucher: {n}.", "remembered": "Aus eurem früheren Gespräch: {text}"},
+	"fr": {"inspect": "Observer", "done": "Observé", "limit": "Tu peux examiner deux visiteurs. Un signe peut tromper.", "record": "À la porte, nuit {n} : {text}", "case_recap": "Affaire : « {case} ». Visiteurs examinés : {n}.", "remembered": "De votre conversation précédente : {text}"},
+	"es": {"inspect": "Observar", "done": "Observado", "limit": "Puedes observar a dos visitantes. Una señal puede engañar.", "record": "En la puerta, noche {n}: {text}", "case_recap": "Caso: «{case}». Visitantes observados: {n}.", "remembered": "De vuestra conversación anterior: {text}"},
+	"pt": {"inspect": "Examinar", "done": "Examinado", "limit": "Você pode examinar dois visitantes. Um sinal pode enganar.", "record": "À porta, noite {n}: {text}", "case_recap": "Caso: “{case}”. Visitantes examinados: {n}.", "remembered": "Da conversa anterior: {text}"},
+	"tr": {"inspect": "İncele", "done": "İncelendi", "limit": "İki ziyaretçiyi inceleyebilirsin. Bir işaret yanıltabilir.", "record": "Kapıda, {n}. gece: {text}", "case_recap": "Dosya: “{case}”. İncelenen ziyaretçi: {n}.", "remembered": "Önceki konuşmanızdan: {text}"},
+	"hi": {"inspect": "जाँचें", "done": "जाँचा", "limit": "दो आगंतुकों की जाँच कर सकते हो। कोई संकेत भटका सकता है।", "record": "दरवाज़े पर, रात {n}: {text}", "case_recap": "मामला: “{case}”. जाँचे गए आगंतुक: {n}।", "remembered": "पिछली बातचीत से: {text}"},
+	"vi": {"inspect": "Quan sát", "done": "Đã xem", "limit": "Bạn có thể xem xét hai người. Một dấu hiệu có thể đánh lừa.", "record": "Ở cửa, đêm {n}: {text}", "case_recap": "Vụ việc: “{case}”. Số người đã xem xét: {n}.", "remembered": "Từ cuộc trò chuyện trước: {text}"},
+	"zh": {"inspect": "查看", "done": "已查看", "limit": "你可以仔细观察两位来客。线索可能会误导你。", "record": "门前，第{n}夜：{text}", "case_recap": "案件：“{case}”。查看的来客：{n}位。", "remembered": "你想起之前的谈话：{text}"}
 }
 
 
