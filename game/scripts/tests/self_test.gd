@@ -2983,7 +2983,7 @@ static func sound() -> void:
 	Nav.show_menu()
 	await _settle(tree)
 
-	# 7. Настройки: три ползунка
+	# 7. Настройки: четыре ползунка, включая отдельную громкость окружения
 	Nav.show_settings()
 	await _settle(tree)
 	var sliders := 0
@@ -2992,7 +2992,7 @@ static func sound() -> void:
 			sliders += 1
 			if c.name == "Volume_Music":
 				(c as HSlider).value = 0.3
-	ok += _expect(fails, sliders == 3, "в настройках ползунков громкости %d из 3" % sliders)
+	ok += _expect(fails, sliders == 4, "в настройках ползунков громкости %d из 4" % sliders)
 	ok += _expect(fails, absf(float(Save.volumes[&"Music"]) - 0.3) < 0.01, "ползунок музыки не меняет громкость")
 	Save.set_volume(&"Music", 0.7)
 
