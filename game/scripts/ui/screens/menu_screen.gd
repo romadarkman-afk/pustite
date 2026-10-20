@@ -11,7 +11,11 @@ func field_ratio() -> float:
 
 
 func mood() -> Vector2:
-	return Vector2(1.0, 1.2)
+	return Vector2(0.78, 1.2)
+
+
+func ambience() -> StringName:
+	return &"amb_night"
 
 
 var difficulty: String = "easy"

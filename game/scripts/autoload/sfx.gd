@@ -64,6 +64,8 @@ const LOOPS := {
 ## Звук с вариантами: каждый раз случайный из списка, в журнал пишется общее имя.
 const VARIANTS := {&"reveal": [&"reveal", &"reveal_2", &"reveal_3"]}
 const BUSES := [&"Music", &"Sfx", &"Ambience"]
+const HORROR_LEFT := &"NightHorrorLeft"
+const HORROR_RIGHT := &"NightHorrorRight"
 const POOL := 8
 const LOG_MAX := 64
 
@@ -84,6 +86,7 @@ var _place: AudioStreamPlayer
 var _place_name: StringName = &""
 var _place_generation := 0
 var _heart: AudioStreamPlayer
+var _panned_player: AudioStreamPlayer
 var _muted_by_os := false
 var _tw: Dictionary = {}
 
@@ -96,6 +99,8 @@ func _ready() -> void:
 			var i := AudioServer.bus_count - 1
 			AudioServer.set_bus_name(i, b)
 			AudioServer.set_bus_send(i, &"Master")
+	_ensure_panner_bus(HORROR_LEFT, -1.0)
+	_ensure_panner_bus(HORROR_RIGHT, 1.0)
 	for k: StringName in SOUNDS:
 		_streams[k] = load(SOUNDS[k])
 	for k: StringName in LOOPS:
@@ -114,7 +119,20 @@ func _ready() -> void:
 	_amb = [_player(&"Ambience"), _player(&"Ambience")]
 	_place = _player(&"Ambience")
 	_heart = _player(&"Sfx")
+	_panned_player = _player(HORROR_LEFT)
 	_heart.stream = _streams[&"heartbeat"]
+
+
+func _ensure_panner_bus(bus_name: StringName, pan: float) -> void:
+	if AudioServer.get_bus_index(bus_name) >= 0:
+		return
+	AudioServer.add_bus()
+	var i := AudioServer.bus_count - 1
+	AudioServer.set_bus_name(i, bus_name)
+	AudioServer.set_bus_send(i, &"Sfx")
+	var effect := AudioEffectPanner.new()
+	effect.pan = pan
+	AudioServer.add_bus_effect(i, effect)
 
 
 func _player(bus: StringName) -> AudioStreamPlayer:
@@ -145,6 +163,29 @@ func play(n: StringName, pitch: float = 1.0, vol_db: float = 0.0) -> void:
 	p.pitch_scale = clampf(pitch, 0.25, 4.0)
 	p.volume_db = vol_db
 	p.play()
+
+
+## Разовый звук по краю стереополя. Канал проходит через Sfx, поэтому его громкость
+## и системное приглушение остаются общими для всех эффектов.
+func play_panned(n: StringName, side: int, pitch: float = 1.0, vol_db: float = -14.0) -> void:
+	if not has_sound(n) or _panned_player == null:
+		return
+	_note(n)
+	var stream_name := n
+	if VARIANTS.has(n):
+		var opts: Array = VARIANTS[n]
+		stream_name = opts[randi() % opts.size()]
+	_panned_player.stop()
+	_panned_player.bus = HORROR_LEFT if side < 0 else HORROR_RIGHT
+	_panned_player.stream = _streams.get(stream_name, _streams[n])
+	_panned_player.pitch_scale = clampf(pitch, 0.25, 4.0)
+	_panned_player.volume_db = vol_db
+	_panned_player.play()
+
+
+func stop_panned(fade: float = 0.12) -> void:
+	if _panned_player != null and _panned_player.playing:
+		_fade(_panned_player, -80.0, fade, true)
 
 
 ## Голос жителя: 2–4 слога-писка с высотой, своей у каждого. Слышно, кто говорит.

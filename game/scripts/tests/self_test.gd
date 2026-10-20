@@ -2873,11 +2873,26 @@ static func sound() -> void:
 	# 4. Меню и кнопки
 	Nav.show_menu()
 	await _settle(tree)
-	ok += _expect(fails, Sfx.music_name == &"menu" and Sfx.ambience_name == &"", "в меню не музыка меню (%s / %s)" % [Sfx.music_name, Sfx.ambience_name])
+	ok += _expect(fails, Sfx.music_name == &"menu" and Sfx.ambience_name == &"amb_night", "в меню не музыка и ночной фон (%s / %s)" % [Sfx.music_name, Sfx.ambience_name])
+	ok += _expect(fails, Nav.village.crowd.figures.size() == 5 and bool(Nav._menu_horror.call("is_menu_active")),
+		"в меню нет живой толпы или ночной звуковой контроллер выключен")
+	var menu_idle_ok := true
+	for figure: VillagerFigure in Nav.village.crowd.figures.values():
+		menu_idle_ok = menu_idle_ok and figure.fidgets_on and not figure.tag.visible
+	ok += _expect(fails, menu_idle_ok, "фигуры меню не оживают или закрывают сцену подписями")
+	Sfx.play_panned(&"scratch", -1, 0.95, -20.0)
+	ok += _expect(fails, Sfx._panned_player.bus == Sfx.HORROR_LEFT and Sfx.played.has(&"scratch"), "ночной звук не панорамируется в левый канал")
+	Sfx.stop_panned()
 	Sfx.played.clear()
 	_find_button(Nav.host.current, "Обычная").pressed.emit()
 	await _frames(tree, 2)
 	ok += _expect(fails, Sfx.played.has(&"tap"), "кнопка нажалась без щелчка")
+	ok += _expect(fails, bool(Nav._menu_horror.call("is_menu_active")), "смена сложности неожиданно выключила звук меню")
+	Nav.show_settings()
+	await _settle(tree)
+	ok += _expect(fails, not bool(Nav._menu_horror.call("is_menu_active")), "ночной звуковой контроллер остался включён после выхода из меню")
+	Nav.show_menu()
+	await _settle(tree)
 	Save.set_difficulty("easy")
 
 	# 5. Партия: у каждой фазы свой звук

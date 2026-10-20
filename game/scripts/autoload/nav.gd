@@ -3,6 +3,8 @@ extends Node
 ## Слушает сигналы Game и строит нужный экран. Намерения игрока с экранов
 ## передаёт в Game вызовами. Сам правила не трогает.
 
+const MENU_HORROR_AUDIO := preload("res://scripts/ui/night_horror_audio.gd")
+
 var layer: CanvasLayer
 var back_layer: CanvasLayer
 var village_layer: CanvasLayer
@@ -18,6 +20,8 @@ var _toast: Label
 var _exit_armed := false
 var _started := false
 var _frame_pending := false
+var _menu_preview: Match
+var _menu_horror: Node
 var _walk_gen := 0                 ## каждая новая прогулка игрока отменяет прежнюю цель
 var _spoiled_ji := -1              ## у этого дела только что испортили сделанное: всплывашка уже показана
 const SIDE_UP := 1
@@ -54,6 +58,9 @@ func _ready() -> void:
 	village.setup(default_village, Save.config.shelters, L.houses())
 	village.modulate.a = 0.0
 	field_layer.add_child(village)
+	_menu_horror = MENU_HORROR_AUDIO.new()
+	_menu_horror.name = "MenuNightAudio"
+	add_child(_menu_horror)
 
 	layer = CanvasLayer.new()
 	layer.layer = 1
@@ -137,7 +144,7 @@ func start() -> void:
 # =============================================================
 func show_menu() -> void:
 	Game.abandon()
-	_home_village()
+	_menu_village()
 	var s := MenuScreen.new()
 	s.difficulty = Save.difficulty
 	s.cfg = Save.config
@@ -207,6 +214,7 @@ func show_howto(then_play: bool) -> void:
 
 func show(s: Screen) -> void:
 	Diag.step("экран: %s" % s.screen_id())
+	_menu_horror.call("set_menu_active", s is MenuScreen)
 	Sfx.set_ambience(s.ambience())
 	Sfx.set_place_layer(Game.m.village.ground if Game.m != null else "",
 		Game.m.village.river if Game.m != null else false, s.ambience())
@@ -351,12 +359,31 @@ var default_village: VillageDef            ## деревня меню и быс�
 ## Меню и экраны вне партии: поле пустое, на нём родная деревня.
 func _home_village() -> void:
 	village.crowd.clear()
+	_menu_preview = null
 	_populated_for = null
 	village.set_village(default_village, Save.config.shelters, L.houses())
 	village.set_traces(PackedVector2Array(), PackedVector2Array())
 	village.set_loss_houses({})
 	village.set_rain(false)
 	village.set_flood(-1)
+
+
+## Главный экран показывает несколько жителей. Они используют те же портреты,
+## лампы и плавные idle-позы, что и игровое поле; подписи скрыты, чтобы не спорить с меню.
+func _menu_village() -> void:
+	_home_village()
+	var preview_config := Save.config.duplicate() as GameConfig
+	preview_config.players = 5
+	preview_config.monsters = 1
+	_menu_preview = Match.new()
+	_menu_preview.village = default_village
+	_menu_preview.start(preview_config, 20261020)
+	village.crowd.populate(_menu_preview)
+	village.crowd.sync(_menu_preview, Match.Phase.DAY)
+	village.set_mood(0.78, 0.0)
+	for figure: VillagerFigure in village.crowd.figures.values():
+		figure.fidgets_on = true
+		figure.tag.visible = false
 
 
 func _on_phase(phase: Match.Phase) -> void:
@@ -986,9 +1013,12 @@ func _on_back() -> void:
 
 ## Язык сменился: посёлок берёт названия домов и жителей своей страны, тема — шрифты под письменность.
 func relocalize() -> void:
-	village.titles = L.houses(village.def.houses_key)
-	village.crowd.book = L.looks()
-	_home_village()
+	if host.current is MenuScreen:
+		_menu_village()
+	else:
+		village.titles = L.houses(village.def.houses_key)
+		village.crowd.book = L.looks()
+		_home_village()
 	village.queue_redraw()
 	ThemeFactory.refresh_fonts()
 	ui.theme = ThemeFactory.build()

@@ -15,6 +15,7 @@ const MENU_PRELOAD: Array[String] = [
 ]
 
 var open: float = 0.0          ## насколько приоткрыта щель, 0..1
+var flash: float = 0.0         ## короткая вспышка фонаря, открывающая силуэт за дверью
 var _title: Label
 var _done := false
 
@@ -186,6 +187,8 @@ func _run_test(flag: String) -> void:
 
 # ---------------------------------------------------------------
 func _play_logo() -> void:
+	Sfx.set_ambience(&"amb_dusk", 0.35)
+	Sfx.play(&"scratch", randf_range(0.86, 0.98), -16.0)
 	for path: String in MENU_PRELOAD:
 		if ResourceLoader.exists(path):
 			ResourceLoader.load_threaded_request(path)
@@ -207,6 +210,9 @@ func _play_logo() -> void:
 	t.parallel().tween_callback(func() -> void:
 		Juice.haptic(Juice.Haptic.KNOCK)
 		Sfx.play(&"knock")).set_delay(LOGO_SEC * 0.15)
+	t.parallel().tween_property(self, "flash", 1.0, 0.06).set_delay(LOGO_SEC * 0.36)
+	t.parallel().tween_property(self, "flash", 0.0, 0.46).set_delay(LOGO_SEC * 0.39)
+	t.parallel().tween_callback(func() -> void: Sfx.play(&"breath", 0.82, -17.0)).set_delay(LOGO_SEC * 0.56)
 	t.parallel().tween_property(_title, "modulate:a", 1.0, LOGO_SEC * 0.4).set_delay(LOGO_SEC * 0.3)
 	t.tween_interval(LOGO_SEC * 0.25)
 	t.tween_callback(_finish)
@@ -254,6 +260,25 @@ func _draw() -> void:
 	var sk := maxf(size.x / SPLASH.get_width(), size.y / SPLASH.get_height())
 	var ss := SPLASH.get_size() * sk
 	draw_texture_rect(SPLASH, Rect2((size - ss) * 0.5, ss), false)
+	var tick := Time.get_ticks_msec() * 0.001
+	var sx := size.x * 0.78
+	var sy := size.y * 0.58
+	var fw := minf(size.x * 0.12, 92.0)
+	var fh := minf(size.y * 0.36, 270.0)
+	var shadow_alpha := (0.04 + 0.7 * flash) * open
+	# На вспышке в просвете леса на секунду проступает неподвижная фигура.
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(sx - fw * 0.31, sy - fh * 0.2), Vector2(sx - fw * 0.52, sy + fh * 0.02),
+		Vector2(sx - fw * 0.42, sy + fh * 0.48), Vector2(sx - fw * 0.62, sy + fh * 0.5),
+		Vector2(sx - fw * 0.48, sy + fh * 0.55), Vector2(sx + fw * 0.5, sy + fh * 0.55),
+		Vector2(sx + fw * 0.65, sy + fh * 0.5), Vector2(sx + fw * 0.4, sy + fh * 0.44),
+		Vector2(sx + fw * 0.47, sy + fh * 0.02), Vector2(sx + fw * 0.24, sy - fh * 0.2),
+	]), Color(0.015, 0.018, 0.03, shadow_alpha))
+	draw_circle(Vector2(sx, sy - fh * 0.23), fw * 0.28, Color(0.015, 0.018, 0.03, shadow_alpha))
+	draw_circle(Vector2(sx - fw * 0.09, sy - fh * 0.23), maxf(1.5, fw * 0.035), Color(ThemeFactory.BLOOD, flash * 0.9))
+	draw_circle(Vector2(sx + fw * 0.09, sy - fh * 0.23), maxf(1.5, fw * 0.035), Color(ThemeFactory.BLOOD, flash * 0.9))
+	if flash > 0.01:
+		draw_rect(Rect2(Vector2.ZERO, size), Color(ThemeFactory.LAMP, flash * 0.045))
 	var w := minf(size.x * 0.3, 230.0)
 	var h := w * 1.7
 	var c := Vector2(size.x * 0.5, size.y * 0.6)
@@ -272,7 +297,6 @@ func _draw() -> void:
 	draw_rect(Rect2(c.x - gap * 1.6, door.position.y, gap * 3.2, h), Color(ThemeFactory.LAMP, 0.25 * open * flick))
 	draw_rect(door, ThemeFactory.EDGE, false, 3.0)
 	draw_circle(Vector2(c.x + w * 0.32, c.y + h * 0.06), w * 0.035, ThemeFactory.LAMP_D)
-	var tick := Time.get_ticks_msec() * 0.001
 	for i in range(18):
 		var phase := tick * (0.18 + float(i % 5) * 0.025) + float(i) * 1.71
 		var px := c.x + sin(phase) * w * (0.08 + float(i % 4) * 0.045)
