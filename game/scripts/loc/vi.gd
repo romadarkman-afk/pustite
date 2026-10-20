@@ -692,6 +692,7 @@ func data() -> Dictionary:
 		"xp.inspect": "Lần xem xét: {n}",
 		"xp.dilemma": "Lựa chọn khó: {n}",
 		"xp.stars": "Sao: {n}",
+		"xp.story": "Câu chuyện được khám phá: {n}",
 		"end.xp": "Kinh nghiệm +{n}",
 		"end.level": "Cấp {n} · {title} · {a}/{b}",
 		"end.level_up": "Cấp mới {n}: {title}",

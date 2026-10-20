@@ -212,6 +212,7 @@ const SEND_BACK_HUMAN := 0.3       ## человек тоже иногда пе�
 ## come — «приду к тебе ночевать»: обещавший ночует в том же доме. Проверяются ночью.
 ## {"day", "by": id, "to": id, "kind": "open" | "come", "state": "" | "kept" | "broken" | "void"}
 var promises: Array[Dictionary] = []
+var story_pages_found: PackedStringArray = [] ## новые личные главы, услышанные игроком в этой партии
 const PROMISE_KINDS: PackedStringArray = ["open", "come"]
 
 
@@ -323,6 +324,7 @@ func post(line: ChatLine) -> void:
 # =============================================================
 func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	config = cfg.sanitized()
+	story_pages_found.clear()
 	if seed_value != 0:
 		rng.seed = seed_value
 	else:

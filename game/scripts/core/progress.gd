@@ -16,6 +16,8 @@ const XP_DOOR := 5
 const XP_INSPECT := 5
 const XP_DILEMMA := 10
 const XP_STAR := 15
+const XP_STORY := 8
+const XP_STORY_MAX := 4
 
 const ACHIEVEMENTS: PackedStringArray = ["night1", "open_door", "closed_door", "instinct", "mistake", "mourning",
 	"last_one", "debtor", "oil", "forest_call", "guest_secret", "three_stars", "act1", "act2", "dark_side", "whole_family",
@@ -76,6 +78,9 @@ static func xp_lines(m: Match, chapter_res: Dictionary) -> Array:
 		out.append(["xp.dilemma", XP_DILEMMA * m.dilemmas.size(), m.dilemmas.size()])
 	if bool(chapter_res.get("passed", false)):
 		out.append(["xp.stars", XP_STAR * int(chapter_res.stars), int(chapter_res.stars)])
+	var story_pages := mini(m.story_pages_found.size(), XP_STORY_MAX)
+	if story_pages > 0:
+		out.append(["xp.story", XP_STORY * story_pages, story_pages])
 	return out
 
 

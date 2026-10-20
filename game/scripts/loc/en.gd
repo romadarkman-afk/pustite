@@ -698,6 +698,7 @@ func data() -> Dictionary:
 		"xp.inspect": "Inspections: {n}",
 		"xp.dilemma": "Hard choices: {n}",
 		"xp.stars": "Stars: {n}",
+		"xp.story": "Stories uncovered: {n}",
 		"end.xp": "Experience +{n}",
 		"end.level": "Level {n} · {title} · {a} of {b}",
 		"end.level_up": "New level {n}: {title}",

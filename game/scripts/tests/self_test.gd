@@ -303,6 +303,15 @@ static func flow() -> void:
 	full_a.day = 2
 	var second_talk := narrative_dir.personal_talk(person.id, 1)
 	talk_ok = talk_ok and second_talk.size() == 4 and person.story_step == 2 and second_talk[1].text != first_talk[1].text
+	full_a.day = 3
+	narrative_dir.personal_talk(person.id, 0)
+	var story_bonus := 0
+	var story_bonus_pages := 0
+	for xp_line: Array in Progress.xp_lines(full_a, {}):
+		if String(xp_line[0]) == "xp.story":
+			story_bonus = int(xp_line[1])
+			story_bonus_pages = int(xp_line[2])
+	talk_ok = talk_ok and full_a.story_pages_found.size() == 2 and story_bonus == 16 and story_bonus_pages == 2
 	for v: Villager in full_a.alive_bots():
 		if v.partner_id >= 0:
 			full_a.get_villager(v.partner_id).alive = false

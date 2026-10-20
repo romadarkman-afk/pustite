@@ -736,6 +736,7 @@ func data() -> Dictionary:
 		"xp.inspect": "İnceleme: {n}",
 		"xp.dilemma": "Zor seçim: {n}",
 		"xp.stars": "Yıldız: {n}",
+		"xp.story": "Ortaya çıkarılan hikâye: {n}",
 		"end.xp": "Deneyim +{n}",
 		"end.level": "Seviye {n} · {title} · {a}/{b}",
 		"end.level_up": "Yeni seviye {n}: {title}",

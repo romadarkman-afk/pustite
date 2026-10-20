@@ -1350,6 +1350,9 @@ func personal_talk(vid: int, choice: int) -> Array[ChatLine]:
 		return out
 	v.personal_day = m.day
 	v.story_step = mini(v.story_step + 1, 2)
+	var page_key := "%s:%d" % [Progress.story_key(v), v.story_step]
+	if not m.story_pages_found.has(page_key):
+		m.story_pages_found.append(page_key)
 	Save.remember_story(Progress.story_key(v), v.story_step)
 	if choice == 0:
 		m.world.add(WorldLog.Kind.LISTENED, m.day, m.player().id, v.id, -1, [m.player().id, v.id])
