@@ -8,7 +8,7 @@ const ACH_ICONS := {
 	"mistake": "skull", "mourning": "quiet", "last_one": "alone", "debtor": "pact",
 	"oil": "street", "forest_call": "fog", "guest_secret": "mimic", "three_stars": "safe",
 	"act1": "bell", "act2": "rain", "dark_side": "fang", "whole_family": "people",
-	"act3": "talisman", "act4": "street_ok"
+	"act3": "talisman", "act4": "street_ok", "saved_bond": "people"
 }
 
 

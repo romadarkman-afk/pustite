@@ -5081,6 +5081,30 @@ static func recap() -> void:
 	var g_ids: Array[int] = [guest.id]
 	m4.admit(m4.seats[0], g_ids)
 	ok += _expect(fails, m4.player_admits.size() == 1 and m4.player_admits[0].who == guest, "не записано, кого впустил игрок")
+	var mb := Match.new()
+	mb.start(c, 78)
+	mb.player().is_upyr = false
+	var bonded: Villager = null
+	var relative: Villager = null
+	for v: Villager in mb.alive_bots():
+		if not v.is_upyr and bonded == null:
+			bonded = v
+		elif not v.is_upyr and bonded != null:
+			relative = v
+			break
+	if bonded != null and relative != null:
+		bonded.partner_id = relative.id
+		relative.partner_id = bonded.id
+		mb.player_admits.append({"day": 1, "who": bonded, "mimic": false})
+	var bond_lines := Progress.xp_lines(mb, {})
+	var bond_pair := Progress.saved_bond_pair(mb)
+	ok += _expect(fails, bond_pair.size() == 2 and bond_pair[0] == bonded and bond_pair[1] == relative,
+		"не найдена пара, которую игрок впустил и сохранил")
+	ok += _expect(fails, Progress.earned(mb, {}).has("saved_bond") and bond_lines.any(func(line: Array) -> bool: return String(line[0]) == "xp.bond"),
+		"за спасённого близкого нет записи в книге или бонусного опыта")
+	if bonded != null and relative != null:
+		bonded.alive = false
+		ok += _expect(fails, Progress.saved_bond_pair(mb).is_empty(), "награда выдана, хотя впущенный близкий погиб")
 
 	# 3. Лента: разделы по ночам и дням, строки без приставки
 	var m3 := Match.new()

@@ -18,10 +18,11 @@ const XP_DILEMMA := 10
 const XP_STAR := 15
 const XP_STORY := 8
 const XP_STORY_MAX := 4
+const XP_BOND := 20
 
 const ACHIEVEMENTS: PackedStringArray = ["night1", "open_door", "closed_door", "instinct", "mistake", "mourning",
 	"last_one", "debtor", "oil", "forest_call", "guest_secret", "three_stars", "act1", "act2", "dark_side", "whole_family",
-	"act3", "act4"]
+	"act3", "act4", "saved_bond"]
 const ENDINGS: PackedStringArray = ["people", "upyri", "act1_all", "act1_some", "act1_none", "act2_all", "act2_some", "act2_none",
 	"act3_all", "act3_some", "act3_none",
 	"act4_all", "act4_some", "act4_none",
@@ -81,7 +82,23 @@ static func xp_lines(m: Match, chapter_res: Dictionary) -> Array:
 	var story_pages := mini(m.story_pages_found.size(), XP_STORY_MAX)
 	if story_pages > 0:
 		out.append(["xp.story", XP_STORY * story_pages, story_pages])
+	if not saved_bond_pair(m).is_empty():
+		out.append(["xp.bond", XP_BOND, 1])
 	return out
+
+
+## Пара, которую игрок помог сохранить: впущенный человек и его близкий дожили до конца.
+static func saved_bond_pair(m: Match) -> Array[Villager]:
+	if m.player().is_upyr:
+		return []
+	for rec: Dictionary in m.player_admits:
+		var guest: Villager = rec.get("who")
+		if guest == null or bool(rec.get("mimic", false)) or guest.is_upyr or not guest.alive or guest.exiled:
+			continue
+		for kin: Villager in m.kin_of(guest):
+			if not kin.is_player and not kin.is_upyr and not kin.exiled:
+				return [guest, kin]
+	return []
 
 
 static func _death_day(m: Match) -> int:
@@ -110,6 +127,8 @@ static func earned(m: Match, chapter_res: Dictionary) -> PackedStringArray:
 			out.append("instinct" if t.is_upyr else "mistake")
 	if m.griefs > 0:
 		out.append("mourning")
+	if not saved_bond_pair(m).is_empty():
+		out.append("saved_bond")
 	if m.winner == Match.Team.PEOPLE and you.alive and not you.is_upyr and m.humans_alive() <= 2:
 		out.append("last_one")
 	for d: Dictionary in m.dilemmas:
