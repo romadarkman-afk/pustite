@@ -180,6 +180,9 @@ static func _button(t: Theme, name: StringName, bg: Color, fg: Color, edge: Colo
 	t.set_stylebox("hover_pressed", name, _box(bg.darkened(0.2) if bg.a > 0.2 else Color(1, 1, 1, 0.14), edge, RADIUS, pad))
 	t.set_stylebox("disabled", name, _box(Color(bg, bg.a * 0.35), Color(edge, edge.a * 0.35), RADIUS, pad))
 	t.set_stylebox("focus", name, StyleBoxEmpty.new())
+	var focus := _box(bg, LAMP_D, RADIUS, pad)
+	focus.set_border_width_all(3)
+	t.set_stylebox("focus", name, focus)
 	for state: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		t.set_color(state, name, fg)
 	t.set_color("font_disabled_color", name, Color(fg, 0.4))

@@ -47,14 +47,19 @@ func _build(title: String, options: PackedStringArray) -> void:
 	sc.add_child(content)
 	box.add_child(sc)
 	content.add_child(W.label(title, &"Hint"))
+	var first_button: Button
 	for i in range(options.size()):
 		var b := W.button(options[i], &"Row")
+		if i == 0:
+			first_button = b
 		var idx := i
 		b.pressed.connect(func() -> void: close(idx))
 		content.add_child(b)
 	var cancel := W.button(L.t("ui.cancel"), &"Ghost")
 	cancel.pressed.connect(func() -> void: close(-1))
 	box.add_child(cancel)
+	if first_button != null:
+		first_button.call_deferred("grab_focus")
 
 	if not Juice.instant:
 		dim.modulate.a = 0.0

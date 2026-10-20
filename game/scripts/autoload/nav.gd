@@ -20,9 +20,14 @@ var _started := false
 var _frame_pending := false
 var _walk_gen := 0                 ## каждая новая прогулка игрока отменяет прежнюю цель
 var _spoiled_ji := -1              ## у этого дела только что испортили сделанное: всплывашка уже показана
+const SIDE_UP := 1
+const SIDE_DOWN := 3
+const SIDE_LEFT := 0
+const SIDE_RIGHT := 2
 
 
 func _ready() -> void:
+	_configure_ui_keys()
 	# слои: фон с туманом → посёлок со светом → интерфейс. Свет фонарей живёт в слое
 	# посёлка и не подсвечивает кнопки и текст.
 	back_layer = CanvasLayer.new()
@@ -531,6 +536,9 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 				show_menu()
 		Intent.OPEN_SETTINGS:
 			show_settings()
+		Intent.EXIT:
+			Diag.clean_exit()
+			get_tree().quit()
 		Intent.SET_PLAYER_NAME:
 			var entered := await TextSheet.ask(sender, SocialContent.name_prompt(), PackedStringArray(), Save.player_name, 20)
 			if Save.set_player_name(entered) and sender is MenuScreen:
@@ -855,6 +863,66 @@ func _process(delta: float) -> void:
 	_sly_step(delta)
 	if Game.player_job >= 0 and village != null and village.jobs_layer.visible:
 		village.jobs_layer.set_progress(Game.player_job, Game.player_job_progress())
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not _started:
+		return
+	if event.is_action_pressed("ui_cancel") and not (event is InputEventKey and (event as InputEventKey).echo):
+		_on_back()
+		get_viewport().set_input_as_handled()
+	else:
+		_wrap_focus(event)
+
+
+func _configure_ui_keys() -> void:
+	for pair: Array in [["ui_up", KEY_W], ["ui_down", KEY_S], ["ui_left", KEY_A], ["ui_right", KEY_D]]:
+		var action := StringName(pair[0])
+		if not InputMap.has_action(action):
+			InputMap.add_action(action)
+		var key := InputEventKey.new()
+		key.physical_keycode = int(pair[1])
+		if not InputMap.action_has_event(action, key):
+			InputMap.action_add_event(action, key)
+
+
+func _wrap_focus(event: InputEvent) -> void:
+	var directions := [
+		["ui_up", SIDE_UP], ["ui_down", SIDE_DOWN],
+		["ui_left", SIDE_LEFT], ["ui_right", SIDE_RIGHT],
+	]
+	var side := -1
+	for pair: Array in directions:
+		if event.is_action_pressed(StringName(pair[0])):
+			side = int(pair[1])
+			break
+	if side < 0:
+		return
+	var focused := get_viewport().gui_get_focus_owner() as Control
+	if focused == null or focused.find_valid_focus_neighbor(side) != null:
+		return
+	var candidates: Array[Control] = []
+	for node: Node in host.current.find_children("*", "Control", true, false):
+		var control := node as Control
+		if control.is_visible_in_tree() and control.focus_mode == Control.FOCUS_ALL and not control.is_queued_for_deletion() and not (control is BaseButton and (control as BaseButton).disabled):
+			candidates.append(control)
+	if candidates.is_empty():
+		return
+	var origin := focused.get_global_rect().get_center()
+	var forward: Array[Control] = []
+	for control: Control in candidates:
+		var p := control.get_global_rect().get_center()
+		if (side == SIDE_UP and p.y < origin.y) or (side == SIDE_DOWN and p.y > origin.y) or (side == SIDE_LEFT and p.x < origin.x) or (side == SIDE_RIGHT and p.x > origin.x):
+			forward.append(control)
+	if forward.is_empty():
+		forward = candidates
+	forward.sort_custom(func(a: Control, b: Control) -> bool:
+		var ap := a.get_global_rect().get_center()
+		var bp := b.get_global_rect().get_center()
+		return ap.y < bp.y if side in [SIDE_UP, SIDE_DOWN] else ap.x < bp.x)
+	var target: Control = forward[0] if side in [SIDE_DOWN, SIDE_RIGHT] else forward[forward.size() - 1]
+	target.grab_focus()
+	get_viewport().set_input_as_handled()
 
 
 # =============================================================

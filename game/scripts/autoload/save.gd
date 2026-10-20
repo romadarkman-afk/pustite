@@ -15,8 +15,10 @@ var haptics: bool = true
 var difficulty: String = "easy"
 var text_size: int = 0                ## 0 — обычный текст, 1 — крупный, 2 — самый крупный
 var lang: String = ""                  ## язык игры: код из L.LANGS. Пусто в файле — берём язык телефона
-const DEFAULT_VOLUMES := {&"Music": 0.7, &"Sfx": 0.9, &"Ambience": 0.8}
+const DEFAULT_VOLUMES := {&"Master": 1.0, &"Music": 0.7, &"Sfx": 0.9, &"Ambience": 0.8}
 var volumes: Dictionary = DEFAULT_VOLUMES.duplicate()
+var window_fullscreen: bool = false
+var window_resolution := Vector2i(720, 1280)
 var win_streak: int = 0
 var recent: PackedInt32Array = []      ## последние 10 партий лестницы: 1 — победа, 0 — поражение (для подстройки ботов)
 var howto_seen: bool = false
@@ -148,6 +150,10 @@ func load_all() -> void:
 		brooch = "none"
 	if has:
 		haptics = bool(cf.get_value("ui", "haptics", true))
+		window_fullscreen = bool(cf.get_value("display", "fullscreen", false))
+		var res: Variant = cf.get_value("display", "resolution", Vector2i(720, 1280))
+		if res is Vector2i:
+			window_resolution = res
 		for k: String in stats.keys():
 			stats[k] = int(cf.get_value("stats", k, 0))
 		hints_seen.clear()
@@ -158,6 +164,23 @@ func load_all() -> void:
 		var def_v: float = DEFAULT_VOLUMES[b]
 		volumes[b] = clampf(float(cf.get_value("sound", String(b), def_v)) if has else def_v, 0.0, 1.0)
 	apply_volumes()
+	apply_display()
+
+
+func set_display(fullscreen: bool, resolution: Vector2i) -> void:
+	window_fullscreen = fullscreen
+	window_resolution = resolution
+	apply_display()
+	flush()
+
+
+func apply_display() -> void:
+	if DisplayServer.get_name() == "headless" or OS.has_feature("mobile"):
+		return
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if window_fullscreen else DisplayServer.WINDOW_MODE_WINDOWED)
+	if not window_fullscreen:
+		DisplayServer.window_set_size(window_resolution)
+		DisplayServer.window_set_position((DisplayServer.screen_get_size() - window_resolution) / 2)
 
 
 func apply_volumes() -> void:
@@ -355,6 +378,8 @@ func flush() -> void:
 	cf.set_value("ui", "text_size", text_size)
 	for b: StringName in volumes.keys():
 		cf.set_value("sound", String(b), volumes[b])
+	cf.set_value("display", "fullscreen", window_fullscreen)
+	cf.set_value("display", "resolution", window_resolution)
 	for k: String in stats.keys():
 		cf.set_value("stats", k, stats[k])
 	cf.set_value("daily", "last", daily_last)

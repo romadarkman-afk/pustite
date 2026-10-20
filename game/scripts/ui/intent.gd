@@ -5,6 +5,7 @@ extends RefCounted
 
 const START := &"start"
 const OPEN_SETTINGS := &"open_settings"
+const EXIT := &"exit"
 const BACK := &"back"
 const CONTINUE := &"continue"
 const SAY := &"say"

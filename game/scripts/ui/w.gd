@@ -23,10 +23,30 @@ static func _button(text: String, variation: StringName = &"Primary", min_h: int
 	b.text = text
 	b.theme_type_variation = variation
 	b.custom_minimum_size = Vector2(0, min_h)
-	b.focus_mode = Control.FOCUS_NONE
+	b.focus_mode = Control.FOCUS_ALL
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	Juice.press_feedback(b)
+	b.resized.connect(func() -> void: b.pivot_offset = b.size * 0.5)
+	b.mouse_entered.connect(func() -> void: _button_state(b, true))
+	b.mouse_exited.connect(func() -> void: _button_state(b, false))
+	b.focus_entered.connect(func() -> void: _button_state(b, true))
+	b.focus_exited.connect(func() -> void: _button_state(b, false))
 	return b
+
+
+static func _button_state(b: Button, active: bool) -> void:
+	if not is_instance_valid(b) or b.disabled:
+		return
+	if b.has_meta("ui_state_tween"):
+		var old: Variant = b.get_meta("ui_state_tween")
+		if old is Tween and (old as Tween).is_running():
+			(old as Tween).kill()
+	if active:
+		Sfx.play(&"blip", 1.15, -14.0)
+	var tween := b.create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	b.set_meta("ui_state_tween", tween)
+	tween.tween_property(b, "scale", Vector2.ONE * (1.018 if active else 1.0), 0.12)
+	tween.parallel().tween_property(b, "self_modulate", Color(1.08, 1.04, 0.94) if active else Color.WHITE, 0.12)
 
 
 ## Плашка с именем: ширина по тексту, имя никогда не обрезается.

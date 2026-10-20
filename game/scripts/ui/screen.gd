@@ -17,6 +17,27 @@ var _clock: Label
 var _locked := false
 
 
+func _ready() -> void:
+	call_deferred("_focus_first_control")
+
+
+func _focus_first_control() -> void:
+	if not is_instance_valid(self):
+		return
+	for preferred_name: String in ["Continue", "Start"]:
+		var preferred := find_child(preferred_name, true, false) as Control
+		if preferred != null and preferred.is_visible_in_tree() and preferred.focus_mode == Control.FOCUS_ALL:
+			preferred.grab_focus()
+			return
+	var controls: Array[Node] = find_children("*", "Control", true, false)
+	for node: Node in controls:
+		var control := node as Control
+		var interactive := control is BaseButton or control is LineEdit or control is TextEdit
+		if interactive and control.focus_mode == Control.FOCUS_ALL and control.is_visible_in_tree() and not control.is_queued_for_deletion():
+			control.grab_focus()
+			return
+
+
 func setup(match_ref: Match, director_ref: Director) -> void:
 	m = match_ref
 	director = director_ref

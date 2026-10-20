@@ -36,7 +36,7 @@ func build() -> void:
 	name_button.pressed.connect(func() -> void: emit_intent(Intent.SET_PLAYER_NAME))
 	body.add_child(name_button)
 	# кампания — рядом с «Играть», под пальцем; глава и звёзды — на экране глав
-	var camp := W.button(L.t("menu.campaign"), &"RowOn")
+	var camp := W.button(L.t("menu.load"), &"RowOn")
 	camp.name = "Campaign"
 	camp.pressed.connect(func() -> void: emit_intent(Intent.OPEN_CAMPAIGN))
 	var dbs: Array[Button] = []
@@ -69,14 +69,36 @@ func build() -> void:
 	book.name = "Book"
 	book.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	book.pressed.connect(func() -> void: emit_intent(Intent.OPEN_BOOK))
-	body.add_child(W.fit_row([how, lb, custom_b, wardrobe, book] as Array[Button]))
+	var settings := W.button(L.t("settings.title"), &"Row")
+	settings.name = "Settings"
+	settings.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	settings.pressed.connect(func() -> void: emit_intent(Intent.OPEN_SETTINGS))
+	body.add_child(W.fit_row([how, lb, custom_b, wardrobe, book, settings] as Array[Button]))
 
 	footer.add_child(daily_button())        # испытание дня — на виду, рядом с «Играть»
 	footer.add_child(W.fit_row(dbs))
 	# «Играть» — самая нижняя, под большим пальцем; строка о партии — над ступенями сложности
 	var start := W.button(L.t("menu.play"))
-	start.pressed.connect(func() -> void: emit_intent(Intent.START))
-	footer.add_child(W.fit_row([camp, start] as Array[Button]))
+	start.name = "Start"
+	var action := Intent.START
+	var action_data := {}
+	var start_label := L.t("menu.new_game")
+	if not Campaign.is_new():
+		var chapter := Campaign.current()
+		start_label = L.t("camp.continue", {"title": L.t("camp.%s.title" % chapter)})
+		start.text = start_label
+		start.name = "Continue"
+		action = Intent.PLAY_CHAPTER
+		action_data = {"id": chapter}
+	start.pressed.connect(func() -> void: emit_intent(action, action_data))
+	var exit := W.button(L.t("ui.exit"), &"Ghost")
+	exit.name = "Exit"
+	exit.pressed.connect(func() -> void:
+		var choice: int = await ActionSheet.ask(self, L.t("menu.exit_confirm"), PackedStringArray([L.t("ui.exit"), L.t("ui.back")]))
+		if choice == 0:
+			emit_intent(Intent.EXIT))
+	footer.add_child(W.fit_row([camp, start, exit] as Array[Button]))
+	start.call_deferred("grab_focus")
 	_diff_note = W.label("", &"Small")
 	body.add_child(_diff_note)          # над кнопкой «Играть»: при крупном тексте подвал не съедает экран
 	refresh(difficulty, cfg)

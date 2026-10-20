@@ -5989,6 +5989,10 @@ static func loc() -> void:
 	# смена языка в настройках: экраны и посёлок перестраиваются
 	Nav.show_settings()
 	await _settle(tree)
+	var settings_tab := Nav.host.current.find_child("Tab_game", true, false) as Button
+	if settings_tab != null:
+		settings_tab.pressed.emit()
+		await _settle(tree)
 	var before := _all_text(Nav.host.current)
 	if L.LANGS.has("en") and ResourceLoader.exists("res://scripts/loc/en.gd"):
 		Nav.host.current.emit_intent(Intent.SET_LANG, {"code": "en"})

@@ -6,8 +6,13 @@ extends Control
 
 const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk", "--loc", "--access", "--daily", "--cosmetics", "--adapt", "--gestures"]
 const TEST_TIMEOUT_SEC := 240.0
-const LOGO_SEC := 1.0
+const LOGO_SEC := 2.2
 const SPLASH: Texture2D = preload("res://assets/splash.png")
+const MENU_PRELOAD: Array[String] = [
+	"res://scripts/ui/screens/menu_screen.gd",
+	"res://fonts/Nunito.ttf",
+	"res://assets/music/menu.ogg",
+]
 
 var open: float = 0.0          ## насколько приоткрыта щель, 0..1
 var _title: Label
@@ -181,6 +186,9 @@ func _run_test(flag: String) -> void:
 
 # ---------------------------------------------------------------
 func _play_logo() -> void:
+	for path: String in MENU_PRELOAD:
+		if ResourceLoader.exists(path):
+			ResourceLoader.load_threaded_request(path)
 	_title = Label.new()
 	_title.text = L.t("game.title")
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -215,6 +223,13 @@ func _place_title() -> void:
 
 func _gui_input(event: InputEvent) -> void:
 	if (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.pressed):
+		_finish()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		_finish()
+	elif event is InputEventJoypadButton and event.pressed:
 		_finish()
 
 
@@ -257,3 +272,10 @@ func _draw() -> void:
 	draw_rect(Rect2(c.x - gap * 1.6, door.position.y, gap * 3.2, h), Color(ThemeFactory.LAMP, 0.25 * open * flick))
 	draw_rect(door, ThemeFactory.EDGE, false, 3.0)
 	draw_circle(Vector2(c.x + w * 0.32, c.y + h * 0.06), w * 0.035, ThemeFactory.LAMP_D)
+	var tick := Time.get_ticks_msec() * 0.001
+	for i in range(18):
+		var phase := tick * (0.18 + float(i % 5) * 0.025) + float(i) * 1.71
+		var px := c.x + sin(phase) * w * (0.08 + float(i % 4) * 0.045)
+		var py := door.position.y + fposmod(float(i) * h / 18.0 - tick * 10.0, h)
+		var alpha := (0.12 + 0.18 * (0.5 + 0.5 * sin(phase * 1.6))) * open
+		draw_circle(Vector2(px, py), 1.2 + float(i % 3) * 0.35, Color(ThemeFactory.LAMP, alpha))
