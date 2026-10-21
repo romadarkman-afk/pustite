@@ -1725,7 +1725,12 @@ static func field() -> void:
 
 	Nav.show_menu()
 	await _settle(tree)
-	ok += _expect(fails, cr.figures.is_empty(), "в меню на площади остались жители")
+	var menu_population_matches := Nav.host.current is MenuScreen and Game.m == null and Nav._menu_preview != null
+	if menu_population_matches:
+		menu_population_matches = cr.figures.size() == Nav._menu_preview.villagers.size()
+		for preview_villager: Villager in Nav._menu_preview.villagers:
+			menu_population_matches = menu_population_matches and cr.figures.has(preview_villager.id)
+	ok += _expect(fails, menu_population_matches, "после партии на площади осталась не меню-толпа")
 
 	print("=== игровое поле: %d проверок ===" % (ok + fails.size()))
 	if fails.is_empty():
