@@ -27,6 +27,12 @@ func field_ratio() -> float:
 	return clampf(0.23 / ThemeFactory.text_scale, 0.19, 0.23)
 
 
+func field_height(h: float) -> float:
+	# Вырезы уменьшают безопасную область. Фон меню сохраняет минимум 18.1% всей высоты экрана.
+	var full_height := get_viewport_rect().size.y
+	return maxf(h * field_ratio(), full_height * 0.181)
+
+
 func mood() -> Vector2:
 	return Vector2(0.78, 1.2)
 
