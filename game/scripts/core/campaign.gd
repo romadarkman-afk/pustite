@@ -513,5 +513,5 @@ static func memory_lines(idx: int, limit: int = 3) -> PackedStringArray:
 
 
 static func art(id: String) -> Texture2D:
-	var p := ART % id
+	var p := Scenes.art(id)
 	return load(p) as Texture2D if ResourceLoader.exists(p) else null

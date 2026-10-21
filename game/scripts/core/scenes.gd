@@ -10,7 +10,24 @@ const ART := "res://assets/scenes/%s.jpg"
 
 
 static func art(name: String) -> String:
-	return ART % name
+	var exact := ART % name
+	if ResourceLoader.exists(exact):
+		return exact
+	var missing_art := {
+		"a3c1": "res://assets/scenes/a3c1.png",
+		"a3c2": "res://assets/scenes/a3c2.png",
+		"a3c3": "res://assets/scenes/a3c3.png",
+		"a4c1": "res://assets/scenes/a4c1.png",
+		"a4c2": "res://assets/scenes/a4c2.png",
+		"a4c3": "res://assets/scenes/a4c3.png",
+		"final_door": "res://assets/scenes/final_door.png",
+		"final_train": "res://assets/scenes/final_train.png",
+	}
+	if missing_art.has(name):
+		return String(missing_art[name])
+	if name.begins_with("grief_"):
+		return "res://assets/scenes/end_people.jpg"
+	return exact
 
 
 ## Сцена 1 главы «Стук»: река, зов с того берега, перевозчица гасит фонарь, стук в дверь.

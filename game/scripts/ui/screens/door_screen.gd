@@ -420,6 +420,12 @@ func show_inspection(gid: int, tell: StringName) -> void:
 					break
 		var known := DiarySheet.facts(m, director, identity)
 		var details := PackedStringArray([L.fill(SocialContent.door_sign(tell, m.day * 31 + identity.id * 7), {"who": identity})])
+		var note_record := m.door_note_for(visitor)
+		if not note_record.is_empty():
+			var note_a := m.get_villager(int(note_record.get("a", -1)))
+			var note_b := m.get_villager(int(note_record.get("b", -1)))
+			if note_a != null and note_b != null:
+				details.append(SocialContent.door_box_note(int(note_record.get("day", 0)), note_a.name, note_b.name))
 		var remembered := remembered_story(identity)
 		if not remembered.is_empty():
 			details.append(remembered)

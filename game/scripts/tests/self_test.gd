@@ -256,6 +256,25 @@ static func balance(cfg: GameConfig, runs: int = 3000, rule: String = "", tune: 
 ## Требует, чтобы игрок побывал во ВСЕХ ролях у двери. Иначе — код выхода 1.
 static func flow() -> void:
 	var tree := Nav.get_tree()
+	var scene_art_ok := true
+	for scene_key: String in ["a1c1", "a1c2", "a1c3", "river", "door_inside_night", "a2c1", "a2c2", "a2c3", "a3c1", "a3c2", "a3c3", "a4c1", "a4c2", "a4c3", "final_door", "final_train", "grief_0", "grief_11"]:
+		var scene_path := Scenes.art(scene_key)
+		var scene_texture := load(scene_path) as Texture2D if ResourceLoader.exists(scene_path) else null
+		scene_art_ok = scene_art_ok and scene_texture != null and scene_texture.get_width() > 0 and scene_texture.get_height() > 0
+	print("иллюстрации сцен: ", "OK" if scene_art_ok else "FAIL")
+	if not scene_art_ok:
+		push_error("Missing or unreadable story scene art")
+		tree.quit(1)
+		return
+	var campaign_art_ok := true
+	for chapter_key: String in ["a3c1", "a3c2", "a3c3", "a4c1", "a4c2", "a4c3"]:
+		var chapter_texture := Campaign.art(chapter_key)
+		campaign_art_ok = campaign_art_ok and chapter_texture != null and chapter_texture.resource_path == Scenes.art(chapter_key)
+	print("иллюстрации карточек глав: ", "OK" if campaign_art_ok else "FAIL")
+	if not campaign_art_ok:
+		push_error("Campaign cards do not use their scene art")
+		tree.quit(1)
+		return
 	var seen: Dictionary[String, int] = {}
 	var bonds_before: Dictionary[String, int] = Save.anchor_bonds.duplicate()
 	var name_before := Save.player_name
@@ -385,6 +404,7 @@ static func flow() -> void:
 	named_cast = null
 	named_config = null
 	var door_check_ok := false
+	var door_evidence_ok := false
 	var required: PackedStringArray = ["menu", "settings", "prologue", "day", "vote",
 		"night", "door_host", "door_guest", "morning", "end"]
 
@@ -442,6 +462,16 @@ static func flow() -> void:
 								var inspect := ds.find_child("Inspect_%d" % visitor.id, true, false) as Button
 								var note := ds.find_child("Observation_%d" % visitor.id, true, false) as Label
 								if inspect != null and note != null:
+									if visitor != ds.seat.mimic:
+										var note_a: Villager = null
+										var note_b: Villager = null
+										for candidate: Villager in Game.m.alive_bots():
+											if candidate.is_upyr and note_a == null:
+												note_a = candidate
+											elif not candidate.is_upyr and note_b == null:
+												note_b = candidate
+										if note_a != null and note_b != null:
+											Game.m.box_notes.append({"owner": visitor.id, "day": Game.m.day, "a": note_a.id, "b": note_b.id})
 									inspect.pressed.emit()
 									await tree.process_frame
 									var figure: VillagerFigure = ds._visitor_figures.get(visitor.id)
@@ -456,6 +486,13 @@ static func flow() -> void:
 										figure._process(VillagerFigure.KNOCK_LEN)
 										visual_ok = visual_ok and not (figure.pose_now()[1] as Dictionary).has("knock")
 									door_check_ok = door_check_ok or (visual_ok and note.visible and not note.text.is_empty() and not Game.m.door_inspections.is_empty())
+									if visitor != ds.seat.mimic:
+										var proof := Game.m.door_note_for(visitor)
+										if not proof.is_empty():
+											var proof_a := Game.m.get_villager(int(proof.a))
+											var proof_b := Game.m.get_villager(int(proof.b))
+											if proof_a != null and proof_b != null:
+												door_evidence_ok = note.visible and note.text.contains(proof_a.name) and note.text.contains(proof_b.name)
 							Nav.handle_intent(Intent.ADMIT, {"ids": ids}, s)
 						Match.DoorRole.GUEST:
 							Nav.handle_intent(Intent.PLEA, {"plea": "shared"}, s)
@@ -497,6 +534,8 @@ static func flow() -> void:
 		missing.append("три постоянных жителя или память отношений не сохранились между партиями")
 	if not door_check_ok:
 		missing.append("у двери нельзя осмотреть стучащего и записать примету")
+	if not door_evidence_ok:
+		missing.append("предмет из ящика не показан у двери с именами и источником находки")
 	if not inspection_rules_ok:
 		missing.append("лимит осмотров или неоднозначность примет нарушены")
 	Save.anchor_bonds = bonds_before
@@ -4316,7 +4355,12 @@ static func box() -> void:
 			Match.Loot.NOTE:
 				var a: Villager = res.a
 				var b: Villager = res.b
+				var recorded_note := m.door_note_for(opener)
 				if a == opener or b == opener or a.is_upyr == b.is_upyr:
+					note_ok = false
+				if recorded_note.is_empty() or int(recorded_note.get("owner", -1)) != opener.id or int(recorded_note.get("day", 0)) != m.day or int(recorded_note.get("a", -1)) != a.id or int(recorded_note.get("b", -1)) != b.id:
+					note_ok = false
+				if not m.door_note_for(m.alive_bots()[1]).is_empty():
 					note_ok = false
 			Match.Loot.OIL:
 				if m.supply_done != mini(m.supply_total, before + Match.BOX_OIL):
@@ -4393,7 +4437,7 @@ static func box() -> void:
 	for l: ChatLine in m.chat:
 		if l.text.begins_with("В ящике записка"):
 			note_line = l.text
-	ok += _expect(fails, m.box_opened_by == 0 and note_line.contains("видишь только ты"), "игрок открыл ящик, но не увидел записку")
+	ok += _expect(fails, m.box_opened_by == 0 and note_line.contains("видишь только ты") and m.box_notes.size() == 1 and not m.door_note_for(m.player()).is_empty(), "игрок открыл ящик, но не увидел или не сохранил записку")
 	# бот добежал позже — ящик уже пуст, ничего не говорит
 	var said := m.chat.size()
 	for t: Director.JobTask in Game.tasks:
@@ -5645,6 +5689,7 @@ static func folk() -> void:
 		if prop.has_meta("street_lamp") and prop.z_index == 0:
 			visible_lamps += 1
 	ok += _expect(fails, visible_lamps == Nav.village.def.lamps.size(), "фонари спрятаны под слоем земли")
+	ok += _expect(fails, not Nav.village._branches.visible, "ветви перекрывают небо над лесом")
 	var no_dye := true
 	for figure: VillagerFigure in cr.figures.values():
 		no_dye = no_dye and figure._door_rig.material == null
@@ -5921,6 +5966,26 @@ static func loc() -> void:
 				bf = v
 			elif not v.female and bm == null:
 				bm = v
+		var grief_mourner := bm
+		var grief_seen: Dictionary = {}
+		var grief_locale_ok := true
+		if grief_mourner != null and bf != null:
+			for story_index in range(12):
+				grief_mourner.story_id = story_index
+				var grief_text := GriefReactions.line(grief_mourner, bf, "accuse")
+				grief_locale_ok = grief_locale_ok and not grief_text.is_empty()
+				if code != "ru" and code != "en":
+					var memory := GriefReactions.memory_line(story_index)
+					grief_locale_ok = grief_locale_ok and not memory.is_empty() and grief_text.contains(memory)
+					texts.append(memory)
+				var grief_scene := GriefReactions.scene_frames(grief_mourner, bf)
+				var expected_frames := 2 if code == "ru" or code == "en" else 3
+				var grief_frames: PackedStringArray = grief_scene.get("frames", PackedStringArray())
+				grief_locale_ok = grief_locale_ok and grief_frames.size() == expected_frames
+				grief_seen[grief_text] = true
+				texts.append(grief_text)
+		ok += _expect(fails, grief_locale_ok and grief_seen.size() == 12,
+			"%s: личные сцены утраты не различаются по 12 историям" % code)
 		for key: String in d:
 			if key in ["houses", "houses_mill", "houses_monastery", "houses_station", "names", "looks", "you", "someone"] or key.begins_with("intent."):
 				continue
@@ -6015,6 +6080,7 @@ static func loc() -> void:
 			texts.append(SocialContent.door_sign(tell))
 			texts.append(SocialContent.door_record(2, tell))
 		texts.append(SocialContent.case_recap(0, 2))
+		texts.append(SocialContent.door_box_note(2, bm.name, bf.name))
 		for key: String in ["inspect", "done", "limit"]:
 			texts.append(SocialContent.door_ui(key))
 		for topic: String in ["arrival", "night", "alibi", "work", "sabotage", "death", "tunnel", "trust", "rumor"]:

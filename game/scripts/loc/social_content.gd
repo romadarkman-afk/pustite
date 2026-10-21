@@ -585,6 +585,25 @@ static func door_ui(key: String) -> String:
 	return String(ui.get(key, ""))
 
 
+const BOX_NOTE_TEXT := {
+	"ru": "В руках посетителя записка из ящика, найденная в день {day}. В ней названы {a} и {b}; один из них упырь.",
+	"en": "The visitor carries a note found in the box on day {day}. It names {a} and {b}; one of them is a ghoul.",
+	"de": "Der Besucher trägt den Zettel aus der Kiste, den er am Tag {day} fand. Darauf stehen {a} und {b}; eine der beiden Personen ist ein Ghul.",
+	"fr": "Le visiteur porte un billet trouvé dans la caisse le jour {day}. Il cite {a} et {b} ; l’un des deux est une créature.",
+	"es": "El visitante lleva una nota hallada en la caja el día {day}. Nombra a {a} y a {b}; uno de los dos es una criatura.",
+	"pt": "O visitante carrega um bilhete encontrado na caixa no dia {day}. Nele aparecem {a} e {b}; um dos dois é uma criatura.",
+	"tr": "Ziyaretçi, {day}. gün kutuda bulduğu notu taşıyor. Notta {a} ve {b} yazıyor; ikisinden biri bir hortlak.",
+	"hi": "आगंतुक के पास दिन {day} को पेटी में मिली पर्ची है। उसमें {a} और {b} के नाम हैं; उनमें से एक पिशाच है।",
+	"vi": "Người khách mang theo mảnh giấy tìm thấy trong hộp vào ngày {day}. Trên đó có tên {a} và {b}; một trong hai là quỷ hút máu.",
+	"zh": "来客带着第{day}天在箱子里找到的纸条，上面写着{a}和{b}，其中一人是食尸鬼。",
+}
+
+
+static func door_box_note(day: int, first: String, second: String) -> String:
+	var template := String(BOX_NOTE_TEXT.get(L.code, BOX_NOTE_TEXT["en"]))
+	return L.fill(template, {"day": day, "a": first, "b": second})
+
+
 static func door_mimic_title() -> String:
 	var names := {"ru": "Подражатель", "en": "Mimic", "de": "Nachahmer", "fr": "Imitateur",
 		"es": "Imitador", "pt": "Imitador", "tr": "Taklitçi", "hi": "नकलची", "vi": "Kẻ bắt chước", "zh": "模仿者"}

@@ -168,6 +168,7 @@ var box_today: bool = false
 var box_pos: Vector2 = Vector2.ZERO
 var box_loot: Loot = Loot.NONE
 var box_opened_by: int = -1
+var box_notes: Array[Dictionary] = [] ## кто нашёл честную записку и какие два имени в ней указаны
 
 ## Журнал событий партии (TASK-001) и знание жителей о них (TASK-003).
 var world := WorldLog.new()
@@ -332,6 +333,7 @@ func post(line: ChatLine) -> void:
 func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	config = cfg.sanitized()
 	story_pages_found.clear()
+	box_notes.clear()
 	if seed_value != 0:
 		rng.seed = seed_value
 	else:
@@ -686,6 +688,8 @@ func open_box(v: Villager) -> Dictionary:
 	if loot == Loot.OIL:
 		supply_done = mini(supply_total, supply_done + BOX_OIL)
 	out["loot"] = loot
+	if loot == Loot.NOTE and out.has("a") and out.has("b"):
+		box_notes.append({"owner": v.id, "day": day, "a": (out.a as Villager).id, "b": (out.b as Villager).id})
 	return out
 
 
@@ -1186,6 +1190,18 @@ func record_door_inspection(v: Villager, tell: StringName, house: int = -1, mimi
 		if int(record.get("day", -1)) == day and int(record.get("villager", -1)) == v.id:
 			return
 	door_inspections.append({"day": day, "villager": v.id, "name": v.name, "tell": String(tell), "house": house, "mimic": mimic})
+
+
+## Записка считается уликой только у того жителя, который действительно нашёл её в ящике.
+## Подражатель может носить чужое лицо, но не получает чужие предметы.
+func door_note_for(visitor: Villager) -> Dictionary:
+	if visitor == null or get_villager(visitor.id) != visitor:
+		return {}
+	for i in range(box_notes.size() - 1, -1, -1):
+		var note := box_notes[i]
+		if int(note.get("owner", -1)) == visitor.id:
+			return note.duplicate()
+	return {}
 
 
 func earn_question_token() -> bool:

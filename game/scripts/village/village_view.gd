@@ -94,6 +94,7 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	add_child(_labels)
 	_branches = Branches.new()
 	_branches.view = self
+	_branches.visible = false # верхние ветки перекрывали небо; дальний лес остаётся на горизонте
 	add_child(_branches)
 	jobs_layer = JobLayer.new()
 	jobs_layer.view = self
