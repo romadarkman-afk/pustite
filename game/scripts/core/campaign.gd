@@ -14,36 +14,9 @@ const ACTS := [
 ]
 
 ## Условия глав. cold_open — глава начинается сразу со стука в дверь (первые 3 минуты новичка).
-const CHAPTERS := {
-	"a1c1": {"act": 1, "players": 5, "monsters": 1, "shelters": 2, "capacity": 2, "nights": 3,
-		"cold_open": true, "goal": "people_win", "extra": ["admit_night1", "inspect"]},
-	"a1c2": {"act": 1, "players": 7, "monsters": 1, "shelters": 3, "capacity": 2, "nights": 3,
-		"event": "fog", "goal": "exile_upyr_by_3", "extra": ["no_wrong_exile", "survive"], "guests": ["soldier", "widow"]},
-	"a1c3": {"act": 1, "players": 8, "monsters": 2, "shelters": 3, "capacity": 3, "nights": 4,
-		"goal": "people_win", "extra": ["keep_couple", "no_wrong_exile"], "guests": ["soldier", "widow", "merchant"]},
-	"a2c1": {"act": 2, "map": "mill", "players": 7, "monsters": 1, "shelters": 3, "capacity": 2, "nights": 3,
-		"event": "rain", "goal": "people_win", "extra": ["survive", "inspect"], "npc": "miller"},
-	"a2c2": {"act": 2, "map": "mill", "players": 8, "monsters": 2, "shelters": 3, "capacity": 2, "nights": 4,
-		"goal": "exile_upyr_by_3", "extra": ["no_wrong_exile", "guest_secret"], "guests": ["soldier", "widow", "merchant"],
-		"guest_roles": "random", "npc": "miller", "force_upyr": 9},
-	"a2c3": {"act": 2, "map": "mill", "players": 9, "monsters": 2, "shelters": 3, "capacity": 3, "nights": 4,
-		"event": "moon", "goal": "people_win", "extra": ["keep_couple", "no_wrong_exile"], "npc": "miller", "flood": 2},
-	"a3c1": {"act": 3, "map": "monastery", "players": 8, "monsters": 2, "shelters": 3, "capacity": 2, "nights": 4,
-		"event": "fog", "goal": "people_win", "extra": ["inspect", "no_wrong_exile"], "guests": ["widow"],
-		"npc": "ignat", "npcs": ["anfisa"], "vouch": true},
-	"a3c2": {"act": 3, "map": "monastery", "players": 9, "monsters": 2, "shelters": 3, "capacity": 3, "nights": 4,
-		"event": "quiet", "goal": "exile_upyr_by_3", "extra": ["survive", "keep_couple"], "npc": "ignat", "npcs": ["anfisa"], "bell": true},
-	"a3c3": {"act": 3, "map": "monastery", "players": 10, "monsters": 3, "shelters": 4, "capacity": 3, "nights": 5,
-		"event": "moon", "goal": "people_win", "extra": ["no_wrong_exile", "guest_secret"], "guests": ["soldier", "merchant"],
-		"guest_roles": "random", "npc": "ignat", "npcs": ["anfisa"], "trial": true},
-	"a4c1": {"act": 4, "map": "station", "players": 9, "monsters": 2, "shelters": 3, "capacity": 3, "nights": 4,
-		"event": "rain", "goal": "people_win", "extra": ["survive", "inspect"], "guests": ["merchant", "worker"], "npc": "keeper"},
-	"a4c2": {"act": 4, "map": "station", "players": 10, "monsters": 3, "shelters": 4, "capacity": 2, "nights": 4,
-		"event": "fog", "goal": "exile_upyr_by_3", "extra": ["no_wrong_exile", "keep_couple"], "guests": ["clerk"], "npc": "keeper"},
-	"a4c3": {"act": 4, "map": "station", "players": 11, "monsters": 3, "shelters": 4, "capacity": 3, "nights": 5,
-		"event": "moon", "goal": "people_win", "extra": ["survive", "no_wrong_exile"], "guests": ["soldier", "widow", "clerk"],
-		"guest_roles": "random", "npc": "keeper", "train": true},
-}
+const CHAPTER_CATALOG_PATH := "res://config/campaign_chapters.json"
+static var _chapter_catalog_cache: Dictionary = {}
+static var _chapter_catalog_loaded := false
 const ORDER: PackedStringArray = ["a1c1", "a1c2", "a1c3", "a2c1", "a2c2", "a2c3", "a3c1", "a3c2", "a3c3", "a4c1", "a4c2", "a4c3"]
 const MAPS := {"mill": "res://config/village_mill.tres", "monastery": "res://config/village_monastery.tres",
 	"station": "res://config/village_station.tres"}
@@ -149,10 +122,26 @@ static func trial(m: Match) -> Dictionary:
 
 
 static func chapter(id: String) -> Dictionary:
-	var d: Dictionary = CHAPTERS.get(id, {}).duplicate()
+	var d: Dictionary = _chapter_catalog().get(id, {}).duplicate(true)
 	if not d.is_empty():
 		d["id"] = id
 	return d
+
+
+static func _chapter_catalog() -> Dictionary:
+	if _chapter_catalog_loaded:
+		return _chapter_catalog_cache
+	_chapter_catalog_loaded = true
+	var file := FileAccess.open(CHAPTER_CATALOG_PATH, FileAccess.READ)
+	if file == null:
+		push_error("Не удалось открыть каталог глав: %s" % CHAPTER_CATALOG_PATH)
+		return _chapter_catalog_cache
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	if not (parsed is Dictionary) or not (parsed.get("chapters", {}) is Dictionary):
+		push_error("Каталог глав имеет неверную структуру: %s" % CHAPTER_CATALOG_PATH)
+		return _chapter_catalog_cache
+	_chapter_catalog_cache = parsed["chapters"]
+	return _chapter_catalog_cache
 
 
 ## Партия главы: сложность игрока как основа, состав и длина — из главы. Игрок в кампании всегда человек.

@@ -623,6 +623,10 @@ const CHIMNEY := {HouseDef.Kind.HOME: Vector2(0.62, 0.05), HouseDef.Kind.CHURCH:
 
 ## Фоны и графика общие для всех языков. Локаль меняет только текст.
 func _load_art() -> void:
+	var chapter_visuals: Dictionary = {}
+	if not Game.chapter.is_empty():
+		var chapter_world: Dictionary = Game.chapter.get("world", {})
+		chapter_visuals = chapter_world.get("visuals", {})
 	for f: String in ART_FILES:
 		var realistic_path := REALISTIC_ART_DIR + f + ".png"
 		var has_realistic := ResourceLoader.exists(realistic_path)
@@ -632,10 +636,20 @@ func _load_art() -> void:
 	for g: String in GROUND_FILES:
 		var ground_name := g.replace("ground", def.ground if def != null else "ground")
 		var realistic_ground := REALISTIC_ART_DIR + ground_name + ".jpg"
-		var ground_path := realistic_ground if ResourceLoader.exists(realistic_ground) else ART_DIR + ground_name + ".jpg"
+		var chapter_path := String(chapter_visuals.get(g, ""))
+		var ground_path := ART_DIR + ground_name + ".jpg"
+		if ResourceLoader.exists(realistic_ground):
+			ground_path = realistic_ground
+		if not chapter_path.is_empty() and ResourceLoader.exists(chapter_path):
+			ground_path = chapter_path
 		_tex[g] = load(ground_path) as Texture2D
 	for f: String in MAP_FILES:
-		_tex[f.get_basename()] = load(ART_DIR + f) as Texture2D
+		var map_key := f.get_basename()
+		var chapter_path := String(chapter_visuals.get(map_key, ""))
+		var map_path := ART_DIR + f
+		if not chapter_path.is_empty() and ResourceLoader.exists(chapter_path):
+			map_path = chapter_path
+		_tex[map_key] = load(map_path) as Texture2D
 	for f: String in ["sky_day", "sky_dusk", "sky_night"]:
 		var realistic_sky := REALISTIC_ART_DIR + f + ".jpg"
 		if ResourceLoader.exists(realistic_sky):

@@ -972,6 +972,44 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 	var ok := 0
 	var games_before := int(Save.stats["games"])
 	Save.campaign_reset()
+	var catalog_ok := true
+	var catalog_errors := PackedStringArray()
+	var places: Dictionary = {}
+	var structures: Dictionary = {}
+	var season_by_act := ["", "summer", "autumn", "winter", "spring"]
+	for chapter_id: String in Campaign.ORDER:
+		var chapter_data := Campaign.chapter(chapter_id)
+		var world: Dictionary = chapter_data.get("world", {})
+		var map_id := String(chapter_data.get("map", "default"))
+		var act_id := int(chapter_data.get("act", 0))
+		var buildings: Array = world.get("structures", [])
+		if world.is_empty():
+			catalog_errors.append("%s: нет профиля" % chapter_id)
+		if act_id != int(chapter_data.get("act", -1)) or String(world.get("season", "")) != season_by_act[clampi(act_id, 0, season_by_act.size() - 1)]:
+			catalog_errors.append("%s: акт или сезон" % chapter_id)
+		if String(world.get("base_map", "")) != map_id or buildings.size() != 5:
+			catalog_errors.append("%s: карта или пять построек" % chapter_id)
+		if String(world.get("location_id", "")).is_empty():
+			catalog_errors.append("%s: нет id места" % chapter_id)
+		places[String(world.get("location_id", ""))] = true
+		for building: Dictionary in buildings:
+			structures[String(building.get("id", ""))] = true
+		var visuals: Dictionary = world.get("visuals", {})
+		for path_key: String in ["ground_day", "ground_night", "sky_day", "sky_dusk", "sky_night", "treeline_day", "treeline_night"]:
+			var visual_path := String(visuals.get(path_key, ""))
+			if visual_path.is_empty() or not ResourceLoader.exists(visual_path):
+				catalog_errors.append("%s: ресурс %s" % [chapter_id, path_key])
+		var audio: Dictionary = world.get("audio", {})
+		for path_key: String in ["music_day", "music_night", "ambience_day", "ambience_night"]:
+			var audio_path := String(audio.get(path_key, ""))
+			if audio_path.is_empty() or not ResourceLoader.exists(audio_path):
+				catalog_errors.append("%s: ресурс звука %s" % [chapter_id, path_key])
+	if places.size() != Campaign.ORDER.size():
+		catalog_errors.append("%d уникальных локаций из %d" % [places.size(), Campaign.ORDER.size()])
+	if structures.size() != 60:
+		catalog_errors.append("%d уникальных построек из 60" % structures.size())
+	catalog_ok = catalog_errors.is_empty()
+	ok += _expect(fails, catalog_ok, "каталог глав: " + "; ".join(catalog_errors))
 	# состав: первые трое — постоянные жители, погибшие в пройденной главе не приходят
 	var c1 := Campaign.cast("a1c1")
 	ok += _expect(fails, c1.size() == 4 and c1.has(0) and c1.has(1) and c1.has(2), "в первой главе не те жители: %s" % [c1])

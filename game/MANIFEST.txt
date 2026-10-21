@@ -4,6 +4,7 @@ config/balance_10.tres
 config/balance_7.tres
 config/balance_easy.tres
 config/balance_hard.tres
+config/campaign_chapters.json
 config/looks.tres
 config/looks_de.tres
 config/looks_en.tres
