@@ -1047,6 +1047,15 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 		and cs.find_child("Fallen", true, false) != null and cs.find_child("CampaignCover", true, false) != null
 		and cs.find_child("CampaignMap", true, false) == null and cs.find_child("ChapterArt_a1c1", true, false) != null,
 		"экран глав: не видно истории глав или есть лишняя карта")
+	var chapter_art_ok := true
+	for chapter_id: String in Campaign.ORDER:
+		var chapter_image := cs.find_child("ChapterArt_" + chapter_id, true, false) as TextureRect
+		var expected_image: Texture2D = Campaign.art(chapter_id)
+		chapter_art_ok = chapter_art_ok and chapter_image != null and expected_image != null and chapter_image.texture == expected_image
+	var campaign_cover := cs.find_child("CampaignCover", true, false) as TextureRect
+	var expected_cover: Texture2D = Campaign.art(Campaign.current())
+	chapter_art_ok = chapter_art_ok and campaign_cover != null and expected_cover != null and campaign_cover.texture == expected_cover
+	ok += _expect(fails, chapter_art_ok, "экран кампании: обложка или одна из 12 глав без своего изображения")
 	var none_lost: Array[int] = []
 	Save.record_chapter("a1c2", 3, none_lost)
 	Save.record_chapter("a1c3", 1, none_lost)

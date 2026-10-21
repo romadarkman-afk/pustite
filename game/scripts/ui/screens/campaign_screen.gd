@@ -28,9 +28,7 @@ func build() -> void:
 	var chapter := Campaign.current()
 	var cover := TextureRect.new()
 	cover.name = "CampaignCover"
-	var cover_path := Campaign.ART % chapter
-	if ResourceLoader.exists(cover_path):
-		cover.texture = load(cover_path) as Texture2D
+	cover.texture = Campaign.art(chapter)
 	cover.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	cover.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	cover.custom_minimum_size = Vector2(0, 184)
@@ -86,11 +84,11 @@ func _chapter_row(id: String, n: int) -> Control:
 	var box := W.panel(&"Sheet")
 	box.name = "ChapterCard_" + id
 	var row := W.hbox(12)
-	var art_path := Campaign.ART % id
-	if ResourceLoader.exists(art_path):
+	var chapter_texture := Campaign.art(id)
+	if chapter_texture != null:
 		var art := TextureRect.new()
 		art.name = "ChapterArt_" + id
-		art.texture = load(art_path) as Texture2D
+		art.texture = chapter_texture
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		art.custom_minimum_size = Vector2(92, 68)
