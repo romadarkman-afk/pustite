@@ -2,12 +2,29 @@ class_name MenuScreen
 extends Screen
 
 
+const MENU_ART: Array[Texture2D] = [
+	preload("res://assets/scenes/end_upyri.jpg"),
+	preload("res://assets/scenes/end_people.jpg"),
+	preload("res://assets/scenes/a2c1.jpg"),
+	preload("res://assets/scenes/a1c1.jpg"),
+	preload("res://assets/scenes/river.jpg"),
+]
+
+var difficulty: String = "easy"
+var cfg: GameConfig
+var _diff_buttons: Dictionary = {}
+var _diff_note: Label
+var _menu_art_nodes: Array[TextureRect] = []
+var _menu_art_front := 0
+var _menu_art_index := 0
+
+
 func screen_id() -> String:
 	return "menu"
 
 
 func field_ratio() -> float:
-	return maxf(0.32 / ThemeFactory.text_scale, 0.27)     # поле не схлопывается при крупном тексте
+	return clampf(0.34 / ThemeFactory.text_scale, 0.28, 0.34)
 
 
 func mood() -> Vector2:
@@ -18,24 +35,24 @@ func ambience() -> StringName:
 	return &"amb_night"
 
 
-var difficulty: String = "easy"
-var cfg: GameConfig
-var _diff_buttons: Dictionary = {}
-var _diff_note: Label
+func music() -> StringName:
+	return &"menu"
 
 
 func build() -> void:
+	_install_menu_art()
+
 	var t := W.label(L.t("game.title"), &"Title")
 	t.add_theme_font_size_override("font_size", 74)
 	body.add_child(t)
-	body.add_child(W.label(
-		L.t("menu.tale"),
-		&"Tale"))
-	body.add_child(W.gap(6))
-	var case_file := W.label(L.t("menu.case_file"), &"Hint")
+	var case_file := W.label(L.t("menu.case_file"), &"Speaker")
 	case_file.add_theme_font_size_override("font_size", ThemeFactory.fs(17))
 	body.add_child(case_file)
-	body.add_child(W.label(L.t("menu.hint"), &"Hint"))
+	body.add_child(W.label(L.t("menu.tale"), &"Tale"))
+	var hint := W.label(L.t("menu.hint"), &"Hint")
+	hint.add_theme_font_size_override("font_size", ThemeFactory.fs(18))
+	body.add_child(hint)
+
 	var name_button := W.wrap(W.button(SocialContent.player_name_label(Save.player_display_name()), &"Row"))
 	name_button.name = "PlayerName"
 	name_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -44,23 +61,29 @@ func build() -> void:
 	body.add_child(name_button)
 
 	body.add_child(W.label(L.t("menu.modes"), &"Speaker"))
-	var camp := W.wrap(W.button(L.t("menu.mode_campaign"), &"Row"))
+	var camp := W.wrap(W.button(L.t("menu.mode_campaign"), &"Primary"))
 	camp.name = "Campaign"
 	camp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	camp.pressed.connect(func() -> void: emit_intent(Intent.OPEN_CAMPAIGN))
 	body.add_child(camp)
 	body.add_child(W.label(L.t("menu.mode_campaign_desc"), &"Small"))
-	var start := W.wrap(W.button(L.t("menu.mode_solo"), &"Primary"))
+
+	var start := W.wrap(W.button(L.t("menu.mode_solo"), &"RowOn"))
 	start.name = "Start"
 	start.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	start.pressed.connect(func() -> void: emit_intent(Intent.START_SOLO))
 	body.add_child(start)
 	body.add_child(W.label(L.t("menu.mode_solo_desc"), &"Small"))
+
 	var online := W.wrap(W.button(L.t("menu.mode_online"), &"Row"))
 	online.name = "OnlineSoon"
 	online.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	online.disabled = true
-	body.add_child(online)
+	var settings := W.wrap(W.button(L.t("settings.title"), &"Row"))
+	settings.name = "Settings"
+	settings.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	settings.pressed.connect(func() -> void: emit_intent(Intent.OPEN_SETTINGS))
+	body.add_child(W.fit_row([online, settings]))
 	body.add_child(W.label(L.t("menu.mode_online_desc"), &"Small"))
 
 	var dbs: Array[Button] = []
@@ -78,7 +101,7 @@ func build() -> void:
 		else:
 			dbs.append(b)
 		_diff_buttons[d] = b
-	# «Своя…» открывает настройки — ей место рядом с «Как играть» и языком, а не в лестнице
+
 	var how := W.button(L.t("menu.howto"), &"Row")
 	how.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	how.pressed.connect(func() -> void: emit_intent(Intent.OPEN_HOWTO))
@@ -93,13 +116,9 @@ func build() -> void:
 	book.name = "Book"
 	book.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	book.pressed.connect(func() -> void: emit_intent(Intent.OPEN_BOOK))
-	var settings := W.button(L.t("settings.title"), &"Row")
-	settings.name = "Settings"
-	settings.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	settings.pressed.connect(func() -> void: emit_intent(Intent.OPEN_SETTINGS))
-	body.add_child(W.fit_row([how, lb, custom_b, wardrobe, book, settings] as Array[Button]))
+	body.add_child(W.fit_row([how, lb, custom_b, wardrobe, book]))
 
-	footer.add_child(daily_button())        # испытание дня — на виду, рядом с режимами
+	footer.add_child(daily_button())
 	footer.add_child(W.fit_row(dbs))
 	var footer_actions: Array[Button] = []
 	if not Campaign.is_new():
@@ -119,11 +138,75 @@ func build() -> void:
 	footer.add_child(W.fit_row(footer_actions))
 	(start if Campaign.is_new() else footer_actions[0]).call_deferred("grab_focus")
 	_diff_note = W.label("", &"Small")
-	body.add_child(_diff_note)          # над кнопкой «Играть»: при крупном тексте подвал не съедает экран
+	body.add_child(_diff_note)
 	refresh(difficulty, cfg)
 	for i in range(body.get_child_count()):
 		Juice.pop_in(body.get_child(i) as Control, 0.08 * i)
 
+
+func _install_menu_art() -> void:
+	if field_spacer == null or MENU_ART.is_empty():
+		return
+	field_spacer.clip_contents = true
+	for i in range(2):
+		var art := TextureRect.new()
+		art.name = "MenuBackdrop%d" % i
+		art.texture = MENU_ART[i % MENU_ART.size()]
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		art.modulate.a = 1.0 if i == 0 else 0.0
+		art.visible = i == 0
+		field_spacer.add_child(art)
+		_menu_art_nodes.append(art)
+
+	var gradient := Gradient.new()
+	gradient.offsets = PackedFloat32Array([0.0, 0.56, 1.0])
+	gradient.colors = PackedColorArray([
+		Color(ThemeFactory.NIGHT, 0.12),
+		Color(ThemeFactory.NIGHT, 0.48),
+		Color(ThemeFactory.NIGHT, 1.0),
+	])
+	var gradient_texture := GradientTexture2D.new()
+	gradient_texture.gradient = gradient
+	gradient_texture.fill_from = Vector2(0.0, 0.0)
+	gradient_texture.fill_to = Vector2(0.0, 1.0)
+	var shade := TextureRect.new()
+	shade.name = "MenuBackdropShade"
+	shade.texture = gradient_texture
+	shade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	shade.stretch_mode = TextureRect.STRETCH_SCALE
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	field_spacer.add_child(shade)
+
+	var timer := Timer.new()
+	timer.name = "MenuBackdropTimer"
+	timer.wait_time = 6.5
+	timer.autostart = true
+	timer.timeout.connect(_advance_menu_art)
+	add_child(timer)
+
+
+func _advance_menu_art() -> void:
+	if _menu_art_nodes.size() != 2 or not is_inside_tree():
+		return
+	var back_index := 1 - _menu_art_front
+	var incoming := _menu_art_nodes[back_index]
+	var outgoing := _menu_art_nodes[_menu_art_front]
+	_menu_art_index = (_menu_art_index + 1) % MENU_ART.size()
+	incoming.texture = MENU_ART[_menu_art_index]
+	incoming.visible = true
+	incoming.modulate.a = 0.0
+	var tween := create_tween().set_parallel(true).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(incoming, "modulate:a", 1.0, 1.15)
+	tween.tween_property(outgoing, "modulate:a", 0.0, 1.15)
+	tween.finished.connect(func() -> void:
+		if not is_instance_valid(outgoing):
+			return
+		outgoing.visible = false
+		_menu_art_front = back_index)
 
 
 ## Nav вызывает после смены сложности: подсветка ступени и строка о партии.

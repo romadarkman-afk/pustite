@@ -2945,8 +2945,22 @@ static func sound() -> void:
 	# 4. Меню и кнопки
 	Nav.show_menu()
 	await _settle(tree)
-	ok += _expect(fails, Sfx.music_name == &"" and Sfx.ambience_name == &"amb_night", "в меню играет музыка или нет ночного фона (%s / %s)" % [Sfx.music_name, Sfx.ambience_name])
+	var main_menu := Nav.host.current as MenuScreen
+	ok += _expect(fails, Sfx.music_name == &"menu" and Sfx.ambience_name == &"amb_night", "в меню нет темы или ночного фона (%s / %s)" % [Sfx.music_name, Sfx.ambience_name])
 	ok += _expect(fails, _all_text(Nav.host.current).contains(L.t("menu.case_file")), "в меню нет отметки о деле 1894 года")
+	ok += _expect(fails, main_menu != null and main_menu.find_child("Campaign", true, false) != null
+		and main_menu.find_child("Start", true, false) != null
+		and main_menu.find_child("OnlineSoon", true, false) != null
+		and main_menu.find_child("Settings", true, false) != null,
+		"в главном меню отсутствует один из четырёх основных пунктов")
+	ok += _expect(fails, main_menu != null and main_menu._menu_art_nodes.size() == 2
+		and main_menu.find_child("MenuBackdropShade", true, false) != null,
+		"в меню не собран затемнённый фон со сменой иллюстраций")
+	if main_menu != null:
+		var previous_art := main_menu._menu_art_nodes[main_menu._menu_art_front].texture
+		main_menu._advance_menu_art()
+		ok += _expect(fails, main_menu._menu_art_nodes[1 - main_menu._menu_art_front].texture != previous_art,
+			"смена фоновой сцены не установила следующий кадр")
 	ok += _expect(fails, Nav.village.crowd.figures.size() == 5 and bool(Nav._menu_horror.call("is_menu_active")),
 		"в меню нет живой толпы или ночной звуковой контроллер выключен")
 	var menu_idle_ok := true
