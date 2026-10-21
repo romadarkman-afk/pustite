@@ -934,7 +934,7 @@ func _build_lights() -> void:
 		l.texture = tex
 		l.position = def.lamps[i] + Vector2(12, -61)
 		l.texture_scale = 2.4
-		l.color = Color(1.0, 0.74, 0.42)
+		l.color = def.lamp_color
 		l.energy = 0.0
 		l.visible = false
 		l.shadow_enabled = true
@@ -1037,7 +1037,7 @@ func _build_glows() -> void:
 		s.z_index = 0
 		s.position = p - Vector2(-12, 65)
 		s.scale = Vector2(2.1, 2.1)
-		s.modulate = Color(ThemeFactory.LAMP, 0.0)
+		s.modulate = Color(def.lamp_color, 0.0)
 		add_child(s)
 		move_child(s, crowd.get_index())
 		_lamp_glows.append(s)

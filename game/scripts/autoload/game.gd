@@ -102,10 +102,7 @@ func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = 
 		if String(chapter.id) in ["a1c2", "a1c3"]:
 			m.plant_chapter = String(chapter.id)      # заложенное противоречие и «Пустая лодка» (TASK-018)
 		Campaign.setup_match(m, chapter)                # акт II: мельник, чужаки, половодье, помощь мельника (TASK-021–025)
-		var world: Dictionary = chapter.get("world", {})
-		var map_id := String(chapter.get("map", world.get("base_map", "")))
-		if Campaign.MAPS.has(map_id):
-			m.village = load(Campaign.MAPS[map_id]) as VillageDef
+		m.village = Campaign.village_for_chapter(String(chapter.id))
 	elif daily_date == "" and randf() < Guests.QUICK_P:
 		m.guests = PackedStringArray([Guests.IDS[randi() % Guests.IDS.size()]])
 	m.start(cfg, Challenge.seed_for(daily) if daily != "" else 0)

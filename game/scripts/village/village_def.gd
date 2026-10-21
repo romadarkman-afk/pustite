@@ -16,6 +16,8 @@ extends Resource
 @export var ground_rect: Rect2 = Rect2(-88.8, 31.6, 816.0, 609.3)
 @export var well_sprite: bool = true          ## колодец картинкой поверх земли; false — он уже нарисован на земле
 @export var houses_key: String = "houses"     ## названия убежищ в файле языка
+@export var presentation_id: String = ""      ## id локации кампании для проверки
+@export var lamp_color: Color = Color(1.0, 0.74, 0.42, 1.0)
 @export var fences: PackedVector2Array = PackedVector2Array([Vector2(14, 560), Vector2(604, 560)])
 @export var fish_planks: bool = true          ## мостки у дела «рыба»; false — мостки уже на земле
 ## Дела по посёлку на день. Порядок — порядок значков на поле.

@@ -976,6 +976,7 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 	var catalog_errors := PackedStringArray()
 	var places: Dictionary = {}
 	var structures: Dictionary = {}
+	var map_signatures: Dictionary = {}
 	var season_by_act := ["", "summer", "autumn", "winter", "spring"]
 	for chapter_id: String in Campaign.ORDER:
 		var chapter_data := Campaign.chapter(chapter_id)
@@ -1004,10 +1005,31 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 			var audio_path := String(audio.get(path_key, ""))
 			if audio_path.is_empty() or not ResourceLoader.exists(audio_path):
 				catalog_errors.append("%s: ресурс звука %s" % [chapter_id, path_key])
+		var base := load(Campaign.MAPS.get(map_id, "")) as VillageDef
+		var base_pos := base.shelters[0].pos if base != null and not base.shelters.is_empty() else Vector2(-1, -1)
+		var village := Campaign.village_for_chapter(chapter_id)
+		if village == null:
+			catalog_errors.append("%s: карта не создана" % chapter_id)
+		else:
+			if village.presentation_id != String(world.get("location_id", "")) or village.shelters.size() != 5:
+				catalog_errors.append("%s: карта не связана с локацией или потеряла убежища" % chapter_id)
+			if base != null and not base.shelters.is_empty() and base.shelters[0].pos != base_pos:
+				catalog_errors.append("%s: изменился исходный ресурс карты" % chapter_id)
+			var signature := map_id + ":" + village.ground
+			for house: HouseDef in village.shelters:
+				signature += "|%s,%s" % [house.pos.x, house.pos.y]
+			for prop: Dictionary in village.props:
+				var prop_id := String(prop.get("id", ""))
+				signature += "|%s@%s" % [prop_id, prop.get("pos", Vector2.ZERO)]
+				if prop_id.is_empty() or not ResourceLoader.exists("res://assets/village/%s.png" % prop_id):
+					catalog_errors.append("%s: нет картинки реквизита %s" % [chapter_id, prop_id])
+			map_signatures[signature] = true
 	if places.size() != Campaign.ORDER.size():
 		catalog_errors.append("%d уникальных локаций из %d" % [places.size(), Campaign.ORDER.size()])
 	if structures.size() != 60:
 		catalog_errors.append("%d уникальных построек из 60" % structures.size())
+	if map_signatures.size() != Campaign.ORDER.size():
+		catalog_errors.append("%d уникальных карт поля из %d" % [map_signatures.size(), Campaign.ORDER.size()])
 	catalog_ok = catalog_errors.is_empty()
 	ok += _expect(fails, catalog_ok, "каталог глав: " + "; ".join(catalog_errors))
 	# состав: первые трое — постоянные жители, погибшие в пройденной главе не приходят

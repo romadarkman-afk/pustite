@@ -18,8 +18,28 @@ const CHAPTER_CATALOG_PATH := "res://config/campaign_chapters.json"
 static var _chapter_catalog_cache: Dictionary = {}
 static var _chapter_catalog_loaded := false
 const ORDER: PackedStringArray = ["a1c1", "a1c2", "a1c3", "a2c1", "a2c2", "a2c3", "a3c1", "a3c2", "a3c3", "a4c1", "a4c2", "a4c3"]
-const MAPS := {"mill": "res://config/village_mill.tres", "monastery": "res://config/village_monastery.tres",
-	"station": "res://config/village_station.tres"}
+const MAPS := {"default": "res://config/village_default.tres", "mill": "res://config/village_mill.tres",
+	"monastery": "res://config/village_monastery.tres", "station": "res://config/village_station.tres"}
+const SHELTER_OFFSETS := [
+	[Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO],
+	[Vector2(-24, 18), Vector2(24, -20), Vector2(12, -22), Vector2(-28, 8), Vector2(30, 14)],
+	[Vector2(22, -12), Vector2(-28, 18), Vector2(-16, 20), Vector2(-14, 16), Vector2(24, -16)],
+]
+const DECOR_OFFSETS := [
+	[Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO],
+	[Vector2(-10, 8), Vector2(12, -8), Vector2(-12, -8), Vector2(10, 8)],
+	[Vector2(14, 10), Vector2(-14, 4), Vector2(12, 10), Vector2(-14, 4)],
+]
+const CHAPTER_LANDMARKS := {
+	"a1c2": {"id": "prop_stump_axe", "pos": Vector2(286, 542), "w": 52.0},
+	"a1c3": {"id": "prop_boat", "pos": Vector2(502, 536), "w": 80.0},
+	"a2c2": {"id": "prop_crates", "pos": Vector2(292, 542), "w": 72.0},
+	"a2c3": {"id": "prop_stump_axe", "pos": Vector2(468, 544), "w": 56.0},
+	"a3c1": {"id": "prop_graves", "pos": Vector2(676, 480), "w": 60.0},
+	"a3c3": {"id": "prop_crates", "pos": Vector2(542, 526), "w": 72.0},
+	"a4c2": {"id": "prop_crates", "pos": Vector2(278, 542), "w": 72.0},
+	"a4c3": {"id": "prop_cart", "pos": Vector2(326, 546), "w": 82.0},
+}
 const ENDING_ACTS := 4        ## у скольких актов есть концовка; концовка акта IV — финал сезона
 const MIN_PLAYERS := 5
 const ART := "res://assets/scenes/%s.jpg"     ## картинка главы, если есть: a1c1.jpg …
@@ -126,6 +146,47 @@ static func chapter(id: String) -> Dictionary:
 	if not d.is_empty():
 		d["id"] = id
 	return d
+
+
+## Поле кампании: копируем базовую карту и применяем расстановку главы.
+## Исходные .tres остаются нетронутыми для одиночной игры и повторных партий.
+static func village_for_chapter(id: String) -> VillageDef:
+	var ch := chapter(id)
+	if ch.is_empty():
+		push_error("Не найдена глава для карты: %s" % id)
+		return null
+	var world: Dictionary = ch.get("world", {})
+	var map_id := String(ch.get("map", world.get("base_map", "default")))
+	var path := String(MAPS.get(map_id, ""))
+	if path.is_empty():
+		push_error("Неизвестная карта главы %s: %s" % [id, map_id])
+		return null
+	var base := load(path) as VillageDef
+	if base == null:
+		push_error("Не удалось загрузить карту главы %s: %s" % [id, path])
+		return null
+	var out := base.duplicate() as VillageDef
+	if out == null:
+		push_error("Не удалось скопировать карту главы %s" % id)
+		return null
+	out.shelters = []
+	for house: HouseDef in base.shelters:
+		out.shelters.append(house.duplicate() as HouseDef)
+	out.decor = []
+	for house: HouseDef in base.decor:
+		out.decor.append(house.duplicate() as HouseDef)
+	var variant: int = ORDER.find(id) % SHELTER_OFFSETS.size()
+	for i in range(out.shelters.size()):
+		out.shelters[i].pos += SHELTER_OFFSETS[variant][i]
+	for i in range(out.decor.size()):
+		out.decor[i].pos += DECOR_OFFSETS[variant][i]
+	out.props = base.props.duplicate(true)
+	var landmark: Dictionary = CHAPTER_LANDMARKS.get(id, {})
+	if not landmark.is_empty():
+		out.props.append(landmark.duplicate(true))
+	out.presentation_id = String(world.get("location_id", id))
+	out.lamp_color = Color.from_string(String(world.get("light_color_warm", "#FFBD69")), base.lamp_color)
+	return out
 
 
 static func _chapter_catalog() -> Dictionary:
