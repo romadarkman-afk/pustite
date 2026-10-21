@@ -2428,10 +2428,11 @@ static func difficulty() -> void:
 	Nav.show_menu()
 	await _settle(tree)
 	var menu := Nav.host.current as MenuScreen
-	var play := _find_button(menu, "Играть")
-	var normal_b := _find_button(menu, "Обычная")
-	ok += _expect(fails, play != null and normal_b != null, "в меню нет «Играть» или выбора сложности")
-	ok += _expect(fails, (_find_button(menu, "Лёгкая") as Button).theme_type_variation == &"RowOn", "в меню не подсвечена текущая ступень")
+	var play := menu.find_child("Start", true, false) as Button if menu != null else null
+	var normal_b := menu._diff_buttons.get("normal") as Button if menu != null else null
+	var easy_b := menu._diff_buttons.get("easy") as Button if menu != null else null
+	ok += _expect(fails, play != null and normal_b != null, "в меню нет кнопки одиночной игры или выбора сложности")
+	ok += _expect(fails, easy_b != null and easy_b.theme_type_variation == &"RowOn", "в меню не подсвечена текущая ступень")
 	if normal_b != null:
 		normal_b.pressed.emit()
 		await _frames(tree, 2)
@@ -2611,10 +2612,13 @@ static func howto() -> void:
 
 	Nav.show_menu()
 	await _settle(tree)
-	_find_button(Nav.host.current, "Играть").pressed.emit()
-	await _settle(tree)
+	var start := Nav.host.current.find_child("Start", true, false) as Button
+	ok += _expect(fails, start != null, "в меню нет кнопки одиночной игры")
+	if start != null:
+		start.pressed.emit()
+		await _settle(tree)
 	var h := Nav.host.current as HowToScreen
-	ok += _expect(fails, h != null and h.then_play, "первое «Играть» не открыло «Как играть»")
+	ok += _expect(fails, h != null and h.then_play, "первая одиночная игра не открыла «Как играть»")
 	if h != null:
 		var host_h := Nav.host.size.y
 		for pg in range(HowToScreen.PAGES.size()):
@@ -2635,9 +2639,12 @@ static func howto() -> void:
 
 	Nav.show_menu()
 	await _settle(tree)
-	_find_button(Nav.host.current, "Играть").pressed.emit()
+	start = Nav.host.current.find_child("Start", true, false) as Button
+	ok += _expect(fails, start != null, "после «Как играть» в меню нет кнопки одиночной игры")
+	if start != null:
+		start.pressed.emit()
 	await _settle(tree)
-	ok += _expect(fails, Nav.host.current is PrologueScreen, "второе «Играть» снова показало «Как играть»")
+	ok += _expect(fails, Nav.host.current is PrologueScreen, "повторный запуск снова показал «Как играть»")
 
 	Nav.show_menu()
 	await _settle(tree)
@@ -2658,7 +2665,10 @@ static func howto() -> void:
 		ok += _expect(fails, Nav.host.current is MenuScreen, "«Понятно» не вернуло в меню")
 
 	Save.howto_seen = false
-	_find_button(Nav.host.current, "Играть").pressed.emit()
+	start = Nav.host.current.find_child("Start", true, false) as Button
+	ok += _expect(fails, start != null, "в меню нет кнопки одиночной игры перед проверкой пропуска")
+	if start != null:
+		start.pressed.emit()
 	await _settle(tree)
 	var skip := _find_button(Nav.host.current, "Пропустить")
 	ok += _expect(fails, skip != null, "нет «Пропустить»")

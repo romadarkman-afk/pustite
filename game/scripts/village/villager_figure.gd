@@ -86,6 +86,7 @@ var brooch_id := "none"
 ## рыбак, крестьянин, мальчик и священник. 0 — рисовать кодом (примерка в гардеробе).
 ## Двигается кодом: дыхание, шаг, наклон, дрожь; эмоция — знак над головой.
 const FOLK_DIR := "res://assets/folk/"
+const FOLK_REALISTIC_DIR := "res://assets/folk/realistic/"
 const FOLK_FEMALE: PackedInt32Array = [1, 3, 6, 9, 10, 11, 12]
 const FOLK_MALE: PackedInt32Array = [2, 4, 5, 7, 8, 13, 14, 15, 16]
 ## Герой игрока — с фонарём в руке; варианты шапок лежат рядом как hero_m_<hat> / hero_f_<hat>.
@@ -156,7 +157,8 @@ func set_identity_color(id: int) -> void:
 ## Картинка гостя или 0, если её нет.
 static func guest_sprite(guest_id: String) -> int:
 	var id: int = GUEST_SPRITES.get(guest_id, 0)
-	return id if id > 0 and ResourceLoader.exists(FOLK_DIR + "guest_" + guest_id + ".png") else 0
+	var file := "guest_" + guest_id + ".png"
+	return id if id > 0 and (ResourceLoader.exists(FOLK_REALISTIC_DIR + file) or ResourceLoader.exists(FOLK_DIR + file)) else 0
 
 
 static func pick_cast_sprite(v: Villager, used: Dictionary) -> int:
@@ -182,7 +184,9 @@ static func folk_tex(id: int) -> Texture2D:
 		var file := "hero_m" if id == HERO_M else ("hero_f" if id == HERO_F else "f%d" % id)
 		if GUEST_SPRITES.values().has(id):
 			file = "guest_" + String(GUEST_SPRITES.find_key(id))
-		_folk_tex[id] = load(FOLK_DIR + file + ".png")
+		var realistic := FOLK_REALISTIC_DIR + file + ".png"
+		var original := FOLK_DIR + file + ".png"
+		_folk_tex[id] = load(realistic if ResourceLoader.exists(realistic) else original)
 	return _folk_tex[id]
 
 
@@ -191,7 +195,9 @@ static func hero_hat_texture(id: int, hat_id: String) -> Texture2D:
 	if id not in [HERO_M, HERO_F] or not HERO_HAT_IDS.has(hat_id):
 		return null
 	var gender := "hero_m" if id == HERO_M else "hero_f"
-	var path := FOLK_DIR + gender + "_" + hat_id + ".png"
+	var file := gender + "_" + hat_id + ".png"
+	var realistic := FOLK_REALISTIC_DIR + file
+	var path := realistic if ResourceLoader.exists(realistic) else FOLK_DIR + file
 	if not _hero_hat_tex.has(path):
 		var texture: Texture2D = null
 		if ResourceLoader.exists(path):
@@ -302,7 +308,7 @@ static func lantern_rect(tex: Texture2D) -> Rect2:
 		var lo := Vector2i(img.get_width(), img.get_height())
 		var hi := Vector2i(-1, -1)
 		for y in range(int(img.get_height() * 0.25), int(img.get_height() * 0.85), 2):
-			for x in range(int(img.get_width() * 0.5), img.get_width(), 2):
+			for x in range(int(img.get_width() * 0.72), img.get_width(), 2):
 				var c := img.get_pixel(x, y)
 				if c.a > 0.5 and c.r > 0.85 and c.g > 0.55 and c.b < 0.6 and c.r - c.b > 0.35:
 					lo = Vector2i(mini(lo.x, x), mini(lo.y, y))
@@ -1073,7 +1079,10 @@ func _draw_sprite(face: String, pose: Dictionary) -> void:
 			body.draw_circle(Vector2(w * 0.15 + 4.0 + puff * 2.0, -h * 0.81 - puff * 1.1),
 				2.2 + puff * 1.0, Color(0.71, 0.79, 0.85, mist * exhale / (puff + 1.0)))
 	else:
-		_draw_field_rig(tex, h, w, pose)
+		if _is_realistic_sprite(tex):
+			_draw_realistic_sprite(tex, h, w, pose)
+		else:
+			_draw_field_rig(tex, h, w, pose)
 	if is_player:
 		_draw_brooch(Vector2(-w * 0.13, -h * 0.68))
 	if pose.get("lantern", false) and not pose.has("tool"):
@@ -1091,6 +1100,26 @@ func _draw_sprite(face: String, pose: Dictionary) -> void:
 	body.draw_set_transform(Vector2.ZERO)
 	if pose.get("emote", false):
 		_emote_mark(face, Vector2(-w * 0.32, -h + 2.0))
+
+
+static func _is_realistic_sprite(tex: Texture2D) -> bool:
+	return tex != null and tex.resource_path.begins_with(FOLK_REALISTIC_DIR)
+
+
+## Детализированный спрайт идёт через ту же сетку: ноги шагают, а фонарь получает локальную окраску.
+func _draw_realistic_sprite(tex: Texture2D, h: float, w: float, pose: Dictionary) -> void:
+	var walk_phase := sin(_walk * TAU) * _walk_weight
+	var idle_weight := 1.0 - _walk_weight
+	var breath := sin(_t * 1.7 + _phase) * idle_weight
+	var work := sin(float(pose.get("work", 0.0)) * TAU) if pose.has("work") else 0.0
+	var bob := absf(walk_phase) * 0.55 + breath * 0.16
+	var sway := walk_phase * 1.2 + sin(_t * 0.53 + _phase) * 0.2 * idle_weight
+	var turn := _render_tilt + walk_phase * 0.012 + breath * 0.003 + work * 0.004
+	if pose.has("shiver"):
+		sway += sin(_t * 18.0 + _phase) * 0.28
+	_draw_field_rig(tex, h, w, pose, 0.25)
+	_door_rig.position = Vector2(sway, bob)
+	_door_rig.rotation = turn
 
 
 ## Значок на груди героя — маленький, потёртый металл, как всё в посёлке:
@@ -1155,10 +1184,10 @@ func _build_sprite_rig(tex: Texture2D, h: float, w: float) -> void:
 
 ## Шаг привязан к пройденному расстоянию. Ноги и рукава двигаются раздельно;
 ## корпус и голова сохраняют высоту, при остановке движение мягко затухает.
-func _draw_field_rig(tex: Texture2D, h: float, w: float, pose: Dictionary) -> void:
+func _draw_field_rig(tex: Texture2D, h: float, w: float, pose: Dictionary, motion_scale: float = 1.0) -> void:
 	_build_sprite_rig(tex, h, w)
 	var points := _door_base.duplicate()
-	var stride := sin(_walk * TAU) * _walk_weight
+	var stride := sin(_walk * TAU) * _walk_weight * motion_scale
 	var body_bob := absf(stride) * 0.05
 	var work_motion := sin(float(pose.get("work", 0.0)) * TAU) if pose.has("work") else 0.0
 	for i in range(points.size()):

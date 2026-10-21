@@ -7,7 +7,7 @@ func screen_id() -> String:
 
 
 func field_ratio() -> float:
-	return 0.32 / ThemeFactory.text_scale     # оставляем место трём режимам игры
+	return maxf(0.32 / ThemeFactory.text_scale, 0.27)     # поле не схлопывается при крупном тексте
 
 
 func mood() -> Vector2:
