@@ -1,6 +1,6 @@
 class_name DayScreen
 extends Screen
-## День. Картинка главнее текста: поле занимает 60% экрана, разговор идёт пузырями
+## День. Поле занимает около половины экрана, разговор идёт пузырями
 ## над головами, жители выбираются тапом по полю. Журнал свёрнут в одну строку
 ## и раскрывается по касанию — чтобы перечитать, кто что говорил.
 
@@ -16,7 +16,7 @@ func screen_id() -> String:
 
 
 func field_ratio() -> float:
-	return 0.60
+	return 0.52
 
 
 ## Под полем остаётся только строка журнала.
@@ -24,12 +24,11 @@ func min_content_ratio() -> float:
 	return 0.04
 
 
-## Поле резиновое: всё, что осталось после шапки, строки журнала и кнопок.
-## На высоких телефонах картинка растёт, а не остаётся пустая полоса.
+## Поле ограничено половиной экрана, чтобы оставить место под журнал и действия.
 func field_height(h: float) -> float:
 	var sep := float(get_theme_constant("separation", "VBoxContainer")) if has_theme_constant("separation", "VBoxContainer") else 18.0
 	var reserved := 46.0 * ThemeFactory.text_scale + footer.get_combined_minimum_size().y + ThemeFactory.TOUCH + 4.0 * sep + 24.0
-	return maxf(h * 0.55, h - reserved)
+	return maxf(h * 0.44, minf(h * 0.52, h - reserved))
 
 
 func title() -> String:

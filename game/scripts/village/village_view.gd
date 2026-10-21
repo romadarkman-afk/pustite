@@ -10,7 +10,7 @@ const BAND := Rect2(0, 120, 720, 400)    ## полоса с домами — е�
 ## Сколько ширины посёлка обязано войти в кадр. По краям только фоновые дома и река —
 ## их можно подрезать, а фигурки от этого крупнее.
 const SIDE_VISIBLE := 0.88
-const SKY_SHARE := 0.75                   ## какая доля лишней высоты поля уходит в небо
+const SKY_SHARE := 0.38                   ## ограничиваем пустое небо; остаток кадра показывает землю
 const SAFE_X := Vector2(84, 624)          ## куда можно ставить жителей: слева половина имени, справа колонка отметок
 static var _shadow_outline_cache: Dictionary = {}
 
@@ -224,8 +224,7 @@ func frame_to(rect: Rect2, vp_w: float, dur: float, zoom: float = 1.0, focus_x: 
 		cam_x = LOGICAL.x * 0.5
 	cam_x = _clamp_cam(cam_x, s)
 	_backdrop.position.x = (cam_x - LOGICAL.x * 0.5) * Backdrop.PARALLAX
-	# поле выше полосы с домами: лишнее место уходит в основном в небо (3/4 сверху),
-	# а не в пустую траву под толпой
+	# Полоса с домами остаётся в поле, лишняя высота делится между небом и передним планом.
 	var extra := maxf(0.0, rect.size.y - BAND.size.y * s)
 	var target := Vector2(vp_w * 0.5 - cam_x * s, rect.position.y + extra * SKY_SHARE - BAND.position.y * s)
 	if _tw_frame != null:

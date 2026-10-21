@@ -24,7 +24,7 @@ func screen_id() -> String:
 
 
 func field_ratio() -> float:
-	return clampf(0.34 / ThemeFactory.text_scale, 0.28, 0.34)
+	return clampf(0.23 / ThemeFactory.text_scale, 0.19, 0.23)
 
 
 func mood() -> Vector2:

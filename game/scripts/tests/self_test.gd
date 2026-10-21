@@ -841,8 +841,8 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 			out.append("%s: под нижними кнопками пустует %d px" % [w, int(unused)])
 	if s.scroll.size.y < maxf(56.0, vp.y * s.min_content_ratio()):
 		out.append("%s: под содержимое всего %d px из %d" % [w, int(s.scroll.size.y), int(vp.y)])
-	if s is DayScreen and s.field_rect_local().size.y < Nav.host.size.y * 0.55:
-		out.append("%s: поле дня %d px — меньше 55%% экрана (%d)" % [w, int(s.field_rect_local().size.y), int(Nav.host.size.y)])
+	if s is DayScreen and s.field_rect_local().size.y < Nav.host.size.y * 0.44:
+		out.append("%s: поле дня %d px — меньше 44%% экрана (%d)" % [w, int(s.field_rect_local().size.y), int(Nav.host.size.y)])
 	var ins := Nav.frame.insets
 	var safe := Rect2(ins.x, ins.y, vp.x - ins.x - ins.z, vp.y - ins.y - ins.w)
 	var hr := Nav.host.get_global_rect()
@@ -857,7 +857,7 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 			out.append("%s: поле схлопнуто (%d px)" % [w, int(fld.size.y)])
 		if Nav.village.modulate.a < 0.9:
 			out.append("%s: посёлок не виден" % w)
-		# полоса с домами внутри поля; лишняя высота поля — 3/4 сверху (небо), 1/4 снизу
+		# полоса с домами внутри поля; долю неба задаёт VillageView.SKY_SHARE
 		var extra := fld.size.y - band.size.y
 		var want_top := fld.position.y + maxf(0.0, extra) * VillageView.SKY_SHARE
 		if extra >= 0.0 and absf(band.position.y - want_top) > 3.0:
@@ -866,7 +866,8 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 			out.append("%s: полоса с домами вылезает из поля" % w)
 		if band.size.y > fld.size.y + 3.0:
 			out.append("%s: дома не влезают в поле (%d > %d)" % [w, int(band.size.y), int(fld.size.y)])
-		if Nav.village.scale.x < MIN_FIELD_SCALE:
+		var has_menu_art := s is MenuScreen and s.find_child("MenuBackdrop0", true, false) != null
+		if Nav.village.scale.x < MIN_FIELD_SCALE and not has_menu_art:
 			out.append("%s: дома мельче %d%% от задуманного (масштаб %.2f)" % [w, int(MIN_FIELD_SCALE * 100), Nav.village.scale.x])
 		var zoomed := s.field_zoom() > 1.0
 		var me_f: VillagerFigure = Nav.village.crowd.figures.get(0)
@@ -3161,6 +3162,13 @@ static func village() -> void:
 	# 1. Камера: днём ближе, игрок в кадре
 	ok += _expect(fails, v.scale.x > scale_wide * 1.2, "днём камера не приблизилась (%.2f против %.2f)" % [v.scale.x, scale_wide])
 	ok += _expect(fails, v.follow == me, "камера не следит за игроком")
+	var player_alive := m.player().alive
+	m.player().alive = false
+	await Nav._frame_field(day)
+	ok += _expect(fails, v.follow == null and v.scale.x < scale_day and absf(v.cam_x - VillageView.LOGICAL.x * 0.5) < 1.0,
+		"после смерти камера осталась на могиле вместо общего плана")
+	m.player().alive = player_alive
+	await Nav._frame_field(day)
 	# 2. Запасы и значки дел
 	ok += _expect(fails, m.supply_total == _portions(m) and m.supply_total >= 8, "запасов на день %d — ждём сумму порций дел" % m.supply_total)
 	ok += _expect(fails, day.supplies != null and day.supplies.text() == "Запасы 0 из %d" % m.supply_total, "капсула запасов не показана или врёт")
@@ -5830,19 +5838,27 @@ static func folk() -> void:
 	for v: Villager in m.alive():
 		var fv: VillagerFigure = cr.figures[v.id]
 		fv.fidgets_on = true
+		fv.fidgets_managed = true
+		fv.fidget = ""
 		fv.fidget_count = 0
+		fv._fidget_history.clear()
 		fv._emotion_t = 0.0
 		fv.emotion = ""
 		fv._talk_t = 0.0
 		pos0[v.id] = fv.position
 	cr.whispers = 0
+	cr._fidget_clock = 0.0
 	var kinds: Dictionary = {}
+	var simultaneous_peak := 0
 	for step in range(600):
+		var active_fidgets := 0
 		for v: Villager in m.alive():
 			var fv: VillagerFigure = cr.figures[v.id]
 			fv._process(0.1)
 			if fv.fidget != "":
+				active_fidgets += 1
 				kinds[fv.fidget] = true
+		simultaneous_peak = maxi(simultaneous_peak, active_fidgets)
 		cr.life_step(0.1)
 		for v: Villager in m.alive():
 			var fv: VillagerFigure = cr.figures[v.id]
@@ -5863,6 +5879,13 @@ static func folk() -> void:
 	var posed := kinds.keys().filter(func(k: String) -> bool: return k.begins_with("pose:"))
 	ok += _expect(fails, kinds.size() - posed.size() >= 4, "действий мало: %s" % ", ".join(kinds.keys()))
 	ok += _expect(fails, posed.size() == kinds.size() - posed.size(), "не все действия меняют позу тела: %s" % ", ".join(kinds.keys()))
+	ok += _expect(fails, simultaneous_peak <= 1, "действия жителей идут одновременно (%d в пике)" % simultaneous_peak)
+	var repeated_fidget := false
+	for v: Villager in m.alive():
+		var history: PackedStringArray = (cr.figures[v.id] as VillagerFigure)._fidget_history
+		if history.size() > 1 and history[history.size() - 1] == history[history.size() - 2]:
+			repeated_fidget = true
+	ok += _expect(fails, not repeated_fidget, "житель подряд повторил один жест")
 	ok += _expect(fails, cr.whispers >= 3, "соседи почти не шепчутся (%d раз за минуту)" % cr.whispers)
 	print("за минуту: действия %s, шёпотов %d" % [", ".join(posed), cr.whispers])
 	Game.release(&"test")

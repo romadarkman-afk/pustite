@@ -12,6 +12,8 @@ var figures: Dictionary[int, VillagerFigure] = {}
 var ring: Dictionary[int, Vector2] = {}
 var day_life := false           ## днём жители переминаются, чешут затылок и шепчутся
 var _whisper_in := 4.0
+var _fidget_clock := 2.0
+var _life_rng := RandomNumberGenerator.new()
 var whispers := 0               ## для самотеста
 var flinched := 0               ## сколько жителей вздрогнули на последний колокол
 var npc: Npc = null              ## хозяин места вне голосования (TASK-021): мельник, Игнат, начальник станции
@@ -27,6 +29,8 @@ func clear() -> void:
 		f.queue_free()
 	figures.clear()
 	ring.clear()
+	day_life = false
+	_fidget_clock = 2.0
 	for n: Npc in npcs.values():
 		n.queue_free()
 	npcs.clear()
@@ -35,6 +39,8 @@ func clear() -> void:
 
 func populate(m: Match) -> void:
 	clear()
+	_life_rng.seed = absi(m.rng.seed) + 7919
+	_fidget_clock = _life_rng.randf_range(1.2, 3.0)
 	view.set_open_count(m.config.shelters)   # таблички этой партии — до расстановки
 	var figs: Array[VillagerFigure] = []
 	var used := {}          # картинки жителей: повтор, только когда подходящие кончились
@@ -46,6 +52,7 @@ func populate(m: Match) -> void:
 			l.age = 0 if v.age < 28 else (2 if v.age >= 55 else 1)
 			l.height = clampf(l.height, 0.96, 1.06)
 		f.setup(v.name, Cosmetics.dress(l, Save.hat) if v.is_player else l, v.is_player)
+		f.set_fidget_seed(hash("%d:%d" % [v.id, m.rng.seed]))
 		f.set_identity_color(v.id)
 		if v.is_player:
 			f.set_sprite(VillagerFigure.hero_for(l))
@@ -473,7 +480,7 @@ var night_tint := Color(1, 1, 1)
 
 
 func set_night(n: float) -> void:
-	night_tint = Color(1, 1, 1).lerp(Color(0.62, 0.64, 0.86), n)
+	night_tint = Color(1, 1, 1).lerp(Color(0.76, 0.79, 0.91), n)
 	for f: VillagerFigure in figures.values():
 		f.set_night(n)
 		f.modulate = night_tint
@@ -592,6 +599,9 @@ func sync(m: Match, phase: Match.Phase) -> void:
 				f.die()
 			continue
 		f.fidgets_on = phase == Match.Phase.DAY
+		f.fidgets_managed = f.fidgets_on
+		if not f.fidgets_on:
+			f.fidget = ""
 		match phase:
 			Match.Phase.NIGHT:
 				pass
@@ -655,6 +665,7 @@ func _process(delta: float) -> void:
 func life_step(delta: float) -> void:
 	if not day_life:
 		return
+	_schedule_fidget(delta)
 	_whisper_in -= delta
 	if _whisper_in > 0.0:
 		return
@@ -672,3 +683,31 @@ func life_step(delta: float) -> void:
 					whispers += 1
 				b.look_at_x(a.position.x, 1.6)
 				return
+
+
+func _schedule_fidget(delta: float) -> void:
+	_fidget_clock -= delta
+	if _fidget_clock > 0.0:
+		return
+	var active := false
+	var least_used := 2147483647
+	var candidates: Array[VillagerFigure] = []
+	for f: VillagerFigure in figures.values():
+		if f.fidget != "":
+			active = true
+			break
+		if not f.is_free() or f.mood in ["grief", "despair"]:
+			continue
+		if f.fidget_count < least_used:
+			least_used = f.fidget_count
+			candidates.clear()
+		if f.fidget_count == least_used:
+			candidates.append(f)
+	if active:
+		_fidget_clock = 0.25
+		return
+	if candidates.is_empty():
+		_fidget_clock = _life_rng.randf_range(1.0, 2.5)
+		return
+	candidates[_life_rng.randi_range(0, candidates.size() - 1)].start_fidget()
+	_fidget_clock = _life_rng.randf_range(1.6, 2.8)

@@ -72,9 +72,12 @@ const FIDGETS: PackedStringArray = ["scratch", "sky", "stretch", "arms", "shift"
 var fidgets_on := false
 var fidget: String = ""
 var fidget_count := 0          ## сколько действий сделал — для самотеста
+var fidgets_managed := false   ## дневную очередь задаёт Crowd, чтобы жители не двигались хором
 var _fidget_t := 0.0
 var _fidget_len := 0.0
 var _fidget_in := 0.0
+var _fidget_rng := RandomNumberGenerator.new()
+var _fidget_history: PackedStringArray = []
 var _lean := 0.0               ## отшатнулся (обвинили) или наклонился к соседу (шепчет)
 var _lean_t := 0.0
 
@@ -113,6 +116,7 @@ func setup(name: String, l: LookDef, player: bool) -> void:
 	_font = ThemeFactory.font_bold()
 	_phase = float(absi(name.hash()) % 628) / 100.0
 	_blink_in = 1.0 + fmod(_phase, 3.0)
+	set_fidget_seed(absi(name.hash()) + 1)
 	body = Node2D.new()
 	add_child(body)
 	body.draw.connect(_draw_body)
@@ -141,6 +145,11 @@ func setup(name: String, l: LookDef, player: bool) -> void:
 		lantern_light.energy = 0.0
 		lantern_light.visible = false
 		add_child(lantern_light)
+
+
+func set_fidget_seed(seed_value: int) -> void:
+	_fidget_rng.seed = absi(seed_value) + 1
+	_fidget_in = _fidget_rng.randf_range(2.0, 8.0)
 
 
 func set_identity_color(id: int) -> void:
@@ -447,11 +456,20 @@ func start_fidget(f: String = "") -> void:
 	if state != State.IDLE or working or cold:
 		return
 	if f == "":
-		f = FIDGETS[(fidget_count * 3 + int(_phase * 10.0)) % FIDGETS.size()]
+		var choices := PackedStringArray()
+		for candidate: String in FIDGETS:
+			if not _fidget_history.has(candidate):
+				choices.append(candidate)
+		if choices.is_empty():
+			choices = FIDGETS.duplicate()
+		f = choices[_fidget_rng.randi_range(0, choices.size() - 1)]
 	fidget = f
-	_fidget_len = 1.4 + fmod(_phase * 7.0 + fidget_count * 0.61, 1.1)
+	_fidget_len = _fidget_rng.randf_range(1.8, 2.6)
 	_fidget_t = _fidget_len
 	fidget_count += 1
+	_fidget_history.append(f)
+	if _fidget_history.size() > 2:
+		_fidget_history.remove_at(0)
 	body.queue_redraw()
 
 
@@ -461,7 +479,7 @@ func is_free() -> bool:
 
 
 func _next_fidget_in() -> float:
-	return 5.0 + fmod(_phase * 13.0 + fidget_count * 2.3, 7.0)
+	return _fidget_rng.randf_range(9.0, 16.0)
 
 
 func set_cold(on: bool) -> void:
@@ -776,10 +794,10 @@ func _fidget_step(delta: float) -> void:
 		elif fidget == "scratch" and half_before and _fidget_t <= _fidget_len * 0.5:
 			body.queue_redraw()      # рука переходит на другое место затылка
 		return
-	if not fidgets_on or state != State.IDLE or working or cold or _talk_t > 0.0:
+	if not fidgets_on or fidgets_managed or state != State.IDLE or working or cold or _talk_t > 0.0:
 		return
 	if _fidget_in <= 0.0:
-		_fidget_in = 1.5 + fmod(_phase * 3.0, 6.0)    # первые действия в разное время, без хора
+		_fidget_in = _fidget_rng.randf_range(2.0, 8.0)
 	_fidget_in -= delta
 	if _fidget_in <= 0.0:
 		start_fidget()

@@ -296,8 +296,10 @@ func _frame_field(s: Screen) -> void:
 		r.position += host.global_position
 		var me_fig: VillagerFigure = village.crowd.figures.get(0) if Game.m != null else null
 		var is_day := s is DayScreen and me_fig != null
-		village.follow = me_fig if is_day and Game.m.player().alive else null
-		village.frame_to(r, ui.size.x, dur, s.field_zoom(), me_fig.position.x if is_day else -1.0)
+		var follow_player := is_day and Game.m.player().alive
+		village.follow = me_fig if follow_player else null
+		var zoom := s.field_zoom() if not is_day or follow_player else 1.0
+		village.frame_to(r, ui.size.x, dur, zoom, me_fig.position.x if follow_player else -1.0)
 		village.jobs_layer.m = Game.m
 		village.jobs_layer.visible = is_day
 		bubbles.field = r
