@@ -121,7 +121,7 @@ jobs:
             echo "::error title=Старая папка game::В game нет MANIFEST.txt или scripts/boot.gd — загружена старая версия. Удалите папку game на GitHub и загрузите её из последнего архива."
             exit 1
           fi
-          grep -v '^#' MANIFEST.txt | sort > /tmp/expected.txt
+          grep -v '^#' MANIFEST.txt | sed 's/\r$//' | sort > /tmp/expected.txt
           find . -type f \( -name "*.gd" -o -name "*.tscn" -o -name "*.gdshader" -o -name "*.tres" -o -name "project.godot" -o -name "export_presets.cfg" \) ! -path "./.godot/*" | sed 's#^\./##' | sort > /tmp/actual.txt
           extra=$(comm -13 /tmp/expected.txt /tmp/actual.txt)
           missing=$(comm -23 /tmp/expected.txt /tmp/actual.txt)
