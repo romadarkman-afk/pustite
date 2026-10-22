@@ -3,6 +3,8 @@ extends RefCounted
 ## Проверки, которые CI гоняет перед сборкой APK.
 ## Падение любой из них = красная сборка, битый APK не выходит.
 
+const DeviceDB = preload("res://scripts/autoload/device_display_db.gd")
+
 
 ## Запуск из сборки: --sim. Коридор 30–70% и обе роли у двери обязательны.
 static func cli_balance() -> void:
@@ -6975,3 +6977,85 @@ static func _solo_variation_check() -> bool:
 		ok = ok and a.name == b.name and a.story_id == b.story_id and a.motive_id == b.motive_id and a.persona == b.persona and a.partner_id == b.partner_id and a.tie_id == b.tie_id and a.tie_kind == b.tie_kind
 	Save.player_name = saved_name
 	return ok and rosters.size() >= 8 and names_seen.size() >= 16 and motives.size() >= 12 and voices.size() >= 18 and couples.size() >= 3 and bonds.size() >= 3
+
+
+## База устройств, масштабирование, safe area и геометрия оконного симулятора.
+static func display() -> void:
+	var fails: PackedStringArray = []
+	var checks := 0
+	var profiles := DeviceDB.profiles()
+	var model_map := DeviceDB.model_map()
+	checks += _expect(fails, profiles.size() >= 100, "в базе меньше 100 групп разрешений")
+	checks += _expect(fails, model_map.size() == DeviceDB.model_count() and model_map.size() >= 180,
+		"словарь неполный или в нём повторяются названия моделей (%d/%d)" % [model_map.size(), DeviceDB.model_count()])
+	var categories: Dictionary = {}
+	for profile: Dictionary in profiles:
+		categories[profile.category] = true
+		var size := Vector2i(profile.width, profile.height)
+		var scale := ResolutionManager.scale_for(size, int(profile.ppi))
+		checks += _expect(fails, scale >= ResolutionManager.MIN_UI_SCALE and scale <= ResolutionManager.MAX_UI_SCALE,
+			"масштаб вне допустимого диапазона для %s" % String(profile.models[0]))
+		var rotated := ResolutionManager.scale_for(Vector2i(size.y, size.x), int(profile.ppi))
+		checks += _expect(fails, is_equal_approx(scale, rotated), "смена ориентации изменила масштаб профиля %s" % String(profile.models[0]))
+		var preview := ResolutionManager.preview_window_size(size, Vector2i(1440, 900))
+		var aspect_error := absf(float(preview.x) / float(preview.y) - float(size.x) / float(size.y))
+		checks += _expect(fails, aspect_error < 0.01 and preview.x <= 760 and preview.y <= 960,
+			"симулятор исказил пропорции %s" % String(profile.models[0]))
+	for category: StringName in [DeviceDB.PHONE_COMPACT, DeviceDB.PHONE_STANDARD,
+		DeviceDB.PHONE_ULTRA_HIGH_RES, DeviceDB.FOLDABLE_INNER, DeviceDB.TABLET_COMPACT,
+		DeviceDB.TABLET_STANDARD, DeviceDB.TABLET_PRO_LARGE]:
+		checks += _expect(fails, categories.has(category), "нет категории %s" % String(category))
+	for model: String in ["Samsung Galaxy Z Flip 1", "Samsung Galaxy Z Flip 7", "Motorola Razr 50 Ultra"]:
+		var foldable := DeviceDB.profile_for_model(model)
+		checks += _expect(fails, foldable.get("category", &"") == DeviceDB.FOLDABLE_INNER,
+			"складной экран %s не отнесён к FOLDABLE_INNER" % model)
+	var iphone := DeviceDB.profile_for_model("apple iphone 17 pro max")
+	checks += _expect(fails, int(iphone.get("width", 0)) == 1320 and int(iphone.get("height", 0)) == 2868 and int(iphone.get("ppi", 0)) == 460,
+		"поиск профиля по имени не вернул iPhone 17 Pro Max")
+	var ipad := DeviceDB.profile_for_resolution(Vector2i(1536, 2048), 320)
+	checks += _expect(fails, ipad.get("category", &"") == DeviceDB.TABLET_COMPACT and int(ipad.get("ppi", 0)) == 326,
+		"одинаковое разрешение iPad не разрешило совпадение по DPI")
+	var landscape := DeviceDB.profile_for_resolution(Vector2i(2732, 2048), 264)
+	checks += _expect(fails, landscape.get("category", &"") == DeviceDB.TABLET_PRO_LARGE and bool(landscape.get("rotated", false)),
+		"поиск повернутого планшета не нашёл iPad Pro")
+	var notch: Array[Rect2] = [Rect2(Vector2(420, 0), Vector2(240, 48))]
+	var android_safe := ResolutionManager.safe_insets_for(&"android", Vector2(720, 1600),
+		Vector2(1080, 2400), Vector2(1080, 2400), Rect2(), notch)
+	checks += _expect(fails, is_equal_approx(android_safe.y, 32.0), "safe area Android не пересчитала верхний вырез")
+	var android_system_safe := ResolutionManager.safe_insets_for(&"android", Vector2(720, 1600),
+		Vector2(1080, 2400), Vector2(1080, 2400), Rect2(Vector2(0, 42), Vector2(1080, 2298)), notch)
+	checks += _expect(fails, is_equal_approx(android_system_safe.y, 32.0)
+		and is_equal_approx(android_system_safe.w, 40.0), "safe area Android не объединила вырез и системную панель")
+	var ios_safe := ResolutionManager.safe_insets_for(&"ios", Vector2(720, 1600),
+		Vector2(1080, 2400), Vector2(1080, 2400), Rect2(Vector2(0, 60), Vector2(1080, 2290)))
+	checks += _expect(fails, absf(ios_safe.y - 40.0) < 0.01 and absf(ios_safe.w - 33.3333) < 0.01,
+		"safe area iOS не рассчитала верхний и нижний отступы")
+	var frame := MarginContainer.new()
+	ResolutionManager.apply_safe_area(frame, Vector4(11, 22, 33, 44))
+	checks += _expect(fails, frame.has_theme_constant_override("margin_left")
+		and frame.get_theme_constant("margin_left") == 11
+		and frame.has_theme_constant_override("margin_bottom")
+		and frame.get_theme_constant("margin_bottom") == 44, "менеджер не применил поля к MarginContainer")
+	frame.free()
+	checks += _expect(fails, is_equal_approx(ResolutionManager.render_scale_for(Vector2i(1440, 3200)), 0.85),
+		"экран QHD+ не снизил 3D-буфер до 0.85")
+	checks += _expect(fails, is_equal_approx(ResolutionManager.render_scale_for(Vector2i(2136, 3200)), 0.75),
+		"тяжёлый планшет не снизил 3D-буфер до 0.75")
+	checks += _expect(fails, is_equal_approx(ResolutionManager.render_scale_for(Vector2i(1080, 2400)), 1.0),
+		"обычный смартфон без причины снизил 3D-буфер")
+	var simulator: CanvasLayer = preload("res://scripts/ui/resolution_simulator.gd").new()
+	simulator.set("manager", ResolutionManager)
+	var tree := Engine.get_main_loop() as SceneTree
+	tree.root.add_child.call_deferred(simulator)
+	await tree.process_frame
+	var picker := simulator.get("_picker") as OptionButton
+	var listed_models: Dictionary = {}
+	if picker != null:
+		for index in range(1, picker.item_count):
+			listed_models[String(picker.get_item_metadata(index))] = true
+	checks += _expect(fails, picker != null and picker.item_count == model_map.size() + 1
+		and listed_models.size() == model_map.size(), "симулятор не вывел все модели из базы")
+	simulator.queue_free()
+	await tree.process_frame
+	print("=== экранные профили: %d моделей, %d групп, %d проверок ===" % [model_map.size(), profiles.size(), checks])
+	_finish(fails, checks, "экраны устройств", "масштаб, разворот, safe area и симулятор проверены")

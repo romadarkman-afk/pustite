@@ -27,9 +27,11 @@ scripts/ai/director.gd
 scripts/ai/intent_parser.gd
 scripts/ai/phrases.gd
 scripts/autoload/diag.gd
+scripts/autoload/device_display_db.gd
 scripts/autoload/game.gd
 scripts/autoload/juice.gd
 scripts/autoload/nav.gd
+scripts/autoload/resolution_manager.gd
 scripts/autoload/save.gd
 scripts/autoload/sfx.gd
 scripts/boot.gd
@@ -83,6 +85,7 @@ scripts/ui/journal_sheet.gd
 scripts/ui/night_horror_audio.gd
 scripts/ui/phase_clock.gd
 scripts/ui/safe_frame.gd
+scripts/ui/resolution_simulator.gd
 scripts/ui/scene_player.gd
 scripts/ui/train_sheet.gd
 scripts/ui/trust_faces.gd

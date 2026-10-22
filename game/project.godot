@@ -29,6 +29,7 @@ Juice="*res://scripts/autoload/juice.gd"
 Sfx="*res://scripts/autoload/sfx.gd"
 Save="*res://scripts/autoload/save.gd"
 Game="*res://scripts/autoload/game.gd"
+ResolutionManager="*res://scripts/autoload/resolution_manager.gd"
 Nav="*res://scripts/autoload/nav.gd"
 
 [debug]
@@ -42,6 +43,8 @@ window/size/viewport_height=1280
 window/energy_saving/keep_screen_on=false
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/stretch/scale=1.0
+window/dpi/allow_hidpi=true
 window/handheld/orientation=1
 
 [gui]

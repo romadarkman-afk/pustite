@@ -39,17 +39,8 @@ func refresh() -> void:
 	var k := vp.y / win.y if win.y > 0.0 else 1.0
 	var inset := Vector4.ZERO
 
-	if OS.has_feature("android"):
-		# Дисплей и окно Android могут иметь разное разрешение.
-		# Камеру считаем в окне, для жестов остаётся поле BASE.w.
-		inset = cutout_insets(vp, win, DisplayServer.get_display_cutouts())
-	elif OS.has_feature("ios"):
-		var safe := DisplayServer.get_display_safe_area()
-		var screen := Vector2(DisplayServer.screen_get_size())
-		if safe.size.x > 0 and safe.size.y > 0 and screen.y > 0.0:
-			var ratio := vp / screen
-			inset = Vector4(safe.position.x * ratio.x, safe.position.y * ratio.y,
-				(screen.x - safe.end.x) * ratio.x, (screen.y - safe.end.y) * ratio.y)
+	if OS.has_feature("android") or OS.has_feature("ios"):
+		inset = ResolutionManager.safe_insets(vp, win)
 
 	if debug_insets.x >= 0.0:
 		inset = debug_insets
@@ -67,10 +58,7 @@ func refresh() -> void:
 
 	var margins := Vector4(BASE.x + maxf(inset.x, side), BASE.y + inset.y,
 		BASE.z + maxf(inset.z, side), BASE.w + maxf(inset.w, keyboard))
-	var names := ["margin_left", "margin_top", "margin_right", "margin_bottom"]
-	for i in range(4):
-		if not has_theme_constant_override(names[i]) or get_theme_constant(names[i]) != int(margins[i]):
-			add_theme_constant_override(names[i], int(margins[i]))
+	ResolutionManager.apply_safe_area(self, margins)
 	var geometry := "%s/%s/%s" % [vp, win, margins]
 	if geometry != _last_geometry:
 		_last_geometry = geometry

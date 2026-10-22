@@ -1,10 +1,10 @@
 extends Control
 ## Точка входа. Логотип ровно 1 секунду → меню. Тап — пропустить.
 ## Фон логотипа — картинка заставки (assets/splash.png): Android показывает её, пока грузится движок.
-## Для сборки здесь же запускаются самотесты: --sim, --flow, --layout, --lifecycle, --field, --crowd, --bubbles, --marks, --input, --hints, --difficulty, --howto, --night, --sound, --village, --talisman, --bell, --events, --mimic, --sabotage, --box, --roles, --meeting, --tunnel, --diary, --recap, --folk, --loc, --access, --daily, --cosmetics, --adapt, --gestures.
+## Для сборки здесь же запускаются самотесты: --sim, --flow, --layout, --lifecycle, --field, --crowd, --bubbles, --marks, --input, --hints, --difficulty, --howto, --night, --sound, --village, --talisman, --bell, --events, --mimic, --sabotage, --box, --roles, --meeting, --tunnel, --diary, --recap, --folk, --loc, --access, --daily, --cosmetics, --adapt, --display, --gestures.
 ## --lang=en рядом с любым самотестом гоняет его на другом языке, --text=2 — с самым крупным текстом.
 
-const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk", "--loc", "--access", "--daily", "--cosmetics", "--adapt", "--gestures"]
+const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk", "--loc", "--access", "--daily", "--cosmetics", "--adapt", "--display", "--gestures"]
 const TEST_TIMEOUT_SEC := 240.0
 const LOGO_SEC := 2.2
 const SPLASH: Texture2D = preload("res://assets/splash.png")
@@ -179,6 +179,8 @@ func _run_test(flag: String) -> void:
 			Juice.instant = true
 			Nav.start()
 			SelfTest.adapt()
+		"--display":
+			SelfTest.display()
 		"--gestures":
 			Juice.instant = true
 			Nav.start()
