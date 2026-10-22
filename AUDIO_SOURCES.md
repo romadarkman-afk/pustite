@@ -1,10 +1,12 @@
 # Источники звука
 
-Новые дорожки в `game/assets/music` и `game/assets/sfx` подготовлены из материалов ниже. Все перечисленные авторы опубликовали использованные файлы под CC0. При обработке применены монтаж петель, изменение уровня и кодирование Ogg Vorbis.
+Сторонние записи и их авторство перечислены ниже; заявленная для них лицензия в исходном аудиопакете — CC0. Две текущие музыкальные темы сделаны процедурно скриптами проекта без внешних сэмплов. `menu_theme.wav` звучит в меню, `river_theme.wav` — во вступлении у реки. Godot сжимает WAV при импорте.
 
 | Файлы в игре | Исходная запись | Автор |
 | --- | --- | --- |
-| `music/menu.ogg` | [Ambient Horror Track 01](https://opengameart.org/content/ambient-horror-track-01) | Cleyton Kauffman |
+| `music/menu_theme.wav` | Оригинальная процедурная тема, `game/tools/make_menu_theme.py` | Создана для проекта, внешних сэмплов нет |
+| `music/river_theme.wav` | Оригинальная процедурная тема, `game/tools/make_river_theme.py` | Создана для проекта, внешних сэмплов нет |
+| `music/menu.ogg` | [Ambient Horror Track 01](https://opengameart.org/content/ambient-horror-track-01) | Cleyton Kauffman; файл оставлен в каталоге, текущий код его не использует |
 | `music/day.ogg` | [CC0 - Mystery](https://opengameart.org/content/cc0-mystery) | PolygonDan |
 | `music/night.ogg` | [Dark Place (loop)](https://opengameart.org/content/dark-place-loop) | SkyleTheFrench |
 | `music/end_dawn.ogg` | [Forget Me Not](https://opengameart.org/content/forget-me-not) | Kistol |
