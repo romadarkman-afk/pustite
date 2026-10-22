@@ -1862,8 +1862,13 @@ func votes() -> Dictionary[int, int]:
 		else:
 			pool.sort_custom(func(x: Villager, y: Villager) -> bool: return view(bot, x) > view(bot, y))
 			target = pool[0]
-			if view(bot, target) < 0.6 and rng.randf() < 0.5:
-				target = pool[rng.randi_range(0, pool.size() - 1)]
+			if view(bot, target) < 1.2 and pool.size() > 1 and rng.randf() < 0.45:
+				var alternatives: Array[Villager] = []
+				for candidate: Villager in pool:
+					if candidate != target:
+						alternatives.append(candidate)
+				if not alternatives.is_empty():
+					target = alternatives[rng.randi_range(0, alternatives.size() - 1)]
 			var felt := _feeling_vote(bot, pool)
 			if felt != null:
 				target = felt

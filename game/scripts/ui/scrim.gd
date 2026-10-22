@@ -6,6 +6,7 @@ extends Control
 const FADE := 80.0
 
 var top: float = 0.0: set = _set_top
+var field_top: float = -1.0: set = _set_field_top
 var strength: float = 0.0: set = _set_strength
 
 
@@ -15,6 +16,11 @@ func _ready() -> void:
 
 func _set_top(v: float) -> void:
 	top = v
+	queue_redraw()
+
+
+func _set_field_top(v: float) -> void:
+	field_top = v
 	queue_redraw()
 
 
@@ -28,6 +34,13 @@ func _draw() -> void:
 		return
 	var c := Color(ThemeFactory.NIGHT, 0.94 * strength)
 	var clear := Color(c, 0.0)
+	if field_top >= 0.0:
+		var y := clampf(field_top, 0.0, size.y)
+		draw_rect(Rect2(0, 0, size.x, y), c)
+		var fade_end := minf(size.y, y + FADE)
+		if fade_end > y:
+			draw_polygon(PackedVector2Array([Vector2(0, y), Vector2(size.x, y), Vector2(size.x, fade_end), Vector2(0, fade_end)]),
+				PackedColorArray([c, c, clear, clear]))
 	var y0 := top - FADE
 	draw_polygon(PackedVector2Array([Vector2(0, y0), Vector2(size.x, y0), Vector2(size.x, top), Vector2(0, top)]),
 		PackedColorArray([clear, clear, c, c]))

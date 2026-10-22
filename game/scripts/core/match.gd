@@ -840,6 +840,13 @@ func apply_vote(tally: Dictionary[int, int], votes: Dictionary = {}) -> Villager
 			leaders = [vid]
 		elif tally[vid] == best:
 			leaders.append(vid)
+	if not votes.is_empty():
+		var cast_weight := 0
+		for weight: int in tally.values():
+			cast_weight += maxi(0, weight)
+		var majority := floori(float(cast_weight) * 0.5) + 1
+		if best < majority:
+			leaders.clear()
 	last_exiled = null
 	if not leaders.is_empty():
 		last_exiled = get_villager(leaders[rng.randi_range(0, leaders.size() - 1)])

@@ -575,10 +575,15 @@ static func _mark(seen: Dictionary[String, int]) -> void:
 # =============================================================
 const LAYOUT_SIZES: Array[Vector2i] = [
 	Vector2i(720, 1280),    # 16:9, старый телефон
+	Vector2i(1080, 1920),   # 16:9, телефон Full HD
 	Vector2i(1080, 2340),   # 19.5:9
 	Vector2i(1080, 2400),   # 20:9
 	Vector2i(1080, 2520),   # 21:9
+	Vector2i(1320, 2868),   # вытянутый телефон высокого разрешения
+	Vector2i(1840, 2208),   # внутренний экран складного устройства
+	Vector2i(1600, 2560),   # планшет 10 дюймов, 16:10
 	Vector2i(1536, 2048),   # планшет 4:3
+	Vector2i(2048, 2732),   # большой планшет 3:4
 ]
 ## Телефоны с вырезом камеры и жестовой панелью: размер окна + поля (лево, верх, право, низ) в px вьюпорта.
 const LAYOUT_CUTOUTS: Array[Array] = [
@@ -893,6 +898,8 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 		field_scales.append(Nav.village.scale.x)
 		if absf(Nav.scrim.top - fld.end.y) > 3.0:
 			out.append("%s: затемнение не у нижнего края поля (%d vs %d)" % [w, int(Nav.scrim.top), int(fld.end.y)])
+		if absf(Nav.scrim.field_top - fld.position.y) > 3.0:
+			out.append("%s: маска верхнего края ушла от поля (%d vs %d)" % [w, int(Nav.scrim.field_top), int(fld.position.y)])
 		for f: VillagerFigure in Nav.village.crowd.figures.values():
 			if not f.visible or f.state == VillagerFigure.State.GONE:
 				continue
@@ -1061,6 +1068,8 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 			knock_ok = knock_ok and (not v.is_upyr or v.fed)
 		knock_ok = knock_ok and humans >= 1
 	ok += _expect(fails, knock_ok and String(Game.chapter.get("id", "")) == "a1c1", "новичок после «Играть» не у двери со стуком (%s)" % [Nav.host.current])
+	ok += _expect(fails, Nav.village._ground_is_composite and not Nav.village._backdrop.visible,
+		"фон главы рисует второй лес поверх составной карты")
 	ok += _expect(fails, Time.get_ticks_msec() - t0 < 10000, "до стука дольше 10 секунд")
 	ok += _expect(fails, Nav.village.crowd.figures.size() == Game.m.villagers.size(), "глава со стука началась без жителей на поле")
 	if ds != null:
@@ -3020,6 +3029,9 @@ static func sound() -> void:
 		and main_menu.find_child("OnlineSoon", true, false) != null
 		and main_menu.find_child("Settings", true, false) != null,
 		"в главном меню отсутствует один из четырёх основных пунктов")
+	var mode_cards := main_menu.find_child("ModeCards", true, false) as GridContainer if main_menu != null else null
+	ok += _expect(fails, mode_cards != null and mode_cards.columns == 2 and mode_cards.get_child_count() == 2,
+		"кампания и одиночная игра не показаны отдельными карточками режимов")
 	ok += _expect(fails, main_menu != null and main_menu._menu_art_nodes.size() == 2
 		and main_menu.find_child("MenuBackdropShade", true, false) != null,
 		"в меню не собран затемнённый фон со сменой иллюстраций")
@@ -3224,6 +3236,36 @@ static func village() -> void:
 	var m := Game.m
 	var cr := v.crowd
 	var me: VillagerFigure = cr.figures[0]
+	var home_button := day.find_child("BackToMenu", true, false) as Button
+	var marks_button := day.find_child("MarksLegend", true, false) as Button
+	ok += _expect(fails, home_button != null and marks_button != null,
+		"в дневном экране нет кнопки меню или быстрого пояснения знаков")
+	if marks_button != null:
+		marks_button.pressed.emit()
+		await _frames(tree, 3)
+		var legend_sheet := day.find_child("InfoSheet", true, false) as InfoSheet
+		ok += _expect(fails, legend_sheet != null, "нажатие на знак вопроса не открыло его пояснение")
+		if legend_sheet != null:
+			legend_sheet.close()
+			await _frames(tree, 2)
+	var church: HouseDef = null
+	var route_ok := false
+	for house: HouseDef in v.def.shelters:
+		if house.kind == HouseDef.Kind.CHURCH:
+			church = house
+			break
+	if church != null:
+		var route_from := Vector2(church.pos.x, church.pos.y - 35.0)
+		var route_to := Vector2(church.pos.x, church.pos.y + 45.0)
+		var route := cr.walk_route(route_from, route_to)
+		var walls := cr._walk_walls()
+		var route_clear := not route.is_empty()
+		var previous := route_from
+		for point: Vector2 in route:
+			route_clear = route_clear and cr._segment_clear(previous, point, walls)
+			previous = point
+		route_ok = route.size() > 1 and route_clear
+	ok += _expect(fails, route_ok, "маршрут проходит сквозь фасад церкви или не обходит его")
 
 	# 1. Камера: днём ближе, игрок в кадре
 	ok += _expect(fails, v.scale.x > scale_wide * 1.2, "днём камера не приблизилась (%.2f против %.2f)" % [v.scale.x, scale_wide])
@@ -4780,6 +4822,26 @@ static func meeting() -> void:
 	await _frames(tree, 3)
 	Nav.frame.refresh()
 	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
+	var tied_match := Match.new()
+	tied_match.start(c.duplicate() as GameConfig, 9891)
+	tied_match.phase = Match.Phase.VOTE
+	var tied_a: Villager = tied_match.alive_bots()[0]
+	var tied_b: Villager = tied_match.alive_bots()[1]
+	var tie_ballots: Dictionary[int, int] = {}
+	for i in range(4):
+		tie_ballots[tied_match.alive_bots()[i].id] = tied_a.id if i < 2 else tied_b.id
+	var tied_exile := tied_match.apply_vote({tied_a.id: 2, tied_b.id: 2}, tie_ballots)
+	ok += _expect(fails, tied_exile == null, "равное слабое голосование изгнало жителя")
+	var majority_match := Match.new()
+	majority_match.start(c.duplicate() as GameConfig, 9892)
+	majority_match.phase = Match.Phase.VOTE
+	var majority_a: Villager = majority_match.alive_bots()[0]
+	var majority_b: Villager = majority_match.alive_bots()[1]
+	var majority_ballots: Dictionary[int, int] = {}
+	for i in range(4):
+		majority_ballots[majority_match.alive_bots()[i].id] = majority_a.id if i < 3 else majority_b.id
+	var majority_exile := majority_match.apply_vote({majority_a.id: 3, majority_b.id: 1}, majority_ballots)
+	ok += _expect(fails, majority_exile == majority_a, "строгое большинство не смогло изгнать жителя")
 
 	# 1. Правила
 	var m0 := Match.new()

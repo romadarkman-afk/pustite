@@ -16,7 +16,7 @@ func screen_id() -> String:
 
 
 func field_ratio() -> float:
-	return 0.52
+	return 0.68
 
 
 ## Под полем остаётся только строка журнала.
@@ -28,7 +28,7 @@ func min_content_ratio() -> float:
 func field_height(h: float) -> float:
 	var sep := float(get_theme_constant("separation", "VBoxContainer")) if has_theme_constant("separation", "VBoxContainer") else 18.0
 	var reserved := 46.0 * ThemeFactory.text_scale + footer.get_combined_minimum_size().y + ThemeFactory.TOUCH + 4.0 * sep + 24.0
-	return maxf(h * 0.44, minf(h * 0.52, h - reserved))
+	return maxf(h * 0.44, minf(h * 0.68, h - reserved))
 
 
 func title() -> String:
@@ -58,6 +58,14 @@ func build() -> void:
 	diary.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	diary.pressed.connect(open_diary)
 	jr.add_child(diary)
+	var legend := W.button("?", &"Quick")
+	legend.name = "MarksLegend"
+	legend.tooltip_text = L.t("legend.btn")
+	legend.accessibility_name = L.t("legend.btn")
+	legend.custom_minimum_size = Vector2(84, 84)
+	legend.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	legend.pressed.connect(marks_legend)
+	jr.add_child(legend)
 	journal_preview = W.label("", &"Small")
 	journal_preview.autowrap_mode = TextServer.AUTOWRAP_OFF
 	journal_preview.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS

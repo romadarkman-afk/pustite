@@ -421,6 +421,102 @@ func walk_clamp(p: Vector2) -> Vector2:
 	return p
 
 
+## Проложить путь по площади: фасады домов непроходимы, у нужной двери остаётся проход.
+func walk_route(from: Vector2, destination: Vector2, door_house: int = -1) -> PackedVector2Array:
+	var target := destination
+	var direct := PackedVector2Array([target])
+	var walls := _walk_walls(door_house)
+	if _segment_clear(from, target, walls):
+		return direct
+
+	const CELL := 16.0
+	const GRID := Vector2i(45, 38)
+	var grid := AStarGrid2D.new()
+	grid.region = Rect2i(Vector2i.ZERO, GRID)
+	grid.cell_size = Vector2(CELL, CELL)
+	grid.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
+	grid.update()
+	for wall: Rect2 in walls:
+		var lo := Vector2i(maxi(0, floori(wall.position.x / CELL)), maxi(0, floori(wall.position.y / CELL)))
+		var hi := Vector2i(mini(GRID.x, ceili(wall.end.x / CELL)), mini(GRID.y, ceili(wall.end.y / CELL)))
+		for y in range(lo.y, hi.y):
+			for x in range(lo.x, hi.x):
+				var id := Vector2i(x, y)
+				if wall.has_point(grid.get_point_position(id)):
+					grid.set_point_solid(id, true)
+	var start_id := _free_cell(grid, from, CELL, GRID)
+	var end_id := _free_cell(grid, target, CELL, GRID)
+	var cells: Array[Vector2i] = grid.get_id_path(start_id, end_id, true)
+	if cells.is_empty():
+		return direct
+	var raw: Array[Vector2] = []
+	for i in range(1, cells.size()):
+		raw.append(grid.get_point_position(cells[i]))
+	raw.append(target)
+	var smooth := PackedVector2Array()
+	var anchor := from
+	while not raw.is_empty():
+		var far := 0
+		for i in range(raw.size() - 1, -1, -1):
+			if _segment_clear(anchor, raw[i], walls):
+				far = i
+				break
+		var next: Vector2 = raw[far]
+		smooth.append(next)
+		anchor = next
+		raw = raw.slice(far + 1)
+	return smooth if not smooth.is_empty() else direct
+
+
+func _free_cell(grid: AStarGrid2D, p: Vector2, cell: float, dimensions: Vector2i) -> Vector2i:
+	var center := Vector2i(clampi(floori(p.x / cell), 0, dimensions.x - 1), clampi(floori(p.y / cell), 0, dimensions.y - 1))
+	if not grid.is_point_solid(center):
+		return center
+	for radius in range(1, 8):
+		for y in range(-radius, radius + 1):
+			for x in range(-radius, radius + 1):
+				if maxi(absi(x), absi(y)) != radius:
+					continue
+				var candidate := center + Vector2i(x, y)
+				if candidate.x >= 0 and candidate.y >= 0 and candidate.x < dimensions.x and candidate.y < dimensions.y and not grid.is_point_solid(candidate):
+					return candidate
+	return center
+
+
+func _walk_walls(door_house: int = -1) -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	var houses: Array[HouseDef] = []
+	houses.append_array(view.def.shelters)
+	houses.append_array(view.def.decor)
+	for i in range(houses.size()):
+		var h: HouseDef = houses[i]
+		var r := view.house_rect(h)
+		var facade := Rect2(r.position.x + r.size.x * 0.14, h.pos.y - 12.0, r.size.x * 0.72, 30.0)
+		var door_gap := Rect2()
+		if i == door_house:
+			door_gap = view.door_rect(h).grow_individual(10.0, 0.0, 10.0, 18.0)
+		if door_gap.size.x <= 0.0 or not facade.intersects(door_gap):
+			out.append(facade)
+			continue
+		var left_end := minf(facade.end.x, door_gap.position.x)
+		var right_start := maxf(facade.position.x, door_gap.end.x)
+		if left_end > facade.position.x:
+			out.append(Rect2(facade.position, Vector2(left_end - facade.position.x, facade.size.y)))
+		if right_start < facade.end.x:
+			out.append(Rect2(Vector2(right_start, facade.position.y), Vector2(facade.end.x - right_start, facade.size.y)))
+	return out
+
+
+func _segment_clear(a: Vector2, b: Vector2, walls: Array[Rect2]) -> bool:
+	var steps := maxi(1, ceili(a.distance_to(b) / 6.0))
+	for i in range(steps + 1):
+		var p := a.lerp(b, float(i) / float(steps))
+		for wall: Rect2 in walls:
+			if wall.has_point(p):
+				return false
+	return true
+
+
 ## Место у дела: первый работник встаёт на само место, следующие — по бокам.
 func job_spot(ji: int, vid: int) -> Vector2:
 	var base := (day_jobs[ji] if ji < day_jobs.size() else view.def.jobs[ji]).pos
@@ -559,7 +655,7 @@ func _place_groups(m: Match, groups: Dictionary[int, Array], me_goes: bool, timi
 		var spots := queue_spots(h, ids.size(), avoid)
 		for k in range(ids.size()):
 			if k < spots.size():
-				_run_to_spot(int(ids[k]), spots[k], timing)
+				_run_to_spot(int(ids[k]), spots[k], timing, h)
 				avoid.append(slot_rect(spots[k], QUEUE_COL - 2.0))   # очередь у соседней двери обойдёт этих
 			else:
 				leftovers.append(int(ids[k]))
@@ -570,17 +666,17 @@ func _place_groups(m: Match, groups: Dictionary[int, Array], me_goes: bool, timi
 		for h2: int in order:
 			var one := door_spots(h2, 1, avoid)
 			if not one.is_empty():
-				_run_to_spot(vid, one[0], timing)
+				_run_to_spot(vid, one[0], timing, h2)
 				avoid.append(slot_rect(one[0], QUEUE_COL - 2.0))
 				break
 
 
-func _run_to_spot(vid: int, spot: Vector2, timing: Callable) -> void:
+func _run_to_spot(vid: int, spot: Vector2, timing: Callable, door_house: int) -> void:
 	var f: VillagerFigure = figures[vid]
 	if f.position.distance_to(spot) <= 2.0 and f.state == VillagerFigure.State.IDLE:
 		return
 	var tm: Vector2 = timing.call(vid)
-	f.run_to(spot, tm.x, tm.y)
+	f.run_to(spot, tm.x, tm.y, door_house)
 
 
 func sync(m: Match, phase: Match.Phase) -> void:

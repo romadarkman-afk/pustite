@@ -67,19 +67,41 @@ func build() -> void:
 	body.add_child(name_button)
 
 	body.add_child(W.label(L.t("menu.modes"), &"Speaker"))
-	var camp := W.wrap(W.button(L.t("menu.mode_campaign"), &"Primary"))
+	var modes := GridContainer.new()
+	modes.name = "ModeCards"
+	modes.columns = 2
+	modes.add_theme_constant_override("h_separation", 10)
+	modes.add_theme_constant_override("v_separation", 10)
+	var camp_card := W.panel(&"Card")
+	camp_card.custom_minimum_size = Vector2(140, ThemeFactory.TOUCH * 2.3)
+	camp_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var camp_box := W.vbox(8)
+	camp_card.add_child(camp_box)
+	camp_box.add_child(W.label(L.t("menu.mode_campaign"), &"Speaker"))
+	camp_box.add_child(W.label(L.t("menu.mode_campaign_desc"), &"Small"))
+	var camp := W.button(L.t("menu.play"), &"Primary")
+	camp_card.custom_minimum_size.x = maxf(camp_card.custom_minimum_size.x, W.button_need(camp) + 28.0)
 	camp.name = "Campaign"
 	camp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	camp.pressed.connect(func() -> void: emit_intent(Intent.OPEN_CAMPAIGN))
-	body.add_child(camp)
-	body.add_child(W.label(L.t("menu.mode_campaign_desc"), &"Small"))
+	camp_box.add_child(camp)
+	modes.add_child(camp_card)
 
-	var start := W.wrap(W.button(L.t("menu.mode_solo"), &"RowOn"))
+	var solo_card := W.panel(&"Card")
+	solo_card.custom_minimum_size = Vector2(140, ThemeFactory.TOUCH * 2.3)
+	solo_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var solo_box := W.vbox(8)
+	solo_card.add_child(solo_box)
+	solo_box.add_child(W.label(L.t("menu.mode_solo"), &"Speaker"))
+	solo_box.add_child(W.label(L.t("menu.mode_solo_desc"), &"Small"))
+	var start := W.button(L.t("menu.play"), &"RowOn")
+	solo_card.custom_minimum_size.x = maxf(solo_card.custom_minimum_size.x, W.button_need(start) + 28.0)
 	start.name = "Start"
 	start.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	start.pressed.connect(func() -> void: emit_intent(Intent.START_SOLO))
-	body.add_child(start)
-	body.add_child(W.label(L.t("menu.mode_solo_desc"), &"Small"))
+	solo_box.add_child(start)
+	modes.add_child(solo_card)
+	body.add_child(modes)
 
 	var online := W.wrap(W.button(L.t("menu.mode_online"), &"Row"))
 	online.name = "OnlineSoon"

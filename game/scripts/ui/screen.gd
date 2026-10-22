@@ -46,6 +46,15 @@ func setup(match_ref: Match, director_ref: Director) -> void:
 	build()
 
 
+func refresh_locale() -> void:
+	if _title_label != null:
+		_title_label.text = title()
+	var menu := find_child("BackToMenu", true, false) as Button
+	if menu != null:
+		menu.text = L.t("ui.menu")
+		menu.tooltip_text = L.t("ui.menu")
+
+
 ## Переопределяется: наполнение экрана.
 func build() -> void:
 	pass
@@ -331,6 +340,14 @@ func _chrome() -> void:
 		_clock.autowrap_mode = TextServer.AUTOWRAP_OFF
 		_clock.custom_minimum_size = Vector2(62, 0)
 		bar.add_child(_capsule(_clock) if over_sky else _clock)
+		if screen_id() != "menu":
+			var menu := W.button(L.t("ui.menu"), &"Quick")
+			menu.name = "BackToMenu"
+			menu.size_flags_horizontal = Control.SIZE_SHRINK_END
+			menu.custom_minimum_size.x = W.button_need(menu)
+			menu.tooltip_text = L.t("ui.menu")
+			menu.pressed.connect(Nav._on_back)
+			bar.add_child(menu)
 		col.add_child(bar)
 
 	if field_ratio() > 0.0:

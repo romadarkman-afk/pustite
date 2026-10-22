@@ -603,13 +603,14 @@ func body_rect_global() -> Rect2:
 # Состояния
 # =============================================================
 ## delay — сколько секунд постоять, прежде чем сорваться (житель не сразу услышал колокол).
-func run_to(target: Vector2, dur: float = 0.75, delay: float = 0.0) -> void:
+func run_to(target: Vector2, dur: float = 0.75, delay: float = 0.0, door_house: int = -1) -> void:
 	if state == State.DEAD or state == State.GONE:
 		return
 	if _tw != null:
 		_tw.kill()
+	var path := _path_to(target, door_house)
 	if Juice.instant:
-		position = target
+		position = target if path.is_empty() else path[path.size() - 1]
 		_settle_idle()
 		arrived.emit()
 		return
@@ -617,13 +618,23 @@ func run_to(target: Vector2, dur: float = 0.75, delay: float = 0.0) -> void:
 		_settle_idle()
 	else:
 		state = State.RUN
-	if absf(target.x - position.x) > 3.0:
-		_face = -1.0 if target.x < position.x else 1.0
+	var destination: Vector2 = target if path.is_empty() else path[path.size() - 1]
+	if absf(destination.x - position.x) > 3.0:
+		_face = -1.0 if destination.x < position.x else 1.0
 	_tw = create_tween()
 	if delay > 0.0:
 		_tw.tween_interval(delay)
 		_tw.tween_callback(func() -> void: state = State.RUN)
-	_tw.tween_property(self, "position", target, maxf(0.05, dur)).set_trans(Tween.TRANS_LINEAR)
+	var total := _path_length(path)
+	var direct := maxf(1.0, position.distance_to(destination))
+	var speed := direct / maxf(0.05, dur)
+	var move_time := maxf(0.05, total / maxf(1.0, speed))
+	var from := position
+	for point: Vector2 in path:
+		var segment := from.distance_to(point)
+		if segment > 0.5:
+			_tw.tween_property(self, "position", point, maxf(0.03, move_time * segment / maxf(total, 0.001))).set_trans(Tween.TRANS_LINEAR)
+		from = point
 	_tw.tween_callback(func() -> void:
 		_settle_idle()
 		arrived.emit())
@@ -631,7 +642,48 @@ func run_to(target: Vector2, dur: float = 0.75, delay: float = 0.0) -> void:
 
 ## Идти шагом с постоянной скоростью — длина пути решает, сколько идти.
 func walk_to(target: Vector2) -> void:
-	run_to(target, clampf(position.distance_to(target) / WALK_SPEED, 0.25, 4.0))
+	var path := _path_to(target)
+	var destination: Vector2 = target if path.is_empty() else path[path.size() - 1]
+	var duration := clampf(_path_length(path) / WALK_SPEED, 0.25, 4.0)
+	if state == State.DEAD or state == State.GONE:
+		return
+	if _tw != null:
+		_tw.kill()
+	if Juice.instant:
+		position = destination
+		_settle_idle()
+		arrived.emit()
+		return
+	if absf(destination.x - position.x) > 3.0:
+		_face = -1.0 if destination.x < position.x else 1.0
+	state = State.RUN
+	_tw = create_tween()
+	var total := _path_length(path)
+	var from := position
+	for point: Vector2 in path:
+		var segment := from.distance_to(point)
+		if segment > 0.5:
+			_tw.tween_property(self, "position", point, maxf(0.03, duration * segment / maxf(total, 0.001))).set_trans(Tween.TRANS_LINEAR)
+		from = point
+	_tw.tween_callback(func() -> void:
+		_settle_idle()
+		arrived.emit())
+
+
+func _path_to(target: Vector2, door_house: int = -1) -> PackedVector2Array:
+	var parent := get_parent()
+	if parent is Crowd:
+		return (parent as Crowd).walk_route(position, target, door_house)
+	return PackedVector2Array([target])
+
+
+func _path_length(path: PackedVector2Array) -> float:
+	var total := 0.0
+	var from := position
+	for point: Vector2 in path:
+		total += from.distance_to(point)
+		from = point
+	return total
 
 
 ## Встал к делу или отошёл. t — инструмент по виду дела.
@@ -717,7 +769,7 @@ func _process(delta: float) -> void:
 		_anim_step(delta)
 	var walk_target := clampf(travelled / maxf(delta, 0.001) / WALK_SPEED, 0.0, 1.0) if state == State.RUN and not Juice.instant else 0.0
 	_walk_weight = lerpf(_walk_weight, walk_target, 1.0 - exp(-12.0 * delta))
-	if state == State.RUN and travelled < 80.0 and not Juice.instant:
+	if state == State.RUN and travelled > 0.0 and not Juice.instant:
 		_walk = fmod(_walk + travelled / STRIDE_LENGTH, 1.0)
 	var pose: Dictionary = pose_now()[1]
 	var tilt_target := float(pose.get("lean", 0.0)) * 0.45 + float(pose.get("tilt", 0.0)) * 0.25

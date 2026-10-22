@@ -305,6 +305,7 @@ func _frame_field(s: Screen) -> void:
 		bubbles.field = r
 		village.set_mood(s.mood().x, 0.0 if Juice.instant else s.mood_duration())
 		_tween_to(village, "modulate:a", 1.0, dur)
+		_tween_to(scrim, "field_top", r.position.y, dur)
 		_tween_to(scrim, "top", r.end.y, dur)
 		_tween_to(scrim, "strength", 1.0, dur)
 	else:
@@ -635,8 +636,7 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			if sender is SettingsScreen:
 				var ss := sender as SettingsScreen
 				ss.build()
-				if ss._title_label != null:
-					ss._title_label.text = ss.title()
+				ss.refresh_locale()
 			else:
 				show_menu()
 		Intent.CONTINUE:

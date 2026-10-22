@@ -10,7 +10,7 @@ const BAND := Rect2(0, 120, 720, 400)    ## полоса с домами — е�
 ## Сколько ширины посёлка обязано войти в кадр. По краям только фоновые дома и река —
 ## их можно подрезать, а фигурки от этого крупнее.
 const SIDE_VISIBLE := 0.88
-const SKY_SHARE := 0.38                   ## ограничиваем пустое небо; остаток кадра показывает землю
+const SKY_SHARE := 0.50                   ## горизонт не уходит за верх поля на вытянутых экранах
 const SAFE_X := Vector2(84, 624)          ## куда можно ставить жителей: слева половина имени, справа колонка отметок
 static var _shadow_outline_cache: Dictionary = {}
 
@@ -37,6 +37,7 @@ var _house_glows: Array[Sprite2D] = []
 var _lamp_lights: Array[PointLight2D] = []
 var _tex: Dictionary = {}                  ## имя картинки -> Texture2D
 var _realistic: Dictionary = {}             ## новые спрайты уже содержат мягкую контактную тень
+var _ground_is_composite := false          ## старые картинки земли уже содержат небо и лес
 var _props: Array[VillageProp] = []        ## дома, колодец, фонари и реквизит — в слое толпы
 var _labels: Node2D                        ## таблички убежищ — над толпой
 var _occluders: Array[LightOccluder2D] = []
@@ -74,6 +75,7 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	_backdrop = Backdrop.new()
 	_backdrop.view = self
 	add_child(_backdrop)
+	_backdrop.visible = not _ground_is_composite
 	_build_fog_bands()
 	_build_particles()
 	_build_thresholds()
@@ -633,6 +635,7 @@ func _load_art() -> void:
 		_realistic[f] = has_realistic
 		var source_path := realistic_path if has_realistic else ART_DIR + f + ".png"
 		_tex[f] = load(source_path) as Texture2D
+	_ground_is_composite = false
 	for g: String in GROUND_FILES:
 		var ground_name := g.replace("ground", def.ground if def != null else "ground")
 		var realistic_ground := REALISTIC_ART_DIR + ground_name + ".jpg"
@@ -642,7 +645,10 @@ func _load_art() -> void:
 			ground_path = realistic_ground
 		if not chapter_path.is_empty() and ResourceLoader.exists(chapter_path):
 			ground_path = chapter_path
+		_ground_is_composite = _ground_is_composite or (ground_path.begins_with(ART_DIR) and not ground_path.begins_with(REALISTIC_ART_DIR))
 		_tex[g] = load(ground_path) as Texture2D
+	if is_instance_valid(_backdrop):
+		_backdrop.visible = not _ground_is_composite
 	for f: String in MAP_FILES:
 		var map_key := f.get_basename()
 		var chapter_path := String(chapter_visuals.get(map_key, ""))
@@ -752,11 +758,36 @@ func _draw_house(ci: CanvasItem, h: HouseDef, state: int, n: float, lit: float, 
 	_blit(ci, _tex[a[0] + "_day"], r, flip, mod)
 	if state != 2 and lit > 0.0 and night_tex != null:
 		_blit(ci, night_tex, r, flip, Color(1, 1, 1, lit * (1.0 if state == 1 else 0.85)))
+	if h.kind == HouseDef.Kind.BARN:
+		_draw_barn_shutter(ci, r, flip, n)
 	var dr := door_rect(h)
 	if state == 1:
 		_draw_talisman(ci, dr, flip, n, tal)
 	elif state == 2:
 		_draw_boards(ci, dr, flip, n)
+
+
+## Закрытая створка на чердаке сарая: убирает чёрный проём, похожий на пропавшую текстуру.
+func _draw_barn_shutter(ci: CanvasItem, house: Rect2, flip: bool, n: float) -> void:
+	var nx0 := 0.29 if not flip else 0.52
+	var nx1 := 0.48 if not flip else 0.71
+	var panel := Rect2(house.position.x + house.size.x * nx0, house.position.y + house.size.y * 0.29,
+		house.size.x * (nx1 - nx0), house.size.y * 0.20)
+	var off := Vector2.ZERO if ci == self else -(ci as Node2D).position
+	var r := Rect2(panel.position + off, panel.size)
+	var wood := _night_mod(n)
+	var fill := Color("594331") * wood
+	ci.draw_rect(r, Color("211a19") * wood)
+	var inset := r.grow(-2.0)
+	ci.draw_rect(inset, fill)
+	for i in range(1, 4):
+		var x := lerpf(inset.position.x, inset.end.x, float(i) / 4.0)
+		ci.draw_line(Vector2(x, inset.position.y + 1.0), Vector2(x, inset.end.y - 1.0), Color("34271f") * wood, 1.6)
+	ci.draw_line(Vector2(inset.position.x + 1.0, inset.position.y + inset.size.y * 0.72),
+		Vector2(inset.end.x - 1.0, inset.position.y + inset.size.y * 0.72), Color("816348") * wood, 2.4)
+	ci.draw_line(inset.position + Vector2(2, 2), inset.end - Vector2(2, 2), Color("34271f") * wood, 1.3)
+	ci.draw_circle(inset.position + Vector2(3, 3), 1.2, Color("b28a5c") * wood)
+	ci.draw_circle(Vector2(inset.end.x - 3, inset.position.y + 3), 1.2, Color("b28a5c") * wood)
 
 
 ## Заколоченная дверь: две доски крест-накрест поверх двери.
@@ -1308,7 +1339,7 @@ class Backdrop extends Node2D:
 		show_behind_parent = true
 
 	func _draw() -> void:
-		if view == null or view.def == null:
+		if view == null or view.def == null or view._ground_is_composite:
 			return
 		var n := view._nq()
 		var gy := view.def.ground_rect.position.y
