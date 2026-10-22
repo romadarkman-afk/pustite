@@ -301,7 +301,7 @@ func _frame_field(s: Screen) -> void:
 		var follow_player := is_day and Game.m.player().alive
 		village.follow = me_fig if follow_player else null
 		var zoom := s.field_zoom() if not is_day or follow_player else 1.0
-		village.frame_to(r, ui.size.x, dur, zoom, me_fig.position.x if follow_player else -1.0)
+		village.frame_to(r, ui.size.x, dur, zoom, me_fig.position.x if follow_player else -1.0, is_day)
 		village.jobs_layer.m = Game.m
 		village.jobs_layer.visible = is_day
 		bubbles.field = r

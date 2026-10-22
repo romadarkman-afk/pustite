@@ -217,7 +217,7 @@ func set_loss_houses(houses: Dictionary) -> void:
 ## Вписать полосу с домами в прямоугольник поля. vp_w — ширина экрана.
 ## Кадрировать поле в прямоугольник экрана rect. zoom > 1 — приблизить посёлок
 ## (по высоте он всё равно поместится в поле), камера встаёт на focus_x.
-func frame_to(rect: Rect2, vp_w: float, dur: float, zoom: float = 1.0, focus_x: float = -1.0) -> void:
+func frame_to(rect: Rect2, vp_w: float, dur: float, zoom: float = 1.0, focus_x: float = -1.0, reserve_speech_space: bool = false) -> void:
 	_field = rect
 	if _branches != null:
 		_branches.queue_redraw()
@@ -232,7 +232,7 @@ func frame_to(rect: Rect2, vp_w: float, dur: float, zoom: float = 1.0, focus_x: 
 				continue
 			var height := figure.look.height if figure.look != null else 1.0
 			top_head_y = minf(top_head_y, figure.position.y - VillagerFigure.FIG_TOP * height)
-	if is_finite(top_head_y):
+	if reserve_speech_space and is_finite(top_head_y):
 		var extra_y := maxf(0.0, rect.size.y - BAND.size.y * s)
 		var head_gap := extra_y * sky_share + (top_head_y - BAND.position.y) * s
 		if head_gap < BUBBLE_HEADROOM:
