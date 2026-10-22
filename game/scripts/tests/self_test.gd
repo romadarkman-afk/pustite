@@ -6811,7 +6811,10 @@ static func adapt() -> void:
 			r.append(balance(cfg, 500, "", t))
 		print("%s: человек %.0f / %.0f / %.0f%%, упырь %.0f / %.0f / %.0f%% (поддавки / как есть / собранные)" % [diff,
 			100 * r[0].human_win, 100 * r[1].human_win, 100 * r[2].human_win, 100 * r[0].upyr_win, 100 * r[1].upyr_win, 100 * r[2].upyr_win])
-		ok += _expect(fails, r[0].human_win > r[1].human_win and r[1].human_win > r[2].human_win, "%s: подстройка не меняет шансы игрока-человека" % diff)
+		# На лёгкой ступени 500 партий могут дать одинаковые соседние проценты;
+		# проверяем общий монотонный сдвиг и различие между крайними настройками.
+		ok += _expect(fails, r[0].human_win >= r[1].human_win and r[1].human_win >= r[2].human_win and r[0].human_win > r[2].human_win,
+			"%s: подстройка не меняет шансы игрока-человека" % diff)
 		if not cfg.player_always_human:
 			# В 500 партиях за упыря выпадает около 150 ролей: соседние оценки могут
 			# различаться на пару пунктов из-за выбора роли и домов по seed.
