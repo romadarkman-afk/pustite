@@ -1,0 +1,146 @@
+[gd_resource type="Resource" script_class="VillageDef" load_steps=17 format=3]
+
+[ext_resource type="Script" path="res://scripts/village/village_def.gd" id="1_village"]
+[ext_resource type="Script" path="res://scripts/village/house_def.gd" id="2_house"]
+[ext_resource type="Script" path="res://scripts/village/job_def.gd" id="3_job"]
+
+[sub_resource type="Resource" id="house_0"]
+script = ExtResource("2_house")
+title = "Келья"
+kind = 0
+pos = Vector2(84, 300)
+size = Vector2(130, 70)
+art = "cells"
+art_w = 1.85
+art_door = Rect2(0.10, 0.50, 0.17, 0.34)
+
+[sub_resource type="Resource" id="house_1"]
+script = ExtResource("2_house")
+title = "Трапезная"
+kind = 1
+pos = Vector2(636, 302)
+size = Vector2(120, 80)
+art = "refectory"
+art_w = 1.75
+art_door = Rect2(0.26, 0.48, 0.14, 0.31)
+art_chimney = Vector2(0.6, 0.06)
+
+[sub_resource type="Resource" id="house_2"]
+script = ExtResource("2_house")
+title = "Храм"
+kind = 2
+pos = Vector2(376, 214)
+size = Vector2(110, 96)
+art = "cathedral"
+art_w = 1.9
+art_door = Rect2(0.19, 0.63, 0.19, 0.26)
+
+[sub_resource type="Resource" id="house_3"]
+script = ExtResource("2_house")
+title = "Крипта"
+kind = 3
+pos = Vector2(104, 500)
+size = Vector2(110, 64)
+art = "crypt"
+art_w = 1.75
+art_door = Rect2(0.24, 0.27, 0.24, 0.54)
+
+[sub_resource type="Resource" id="house_4"]
+script = ExtResource("2_house")
+title = "Колокольня"
+kind = 4
+pos = Vector2(612, 506)
+size = Vector2(90, 110)
+art = "belltower"
+art_w = 1.5
+art_door = Rect2(0.23, 0.66, 0.18, 0.23)
+
+[sub_resource type="Resource" id="house_5"]
+script = ExtResource("2_house")
+title = ""
+kind = 5
+pos = Vector2(36, 214)
+size = Vector2(70, 56)
+
+[sub_resource type="Resource" id="house_6"]
+script = ExtResource("2_house")
+title = ""
+kind = 0
+pos = Vector2(232, 206)
+size = Vector2(84, 66)
+
+[sub_resource type="Resource" id="house_7"]
+script = ExtResource("2_house")
+title = ""
+kind = 0
+pos = Vector2(500, 204)
+size = Vector2(86, 66)
+
+[sub_resource type="Resource" id="house_8"]
+script = ExtResource("2_house")
+title = ""
+kind = 5
+pos = Vector2(690, 218)
+size = Vector2(72, 56)
+
+[sub_resource type="Resource" id="job_water"]
+script = ExtResource("3_job")
+id = &"water"
+title = "Натаскать воды"
+place = "у колодца"
+done_line = "Воды до утра хватит."
+kind = 0
+pos = Vector2(440, 372)
+portions = 3
+work_sec = 3.0
+
+[sub_resource type="Resource" id="job_wood"]
+script = ExtResource("3_job")
+id = &"wood"
+title = "Нарубить дров"
+place = "у поленницы"
+done_line = "Дров на всю ночь."
+kind = 1
+pos = Vector2(215, 440)
+portions = 2
+work_sec = 3.5
+
+[sub_resource type="Resource" id="job_lamp"]
+script = ExtResource("3_job")
+id = &"lamp"
+title = "Заправить фонари"
+place = "у фонаря"
+done_line = "Фонари заправлены."
+kind = 2
+pos = Vector2(250, 336)
+portions = 2
+work_sec = 3.0
+
+[sub_resource type="Resource" id="job_fish"]
+script = ExtResource("3_job")
+id = &"fish"
+title = "Наловить рыбы"
+place = "у реки"
+done_line = "Рыба на ужин есть."
+kind = 4
+pos = Vector2(300, 500)
+portions = 2
+work_sec = 3.5
+
+[resource]
+script = ExtResource("1_village")
+shelters = Array[ExtResource("2_house")]([SubResource("house_0"), SubResource("house_1"), SubResource("house_2"), SubResource("house_3"), SubResource("house_4")])
+decor = Array[ExtResource("2_house")]([])
+lamps = PackedVector2Array(270, 300, 512, 300, 394, 452)
+well = Vector2(394, 356)
+props = Array[Dictionary]([{"id": "prop_bench", "pos": Vector2(204, 330), "w": 50.0}, {"id": "prop_trough", "pos": Vector2(520, 230), "w": 56.0}])
+houses_key = "houses_monastery"
+square_center = Vector2(394, 360)
+square_radii = Vector2(200, 104)
+river = false
+ground = "ground_monastery"
+ground_rect = Rect2(-50, 20, 819.2, 612)
+fences = PackedVector2Array()
+fish_planks = false
+box_spots = PackedVector2Array(232, 420, 556, 420, 300, 470, 488, 476)
+jobs = Array[ExtResource("3_job")]([SubResource("job_water"), SubResource("job_wood"), SubResource("job_lamp"), SubResource("job_fish")])

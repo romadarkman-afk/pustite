@@ -1,0 +1,250 @@
+{
+  "schema_version": 1,
+  "chapters": {
+    "a1c1": {
+      "act": 1, "players": 5, "monsters": 1, "shelters": 2, "capacity": 2, "nights": 3,
+      "cold_open": true, "goal": "people_win", "extra": ["admit_night1", "inspect"],
+      "world": {
+        "season": "summer", "chapter_number": 1, "location_id": "lower_posad", "location_title": "Нижний Посад",
+        "title_key": "camp.a1c1.title", "synopsis_key": "camp.a1c1.desc", "base_map": "default",
+        "weather_profile": "summer_riverbank", "ambient_color_night": "#141D2B", "light_color_warm": "#FF9E2C",
+        "visuals": {
+          "ground_day": "res://assets/village/ground_day.jpg", "ground_night": "res://assets/village/ground_night.jpg",
+          "sky_day": "res://assets/village/sky_day.jpg", "sky_dusk": "res://assets/village/sky_dusk.jpg", "sky_night": "res://assets/village/sky_night.jpg",
+          "treeline_day": "res://assets/village/treeline_day.png", "treeline_night": "res://assets/village/treeline_night.png"
+        },
+        "audio": {"music_day": "res://assets/music/day.ogg", "music_night": "res://assets/music/night.ogg", "ambience_day": "res://assets/sfx/amb_day.ogg", "ambience_night": "res://assets/sfx/amb_night.ogg"},
+        "structures": [
+          {"id": "home_summer", "name_ru": "Изба Игната"}, {"id": "barn_summer", "name_ru": "Сенной амбар"},
+          {"id": "chapel_summer", "name_ru": "Деревянная часовня"}, {"id": "smithy_summer", "name_ru": "Кузница Луки"},
+          {"id": "cellar_summer", "name_ru": "Земляной ледник"}
+        ]
+      }
+    },
+    "a1c2": {
+      "act": 1, "players": 7, "monsters": 1, "shelters": 3, "capacity": 2, "nights": 3,
+      "event": "fog", "goal": "exile_upyr_by_3", "extra": ["no_wrong_exile", "survive"], "guests": ["soldier", "widow"],
+      "world": {
+        "season": "summer", "chapter_number": 2, "location_id": "burnt_pochinok", "location_title": "Горелый Починок",
+        "title_key": "camp.a1c2.title", "synopsis_key": "camp.a1c2.desc", "base_map": "default",
+        "weather_profile": "peat_smoke", "ambient_color_night": "#171C26", "light_color_warm": "#FF9A42",
+        "visuals": {
+          "ground_day": "res://assets/village/ground_day.jpg", "ground_night": "res://assets/village/ground_night.jpg",
+          "sky_day": "res://assets/village/sky_day.jpg", "sky_dusk": "res://assets/village/sky_dusk.jpg", "sky_night": "res://assets/village/sky_night.jpg",
+          "treeline_day": "res://assets/village/treeline_day.png", "treeline_night": "res://assets/village/treeline_night.png"
+        },
+        "audio": {"music_day": "res://assets/music/day.ogg", "music_night": "res://assets/music/night.ogg", "ambience_day": "res://assets/sfx/amb_day.ogg", "ambience_night": "res://assets/sfx/amb_night.ogg"},
+        "structures": [
+          {"id": "apiary_house", "name_ru": "Дом пасечника"}, {"id": "tar_kiln", "name_ru": "Смолокурня"},
+          {"id": "drying_barn", "name_ru": "Овин"}, {"id": "bathhouse", "name_ru": "Баня по-чёрному"},
+          {"id": "shadoof_shed", "name_ru": "Колодец-журавль с навесом"}
+        ]
+      }
+    },
+    "a1c3": {
+      "act": 1, "players": 8, "monsters": 2, "shelters": 3, "capacity": 3, "nights": 4,
+      "goal": "people_win", "extra": ["keep_couple", "no_wrong_exile"], "guests": ["soldier", "widow", "merchant"],
+      "world": {
+        "season": "summer", "chapter_number": 3, "location_id": "old_ferry", "location_title": "Старый Перевоз",
+        "title_key": "camp.a1c3.title", "synopsis_key": "camp.a1c3.desc", "base_map": "default",
+        "weather_profile": "river_storm", "ambient_color_night": "#16212B", "light_color_warm": "#FFA65A",
+        "visuals": {
+          "ground_day": "res://assets/village/ground_day.jpg", "ground_night": "res://assets/village/ground_night.jpg",
+          "sky_day": "res://assets/village/sky_day.jpg", "sky_dusk": "res://assets/village/sky_dusk.jpg", "sky_night": "res://assets/village/sky_night.jpg",
+          "treeline_day": "res://assets/village/treeline_day.png", "treeline_night": "res://assets/village/treeline_night.png"
+        },
+        "audio": {"music_day": "res://assets/music/day.ogg", "music_night": "res://assets/music/night.ogg", "ambience_day": "res://assets/sfx/amb_river.ogg", "ambience_night": "res://assets/sfx/amb_river.ogg"},
+        "structures": [
+          {"id": "ferryman_hut", "name_ru": "Изба паромщика"}, {"id": "salt_warehouse", "name_ru": "Соляной лабаз"},
+          {"id": "fisherman_shack", "name_ru": "Рыбацкая тоня"}, {"id": "watchtower_wood", "name_ru": "Сторожевая вышка"},
+          {"id": "root_dugout", "name_ru": "Береговой схрон в корнях"}
+        ]
+      }
+    },
+    "a2c1": {
+      "act": 2, "map": "mill", "players": 7, "monsters": 1, "shelters": 3, "capacity": 2, "nights": 3,
+      "event": "rain", "goal": "people_win", "extra": ["survive", "inspect"], "npc": "miller",
+      "world": {
+        "season": "autumn", "chapter_number": 1, "location_id": "mill_yard", "location_title": "Мельничный Двор",
+        "title_key": "camp.a2c1.title", "synopsis_key": "camp.a2c1.desc", "base_map": "mill",
+        "weather_profile": "rain_swollen_river", "ambient_color_night": "#16202A", "light_color_warm": "#E28B48",
+        "visuals": {
+          "ground_day": "res://assets/village/ground_mill_day.jpg", "ground_night": "res://assets/village/ground_mill_night.jpg",
+          "sky_day": "res://assets/village/sky_day.jpg", "sky_dusk": "res://assets/village/sky_dusk.jpg", "sky_night": "res://assets/village/sky_night.jpg",
+          "treeline_day": "res://assets/village/treeline_day.png", "treeline_night": "res://assets/village/treeline_night.png"
+        },
+        "audio": {"music_day": "res://assets/music/day.ogg", "music_night": "res://assets/music/night.ogg", "ambience_day": "res://assets/sfx/amb_river.ogg", "ambience_night": "res://assets/sfx/amb_river.ogg"},
+        "structures": [
+          {"id": "mill", "name_ru": "Водяная мельница"}, {"id": "miller_house", "name_ru": "Хоромы мельника"},
+          {"id": "granary", "name_ru": "Крупорушка"}, {"id": "cart_shed", "name_ru": "Тележный каретник"},
+          {"id": "hermitage", "name_ru": "Скит отшельника"}
+        ]
+      }
+    },
+    "a2c2": {
+      "act": 2, "map": "mill", "players": 8, "monsters": 2, "shelters": 3, "capacity": 2, "nights": 4,
+      "goal": "exile_upyr_by_3", "extra": ["no_wrong_exile", "guest_secret"], "guests": ["soldier", "widow", "merchant"],
+      "guest_roles": "random", "npc": "miller", "force_upyr": 9,
+      "world": {
+        "season": "autumn", "chapter_number": 2, "location_id": "flooded_sloboda", "location_title": "Затопленная Слобода",
+        "title_key": "camp.a2c2.title", "synopsis_key": "camp.a2c2.desc", "base_map": "mill",
+        "weather_profile": "flood_water", "ambient_color_night": "#17232D", "light_color_warm": "#E9A76D",
+        "visuals": {
+          "ground_day": "res://assets/village/ground_mill_day.jpg", "ground_night": "res://assets/village/ground_mill_night.jpg",
+          "sky_day": "res://assets/village/sky_day.jpg", "sky_dusk": "res://assets/village/sky_dusk.jpg", "sky_night": "res://assets/village/sky_night.jpg",
+          "treeline_day": "res://assets/village/treeline_day.png", "treeline_night": "res://assets/village/treeline_night.png"
+        },
+        "audio": {"music_day": "res://assets/music/day.ogg", "music_night": "res://assets/music/night.ogg", "ambience_day": "res://assets/sfx/amb_river.ogg", "ambience_night": "res://assets/sfx/amb_river.ogg"},
+        "structures": [
+          {"id": "inn_flooded", "name_ru": "Постоялый двор"}, {"id": "distillery", "name_ru": "Каменная винокурня"},
+          {"id": "net_loft", "name_ru": "Сушильня для сетей"}, {"id": "barge_house", "name_ru": "Плавучий лабаз"},
+          {"id": "flooded_belfry", "name_ru": "Затопленная звонница"}
+        ]
+      }
+    },
+    "a2c3": {
+      "act": 2, "map": "mill", "players": 9, "monsters": 2, "shelters": 3, "capacity": 3, "nights": 4,
+      "event": "moon", "goal": "people_win", "extra": ["keep_couple", "no_wrong_exile"], "npc": "miller", "flood": 2,
+      "world": {
+        "season": "autumn", "chapter_number": 3, "location_id": "rotting_causeway", "location_title": "Гнилая Гать",
+        "title_key": "camp.a2c3.title", "synopsis_key": "camp.a2c3.desc", "base_map": "mill",
+        "weather_profile": "frozen_bog", "ambient_color_night": "#0F1822", "light_color_warm": "#C5D9F0",
+        "visuals": {
+          "ground_day": "res://assets/village/ground_mill_day.jpg", "ground_night": "res://assets/village/ground_mill_night.jpg",
+          "sky_day": "res://assets/village/sky_day.jpg", "sky_dusk": "res://assets/village/sky_dusk.jpg", "sky_night": "res://assets/village/sky_night.jpg",
+          "treeline_day": "res://assets/village/treeline_day.png", "treeline_night": "res://assets/village/treeline_night.png"
+        },
+        "audio": {"music_day": "res://assets/music/day.ogg", "music_night": "res://assets/music/night.ogg", "ambience_day": "res://assets/sfx/amb_river.ogg", "ambience_night": "res://assets/sfx/amb_night.ogg"},
+        "structures": [
+          {"id": "hunter_cabin", "name_ru": "Охотничье зимовье"}, {"id": "charcoal_hut", "name_ru": "Выжигальня"},
+          {"id": "waystation", "name_ru": "Этапная изба"}, {"id": "stilt_cache", "name_ru": "Лесной лабаз на столбах"},
+          {"id": "wayside_shrine", "name_ru": "Поклонная часовня"}
+        ]
+      }
+    },
+    "a3c1": {
+      "act": 3, "map": "monastery", "players": 8, "monsters": 2, "shelters": 3, "capacity": 2, "nights": 4,
+      "event": "fog", "goal": "people_win", "extra": ["inspect", "no_wrong_exile"], "guests": ["widow"],
+      "npc": "ignat", "npcs": ["anfisa"], "vouch": true,
+      "world": {
+        "season": "winter", "chapter_number": 1, "location_id": "outer_skete", "location_title": "Внешний Скит",
+        "title_key": "camp.a3c1.title", "synopsis_key": "camp.a3c1.desc", "base_map": "monastery",
+        "weather_profile": "blizzard", "ambient_color_night": "#101827", "light_color_warm": "#D9E5F6",
+        "visuals": {
+          "ground_day": "res://assets/village/realistic/ground_monastery_day.jpg", "ground_night": "res://assets/village/realistic/ground_monastery_night.jpg",
+          "sky_day": "res://assets/village/sky_day.jpg", "sky_dusk": "res://assets/village/sky_dusk.jpg", "sky_night": "res://assets/village/sky_night.jpg",
+          "treeline_day": "res://assets/village/treeline_day.png", "treeline_night": "res://assets/village/treeline_night.png"
+        },
+        "audio": {"music_day": "res://assets/music/day.ogg", "music_night": "res://assets/music/night.ogg", "ambience_day": "res://assets/sfx/amb_day.ogg", "ambience_night": "res://assets/sfx/amb_night.ogg"},
+        "structures": [
+          {"id": "pilgrim_house", "name_ru": "Странноприимный дом"}, {"id": "gate_tower", "name_ru": "Привратная башня"},
+          {"id": "bakery_winter", "name_ru": "Монастырская пекарня"}, {"id": "candle_shed", "name_ru": "Свечной сарай"},
+          {"id": "wood_belfry", "name_ru": "Дровяник со звонницей"}
+        ]
+      }
+    },
+    "a3c2": {
+      "act": 3, "map": "monastery", "players": 9, "monsters": 2, "shelters": 3, "capacity": 3, "nights": 4,
+      "event": "quiet", "goal": "exile_upyr_by_3", "extra": ["survive", "keep_couple"],
+      "npc": "ignat", "npcs": ["anfisa"], "bell": true,
+      "world": {
+        "season": "winter", "chapter_number": 2, "location_id": "monastery_yard", "location_title": "Монастырский Двор",
+        "title_key": "camp.a3c2.title", "synopsis_key": "camp.a3c2.desc", "base_map": "monastery",
+        "weather_profile": "snowbound_courtyard", "ambient_color_night": "#101723", "light_color_warm": "#FFCB75",
+        "visuals": {
+          "ground_day": "res://assets/village/realistic/ground_monastery_day.jpg", "ground_night": "res://assets/village/realistic/ground_monastery_night.jpg",
+          "sky_day": "res://assets/village/sky_day.jpg", "sky_dusk": "res://assets/village/sky_dusk.jpg", "sky_night": "res://assets/village/sky_night.jpg",
+          "treeline_day": "res://assets/village/treeline_day.png", "treeline_night": "res://assets/village/treeline_night.png"
+        },
+        "audio": {"music_day": "res://assets/music/day.ogg", "music_night": "res://assets/music/night.ogg", "ambience_day": "res://assets/sfx/amb_day.ogg", "ambience_night": "res://assets/sfx/amb_night.ogg"},
+        "structures": [
+          {"id": "cathedral", "name_ru": "Трёхглавый собор"}, {"id": "cells", "name_ru": "Братские кельи"},
+          {"id": "refectory", "name_ru": "Трапезная палата"}, {"id": "belltower", "name_ru": "Большая колокольня"},
+          {"id": "crypt", "name_ru": "Вход в крипту"}
+        ]
+      }
+    },
+    "a3c3": {
+      "act": 3, "map": "monastery", "players": 10, "monsters": 3, "shelters": 4, "capacity": 3, "nights": 5,
+      "event": "moon", "goal": "people_win", "extra": ["no_wrong_exile", "guest_secret"], "guests": ["soldier", "merchant"],
+      "guest_roles": "random", "npc": "ignat", "npcs": ["anfisa"], "trial": true,
+      "world": {
+        "season": "winter", "chapter_number": 3, "location_id": "ashen_monastery", "location_title": "Пепелище / Огненная Купель",
+        "title_key": "camp.a3c3.title", "synopsis_key": "camp.a3c3.desc", "base_map": "monastery",
+        "weather_profile": "fire_and_snow", "ambient_color_night": "#190F15", "light_color_warm": "#FF5A32",
+        "visuals": {
+          "ground_day": "res://assets/village/realistic/ground_monastery_day.jpg", "ground_night": "res://assets/village/realistic/ground_monastery_night.jpg",
+          "sky_day": "res://assets/village/sky_day.jpg", "sky_dusk": "res://assets/village/sky_dusk.jpg", "sky_night": "res://assets/village/sky_night.jpg",
+          "treeline_day": "res://assets/village/treeline_day.png", "treeline_night": "res://assets/village/treeline_night.png"
+        },
+        "audio": {"music_day": "res://assets/music/day.ogg", "music_night": "res://assets/music/night.ogg", "ambience_day": "res://assets/sfx/amb_night.ogg", "ambience_night": "res://assets/sfx/amb_night.ogg"},
+        "structures": [
+          {"id": "cathedral_burning", "name_ru": "Пылающий собор"}, {"id": "cells_barricaded", "name_ru": "Заколоченные кельи"},
+          {"id": "refectory_siege", "name_ru": "Осадная трапезная"}, {"id": "belltower_broken", "name_ru": "Надломленная колокольня"},
+          {"id": "crypt_open", "name_ru": "Вскрытая крипта"}
+        ]
+      }
+    },
+    "a4c1": {
+      "act": 4, "map": "station", "players": 9, "monsters": 2, "shelters": 3, "capacity": 3, "nights": 4,
+      "event": "rain", "goal": "people_win", "extra": ["survive", "inspect"], "guests": ["merchant", "worker"], "npc": "keeper",
+      "world": {
+        "season": "spring", "chapter_number": 1, "location_id": "fourteenth_verst", "location_title": "Разъезд 14-я Верста",
+        "title_key": "camp.a4c1.title", "synopsis_key": "camp.a4c1.desc", "base_map": "station",
+        "weather_profile": "thaw_rail_fog", "ambient_color_night": "#1E242A", "light_color_warm": "#FFC17A",
+        "visuals": {
+          "ground_day": "res://assets/village/ground_station_day.jpg", "ground_night": "res://assets/village/ground_station_night.jpg",
+          "sky_day": "res://assets/village/sky_day.jpg", "sky_dusk": "res://assets/village/sky_dusk.jpg", "sky_night": "res://assets/village/sky_night.jpg",
+          "treeline_day": "res://assets/village/treeline_day.png", "treeline_night": "res://assets/village/treeline_night.png"
+        },
+        "audio": {"music_day": "res://assets/music/day.ogg", "music_night": "res://assets/music/night.ogg", "ambience_day": "res://assets/sfx/amb_day.ogg", "ambience_night": "res://assets/sfx/amb_night.ogg"},
+        "structures": [
+          {"id": "lineman_barracks", "name_ru": "Казарма путевых рабочих"}, {"id": "signalbox", "name_ru": "Стрелочная будка"},
+          {"id": "oil_cellar", "name_ru": "Керосиновый погреб"}, {"id": "telegraph_hut", "name_ru": "Телеграфная станция"},
+          {"id": "handcar_shed", "name_ru": "Сарай для дрезин"}
+        ]
+      }
+    },
+    "a4c2": {
+      "act": 4, "map": "station", "players": 10, "monsters": 3, "shelters": 4, "capacity": 2, "nights": 4,
+      "event": "fog", "goal": "exile_upyr_by_3", "extra": ["no_wrong_exile", "keep_couple"], "guests": ["clerk"], "npc": "keeper",
+      "world": {
+        "season": "spring", "chapter_number": 2, "location_id": "freight_dead_end", "location_title": "Грузовой Тупик",
+        "title_key": "camp.a4c2.title", "synopsis_key": "camp.a4c2.desc", "base_map": "station",
+        "weather_profile": "coal_yard_mist", "ambient_color_night": "#161B22", "light_color_warm": "#FFA94F",
+        "visuals": {
+          "ground_day": "res://assets/village/ground_station_day.jpg", "ground_night": "res://assets/village/ground_station_night.jpg",
+          "sky_day": "res://assets/village/sky_day.jpg", "sky_dusk": "res://assets/village/sky_dusk.jpg", "sky_night": "res://assets/village/sky_night.jpg",
+          "treeline_day": "res://assets/village/treeline_day.png", "treeline_night": "res://assets/village/treeline_night.png"
+        },
+        "audio": {"music_day": "res://assets/music/day.ogg", "music_night": "res://assets/music/night.ogg", "ambience_day": "res://assets/sfx/amb_day.ogg", "ambience_night": "res://assets/sfx/amb_night.ogg"},
+        "structures": [
+          {"id": "watertower", "name_ru": "Водонапорная башня"}, {"id": "goodsshed", "name_ru": "Грузовой пакгауз"},
+          {"id": "coal_bunker", "name_ru": "Угольный склад"}, {"id": "depot_workshop", "name_ru": "Ремонтная мастерская"},
+          {"id": "wagon", "name_ru": "Брошенный товарный вагон"}
+        ]
+      }
+    },
+    "a4c3": {
+      "act": 4, "map": "station", "players": 11, "monsters": 3, "shelters": 4, "capacity": 3, "nights": 5,
+      "event": "moon", "goal": "people_win", "extra": ["survive", "no_wrong_exile"], "guests": ["soldier", "widow", "clerk"],
+      "guest_roles": "random", "npc": "keeper", "train": true,
+      "world": {
+        "season": "spring", "chapter_number": 3, "location_id": "midnight_platform", "location_title": "Перрон Полночь",
+        "title_key": "camp.a4c3.title", "synopsis_key": "camp.a4c3.desc", "base_map": "station",
+        "weather_profile": "last_freeze_train", "ambient_color_night": "#101722", "light_color_warm": "#FFE4A3",
+        "visuals": {
+          "ground_day": "res://assets/village/ground_station_day.jpg", "ground_night": "res://assets/village/ground_station_night.jpg",
+          "sky_day": "res://assets/village/sky_day.jpg", "sky_dusk": "res://assets/village/sky_dusk.jpg", "sky_night": "res://assets/village/sky_night.jpg",
+          "treeline_day": "res://assets/village/treeline_day.png", "treeline_night": "res://assets/village/treeline_night.png"
+        },
+        "audio": {"music_day": "res://assets/music/day.ogg", "music_night": "res://assets/music/night.ogg", "ambience_day": "res://assets/sfx/amb_night.ogg", "ambience_night": "res://assets/sfx/amb_night.ogg"},
+        "structures": [
+          {"id": "station", "name_ru": "Деревянный вокзал"}, {"id": "waiting_hall", "name_ru": "Зал ожидания третьего класса"},
+          {"id": "luggage_room", "name_ru": "Багажное отделение"}, {"id": "stationmaster_lodge", "name_ru": "Будка смотрителя"},
+          {"id": "train_car_final", "name_ru": "Вагон № 4"}
+        ]
+      }
+    }
+  }
+}

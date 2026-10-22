@@ -1,0 +1,141 @@
+[gd_resource type="Resource" script_class="VillageDef" load_steps=17 format=3]
+
+[ext_resource type="Script" path="res://scripts/village/village_def.gd" id="1_village"]
+[ext_resource type="Script" path="res://scripts/village/house_def.gd" id="2_house"]
+[ext_resource type="Script" path="res://scripts/village/job_def.gd" id="3_job"]
+
+[sub_resource type="Resource" id="house_0"]
+script = ExtResource("2_house")
+title = "Вокзал"
+kind = 0
+pos = Vector2(128, 312)
+size = Vector2(118, 92)
+art = "station_house"
+art_door = Rect2(0.26, 0.55, 0.16, 0.29)
+
+[sub_resource type="Resource" id="house_1"]
+script = ExtResource("2_house")
+title = "Водокачка"
+kind = 1
+pos = Vector2(592, 312)
+size = Vector2(142, 100)
+art = "station_water"
+art_w = 1.1
+art_door = Rect2(0.21, 0.59, 0.28, 0.32)
+
+[sub_resource type="Resource" id="house_2"]
+script = ExtResource("2_house")
+title = "Пакгауз"
+kind = 2
+pos = Vector2(360, 232)
+size = Vector2(96, 104)
+art = "station_warehouse"
+art_w = 1.65
+art_door = Rect2(0.15, 0.40, 0.27, 0.47)
+
+[sub_resource type="Resource" id="house_3"]
+script = ExtResource("2_house")
+title = "Будка"
+kind = 3
+pos = Vector2(178, 486)
+size = Vector2(122, 58)
+art = "station_hut"
+art_w = 1.2
+art_door = Rect2(0.22, 0.52, 0.24, 0.32)
+
+[sub_resource type="Resource" id="house_4"]
+script = ExtResource("2_house")
+title = "Вагон"
+kind = 4
+pos = Vector2(552, 486)
+size = Vector2(128, 72)
+art = "station_wagon"
+art_w = 1.4
+art_door = Rect2(0.11, 0.35, 0.17, 0.38)
+
+[sub_resource type="Resource" id="house_5"]
+script = ExtResource("2_house")
+title = ""
+kind = 5
+pos = Vector2(36, 214)
+size = Vector2(70, 56)
+
+[sub_resource type="Resource" id="house_6"]
+script = ExtResource("2_house")
+title = ""
+kind = 0
+pos = Vector2(232, 206)
+size = Vector2(84, 66)
+
+[sub_resource type="Resource" id="house_7"]
+script = ExtResource("2_house")
+title = ""
+kind = 0
+pos = Vector2(500, 204)
+size = Vector2(86, 66)
+
+[sub_resource type="Resource" id="house_8"]
+script = ExtResource("2_house")
+title = ""
+kind = 5
+pos = Vector2(690, 218)
+size = Vector2(72, 56)
+
+[sub_resource type="Resource" id="job_water"]
+script = ExtResource("3_job")
+id = &"water"
+title = "Натаскать воды"
+place = "у колодца"
+done_line = "Воды до утра хватит."
+kind = 0
+pos = Vector2(406, 402)
+portions = 3
+work_sec = 3.0
+
+[sub_resource type="Resource" id="job_wood"]
+script = ExtResource("3_job")
+id = &"wood"
+title = "Нарубить дров"
+place = "у поленницы"
+done_line = "Дров на всю ночь."
+kind = 1
+pos = Vector2(596, 402)
+portions = 2
+work_sec = 3.5
+
+[sub_resource type="Resource" id="job_lamp"]
+script = ExtResource("3_job")
+id = &"lamp"
+title = "Заправить фонари"
+place = "у фонаря"
+done_line = "Фонари заправлены."
+kind = 2
+pos = Vector2(234, 366)
+portions = 2
+work_sec = 3.0
+
+[sub_resource type="Resource" id="job_fish"]
+script = ExtResource("3_job")
+id = &"fish"
+title = "Наловить рыбы"
+place = "у реки"
+done_line = "Рыба на ужин есть."
+kind = 4
+pos = Vector2(110, 428)
+portions = 2
+work_sec = 3.5
+
+[resource]
+script = ExtResource("1_village")
+shelters = Array[ExtResource("2_house")]([SubResource("house_0"), SubResource("house_1"), SubResource("house_2"), SubResource("house_3"), SubResource("house_4")])
+decor = Array[ExtResource("2_house")]([SubResource("house_5"), SubResource("house_6"), SubResource("house_7"), SubResource("house_8")])
+lamps = PackedVector2Array(258, 312, 462, 312, 360, 468)
+well = Vector2(360, 384)
+props = Array[Dictionary]([{"id": "prop_crates", "pos": Vector2(282, 548), "w": 70.0}, {"id": "prop_kennel", "pos": Vector2(56, 350), "w": 46.0}, {"id": "prop_stump_axe", "pos": Vector2(472, 550), "w": 56.0}, {"id": "prop_trough", "pos": Vector2(688, 470), "w": 62.0}, {"id": "prop_laundry", "pos": Vector2(686, 528), "w": 60.0}])
+houses_key = "houses_station"
+ground = "ground_station"
+square_center = Vector2(360, 392)
+square_radii = Vector2(270, 100)
+river = true
+rails_y = 530.0
+jobs = Array[ExtResource("3_job")]([SubResource("job_water"), SubResource("job_wood"), SubResource("job_lamp"), SubResource("job_fish")])
