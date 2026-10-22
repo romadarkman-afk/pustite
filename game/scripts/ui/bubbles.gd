@@ -104,8 +104,8 @@ func say(who: String, text: String, head: Vector2, mine: bool, fig: Node2D = nul
 	return b
 
 
-## Пузырь сдвинулся за говорящим и наехал на соседа — встать над ним; не влезает сверху —
-## под ним; не влезает нигде — уступить место и погаснуть раньше.
+## Пузырь сдвинулся за говорящим и наехал на соседа — встать над ним.
+## Если сверху места нет, гаснет более старый пузырь: реплика остаётся над говорящим.
 func _unstack(b: Bubble) -> void:
 	for attempt in range(4):
 		var hit: Bubble = null
@@ -118,8 +118,6 @@ func _unstack(b: Bubble) -> void:
 		var up := hit.rect.position.y - GAP - b.rect.size.y
 		if up >= field.position.y + 2.0:
 			b.rect.position.y = up
-		elif hit.rect.end.y + GAP + b.rect.size.y <= field.end.y - 4.0:
-			b.rect.position.y = hit.rect.end.y + GAP
 		else:
 			_kill(b if b.order < hit.order else hit)
 			return
