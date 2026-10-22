@@ -131,7 +131,7 @@
         "title_key": "camp.a3c1.title", "synopsis_key": "camp.a3c1.desc", "base_map": "monastery",
         "weather_profile": "blizzard", "ambient_color_night": "#101827", "light_color_warm": "#D9E5F6",
         "visuals": {
-          "ground_day": "res://assets/village/ground_monastery_day.jpg", "ground_night": "res://assets/village/ground_monastery_night.jpg",
+          "ground_day": "res://assets/village/realistic/ground_monastery_day.jpg", "ground_night": "res://assets/village/realistic/ground_monastery_night.jpg",
           "sky_day": "res://assets/village/sky_day.jpg", "sky_dusk": "res://assets/village/sky_dusk.jpg", "sky_night": "res://assets/village/sky_night.jpg",
           "treeline_day": "res://assets/village/treeline_day.png", "treeline_night": "res://assets/village/treeline_night.png"
         },
@@ -152,7 +152,7 @@
         "title_key": "camp.a3c2.title", "synopsis_key": "camp.a3c2.desc", "base_map": "monastery",
         "weather_profile": "snowbound_courtyard", "ambient_color_night": "#101723", "light_color_warm": "#FFCB75",
         "visuals": {
-          "ground_day": "res://assets/village/ground_monastery_day.jpg", "ground_night": "res://assets/village/ground_monastery_night.jpg",
+          "ground_day": "res://assets/village/realistic/ground_monastery_day.jpg", "ground_night": "res://assets/village/realistic/ground_monastery_night.jpg",
           "sky_day": "res://assets/village/sky_day.jpg", "sky_dusk": "res://assets/village/sky_dusk.jpg", "sky_night": "res://assets/village/sky_night.jpg",
           "treeline_day": "res://assets/village/treeline_day.png", "treeline_night": "res://assets/village/treeline_night.png"
         },
@@ -173,7 +173,7 @@
         "title_key": "camp.a3c3.title", "synopsis_key": "camp.a3c3.desc", "base_map": "monastery",
         "weather_profile": "fire_and_snow", "ambient_color_night": "#190F15", "light_color_warm": "#FF5A32",
         "visuals": {
-          "ground_day": "res://assets/village/ground_monastery_day.jpg", "ground_night": "res://assets/village/ground_monastery_night.jpg",
+          "ground_day": "res://assets/village/realistic/ground_monastery_day.jpg", "ground_night": "res://assets/village/realistic/ground_monastery_night.jpg",
           "sky_day": "res://assets/village/sky_day.jpg", "sky_dusk": "res://assets/village/sky_dusk.jpg", "sky_night": "res://assets/village/sky_night.jpg",
           "treeline_day": "res://assets/village/treeline_day.png", "treeline_night": "res://assets/village/treeline_night.png"
         },

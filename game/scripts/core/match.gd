@@ -342,7 +342,58 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	var names: Array = L.names().duplicate()
 	var anchors: Array = names.slice(0, mini(3, names.size()))
 	var pool: Array = names.slice(anchors.size())
-	# Три постоянных жителя должны иметь разные имена с именем игрока.
+	var fixed_story_cast := not chapter_id.is_empty() or not cast.is_empty()
+	var solo_name_pool := SocialContent.solo_name_pool()
+	var solo_male_names: Array[String] = []
+	var solo_female_names: Array[String] = []
+	var solo_motive_deck: Array[int] = []
+	for name_data: Array in solo_name_pool:
+		var candidate_name := String(name_data[0])
+		if not Save.player_name.is_empty() and candidate_name.to_lower() == Save.player_name.to_lower():
+			continue
+		if bool(name_data[1]):
+			solo_female_names.append(candidate_name)
+		else:
+			solo_male_names.append(candidate_name)
+	if not fixed_story_cast:
+		for motive_id in range(SocialContent.solo_motive_count()):
+			solo_motive_deck.append(motive_id)
+		_shuffle(solo_motive_deck)
+	_shuffle(solo_male_names)
+	_shuffle(solo_female_names)
+	var quick_cast: Array[int] = []
+	if not fixed_story_cast:
+		# Три постоянных жителя сохраняют личные связи между партиями;
+		# остальные места каждый раз получают случайный состав.
+		var anchor_count := mini(3, names.size())
+		for idx in range(anchor_count):
+			quick_cast.append(idx)
+		var quick_extra: Array[int] = []
+		for idx in range(anchor_count, names.size()):
+			if Save.player_name.is_empty() or String(names[idx][0]).to_lower() != Save.player_name.to_lower():
+				quick_extra.append(idx)
+		_shuffle(quick_extra)
+		quick_cast.append_array(quick_extra)
+		var needed := mini(config.players - 1, quick_cast.size())
+		var selected: Array = quick_cast.slice(0, needed)
+		if not _quick_cast_has_partner_pair(selected, names):
+			var replacements: Array[Array] = []
+			for remove_index in range(anchor_count, selected.size()):
+				for incoming_index in range(needed, quick_cast.size()):
+					var option: Array = selected.duplicate()
+					option[remove_index] = quick_cast[incoming_index]
+					if _quick_cast_has_partner_pair(option, names):
+						replacements.append(option)
+			if not replacements.is_empty():
+				selected = replacements[rng.randi_range(0, replacements.size() - 1)]
+				var reordered: Array[int] = []
+				for idx: int in selected:
+					reordered.append(idx)
+				for idx: int in quick_cast:
+					if not reordered.has(idx):
+						reordered.append(idx)
+				quick_cast = reordered
+	# Резервный состав кампании должен учитывать имя игрока.
 	if not Save.player_name.is_empty():
 		for j in range(pool.size() - 1, -1, -1):
 			if String(pool[j][0]).to_lower() == Save.player_name.to_lower():
@@ -355,18 +406,37 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	villagers.clear()
 	villagers.append(Villager.new(0, Save.player_display_name(), true))
 	for i in range(config.players - 1):
-		var data: Array = anchors[i] if i < anchors.size() else pool[i - anchors.size()]
-		var idx := i if i < anchors.size() else names.find(data)
+		var data: Array = []
+		var idx := -1
+		if not fixed_story_cast:
+			idx = quick_cast[i]
+			data = names[idx]
+		else:
+			data = anchors[i] if i < anchors.size() else pool[i - anchors.size()]
+			idx = i if i < anchors.size() else names.find(data)
 		if i < cast.size() and cast[i] < names.size():
 			idx = cast[i]                  # кампания: те же люди из главы в главу
 			data = names[idx]
-		var v := Villager.new(i + 1, String(data[0]), false)
+		var resident_name := String(data[0])
+		if not fixed_story_cast and (idx >= 3 or resident_name.to_lower() == Save.player_name.to_lower()):
+			var available_names: Array[String] = solo_female_names if bool(data[1]) else solo_male_names
+			if not available_names.is_empty():
+				resident_name = available_names.pop_back()
+		var v := Villager.new(i + 1, resident_name, false)
 		v.female = bool(data[1])
 		v.anchor_id = idx if idx < 3 else -1
 		v.story_id = idx
 		v.age = SocialContent.story_age(v.story_id)
 		v.relationship = Save.anchor_bond(v.anchor_id)
-		v.persona = Voices.persona_for(v.story_id, v.name)
+		if not fixed_story_cast:
+			if solo_motive_deck.is_empty():
+				for motive_id in range(SocialContent.solo_motive_count()):
+					solo_motive_deck.append(motive_id)
+				_shuffle(solo_motive_deck)
+			v.motive_id = solo_motive_deck.pop_back()
+		else:
+			v.motive_id = -1
+		v.persona = Voices.random_persona(rng) if not fixed_story_cast else Voices.persona_for(v.story_id, v.name)
 		villagers.append(v)
 	# Связь симметрична, только между взрослыми, без зависимости от скрытой роли.
 	var lovers: Array[Villager] = []
@@ -374,14 +444,39 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 		if not v.is_player and v.age < 55 and v.story_id != 8:
 			lovers.append(v)
 	lovers.sort_custom(func(a: Villager, b: Villager) -> bool: return a.story_id < b.story_id)
-	for a: Villager in lovers:
-		for b: Villager in lovers:
-			if a != b and a.female != b.female and a.partner_id < 0 and b.partner_id < 0:
-				a.partner_id = b.id
-				b.partner_id = a.id
+	if not fixed_story_cast:
+		var pair_options: Array[Array] = []
+		for i in range(lovers.size()):
+			for j in range(i + 1, lovers.size()):
+				var a: Villager = lovers[i]
+				var b: Villager = lovers[j]
+				if a.female == b.female:
+					continue
+				if not _authored_relation_pair(a.story_id, b.story_id):
+					pair_options.append([a, b])
+		_shuffle(pair_options)
+		var couple_limit := rng.randi_range(1, 2) if pair_options.size() > 1 else 1
+		var couples := 0
+		for pair: Array in pair_options:
+			var a: Villager = pair[0]
+			var b: Villager = pair[1]
+			if a.partner_id >= 0 or b.partner_id >= 0:
+				continue
+			a.partner_id = b.id
+			b.partner_id = a.id
+			couples += 1
+			if couples >= couple_limit:
 				break
-		if a.partner_id >= 0:
-			break
+	else:
+		# В кампании эта пара должна остаться той же между главами.
+		for a: Villager in lovers:
+			for b: Villager in lovers:
+				if a != b and a.female != b.female and a.partner_id < 0 and b.partner_id < 0:
+					a.partner_id = b.id
+					b.partner_id = a.id
+					break
+			if a.partner_id >= 0:
+				break
 	# Семейные связи зависят от биографии, а не от скрытой роли (TASK-007: Лида — бабушка Кости).
 	for pair: Array in FAMILIES:
 		var parent: Villager = null
@@ -406,6 +501,35 @@ func start(cfg: GameConfig, seed_value: int = 0) -> void:
 			b.tie_id = a.id
 			a.tie_kind = String(tie[2])
 			b.tie_kind = String(tie[2])
+
+	# В быстрых партиях жители дополнительно получают одну случайную общую память.
+	# Кампания сохраняет авторские связи, а случайные узы не дают траурных бонусов.
+	if not fixed_story_cast:
+		var bond_options: Array[Array] = []
+		var candidates: Array[Villager] = []
+		for resident: Villager in villagers:
+			if not resident.is_player and resident.tie_id < 0 and resident.family_id < 0 and resident.partner_id < 0:
+				candidates.append(resident)
+		for i in range(candidates.size()):
+			for j in range(i + 1, candidates.size()):
+				bond_options.append([candidates[i], candidates[j]])
+		_shuffle(bond_options)
+		var bond_kind_deck: Array[String] = []
+		for kind: String in SocialContent.solo_bond_kinds():
+			bond_kind_deck.append(kind)
+		_shuffle(bond_kind_deck)
+		var bond_count := mini(rng.randi_range(1, 2), bond_options.size())
+		for bond_index in range(bond_count):
+			var pair: Array = bond_options[bond_index]
+			var a: Villager = pair[0]
+			var b: Villager = pair[1]
+			var kind: String = String(bond_kind_deck.pop_back())
+			a.tie_id = b.id
+			b.tie_id = a.id
+			a.tie_kind = kind
+			b.tie_kind = kind
+			a.tie_side = 0
+			b.tie_side = 1
 
 	var order: Array = range(villagers.size())
 	if config.player_always_human:
@@ -1910,3 +2034,26 @@ func _shuffle(a: Array) -> void:
 		var t: Variant = a[i]
 		a[i] = a[j]
 		a[j] = t
+
+func _quick_cast_has_partner_pair(indices: Array, names: Array) -> bool:
+	for i in range(indices.size()):
+		var first_id := int(indices[i])
+		if first_id == 8 or SocialContent.story_age(first_id) >= 55:
+			continue
+		var first_data: Array = names[first_id]
+		for j in range(i + 1, indices.size()):
+			var second_id := int(indices[j])
+			if second_id == 8 or SocialContent.story_age(second_id) >= 55:
+				continue
+			var second_data: Array = names[second_id]
+			if bool(first_data[1]) == bool(second_data[1]) or _authored_relation_pair(first_id, second_id):
+				continue
+			return true
+	return false
+
+
+func _authored_relation_pair(first_id: int, second_id: int) -> bool:
+	for relation: Array in FAMILIES + TIES:
+		if (first_id == int(relation[0]) and second_id == int(relation[1])) or (first_id == int(relation[1]) and second_id == int(relation[0])):
+			return true
+	return false

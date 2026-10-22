@@ -256,6 +256,12 @@ static func balance(cfg: GameConfig, runs: int = 3000, rule: String = "", tune: 
 ## Требует, чтобы игрок побывал во ВСЕХ ролях у двери. Иначе — код выхода 1.
 static func flow() -> void:
 	var tree := Nav.get_tree()
+	var variance_ok := _solo_variation_check()
+	print("вариативность быстрой партии: ", "OK" if variance_ok else "FAIL")
+	if not variance_ok:
+		push_error("Solo roster, motives, ties or voices repeat unexpectedly")
+		tree.quit(1)
+		return
 	var scene_art_ok := true
 	for scene_key: String in ["a1c1", "a1c2", "a1c3", "river", "door_inside_night", "a2c1", "a2c2", "a2c3", "a3c1", "a3c2", "a3c3", "a4c1", "a4c2", "a4c3", "final_door", "final_train", "grief_0", "grief_11"]:
 		var scene_path := Scenes.art(scene_key)
@@ -280,7 +286,7 @@ static func flow() -> void:
 	var name_before := Save.player_name
 	var cast_a := Match.new()
 	var cast_b := Match.new()
-	# Биография не зависит от жеребьёвки, пол и возраст согласованы с портретом.
+	# Биография привязана к story_id; имя и состав быстрой партии меняются.
 	var cast_cfg := GameConfig.new()
 	cast_cfg.players = 12
 	var full_a := Match.new()
@@ -291,8 +297,8 @@ static func flow() -> void:
 	for v: Villager in full_a.alive_bots():
 		identity_ok = identity_ok and v.age >= 18 and v.age == SocialContent.story_age(v.story_id)
 		for other: Villager in full_b.alive_bots():
-			if v.name == other.name:
-				identity_ok = identity_ok and v.story_id == other.story_id and v.age == other.age and v.female == other.female
+			if v.story_id == other.story_id:
+				identity_ok = identity_ok and v.age == other.age and v.female == other.female
 		var portrait_id := VillagerFigure.pick_cast_sprite(v, {})
 		identity_ok = identity_ok and portrait_id != 6 and portrait_id != 15
 		identity_ok = identity_ok and (VillagerFigure.FOLK_FEMALE.has(portrait_id) == v.female)
@@ -517,7 +523,7 @@ static func flow() -> void:
 		for r: String in required:
 			if not seen.has(r):
 				done = false
-		if done:
+		if done and cast_ok and door_check_ok and door_evidence_ok and inspection_rules_ok:
 			break
 
 	var missing: PackedStringArray = []
@@ -5486,9 +5492,19 @@ static func recap() -> void:
 			if v.partner_id >= 0 and pair_a == null:
 				pair_a = v
 				pair_b = md.get_villager(v.partner_id)
+		if pair_a == null or pair_b == null or bots.size() < 4:
+			dl_ok = false
+			print("дилемма: для проверки пары не хватило жителей")
+			continue
+		# Изолируем сценарии от случайных семейных связей и браков этой партии.
+		# Для тестов нужны одна заданная пара и три нейтральных посетителя.
+		for v: Villager in bots:
+			v.family_id = -1
+			if v != pair_a and v != pair_b:
+				v.partner_id = -1
 		var loners: Array[Villager] = []
 		for v: Villager in bots:
-			if v.partner_id < 0 and v.family_id < 0:
+			if v != pair_a and v != pair_b:
 				loners.append(v)
 		var st := Match.Seat.new()
 		st.host = md.player()
@@ -6176,7 +6192,7 @@ static func loc() -> void:
 							for tg: Villager in [bm, bf, m.player()]:
 								var lost_v: Villager = bf if sp == bm else bm
 								texts.append(L.fill(line, {"me": sp, "who": tg if bank != "REVENGE" or not tg.is_player else tg.name,
-									"lost": lost_v, "house": m.houses[0], "player_name": m.player().name}))
+									"lost": lost_v, "house": m.houses[0], "player_name": m.player().name, "task": "Task"}))
 		for key: String in ["cast", "personal", "listen", "doubt", "later", "thanks", "hurt"]:
 			texts.append(L.fill(SocialContent.narrative_ui(key), {"me": bf}))
 		texts.append(SocialContent.door_mimic_title())
@@ -6845,3 +6861,55 @@ static func gestures() -> void:
 	Nav.show_menu()
 	await _settle(tree)
 	_finish(fails, ok, "жесты", "долгое нажатие — палец, «верю», «не верю»; видно на поле, есть в журнале, боты отвечают и запоминают")
+
+static func _solo_variation_check() -> bool:
+	var saved_name := Save.player_name
+	Save.player_name = ""
+	var cfg := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
+	cfg.players = 7
+	var rosters: Dictionary[String, bool] = {}
+	var names_seen: Dictionary[String, bool] = {}
+	var motives: Dictionary[String, bool] = {}
+	var voices: Dictionary[String, bool] = {}
+	var couples: Dictionary[String, bool] = {}
+	var bonds: Dictionary[String, bool] = {}
+	var ok := true
+	for seed_i in range(24):
+		var sample := Match.new()
+		sample.start(cfg, 19000 + seed_i)
+		var local_ids: Dictionary[int, bool] = {}
+		var local_names: Dictionary[String, bool] = {}
+		var local_motives: Dictionary[int, bool] = {}
+		var local_bonds: Dictionary[String, bool] = {}
+		var ids: PackedStringArray = []
+		for v: Villager in sample.alive_bots():
+			ok = ok and not local_ids.has(v.story_id) and v.age == SocialContent.story_age(v.story_id)
+			local_ids[v.story_id] = true
+			ids.append(str(v.story_id))
+			var name_key := v.name.to_lower()
+			ok = ok and not name_key.is_empty() and not local_names.has(name_key)
+			local_names[name_key] = true
+			names_seen[name_key] = true
+			ok = ok and v.motive_id >= 0 and v.motive_id < SocialContent.solo_motive_count() and not local_motives.has(v.motive_id)
+			local_motives[v.motive_id] = true
+			motives["%d:%d" % [v.story_id, v.motive_id]] = true
+			var motive_line := SocialContent.motive_text(v)
+			ok = ok and not motive_line.is_empty() and SocialContent.story(v.story_id, v).contains(motive_line)
+			voices["%d:%d" % [v.story_id, v.persona]] = true
+			if v.partner_id >= 0 and v.id < v.partner_id:
+				couples["%d-%d" % [v.story_id, sample.get_villager(v.partner_id).story_id]] = true
+			if v.tie_id >= 0 and v.id < v.tie_id and SocialContent.has_solo_bond(v.tie_kind):
+				ok = ok and not local_bonds.has(v.tie_kind)
+				local_bonds[v.tie_kind] = true
+				bonds["%d-%d:%s" % [v.story_id, sample.get_villager(v.tie_id).story_id, v.tie_kind]] = true
+		rosters[",".join(ids)] = true
+	var first := Match.new()
+	var second := Match.new()
+	first.start(cfg, 19991)
+	second.start(cfg, 19991)
+	for i in range(first.villagers.size()):
+		var a: Villager = first.villagers[i]
+		var b: Villager = second.villagers[i]
+		ok = ok and a.name == b.name and a.story_id == b.story_id and a.motive_id == b.motive_id and a.persona == b.persona and a.partner_id == b.partner_id and a.tie_id == b.tie_id and a.tie_kind == b.tie_kind
+	Save.player_name = saved_name
+	return ok and rosters.size() >= 8 and names_seen.size() >= 16 and motives.size() >= 12 and voices.size() >= 18 and couples.size() >= 3 and bonds.size() >= 3

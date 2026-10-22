@@ -179,7 +179,7 @@ static func record(m: Match, chapter_res: Dictionary) -> Dictionary:
 		if v.is_player:
 			continue
 		var key := ("g" + v.guest_id) if not v.guest_id.is_empty() else ("n%d" % v.story_id)
-		fates.append([key, not v.alive and not v.exiled, v.is_upyr])
+		fates.append([key, not v.alive and not v.exiled, v.is_upyr, v.name])
 	var ends := PackedStringArray(["people" if m.winner == Match.Team.PEOPLE else "upyri"])
 	var cid := String(chapter_res.get("id", ""))
 	if bool(chapter_res.get("passed", false)) and Campaign.last_of_act(cid):
@@ -207,7 +207,9 @@ static func book_people() -> Array:
 	var out: Array = []
 	var names := L.names()
 	for i in range(names.size()):
-		out.append(["n%d" % i, String(names[i][0])])
+		var key := "n%d" % i
+		var remembered := String(Save.book.get("name:%s:%s" % [key, L.code], ""))
+		out.append([key, remembered if not remembered.is_empty() else String(names[i][0])])
 	for g: String in Guests.BOOK_IDS:
 		out.append(["g" + g, Guests.name_of(g)])
 	return out

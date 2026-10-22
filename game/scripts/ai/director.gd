@@ -1284,7 +1284,8 @@ func tie_lines() -> Array[ChatLine]:
 			continue
 		var first := v if Match.TIES.any(func(t: Array) -> bool: return t[0] == v.story_id) else o
 		var second := o if first == v else v
-		var line := ChatLine.say(first, L.t("tie.%s_day" % first.tie_kind, {"me": first, "who": second}))
+		var tie_text := SocialContent.solo_bond_day(first.tie_kind, first, second) if SocialContent.has_solo_bond(first.tie_kind) else L.t("tie.%s_day" % first.tie_kind, {"me": first, "who": second})
+		var line := ChatLine.say(first, tie_text)
 		line.emotion = "sad"
 		out.append(line)
 		break

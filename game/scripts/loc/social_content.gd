@@ -1,5 +1,44 @@
 class_name SocialContent
 extends RefCounted
+
+const SOLO_NAME_EXTRAS := {
+	"ru": [["Варвара", true], ["Аграфена", true], ["Зоя", true], ["Дарья", true], ["Кира", true], ["Марфа", true], ["Егор", false], ["Павел", false], ["Осип", false], ["Матвей", false], ["Фёдор", false], ["Яков", false]],
+	"en": [["Ada", true], ["Beatrice", true], ["Clara", true], ["Edith", true], ["Elsie", true], ["Florence", true], ["Arthur", false], ["Cyril", false], ["Edwin", false], ["George", false], ["Henry", false], ["Walter", false]],
+	"de": [["Anna", true], ["Clara", true], ["Else", true], ["Ida", true], ["Greta", true], ["Marta", true], ["Anton", false], ["Emil", false], ["Ernst", false], ["Franz", false], ["Gustav", false], ["Wilhelm", false]],
+	"fr": [["Alice", true], ["Camille", true], ["Claire", true], ["Émilie", true], ["Jeanne", true], ["Suzanne", true], ["André", false], ["Émile", false], ["Henri", false], ["Jules", false], ["Louis", false], ["Marcel", false]],
+	"es": [["Ana", true], ["Pilar", true], ["Elvira", true], ["Inés", true], ["Josefa", true], ["Lucía", true], ["Andrés", false], ["Emilio", false], ["Felipe", false], ["Javier", false], ["Ramón", false], ["Tomás", false]],
+	"pt": [["Mónica", true], ["Beatriz", true], ["Clara", true], ["Inês", true], ["Joana", true], ["Teresa", true], ["António", false], ["Carlos", false], ["João", false], ["Manuel", false], ["Miguel", false], ["Paulo", false]],
+	"tr": [["Derya", true], ["Aylin", true], ["Nermin", true], ["Sevgi", true], ["Gül", true], ["Meryem", true], ["Ahmet", false], ["Cemal", false], ["Recep", false], ["Mustafa", false], ["Orhan", false], ["Yusuf", false]],
+	"hi": [["आशा", true], ["गौरी", true], ["सीता", true], ["लता", true], ["तारा", true], ["निर्मला", true], ["देव", false], ["किरण", false], ["मोहन", false], ["राघव", false], ["रवि", false], ["विजय", false]],
+	"vi": [["An", true], ["Hạnh", true], ["Ngọc", true], ["Phương", true], ["Thảo", true], ["Thu", true], ["Bình", false], ["Dũng", false], ["Hải", false], ["Nam", false], ["Quang", false], ["Sơn", false]],
+	"zh": [["安娜", true], ["春梅", true], ["桂兰", true], ["芳", true], ["静", true], ["玉兰", true], ["建国", false], ["建军", false], ["明", false], ["强", false], ["伟", false], ["志强", false]],
+}
+
+const SOLO_MOTIVES := {
+	"ru": ["Я хочу понять, кто первым в деревне научился звать чужим голосом.", "До рассвета хочу убедить хотя бы одного человека не выходить на улицу.", "Когда всё закончится, я хочу уйти за реку. Если останусь ещё на зиму, уже не решусь.", "Я ищу следы у старой пристани. Каждое утро там появляется новая дорожка.", "Иногда я узнаю голоса тех, кого никогда не встречал. Нужно понять, почему.", "В окне пустого дома горел огонь. Мне нужно, чтобы кто-нибудь поверил."],
+	"en": ["I want to know who first learned to call people by someone else's voice.", "Before dawn, I want to convince at least one person to stay off the road.", "When this is over, I want to cross the river and leave. Another winter here, and I may never go.", "I keep looking for tracks by the old landing. A new trail appears there every morning.", "Sometimes I recognize voices of people I have never met. I need to know why.", "I saw a light in an empty house. I need someone else to believe me."],
+	"de": ["Ich will wissen, wer im Dorf zuerst gelernt hat, mit fremder Stimme zu rufen.", "Vor dem Morgen will ich wenigstens eine Person davon abhalten, nachts hinauszugehen.", "Wenn das vorbei ist, will ich über den Fluss fort. Noch ein Winter, und ich wage es vielleicht nie.", "Ich suche Spuren am alten Anleger. Jeden Morgen ist dort eine neue.", "Manchmal erkenne ich Stimmen von Menschen, die ich nie getroffen habe. Ich muss wissen, warum.", "In einem leeren Haus sah ich Licht. Ich brauche jemanden, der mir glaubt."],
+	"fr": ["Je veux savoir qui, au village, a appris le premier à appeler avec la voix d'un autre.", "Avant l'aube, je veux convaincre au moins une personne de ne pas sortir la nuit.", "Quand tout sera fini, je veux partir de l'autre côté du fleuve. Un hiver de plus, et je n'oserai peut-être jamais.", "Je cherche des traces près du vieux débarcadère. Une nouvelle piste apparaît chaque matin.", "Parfois, je reconnais la voix de gens que je n'ai jamais rencontrés. Je dois comprendre pourquoi.", "J'ai vu une lumière dans une maison vide. Il faut que quelqu'un me croie."],
+	"es": ["Quiero saber quién aprendió primero en el pueblo a llamar con la voz de otra persona.", "Antes del amanecer quiero convencer a alguien de que no salga de noche.", "Cuando esto termine, quiero cruzar el río y marcharme. Otro invierno aquí y quizá no me atreva.", "Busco huellas junto al embarcadero viejo. Cada mañana aparece un rastro nuevo.", "A veces reconozco voces de personas que nunca conocí. Necesito saber por qué.", "Vi luz en una casa vacía. Necesito que alguien me crea."],
+	"pt": ["Quero saber quem aprendeu primeiro na aldeia a chamar usando a voz de outra pessoa.", "Antes do amanhecer, quero convencer pelo menos uma pessoa a não sair à noite.", "Quando tudo acabar, quero atravessar o rio e partir. Mais um inverno aqui e talvez eu nunca tenha coragem.", "Procuro rastros junto ao cais antigo. Toda manhã aparece uma trilha nova.", "Às vezes reconheço vozes de pessoas que nunca conheci. Preciso saber por quê.", "Vi uma luz numa casa vazia. Preciso que alguém acredite em mim."],
+	"tr": ["Köyde başkasının sesiyle seslenmeyi ilk kimin öğrendiğini bilmek istiyorum.", "Şafaktan önce en az bir kişiyi gece dışarı çıkmamaya ikna etmek istiyorum.", "Her şey bitince nehrin ötesine gidip buradan ayrılmak istiyorum. Bir kış daha kalırsam belki hiç gidemem.", "Eski iskelede iz arıyorum. Her sabah orada yeni bir patika beliriyor.", "Bazen hiç tanımadığım insanların seslerini tanıyorum. Nedenini bulmalıyım.", "Boş bir evin penceresinde ışık gördüm. Birinin bana inanması gerek."],
+	"hi": ["मुझे जानना है कि गाँव में सबसे पहले किसने किसी और की आवाज़ में पुकारना सीखा।", "सुबह होने से पहले मेरी कोशिश है कि कम से कम एक व्यक्ति रात में बाहर न जाए।", "सब खत्म होने पर मेरा इरादा नदी पार जाकर यहाँ से जाने का है। एक और सर्दी रुका तो शायद कभी हिम्मत न हो।", "पुराने घाट के पास निशानों की तलाश मेरी आदत बन गई है। हर सुबह वहाँ एक नया रास्ता दिखता है।", "कभी-कभी अनजान लोगों की आवाज़ भी जानी-पहचानी लगती है। मुझे जानना है ऐसा क्यों है।", "खाली घर की खिड़की में रोशनी देखी थी। अब मुझे किसी ऐसे व्यक्ति की ज़रूरत है जो मेरी बात माने।"],
+	"vi": ["Tôi muốn biết ai trong làng là người đầu tiên học cách gọi bằng giọng của người khác.", "Trước bình minh, tôi muốn thuyết phục ít nhất một người đừng ra đường ban đêm.", "Khi chuyện này kết thúc, tôi muốn qua sông rời khỏi đây. Ở thêm một mùa đông nữa, có lẽ tôi sẽ chẳng dám đi.", "Tôi tìm dấu chân bên bến cũ. Sáng nào ở đó cũng có một lối mới.", "Đôi khi tôi nhận ra giọng của người mình chưa từng gặp. Tôi phải biết vì sao.", "Tôi thấy ánh đèn trong căn nhà trống. Tôi cần ai đó tin mình."],
+	"zh": ["我想知道村里最先学会用别人的声音呼唤的人是谁。", "天亮前，我想劝至少一个人夜里别上路。", "一切结束后，我想渡河离开这里。再留一个冬天，我可能就不敢走了。", "我一直在旧渡口找脚印。那里每天早上都会多出一条新路。", "有时我能认出从未见过的人的声音。我得弄清楚原因。", "我看见空屋窗里亮着灯。我需要有人相信我。"],
+}
+
+const SOLO_BONDS := {
+	"ru": {"friend": ["Мы с {who} выросли на одной улице. Когда звонит колокол, я всё равно ищу {who} среди людей.", "Однажды мы с {who} пережили метель. Тот вечер я помню лучше, чем хочу признать.", "{who}, если переживём ночь, расскажу, почему тогда всё изменилось."], "debt": ["У меня долг перед {who} за спасённую жизнь. С тех пор мы ни разу об этом не говорили.", "Однажды меня вытащили из ледяной воды благодаря {who.dat}. Долг так и остался.", "{who}, я помню твою помощь. Держись рядом."], "promise": ["Мы с {who} обещали уехать, когда откроется дорога. Никто не спросил, когда именно.", "{who} знает: наш уговор всё ещё в силе.", "{who}, если доживём до утра, поговорим о дороге за реку."]},
+	"en": {"friend": ["{who} and I grew up on the same road. When the bell rings, I still look for them.", "Once, {who} came back for me in a snowstorm. I remember it more clearly than I admit.", "{who}, if we make it through tonight, I'll tell you why I stayed."], "debt": ["I owe {who} my life. We have not spoken about it since.", "{who} once pulled me out of the freezing river. I never repaid the debt.", "{who}, I remember what you did for me. Stay close."], "promise": ["{who} and I promised to leave when the road opened. Neither of us asked when.", "{who} knows I still mean to keep our promise.", "{who}, if we see morning, let's talk about the road across the river."]},
+	"de": {"friend": ["{who} und ich sind an derselben Straße aufgewachsen. Wenn die Glocke läutet, suche ich noch immer den Blick.", "Einmal kam {who} im Schneesturm für mich zurück. Daran erinnere ich mich besser, als ich zugebe.", "{who}, wenn wir diese Nacht überstehen, erzähle ich dir, warum ich blieb."], "debt": ["Ich verdanke {who} mein Leben. Seitdem haben wir nie darüber gesprochen.", "{who} hat mich einmal aus dem eiskalten Fluss gezogen. Die Schuld ist geblieben.", "{who}, ich weiß noch, was du für mich getan hast. Bleib in meiner Nähe."], "promise": ["{who} und ich wollten fort, sobald die Straße frei ist. Wann, hat keiner gefragt.", "{who} weiß, dass ich unser Versprechen noch halten will.", "{who}, wenn wir den Morgen erleben, reden wir über den Weg über den Fluss."]},
+	"fr": {"friend": ["{who} et moi avons grandi dans la même rue. Quand la cloche sonne, je cherche encore son regard.", "Je garde en mémoire la nuit de neige où {who} et moi avons tenu jusqu'au matin.", "{who}, si nous survivons à cette nuit, je te dirai pourquoi je suis encore ici."], "debt": ["Je dois la vie à {who}. Depuis, nous n'en avons jamais reparlé.", "Un jour, {who} a trouvé un moyen de me sortir de l'eau glacée. Je n'ai jamais rendu cette dette.", "{who}, je n'ai pas oublié ce que tu as fait pour moi. Reste près de moi."], "promise": ["{who} et moi avions promis de partir quand la route serait libre. Aucun de nous n'a demandé quand.", "{who} sait que je compte toujours tenir notre promesse.", "{who}, si nous voyons le matin, parlons de la route de l'autre côté du fleuve."]},
+	"es": {"friend": ["{who} y yo crecimos en la misma calle. Cuando suena la campana, todavía busco su mirada.", "Una vez, {who} volvió por mí durante una tormenta de nieve. Lo recuerdo mejor de lo que admito.", "{who}, si sobrevivimos a esta noche, te contaré por qué me quedé."], "debt": ["Le debo la vida a {who}. Desde entonces nunca lo hemos hablado.", "Una vez, {who} me sacó del río helado. Nunca pagué esa deuda.", "{who}, recuerdo lo que hiciste por mí. Quédate cerca."], "promise": ["{who} y yo prometimos irnos cuando abrieran el camino. Ninguno preguntó cuándo.", "{who} sabe que todavía pienso cumplir nuestra promesa.", "{who}, si llegamos a la mañana, hablemos del camino al otro lado del río."]},
+	"pt": {"friend": ["{who} e eu crescemos na mesma rua. Quando o sino toca, ainda procuro seu olhar.", "Uma vez, {who} voltou para me buscar durante uma nevasca. Lembro disso melhor do que admito.", "{who}, se sobrevivermos a esta noite, conto por que fiquei."], "debt": ["Devo minha vida a {who}. Desde então, nunca falamos sobre isso.", "Certa vez, {who} me tirou do rio gelado. Nunca paguei essa dívida.", "{who}, lembro do que você fez por mim. Fique por perto."], "promise": ["{who} e eu prometemos partir quando a estrada abrisse. Nenhum perguntou quando.", "{who} sabe que ainda pretendo cumprir nossa promessa.", "{who}, se chegarmos ao amanhecer, vamos falar do caminho além do rio."]},
+	"tr": {"friend": ["{who} ile aynı sokakta büyüdük. Çan çalınca hâlâ gözlerim onu arıyor.", "Bir kar fırtınasında {who} benim için geri dönmüştü. İtiraf ettiğimden daha iyi hatırlıyorum.", "{who}, bu geceyi atlatırsak neden kaldığımı anlatacağım."], "debt": ["Hayatımı {who} borçluyum. O günden beri bunu hiç konuşmadık.", "Bir keresinde {who} beni buz gibi nehirden çıkardı. Borcumu hâlâ ödeyemedim.", "{who}, benim için yaptığını unutmadım. Yakınımda kal."], "promise": ["{who} ile yol açılınca gideceğimize söz verdik. Ne zaman diye soran olmadı.", "{who}, sözümüzü hâlâ tutmak istediğimi biliyor.", "{who}, sabaha çıkarsak nehrin ötesindeki yolu konuşalım."]},
+	"hi": {"friend": ["हम दोनों की परवरिश एक ही गली में हुई। घंटी बजती है तो मेरी नज़र आज भी {who} को ढूँढ़ती है।", "उस बर्फ़ीली रात में {who} ने मुझे ढूँढ़ लिया था। वह बात अब तक याद है।", "{who}, उस शाम की वजह अब भी अनकही है।"], "debt": ["मेरे ऊपर {who} का बहुत बड़ा एहसान है। उसके बाद हमने इस बारे में बात नहीं की।", "एक बार बर्फ़ीली नदी से निकलना मेरे लिए मुमकिन नहीं था। {who} ने हाथ बढ़ाया था। वह कर्ज़ अब तक बाकी है।", "{who}, तुम्हारा किया मुझे याद है। पास रहना।"], "promise": ["{who} और मैंने रास्ता खुलते ही जाने का वादा किया था। किसी ने नहीं पूछा कब।", "हमारा वादा आज भी याद है।", "{who}, सुबह तक बचे तो नदी पार जाने की बात करेंगे।"]},
+	"vi": {"friend": ["{who} và tôi lớn lên cùng một con đường. Chuông vừa vang, tôi vẫn tìm ánh mắt ấy.", "Có lần {who} quay lại tìm tôi giữa bão tuyết. Tôi nhớ rõ hơn mình thừa nhận.", "{who}, nếu qua được đêm nay, tôi sẽ kể vì sao mình ở lại."], "debt": ["Tôi nợ {who} mạng sống. Từ đó chúng tôi chưa từng nhắc lại.", "Có lần {who} kéo tôi khỏi dòng sông lạnh buốt. Món nợ ấy vẫn còn.", "{who}, tôi nhớ điều bạn đã làm cho tôi. Hãy ở gần đây."], "promise": ["{who} và tôi hứa sẽ đi khi con đường mở lại. Chẳng ai hỏi là khi nào.", "{who} biết tôi vẫn định giữ lời hứa ấy.", "{who}, nếu thấy được bình minh, ta sẽ nói về con đường qua sông."]},
+	"zh": {"friend": ["我和{who}在同一条街上长大。钟声一响，我还是会去找那个人的目光。", "有一次暴风雪里，{who}回来找我。我记得比自己承认的还清楚。", "{who}，如果我们熬过今晚，我就告诉你当初为什么留下。"], "debt": ["我欠{who}一条命。从那以后，我们再没提过这件事。", "有一次{who}把我从冰冷的河水里拉了出来。这份人情一直没还。", "{who}，我记得你为我做过的事。待在我附近。"], "promise": ["我和{who}约好，路一通就离开。可谁也没问过具体是哪天。", "{who}知道我还打算履行我们的约定。", "{who}，如果能等到天亮，我们谈谈渡河离开的路。"]},
+}
 ## Short personal histories and NPC-initiated questions, localized with the rest of the game.
 
 const DATA := {
@@ -538,6 +577,50 @@ static func case_hook(id: int) -> String:
 	return String(cases[posmod(id, cases.size())][1])
 
 
+static func solo_name_pool() -> Array:
+	var out: Array = []
+	var residents := L.names()
+	for index in range(mini(3, residents.size()), residents.size()):
+		var entry: Array = residents[index]
+		out.append([String(entry[0]), bool(entry[1])])
+	var extras: Array = SOLO_NAME_EXTRAS.get(L.code, SOLO_NAME_EXTRAS["en"])
+	for entry: Array in extras:
+		out.append(entry.duplicate())
+	return out
+
+
+static func solo_motive_count() -> int:
+	var lines: Array = SOLO_MOTIVES.get(L.code, SOLO_MOTIVES["en"])
+	return lines.size()
+
+
+static func motive_text(v: Villager) -> String:
+	if v == null or v.motive_id < 0:
+		return ""
+	var lines: Array = SOLO_MOTIVES.get(L.code, SOLO_MOTIVES["en"])
+	return String(lines[posmod(v.motive_id, lines.size())]) if not lines.is_empty() else ""
+
+
+static func solo_bond_kinds() -> PackedStringArray:
+	var bonds: Dictionary = SOLO_BONDS.get(L.code, SOLO_BONDS["en"])
+	return PackedStringArray(bonds.keys())
+
+
+static func has_solo_bond(kind: String) -> bool:
+	return SOLO_BONDS.get(L.code, SOLO_BONDS["en"]).has(kind)
+
+
+static func solo_bond_text(kind: String, side: int, me: Villager, other: Villager) -> String:
+	var bonds: Dictionary = SOLO_BONDS.get(L.code, SOLO_BONDS["en"])
+	var lines: Array = bonds.get(kind, bonds.get("friend", []))
+	return L.fill(String(lines[clampi(side, 0, 1)]), {"me": me, "who": other}) if lines.size() >= 3 else ""
+
+
+static func solo_bond_day(kind: String, me: Villager, other: Villager) -> String:
+	var bonds: Dictionary = SOLO_BONDS.get(L.code, SOLO_BONDS["en"])
+	var lines: Array = bonds.get(kind, bonds.get("friend", []))
+	return L.fill(String(lines[2]), {"me": me, "who": other}) if lines.size() >= 3 else ""
+
 static func anchor_chapter(anchor_id: int, chapter: int, speaker: Villager = null) -> String:
 	var chapters: Array = _extra().chapters
 	if anchor_id < 0 or anchor_id >= chapters.size():
@@ -643,12 +726,16 @@ static func story(id: int, speaker: Villager = null) -> String:
 	if speaker != null and not speaker.guest_id.is_empty():
 		return Guests.story(speaker)
 	var stories: Array = _data().stories
+	var result := ""
 	if L.code == "ru":
-		return L.fill(String(PEOPLE_RU[posmod(id, PEOPLE_RU.size())][1]), {"me": speaker})
-	if posmod(id, stories.size()) == 8 and speaker != null and speaker.female:
-		return String(HUSBAND_STORY.get(L.code, HUSBAND_STORY.en))
-	return L.fill(String(stories[posmod(id, stories.size())]), {"me": speaker}) if not stories.is_empty() else ""
-
+		result = L.fill(String(PEOPLE_RU[posmod(id, PEOPLE_RU.size())][1]), {"me": speaker})
+	elif posmod(id, stories.size()) == 8 and speaker != null and speaker.female:
+		result = String(HUSBAND_STORY.get(L.code, HUSBAND_STORY.en))
+	else:
+		result = L.fill(String(stories[posmod(id, stories.size())]), {"me": speaker}) if not stories.is_empty() else ""
+	if speaker != null and speaker.motive_id >= 0:
+		result += "\n" + motive_text(speaker)
+	return result
 
 static func opening_question(story_id: int, player: String, speaker: Villager = null) -> String:
 	var separator := "，" if L.code == "zh" else ", "
@@ -747,11 +834,14 @@ static func bond_text(v: Villager, m: Match) -> String:
 	var base := _bond_text(v, m)
 	var tie := m.get_villager(v.tie_id)
 	if tie != null:
-		var side := "a" if Match.TIES.any(func(t: Array) -> bool: return t[0] == v.story_id) else "b"
-		var t := L.t("tie.%s_%s" % [v.tie_kind, side], {"me": v, "who": tie})
-		base = t if base.is_empty() else base + " " + t
+		var relation_text := ""
+		if has_solo_bond(v.tie_kind):
+			relation_text = solo_bond_text(v.tie_kind, v.tie_side, v, tie)
+		else:
+			var side := "a" if Match.TIES.any(func(t: Array) -> bool: return t[0] == v.story_id) else "b"
+			relation_text = L.t("tie.%s_%s" % [v.tie_kind, side], {"me": v, "who": tie})
+		base = relation_text if base.is_empty() else base + " " + relation_text
 	return base
-
 
 ## Семья и пара. Лида — бабушка Кости (TASK-007): у пары внук и бабушка свои строки на всех языках.
 static func _bond_text(v: Villager, m: Match) -> String:

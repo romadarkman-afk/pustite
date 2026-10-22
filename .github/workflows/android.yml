@@ -122,7 +122,7 @@ jobs:
             exit 1
           fi
           grep -v '^#' MANIFEST.txt | sed 's/\r$//' | sort > /tmp/expected.txt
-          find . -type f \( -name "*.gd" -o -name "*.tscn" -o -name "*.gdshader" -o -name "*.tres" -o -name "project.godot" -o -name "export_presets.cfg" \) ! -path "./.godot/*" | sed 's#^\./##' | sort > /tmp/actual.txt
+          find . -type f \( -name "*.gd" -o -name "*.tscn" -o -name "*.gdshader" -o -name "*.tres" -o -name "*.json" -o -name "project.godot" -o -name "export_presets.cfg" \) ! -path "./.godot/*" ! -path "./.godot-profile/*" ! -path "./Godot/*" ! -path "./.godot-final-suite*/*" ! -path "./build/*" | sed 's#^\./##' | sort > /tmp/actual.txt
           extra=$(comm -13 /tmp/expected.txt /tmp/actual.txt)
           missing=$(comm -23 /tmp/expected.txt /tmp/actual.txt)
           if [ -n "$extra" ]; then

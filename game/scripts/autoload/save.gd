@@ -447,7 +447,10 @@ func record_progress(gained: int, fates: Array, ends: PackedStringArray, new_ach
 		e[0] += 1
 		e[1] += 1 if bool(f[1]) else 0
 		e[2] += 1 if bool(f[2]) else 0
-		book[String(f[0])] = "%d,%d,%d" % [e[0], e[1], e[2]]
+		var key := String(f[0])
+		book[key] = "%d,%d,%d" % [e[0], e[1], e[2]]
+		if f.size() > 3 and not String(f[3]).is_empty():
+			book["name:%s:%s" % [key, L.code]] = String(f[3])
 	for e2: String in ends:
 		if not endings.has(e2):
 			endings.append(e2)
