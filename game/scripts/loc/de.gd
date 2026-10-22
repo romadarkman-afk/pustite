@@ -916,7 +916,7 @@ func data() -> Dictionary:
 		"daily.rain_text": "Jede Nacht Regen: die Laternen gehen aus, Öl aus den Vorräten hilft nicht.",
 		"cos.title": "Aussehen, Laterne und Hut",
 		"cos.appearances": "Aussehen",
-		"cos.avatar_hero": "Dein Dorfbewohner",
+		"cos.avatar_hero": "Dein Avatar",
 		"cos.avatar": "Aussehen {n}",
 		"cos.lanterns": "Laterne",
 		"cos.hats": "Hut",
