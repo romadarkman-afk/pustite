@@ -104,9 +104,9 @@ const ROW_BACK := -50.0
 const WELL_GAP := 66.0
 const GAP := 4.0
 const MIN_W := 58.0        ## место под фигурку и колонку отметок справа от головы
-## Ночью у двери: шаг шире самого длинного имени, ряды не налезают.
-const QUEUE_COL := 72.0
-const QUEUE_ROW := 122.0
+## Ночью у двери: запас под имя, фигуру и колонку отметок.
+const QUEUE_COL := 88.0
+const QUEUE_ROW := 130.0
 
 
 ## Прямоугольник, который занимает житель с именем шириной w: тело и подпись.
@@ -123,7 +123,10 @@ static func fig_rect(p: Vector2, w: float) -> Rect2:
 
 static func slot_rect(p: Vector2, w: float) -> Rect2:
 	var ww := maxf(w, MIN_W)
-	return Rect2(p.x - ww * 0.5, p.y - 90.0, ww, 117.0)
+	var left := maxf(ww * 0.5, 23.0)
+	var right := maxf(ww * 0.5, VillagerFigure.MARK_X + 12.0)
+	var top := VillagerFigure.FIG_TOP * 1.08
+	return Rect2(p.x - left, p.y - top, left + right, top + 27.0)
 
 
 ## Препятствия для расстановки: таблички открытых убежищ (и, если нужно, место игрока).
