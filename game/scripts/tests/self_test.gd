@@ -1996,7 +1996,13 @@ static func _check_crowd(tag: String, out: PackedStringArray) -> int:
 			if i == j:
 				continue
 			var a := figs[i]
+			# Во время пробега жители пересекают траектории друг друга; проверяем устойчивую раскладку
+			# после прибытия, иначе одноразовый кадр движения даёт ложное перекрытие имён.
+			if a.state == VillagerFigure.State.RUN:
+				continue
 			var b := figs[j]
+			if b.state == VillagerFigure.State.RUN:
+				continue
 			var la := a.label_rect_global().grow(-1.0)
 			if j > i and la.intersects(b.label_rect_global().grow(-1.0)):
 				out.append("%s: имена «%s» и «%s» налезают друг на друга (%s %s / %s %s)" % [tag, a.who, b.who, a.position, a.label_rect_global(), b.position, b.label_rect_global()])
