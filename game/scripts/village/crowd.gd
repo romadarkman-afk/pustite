@@ -104,9 +104,9 @@ const ROW_BACK := -50.0
 const WELL_GAP := 66.0
 const GAP := 4.0
 const MIN_W := 58.0        ## место под фигурку и колонку отметок справа от головы
-## Ночью у двери: запас под имя, фигуру и колонку отметок.
-const QUEUE_COL := 88.0
-const QUEUE_ROW := 130.0
+## Ночью у двери: шаг шире самого длинного имени, ряды не налезают.
+const QUEUE_COL := 72.0
+const QUEUE_ROW := 122.0
 
 
 ## Прямоугольник, который занимает житель с именем шириной w: тело и подпись.
@@ -123,10 +123,7 @@ static func fig_rect(p: Vector2, w: float) -> Rect2:
 
 static func slot_rect(p: Vector2, w: float) -> Rect2:
 	var ww := maxf(w, MIN_W)
-	var left := maxf(ww * 0.5, 23.0)
-	var right := maxf(ww * 0.5, VillagerFigure.MARK_X + 12.0)
-	var top := VillagerFigure.FIG_TOP * 1.08
-	return Rect2(p.x - left, p.y - top, left + right, top + 27.0)
+	return Rect2(p.x - ww * 0.5, p.y - 90.0, ww, 117.0)
 
 
 ## Препятствия для расстановки: таблички открытых убежищ (и, если нужно, место игрока).
@@ -335,6 +332,7 @@ func door_spots(house: int, n: int, avoid: Array[Rect2] = []) -> Array[Vector2]:
 func _door_rows(house: int, n: int, per_row: int, avoid: Array[Rect2]) -> Array[Vector2]:
 	var h: HouseDef = view.def.shelters[house]
 	var c := view.def.square_center
+	var walls := _walk_walls(house)
 	var front := h.pos.y > c.y
 	var out: Array[Vector2] = []
 	var row := 0
@@ -366,7 +364,7 @@ func _door_rows(house: int, n: int, per_row: int, avoid: Array[Rect2]) -> Array[
 			var p := Vector2(x + delta, base_y)
 			var r := slot_rect(p, QUEUE_COL - 2.0)
 			var inside := r.position.y >= band.position.y and r.end.y <= band.end.y - 2.0
-			if inside and _free(r, avoid) and not _hidden(p):
+			if inside and _free(r, avoid) and not _hidden(p) and not _point_in_walls(p, walls):
 				out.append(p)
 		row += 1
 	return out
