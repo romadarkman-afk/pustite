@@ -690,11 +690,21 @@ func arrange_run(m: Match, choices: Dictionary[int, int], react: Dictionary[int,
 ## Расставить группы у дверей. timing(vid) → (секунды бега, секунды ожидания перед стартом).
 func _place_groups(m: Match, groups: Dictionary[int, Array], me_goes: bool, timing: Callable) -> void:
 	var me := m.player()
-	var avoid: Array[Rect2] = []
-	if not me_goes:
-		avoid = _avoid()
-		if figures.has(me.id) and figures[me.id].position.distance_to(ring.get(me.id, figures[me.id].position)) > 4.0:
-			figures[me.id].run_to(ring[me.id])
+	var avoid := obstacles(false)
+	var assigned: Dictionary[int, bool] = {}
+	for h: int in groups:
+		for vid: int in groups[h]:
+			assigned[vid] = true
+	for v: Villager in m.villagers:
+		if not v.alive or assigned.has(v.id) or not figures.has(v.id):
+			continue
+		var f: VillagerFigure = figures[v.id]
+		var p: Vector2 = ring.get(v.id, f.position) if v.is_player else f.position
+		var occupied := f.body_rect_local().merge(f.label_rect_local())
+		occupied.position += p
+		avoid.append(occupied.grow(4.0))
+	if not me_goes and figures.has(me.id) and figures[me.id].position.distance_to(ring.get(me.id, figures[me.id].position)) > 4.0:
+		figures[me.id].run_to(ring[me.id])
 	var leftovers: Array = []
 	for h: int in groups:
 		var ids: Array = groups[h]

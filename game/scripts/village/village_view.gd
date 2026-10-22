@@ -15,6 +15,8 @@ const BUBBLE_HEADROOM := 210.0             ## место над верхним �
 const SAFE_X := Vector2(84, 624)          ## куда можно ставить жителей: слева половина имени, справа колонка отметок
 static var _shadow_outline_cache: Dictionary = {}
 
+signal night_changed(value: float)
+
 var def: VillageDef
 var open_count: int = 2
 var titles: PackedStringArray = []
@@ -33,8 +35,8 @@ var _lamp_th: PackedFloat32Array = PackedFloat32Array()
 var _font: Font
 var _fog: CPUParticles2D
 var _dust: CPUParticles2D
-var _lamp_glows: Array[Sprite2D] = []
-var _house_glows: Array[Sprite2D] = []
+var _lamp_glows: Array[LightHalo] = []
+var _house_glows: Array[LightHalo] = []
 var _lamp_lights: Array[PointLight2D] = []
 var _tex: Dictionary = {}                  ## имя картинки -> Texture2D
 var _realistic: Dictionary = {}             ## новые спрайты уже содержат мягкую контактную тень
@@ -67,6 +69,7 @@ var _t: float = 0.0
 var _vignette: Sprite2D
 var _unease := 0.0
 var _contact_shadow_texture: Texture2D
+var simplified_graphics := false
 
 
 func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
@@ -147,6 +150,7 @@ func set_village(village: VillageDef, open: int, names: PackedStringArray) -> vo
 	_occluders.clear()
 	_build_thresholds()
 	_build_lights()
+	set_simplified_graphics(simplified_graphics)
 	_build_props()
 	set_open_count(open)
 
@@ -168,6 +172,7 @@ func boarded_shelters() -> int:
 
 func set_night(v: float) -> void:
 	night = clampf(v, 0.0, 1.0)
+	night_changed.emit(night)
 	if _fog != null:
 		_fog.modulate.a = 0.35 + 0.65 * night
 		_dust.modulate.a = 0.12 + 0.88 * (1.0 - night)
@@ -350,6 +355,16 @@ func set_rain(on: bool) -> void:
 		_refresh()
 
 
+func set_simplified_graphics(on: bool) -> void:
+	simplified_graphics = on
+	if _fog != null:
+		_fog.amount = 7 if on else 14
+	if _dust != null:
+		_dust.amount = 12 if on else 24
+	for light: PointLight2D in _lamp_lights:
+		light.shadow_enabled = not on
+
+
 ## Порог дома: туда ведут следы и там остаётся кровь.
 func door_point(i: int) -> Vector2:
 	return def.shelters[i].pos + Vector2(0, 12) if i >= 0 and i < def.shelters.size() else def.square_center
@@ -439,17 +454,16 @@ func _process(delta: float) -> void:
 	for i in range(_lamp_lights.size()):
 		var on_l := _lamp_on(i, night) * _lamp_fuel(i)
 		_lamp_lights[i].visible = on_l > 0.01
-		_lamp_lights[i].energy = 0.9 * on_l
+		_lamp_lights[i].energy = 0.58 * on_l
 	for i in range(_lamp_glows.size()):
-		var g := _lamp_glows[i]
 		var on := _lamp_on(i, night) * _lamp_fuel(i)
-		var flick := 0.88 + 0.12 * sin(_t * 7.3 + i * 1.9) * sin(_t * 3.1 + i)
 		if on > 0.0 and on < 1.0 and randf() < 0.35:
-			flick *= 0.15               # включение: лампа пару раз мигает
-		g.modulate.a = (0.02 + 0.24 * on) * flick
+			on *= 0.15               # включение: лампа пару раз мигает
+		_lamp_glows[i].set_intensity(on * 0.72)
 	for i in range(_house_glows.size()):
-		var lit := _lit(def.shelters[i], night) if i < def.shelters.size() else night
-		_house_glows[i].modulate.a = (0.28 + (0.22 if i == selected_house else 0.0)) * lit
+		var house_index := int(i / 2)
+		var lit := _lit(def.shelters[house_index], night) if house_index < def.shelters.size() else night
+		_house_glows[i].set_intensity(lit * (0.62 if house_index != selected_house else 0.82))
 
 
 # =============================================================
@@ -1011,7 +1025,7 @@ func _build_lights() -> void:
 		var l := PointLight2D.new()
 		l.texture = tex
 		l.position = def.lamps[i] + Vector2(12, -61)
-		l.texture_scale = 2.4
+		l.texture_scale = 1.7
 		l.color = def.lamp_color
 		l.energy = 0.0
 		l.visible = false
@@ -1105,33 +1119,27 @@ func _build_glows() -> void:
 		g.queue_free()
 	_lamp_glows.clear()
 	_house_glows.clear()
-	var tex := _soft_texture()
-	var add := CanvasItemMaterial.new()
-	add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	for p: Vector2 in def.lamps:
-		var s := Sprite2D.new()
-		s.texture = tex
-		s.material = add
-		s.z_index = 0
-		s.position = p - Vector2(-12, 65)
-		s.scale = Vector2(2.1, 2.1)
-		s.modulate = Color(def.lamp_color, 0.0)
-		add_child(s)
-		move_child(s, crowd.get_index())
-		_lamp_glows.append(s)
+		_lamp_glows.append(_add_halo(p + Vector2(12, -61), 34.0, Color("ff9e2c")))
 	for i in range(open_count):
 		var h: HouseDef = def.shelters[i]
-		var s := Sprite2D.new()
-		s.texture = tex
-		s.material = add
-		s.z_index = 0
 		var hr := house_rect(h)
-		s.position = hr.get_center() + Vector2(0, hr.size.y * 0.1)
-		s.scale = Vector2(hr.size.x / 80.0, hr.size.y / 95.0)
-		s.modulate = Color(ThemeFactory.LAMP, 0.0)
-		add_child(s)
-		move_child(s, crowd.get_index())
-		_house_glows.append(s)
+		var y := hr.position.y + hr.size.y * 0.53
+		_house_glows.append(_add_halo(Vector2(hr.position.x + hr.size.x * 0.24, y), 20.0, Color("ff9e2c")))
+		_house_glows.append(_add_halo(Vector2(hr.position.x + hr.size.x * 0.76, y), 20.0, Color("ff9e2c")))
+
+
+func _add_halo(at: Vector2, radius: float, tint: Color) -> LightHalo:
+	var halo := LightHalo.new()
+	halo.position = at
+	halo.radius = radius
+	halo.color = tint
+	halo.intensity = 0.0
+	halo.flicker = 0.14
+	halo.z_index = 0
+	add_child(halo)
+	move_child(halo, crowd.get_index())
+	return halo
 
 
 ## Туман полосами: две ленты из картинки fog.png ползут в разные стороны над землёй, за людьми.
@@ -1284,89 +1292,95 @@ func _half_ellipse(base: Vector2, r: Vector2, seg: int = 24) -> PackedVector2Arr
 
 
 
-## Глаза в темноте: пары огоньков в лесу и у реки. Появляются к концу сумерек и моргают.
-## Отдельный слой — ради них посёлок не перерисовывается.
+## Редкий взгляд из-за деревьев. Проверяется один раз за ночь, виден только в партии.
 class Eyes extends Node2D:
-	const CREATURE_PATH := "res://assets/village/creature.png"
-	const REALISTIC_CREATURE_PATH := "res://assets/village/realistic/creature.png"
-	const SPOTS := [Vector2(160, 158), Vector2(300, 176), Vector2(432, 178), Vector2(640, 162), Vector2(28, 330)]
-	var creature_tex: Texture2D
-	var night: float = 0.0
-	var _blink: PackedFloat32Array = PackedFloat32Array()
-	var _closed: PackedByteArray = PackedByteArray()
-	var _t := 0.0
-	var _peek_in := 8.0
-	var _peek_left := 0.0
+	const SPOTS := [Vector2(160, 158), Vector2(300, 176), Vector2(432, 178), Vector2(640, 162)]
+	const CHANCE := 0.30
+	var night: float = 0.0: set = set_night
+	var enabled := false
+	var _rng := RandomNumberGenerator.new()
+	var _rolled := false
+	var _remaining := 0.0
+	var _duration := 0.0
+	var _elapsed := 0.0
+	var _active_spots := PackedInt32Array()
+	var night_rolls := 0
 
 	func _ready() -> void:
-		var sprite_path := REALISTIC_CREATURE_PATH if ResourceLoader.exists(REALISTIC_CREATURE_PATH) else CREATURE_PATH
-		creature_tex = load(sprite_path) as Texture2D
-		var rng := RandomNumberGenerator.new()
-		rng.seed = 23
-		for i in range(SPOTS.size()):
-			_blink.append(rng.randf_range(1.0, 4.0))
-			_closed.append(0)
+		_rng.randomize()
 
 	func alpha() -> float:
-		return clampf((night - 0.75) / 0.2, 0.0, 1.0)
+		if not enabled or night < 0.75 or _duration <= 0.0:
+			return 0.0
+		return clampf(minf(_elapsed / 0.35, _remaining / 0.45), 0.0, 1.0)
 
-	## Сколько пар сейчас смотрят — для самотеста.
+	## Чистая функция для самотеста и воспроизводимого баланса частоты.
+	static func roll_night(rng: RandomNumberGenerator) -> Dictionary:
+		if rng.randf() >= CHANCE:
+			return {}
+		var locations: Array[int] = []
+		for i in range(SPOTS.size()):
+			locations.append(i)
+		for i in range(locations.size() - 1, 0, -1):
+			var j := rng.randi_range(0, i)
+			var swap := locations[i]
+			locations[i] = locations[j]
+			locations[j] = swap
+		var count := rng.randi_range(1, 2)
+		var chosen := PackedInt32Array()
+		for i in range(count):
+			chosen.append(locations[i])
+		return {"spots": chosen, "duration": rng.randf_range(2.0, 4.0)}
+
+	func set_enabled(value: bool) -> void:
+		enabled = value
+		if not enabled:
+			_remaining = 0.0
+			_duration = 0.0
+			_active_spots.clear()
+			night = 0.0
+			queue_redraw()
+
+	func set_night(value: float) -> void:
+		var previous := night
+		night = clampf(value, 0.0, 1.0)
+		if night <= 0.15:
+			_rolled = false
+			_remaining = 0.0
+			_duration = 0.0
+			_active_spots.clear()
+		elif enabled and previous < 0.75 and night >= 0.75 and not _rolled:
+			_rolled = true
+			night_rolls += 1
+			var result := roll_night(_rng)
+			_active_spots = result.get("spots", PackedInt32Array())
+			_duration = float(result.get("duration", 0.0))
+			_remaining = _duration
+			_elapsed = 0.0
+			if _duration > 0.0 and Sfx.has_sound(&"creak"):
+				Sfx.play(&"creak", _rng.randf_range(0.88, 0.96), -28.0)
+		queue_redraw()
+
+	## Сколько пар сейчас видны — для самотеста.
 	func visible_pairs() -> int:
-		if alpha() < 0.5:
-			return 0
-		var n := 0
-		for c in _closed:
-			if c == 0:
-				n += 1
-		return n
+		return _active_spots.size() if alpha() >= 0.5 else 0
 
 	func _process(delta: float) -> void:
-		if alpha() <= 0.0:
-			if _t != 0.0:
-				_t = 0.0
-				queue_redraw()
+		if _remaining <= 0.0:
 			return
-		_t += delta
-		for i in range(_blink.size()):
-			_blink[i] -= delta
-			if _blink[i] <= 0.0:
-				_closed[i] = 1 - _closed[i]
-				_blink[i] = 0.14 if _closed[i] == 1 else randf_range(1.8, 5.0)
-		_peek_in -= delta
-		if _peek_in <= 0.0:
-			_peek_left = 0.5
-			_peek_in = randf_range(11.0, 19.0)
-		if _peek_left > 0.0:
-			_peek_left = maxf(0.0, _peek_left - delta)
+		_elapsed += delta
+		_remaining = maxf(0.0, _remaining - delta)
 		queue_redraw()
 
 	func _draw() -> void:
 		var a := alpha()
 		if a <= 0.0:
 			return
-		# прозрачный рисунок твари выглядывает из просвета между домами. Глаза и улыбка
-		# остаются на отдельном слое; движение добавляет лёгкий наклон.
-		var tex: Texture2D = creature_tex if creature_tex != null else VillagerFigure.folk_tex(2)
-		if tex == null:
-			return
-		var h := 74.0
-		var w := h * tex.get_width() / tex.get_height()
-		# стоит в просвете между домом и часовней; его глаза — вторая пара красных огоньков (SPOTS[1])
-		var peek := sin((1.0 - _peek_left / 0.5) * PI) if _peek_left > 0.0 else 0.0
-		var o := Vector2(300 + 2.4 * peek, 245 + 1.0 * sin(_t * 0.45))
-		var tilt := 0.05 * sin(_t * 0.7) + 0.055 * peek
-		var breath := sin(_t * 0.6)
-		draw_set_transform(o, tilt, Vector2(1.0 + 0.008 * breath, 1.08 + 0.012 * breath - 0.015 * peek))
-		draw_texture_rect(tex, Rect2(-w * 0.5, -h, w, h), false, Color(0.62, 0.60, 0.65, 0.94 * a))
-		draw_arc(Vector2(0, -h * 0.86 + 5.0), 4.5, 0.35, PI - 0.35, 8, Color(0.92, 0.9, 0.8, 0.7 * a), 1.2, true)
-		draw_set_transform(Vector2.ZERO)
-		for i in range(SPOTS.size()):
-			if _closed[i] == 1:
-				continue
-			var p: Vector2 = SPOTS[i] + Vector2(sin(_t * 0.4 + i) * 2.0, 0)
-			for dx in [-3.6, 3.6]:
-				draw_circle(p + Vector2(dx, 0), 6.0, Color(1.0, 0.3, 0.15, 0.12 * a))
-				draw_circle(p + Vector2(dx, 0), 2.2, Color(1.0, 0.42, 0.22, 0.95 * a))
+		for i: int in _active_spots:
+			var p: Vector2 = SPOTS[i]
+			for dx in [-3.2, 3.2]:
+				draw_circle(p + Vector2(dx, 0), 5.2, Color(1.0, 0.18, 0.12, 0.13 * a))
+				draw_circle(p + Vector2(dx, 0), 1.8, Color(1.0, 0.28, 0.18, 0.86 * a))
 
 
 

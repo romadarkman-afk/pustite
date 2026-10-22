@@ -4,6 +4,7 @@ extends Node
 ## передаёт в Game вызовами. Сам правила не трогает.
 
 const MENU_HORROR_AUDIO := preload("res://scripts/ui/night_horror_audio.gd")
+const NIGHT_GRADE_SHADER := preload("res://shaders/night_grade.gdshader")
 
 var layer: CanvasLayer
 var back_layer: CanvasLayer
@@ -11,6 +12,8 @@ var village_layer: CanvasLayer
 var ui: Control
 var atmos: Atmosphere
 var village: VillageView
+var grade_overlay: ColorRect
+var _grade_material: ShaderMaterial
 var scrim: Scrim
 var bubbles: Bubbles
 var field_screen: Screen          ## экран, под который поле уже откадрировано (для самотестов)
@@ -59,6 +62,18 @@ func _ready() -> void:
 	village.setup(default_village, Save.config.shelters, L.houses())
 	village.modulate.a = 0.0
 	field_layer.add_child(village)
+	grade_overlay = ColorRect.new()
+	grade_overlay.name = "NightGrade"
+	grade_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grade_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_grade_material = ShaderMaterial.new()
+	_grade_material.shader = NIGHT_GRADE_SHADER
+	_grade_material.set_shader_parameter("strength", 0.0)
+	grade_overlay.material = _grade_material
+	field_layer.add_child(grade_overlay)
+	village.night_changed.connect(_update_night_grade)
+	village.set_simplified_graphics(Save.simplified_graphics)
+	_update_night_grade(village.night)
 	_menu_horror = MENU_HORROR_AUDIO.new()
 	_menu_horror.name = "MenuNightAudio"
 	add_child(_menu_horror)
@@ -133,11 +148,28 @@ func start() -> void:
 	layer.visible = true
 	back_layer.visible = true
 	village_layer.visible = true
-	if Diag.crashed_last_time:
+	if Diag.crashed_last_time or Game.has_day_checkpoint():
+		var crash_screen := CrashScreen.new()
+		crash_screen.crashed = Diag.crashed_last_time
 		Diag.crashed_last_time = false
-		show(CrashScreen.new())
+		show(crash_screen)
 	else:
 		show_menu()
+
+
+func set_simplified_graphics(on: bool) -> void:
+	if village == null:
+		return
+	village.set_simplified_graphics(on)
+	_update_night_grade(village.night)
+
+
+func _update_night_grade(amount: float) -> void:
+	if grade_overlay == null or _grade_material == null:
+		return
+	var strength := 0.0 if Save.simplified_graphics else clampf(amount, 0.0, 1.0)
+	_grade_material.set_shader_parameter("strength", strength)
+	grade_overlay.visible = strength > 0.001
 
 
 # =============================================================
@@ -364,6 +396,7 @@ var default_village: VillageDef            ## деревня меню и быс�
 ## Меню и экраны вне партии: поле пустое, на нём родная деревня.
 func _home_village() -> void:
 	village.crowd.clear()
+	village.eyes.set_enabled(false)
 	_menu_preview = null
 	_populated_for = null
 	village.set_branches_visible(true)
@@ -403,6 +436,7 @@ func _on_phase(phase: Match.Phase) -> void:
 	village.set_talismans(Game.m.talisman)
 	village.set_tunnel(Game.m.tunnel)
 	village.crowd.sync(Game.m, phase)
+	village.eyes.set_enabled(phase == Match.Phase.NIGHT or phase == Match.Phase.DOOR)
 	# ночью горит столько фонарей, сколько заправили днём
 	var night_phase := phase == Match.Phase.NIGHT or phase == Match.Phase.DOOR
 	var fueled := 0 if Game.m.night_event == Match.Event.RAIN else roundi(Game.m.supplies() * village.def.lamps.size())

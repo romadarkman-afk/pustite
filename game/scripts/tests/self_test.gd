@@ -1893,6 +1893,143 @@ static func _settle(tree: SceneTree) -> void:
 
 
 # =============================================================
+# Изоляция сохранений и самописца между параллельными самотестами.
+# =============================================================
+static func storage() -> void:
+	var tree := Nav.get_tree()
+	var root := "user://test_storage/"
+	var paths_ok := Diag.test_scope == "storage" \
+		and Save.SETTINGS_PATH == root + "settings.cfg" \
+		and Save.BALANCE_PATH == root + "balance.tres" \
+		and Save.BACKUP_PATH == root + "settings.v%d.bak" \
+		and Diag.FLAG == root + "running.flag" \
+		and Diag.CRUMBS == root + "crumbs.txt" \
+		and Diag.LOG == root + "logs/godot.log"
+	var old_xp := Save.xp
+	var old_name := Save.player_name
+	Save.xp = 12345
+	Save.player_name = "storage-check"
+	Save.flush()
+	var cf := ConfigFile.new()
+	var saved_ok := cf.load(Save.SETTINGS_PATH) == OK \
+		and int(cf.get_value("progress", "xp", -1)) == 12345 \
+		and String(cf.get_value("profile", "name", "")) == "storage-check"
+	Diag.enabled = true
+	Diag.step("storage isolation check")
+	Diag.set_running(true)
+	var logs_ok := DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(Diag.LOG.get_base_dir()))
+	var trace_ok := FileAccess.file_exists(Diag.CRUMBS) and FileAccess.file_exists(Diag.FLAG) and logs_ok
+	Diag.set_running(false)
+	Diag.enabled = false
+	Save.xp = old_xp
+	Save.player_name = old_name
+	Save.flush()
+	var ok := paths_ok and saved_ok and trace_ok
+	print("ИТОГ: %s: настройки, прогресс и след теста используют отдельный каталог" % ("OK" if ok else "ОШИБКА"))
+	tree.quit(0 if ok else 1)
+
+
+static func save() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	var v046_installed := _install_save_fixture("res://tests/fixtures/save_v046.cfg")
+	ok += _expect(fails, v046_installed, "не удалось открыть фикстуру v0.46")
+	if v046_installed:
+		Save.load_all()
+		ok += _expect(fails, Save.loaded_schema == Save.SCHEMA, "v0.46 не прошёл всю цепочку миграций")
+		ok += _expect(fails, Save.player_name == "v046-survivor" and Save.xp == 460,
+			"v0.46 потерял профиль или опыт")
+		ok += _expect(fails, int(Save.campaign_stars.get("a1c1", 0)) == 3
+			and int(Save.campaign_stars.get("a1c2", 0)) == 2 and Save.campaign_dead.has(4),
+			"v0.46 потерял звёзды или погибшего жителя")
+		ok += _expect(fails, Save.anchor_bond(0) == -2 and int(Save.stats.get("games", 0)) == 12
+			and Save.daily_streak == 3 and absf(float(Save.volumes[&"Music"]) - 0.4) < 0.01,
+			"v0.46 потерял отношения, статистику, серию или громкость")
+		ok += _expect(fails, Save.howto_seen and Save.campaign_seed == 460042
+			and Save.campaign_dead_guests.has("guest_old") and Save.achievements.has("open_door")
+			and Save.endings.has("people") and String(Save.book.get("n0", "")) == "2,1,0"
+			and Save.hints_seen.has("door") and Save.recent == PackedInt32Array([1, 0, 1]),
+			"v0.46 потерял настройки обучения, кампании или Книги")
+		var neutral46: PackedStringArray = []
+		for rec: Dictionary in Save.campaign_memory:
+			if String(rec.kind) == "neutral":
+				neutral46.append(String(rec.ch))
+		ok += _expect(fails, neutral46.size() == 2 and neutral46.has("a1c1") and neutral46.has("a1c2"),
+			"v0.46 не получил нейтральные записи для пройденных глав")
+		var backup46 := ConfigFile.new()
+		var backup46_ok := backup46.load(Save.BACKUP_PATH % 1) == OK
+		ok += _expect(fails, backup46_ok and int(backup46.get_value("meta", "schema", 0)) == 1
+			and String(backup46.get_value("profile", "name", "")) == "v046-survivor",
+			"до миграции v0.46 не создана точная резервная копия")
+		Save.flush()
+		var stored46 := ConfigFile.new()
+		var stored46_ok := stored46.load(Save.SETTINGS_PATH) == OK
+		ok += _expect(fails, stored46_ok and int(stored46.get_value("meta", "schema", 0)) == Save.SCHEMA
+			and int(stored46.get_value("progress", "xp", 0)) == 460
+			and int(stored46.get_value("stats", "wins", 0)) == 7
+			and String(stored46.get_value("progress", "book", "")) == "n0=2,1,0",
+			"мигрированная версия v0.46 не сохранилась на диск")
+
+	var v052_installed := _install_save_fixture("res://tests/fixtures/save_v052.cfg")
+	ok += _expect(fails, v052_installed, "не удалось открыть фикстуру v0.52")
+	if v052_installed:
+		Save.load_all()
+		ok += _expect(fails, Save.loaded_schema == Save.SCHEMA and Save.xp == 840
+			and Save.player_name == "v052-witness", "v0.52 потерял прогресс или профиль")
+		ok += _expect(fails, int(Save.campaign_stars.get("a2c1", 0)) == 2
+			and int(Save.campaign_stars.get("a2c2", 0)) == 1 and Save.campaign_dead.has(1),
+			"v0.52 потерял состояние кампании")
+		var admitted_found := false
+		var neutral_found := false
+		for rec: Dictionary in Save.campaign_memory:
+			if String(rec.ch) == "a2c1" and String(rec.kind) == "admitted" and int(rec.who) == 2:
+				admitted_found = true
+			if String(rec.ch) == "a2c2" and String(rec.kind) == "neutral" and int(rec.who) == -1:
+				neutral_found = true
+		ok += _expect(fails, admitted_found and neutral_found and Save.campaign_memory.size() == 2,
+			"v0.52 потерял существующий журнал или не заполнил отсутствующий")
+		ok += _expect(fails, int(Save.campaign_bonds.get("0>1", 0)) == 2 and Save.anchor_bond(1) == 1,
+			"v0.52 потерял отношения кампании или жителей")
+		ok += _expect(fails, Save.campaign_seed == 520042 and Save.campaign_dead_guests.has("guest_soldier")
+			and Save.achievements.has("mourning") and Save.endings.has("act1_some")
+			and String(Save.book.get("n2", "")) == "3,1,1" and int(Save.storybook.get("n2", 0)) == 1,
+			"v0.52 потерял журнал прогресса, судьбы или гостей")
+		var backup52 := ConfigFile.new()
+		var backup52_ok := backup52.load(Save.BACKUP_PATH % 2) == OK
+		ok += _expect(fails, backup52_ok and int(backup52.get_value("meta", "schema", 0)) == 2
+			and String(backup52.get_value("profile", "name", "")) == "v052-witness",
+			"до миграции v0.52 не создана точная резервная копия")
+		Save.flush()
+		var stored52 := ConfigFile.new()
+		var stored52_ok := stored52.load(Save.SETTINGS_PATH) == OK
+		ok += _expect(fails, stored52_ok and int(stored52.get_value("meta", "schema", 0)) == Save.SCHEMA
+			and int(stored52.get_value("progress", "xp", 0)) == 840
+			and int(stored52.get_value("stats", "wins", 0)) == 15
+			and String(stored52.get_value("campaign", "dead_guests", "")) == "guest_soldier",
+			"мигрированная версия v0.52 не сохранилась на диск")
+	var passed := fails.is_empty()
+	print("ИТОГ: %s: миграции v0.46 и v0.52, резервные копии и данные кампании" % ("OK" if passed else "ОШИБКА"))
+	for failure: String in fails:
+		print("  ✗ " + failure)
+	tree.quit(0 if passed else 1)
+
+
+static func _install_save_fixture(path: String) -> bool:
+	var bytes := FileAccess.get_file_as_bytes(path)
+	if bytes.is_empty():
+		return false
+	var absolute_path := ProjectSettings.globalize_path(Save.SETTINGS_PATH)
+	DirAccess.make_dir_recursive_absolute(absolute_path.get_base_dir())
+	var file := FileAccess.open(Save.SETTINGS_PATH, FileAccess.WRITE)
+	if file == null:
+		return false
+	file.store_buffer(bytes)
+	file.close()
+	return true
+
+
+# =============================================================
 # Толпа (Task 6): от 5 до 12 жителей на 7 типах экранов.
 # Днём на площади и ночью у каждой двери — все в кадре, имена не налезают
 # друг на друга и не прячутся за спинами тех, кто стоит ближе.
@@ -1930,10 +2067,15 @@ static func crowd() -> void:
 			for hi in range(Game.m.config.shelters):
 				Game.director.plan_day()
 				var moved := 0
+				var outside: Villager = null
 				for b: Villager in bots:
 					if moved < 1 and b.announced_house != hi:
 						b.announced_house = hi
 						moved += 1
+					elif outside == null:
+						outside = b
+				if outside != null:
+					outside.announced_house = -1  # оставшийся на улице житель тоже мешает очередям
 				cr.arrange_night(Game.m, -1)
 				await _frames(tree, 1)
 				checks += _check_crowd("%s · ночь у «%s»" % [tag, Game.m.house_name(hi)], problems)
@@ -2892,7 +3034,7 @@ static func night() -> void:
 	ok += _expect(fails, Nav.host.current is NightScreen and v.night > 0.99, "ночь не наступила полностью (%.2f)" % v.night)
 	ok += _expect(fails, mid_lit >= 1 and mid_lit < total, "окна загорелись не по одному: к середине %d из %d" % [mid_lit, total])
 	ok += _expect(fails, v.lit_count() == total, "к концу сумерек горят не все окна: %d из %d" % [v.lit_count(), total])
-	ok += _expect(fails, eyes_max >= 4, "ночью в темноте не видно глаз (%d пар)" % eyes_max)
+	ok += _expect(fails, eyes_max <= 2, "ночью за один показ появилось больше двух пар глаз (%d)" % eyes_max)
 	ok += _expect(fails, redraws <= 70, "сумерки перерисовали посёлок %d раз — кадры будут проседать" % redraws)
 	ok += _expect(fails, avg_us < 8000.0, "одна перерисовка посёлка %.1f мс — слишком долго" % (avg_us / 1000.0))
 
@@ -2956,6 +3098,133 @@ static func night() -> void:
 		tree.quit(1)
 
 
+## TASK-060: редкие глаза проверяются на 50 ночных переходах и скрыты вне партии.
+static func eyes() -> void:
+	var fails: PackedStringArray = []
+	var ok := 0
+	var eyes_view := Nav.village.eyes
+	eyes_view.set_enabled(false)
+	eyes_view._rng.seed = 607060
+	eyes_view.night_rolls = 0
+	var appearances := 0
+	for i in range(50):
+		eyes_view.set_enabled(true)
+		eyes_view.set_night(0.0)
+		eyes_view.set_night(1.0)
+		var count := eyes_view._active_spots.size()
+		if count > 0:
+			appearances += 1
+			ok += _expect(fails, count <= 2, "ночь %d: число пар глаз %d" % [i + 1, count])
+			ok += _expect(fails, eyes_view._duration >= 2.0 and eyes_view._duration <= 4.0, "ночь %d: длительность %.2f с" % [i + 1, eyes_view._duration])
+		var rolls := eyes_view.night_rolls
+		eyes_view.set_night(1.0)
+		ok += _expect(fails, eyes_view.night_rolls == rolls, "ночь %d проверена больше одного раза" % (i + 1))
+		eyes_view.set_enabled(false)
+	ok += _expect(fails, appearances >= 4 and appearances <= 26, "частота на 50 ночах: %d%%" % roundi(float(appearances) * 2.0))
+	eyes_view.set_night(1.0)
+	ok += _expect(fails, eyes_view.visible_pairs() == 0 and eyes_view.night_rolls == 50, "глаза видны вне ночного игрового экрана")
+	print("редкие глаза: %d из 50 ночей" % appearances)
+	if fails.is_empty():
+		print("ИТОГ: OK — шанс 30%%, 1–2 пары, 2–4 секунды, одна проверка за ночь")
+		Nav.get_tree().quit(0)
+	else:
+		for failure: String in fails:
+			print("  ✗ " + failure)
+		print("ИТОГ: НАРУШЕНИЙ: %d" % fails.size())
+		Nav.get_tree().quit(1)
+
+
+## TASK-058/059: ореолы, упрощённая графика и степень ночного тонирования.
+static func lights() -> void:
+	var fails: PackedStringArray = []
+	var ok := 0
+	var benchmark := load("res://tests/light_benchmark.tscn") as PackedScene
+	ok += _expect(fails, benchmark != null, "не загрузилась сцена сравнения bloom и LightHalo")
+	var view := Nav.village
+	var previous := Save.simplified_graphics
+	Save.set_simplified_graphics(false)
+	Nav.set_simplified_graphics(false)
+	view.set_simplified_graphics(false)
+	view.night = 0.0
+	for halo: LightHalo in view._lamp_glows + view._house_glows:
+		ok += _expect(fails, halo.color == Color("ff9e2c"), "ореол не янтарный: %s" % halo.color)
+		ok += _expect(fails, halo._sprite != null and halo._sprite.material is CanvasItemMaterial \
+			and (halo._sprite.material as CanvasItemMaterial).blend_mode == CanvasItemMaterial.BLEND_MODE_ADD, "ореол не использует аддитивный материал")
+	view.set_night(1.0)
+	ok += _expect(fails, Nav._grade_material.get_shader_parameter("strength") > 0.99, "ночной цветовой слой не включён")
+	view.set_simplified_graphics(true)
+	Save.set_simplified_graphics(true)
+	Nav.set_simplified_graphics(true)
+	ok += _expect(fails, view.fog().amount == 7 and view.dust().amount == 12, "упрощённый режим не снижает число частиц")
+	ok += _expect(fails, not Nav.grade_overlay.visible, "упрощённый режим оставил ночной шейдер включённым")
+	Save.set_simplified_graphics(previous)
+	Nav.set_simplified_graphics(previous)
+	view.set_simplified_graphics(previous)
+	view.set_night(0.0)
+	if fails.is_empty():
+		print("ИТОГ: OK — янтарные аддитивные ореолы, ночной grade и режим упрощённой графики")
+		Nav.get_tree().quit(0)
+	else:
+		for failure: String in fails:
+			print("  ✗ " + failure)
+		print("ИТОГ: НАРУШЕНИЙ: %d" % fails.size())
+		Nav.get_tree().quit(1)
+
+
+## TASK-056: имитация закрытия процесса и восстановления снимка второго дня.
+static func checkpoint() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	Save.set_difficulty("easy")
+	Nav.start_match()
+	await _settle(tree)
+	if Game.m != null and Game.m.phase == Match.Phase.PROLOGUE:
+		Game.proceed()
+		await _settle(tree)
+	if Game.m == null or Game.m.phase != Match.Phase.DAY:
+		ok += _expect(fails, false, "не удалось начать первый день для проверки снимка")
+		_finish(fails, ok, "снимок дня", "")
+		return
+	# Входим в день 2 через тот же Match-путь. Сигнал DAY сохраняет снимок до плана ботов.
+	Game.m.phase = Match.Phase.MORNING
+	Game.m.day = 2
+	Game.m.villagers[1].partner_id = Game.m.villagers[2].id
+	Game.m.villagers[1].relationship = 3
+	Game.m.begin_day()
+	await _settle(tree)
+	Game._feed_gen += 1
+	Game.clock._holds.clear()
+	var expected_cast := _checkpoint_cast_signature(Game.m)
+	var expected_alive := Game.m.alive().size()
+	var expected_map := Game.m.village.resource_path
+	var expected_rng := Game.m.rng.state
+	ok += _expect(fails, Game.has_day_checkpoint(), "снимок второго дня не записан до закрытия")
+	var continue_screen := CrashScreen.new()
+	ok += _expect(fails, continue_screen.title() == L.t("crash.saved_title"), "обычный перезапуск со снимком не предлагает продолжение дня")
+	Game._preserve_checkpoint_on_abandon = true
+	Game.abandon() # моделируем потерю процесса, файл снимка оставляем на диске
+	ok += _expect(fails, Game.m == null and Game.has_day_checkpoint(), "симуляция закрытия не сохранила снимок")
+	var resumed := Game.resume_day_checkpoint()
+	ok += _expect(fails, resumed, "игра отказалась восстанавливать снимок")
+	if resumed and Game.m != null:
+		ok += _expect(fails, Game.m.day == 2 and Game.m.phase == Match.Phase.DAY, "загрузился день %d, фаза %s" % [Game.m.day, Match.Phase.keys()[Game.m.phase]])
+		ok += _expect(fails, _checkpoint_cast_signature(Game.m) == expected_cast, "состав, скрытые роли, живые жители или связи изменились")
+		ok += _expect(fails, Game.m.alive().size() == expected_alive and Game.m.player().alive, "изменилось число выживших или состояние игрока")
+		ok += _expect(fails, Game.m.village.resource_path == expected_map, "после загрузки выбрана другая карта")
+		ok += _expect(fails, Game.m.rng.state == expected_rng, "не восстановлено состояние случайного генератора партии")
+		ok += _expect(fails, Game.has_day_checkpoint(), "снимок удалился до завершения дня")
+	Game.abandon()
+	_finish(fails, ok, "снимок дня", "второй день, состав, связи и генератор восстановлены после закрытия")
+
+
+static func _checkpoint_cast_signature(m: Match) -> PackedStringArray:
+	var out := PackedStringArray()
+	for v: Villager in m.villagers:
+		out.append("%d|%s|%s|%s|%d|%d|%d|%d|%d" % [v.id, v.name, str(v.alive), str(v.is_upyr), v.role, v.partner_id, v.relationship, v.family_id, v.story_id])
+	return out
+
+
 
 # =============================================================
 # Звук (Task 21): все звуки на месте, у каждого события свой звук, громкость
@@ -2999,8 +3268,12 @@ static func sound() -> void:
 			# в экспортированной сборке исходник лежит внутри .import — размер берём из него
 			continue
 		total += f.get_length()
-	# Записанный звук важен для атмосферы; ограничиваем объём ассетов восемью мегабайтами.
-	ok += _expect(fails, total < 8 * 1024 * 1024, "звуки весят %d КБ — больше 8 МБ" % (total / 1024))
+	# Бюджет звука 6 МиБ; оставляем 2,5 МиБ для следующих пакетов.
+	var sound_limit := 6 * 1024 * 1024
+	var sound_headroom := int(2.5 * 1024 * 1024)
+	var free_bytes := sound_limit - total
+	ok += _expect(fails, free_bytes >= sound_headroom,
+		"звуки весят %d КБ при лимите 6 МиБ, свободно %d КБ, требуется 2560 КБ" % [total / 1024, free_bytes / 1024])
 
 	# 2. Громкость: ползунок → канал → файл настроек
 	Save.set_volume(&"Music", 0.5)

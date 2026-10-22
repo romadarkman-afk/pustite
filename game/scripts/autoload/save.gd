@@ -2,16 +2,18 @@ extends Node
 ## Хранилище: баланс (ресурс GameConfig), настройки и статистика (ConfigFile).
 ## SCHEMA растёт, когда меняется формат сохранений, — для будущих миграций.
 
-const SETTINGS_PATH := "user://settings.cfg"
-const BALANCE_PATH := "user://balance.tres"
+var SETTINGS_PATH := "user://settings.cfg"
+var BALANCE_PATH := "user://balance.tres"
 const DEFAULT_BALANCE := "res://config/balance_easy.tres"
 
-const SCHEMA := 2           ## 2: память кампании (TASK-002). Файл версии 1 читается как есть, память пустая
-const BACKUP_PATH := "user://settings.v%d.bak"   ## копия файла перед переходом на новую версию формата
+const SCHEMA := 3           ## 3: нейтральные записи для пройденных глав без журнала
+var BACKUP_PATH := "user://settings.v%d.bak"   ## копия файла перед переходом на новую версию формата
 const MEMORY_PER_CHAPTER := 40
+var save_writable := true
 
 var config: GameConfig
 var haptics: bool = true
+var simplified_graphics: bool = false
 var difficulty: String = "easy"
 var text_size: int = 0                ## 0 — обычный текст, 1 — крупный, 2 — самый крупный
 var lang: String = ""                  ## язык игры: код из L.LANGS. Пусто в файле — берём язык телефона
@@ -58,6 +60,9 @@ var stats: Dictionary[String, int] = {
 
 
 func _ready() -> void:
+	SETTINGS_PATH = Diag.test_path("settings.cfg")
+	BALANCE_PATH = Diag.test_path("balance.tres")
+	BACKUP_PATH = Diag.test_path("settings.v%d.bak")
 	load_all()
 
 
@@ -65,8 +70,25 @@ func load_all() -> void:
 	var cf := ConfigFile.new()
 	var has := cf.load(SETTINGS_PATH) == OK
 	loaded_schema = int(cf.get_value("meta", "schema", 1)) if has else 0
-	if has and loaded_schema < SCHEMA:
-		_backup(loaded_schema)
+	save_writable = true
+	if has and loaded_schema > SCHEMA:
+		save_writable = false
+		push_warning("Сохранение версии %d новее поддерживаемой версии %d. Запись отключена." % [loaded_schema, SCHEMA])
+	elif has and loaded_schema < SCHEMA:
+		var source_schema := loaded_schema
+		if not _backup(source_schema):
+			save_writable = false
+			push_error("Не удалось создать резервную копию сохранения перед миграцией.")
+		elif not _migrate_config(cf, source_schema):
+			save_writable = false
+			push_error("Не найдена цепочка миграции сохранения версии %d." % source_schema)
+		else:
+			var migration_error := cf.save(SETTINGS_PATH)
+			if migration_error != OK:
+				save_writable = false
+				push_error("Не удалось записать мигрированное сохранение: %s" % error_string(migration_error))
+			else:
+				loaded_schema = SCHEMA
 	lang = String(cf.get_value("ui", "lang", "")) if has else ""
 	if DisplayServer.get_name() == "headless":
 		lang = "ru"        # самотесты без экрана проверяют русские тексты; другой язык — флагом --lang=
@@ -157,6 +179,7 @@ func load_all() -> void:
 		avatar_id = "hero"
 	if has:
 		haptics = bool(cf.get_value("ui", "haptics", true))
+		simplified_graphics = bool(cf.get_value("ui", "simplified_graphics", false))
 		window_fullscreen = bool(cf.get_value("display", "fullscreen", false))
 		var res: Variant = cf.get_value("display", "resolution", Vector2i(720, 1280))
 		if res is Vector2i:
@@ -256,6 +279,11 @@ func wear(kind: String, id: String) -> bool:
 func set_haptics(on: bool) -> void:
 	haptics = on
 	Juice.haptics_enabled = on
+	flush()
+
+
+func set_simplified_graphics(on: bool) -> void:
+	simplified_graphics = on
 	flush()
 
 
@@ -381,6 +409,8 @@ func daily_streak_on(date: String) -> int:
 
 
 func flush() -> void:
+	if not save_writable:
+		return
 	ResourceSaver.save(config, BALANCE_PATH)
 	var cf := ConfigFile.new()
 	cf.set_value("meta", "schema", SCHEMA)
@@ -390,6 +420,7 @@ func flush() -> void:
 	cf.set_value("game", "howto_seen", howto_seen)
 	cf.set_value("game", "solo_last_map", solo_last_map)
 	cf.set_value("ui", "haptics", haptics)
+	cf.set_value("ui", "simplified_graphics", simplified_graphics)
 	cf.set_value("ui", "lang", lang)
 	cf.set_value("ui", "text_size", text_size)
 	for b: StringName in volumes.keys():
@@ -525,6 +556,55 @@ static func _memory_record(rec: Variant) -> Dictionary:
 	return {"ch": ch, "kind": kind, "who": int(d.who), "day": int(d.get("day", 0)), "knew": knew}
 
 
+func _migrate_config(cf: ConfigFile, from_schema: int) -> bool:
+	var version := from_schema
+	while version < SCHEMA:
+		match version:
+			1:
+				_migrate_1_to_2(cf)
+			2:
+				_migrate_2_to_3(cf)
+			_:
+				return false
+		version += 1
+		cf.set_value("meta", "schema", version)
+	return true
+
+
+## Память и отношения появились вместе с форматом кампании версии 2.
+static func _migrate_1_to_2(cf: ConfigFile) -> void:
+	var memory: Variant = cf.get_value("campaign", "memory", [])
+	if not memory is Array:
+		cf.set_value("campaign", "memory", [])
+	var bonds: Variant = cf.get_value("campaign", "bonds", {})
+	if not bonds is Dictionary:
+		cf.set_value("campaign", "bonds", {})
+
+
+## Старый сейв мог отметить главы пройденными, не записав журнал событий.
+static func _migrate_2_to_3(cf: ConfigFile) -> void:
+	var memory: Array = []
+	var seen: Dictionary = {}
+	var raw_memory: Variant = cf.get_value("campaign", "memory", [])
+	if raw_memory is Array:
+		for rec: Variant in raw_memory:
+			var clean := _memory_record(rec)
+			if not clean.is_empty():
+				memory.append(clean)
+				seen[String(clean.ch)] = true
+	var raw_stars := String(cf.get_value("campaign", "stars", ""))
+	for item: String in raw_stars.split(",", false):
+		var pair := item.split(":", false)
+		if pair.size() != 2:
+			continue
+		var chapter_id := pair[0].strip_edges()
+		if chapter_id.is_empty() or seen.has(chapter_id) or not Campaign.ORDER.has(chapter_id):
+			continue
+		memory.append({"ch": chapter_id, "kind": "neutral", "who": -1, "day": 0, "knew": []})
+		seen[chapter_id] = true
+	cf.set_value("campaign", "memory", memory)
+
+
 ## Что помнит кампания о жителе с номером idx: записи в порядке глав.
 func memory_of(idx: int) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
@@ -536,12 +616,22 @@ func memory_of(idx: int) -> Array[Dictionary]:
 	return out
 
 
-## Копия сохранения перед переходом на новую версию формата. Делается один раз на версию.
-func _backup(from_schema: int) -> void:
+## Перед миграцией сохраняется точный снимок исходного файла.
+func _backup(from_schema: int) -> bool:
 	var path := BACKUP_PATH % from_schema
-	if FileAccess.file_exists(path) or DisplayServer.get_name() == "headless":
-		return
-	DirAccess.copy_absolute(ProjectSettings.globalize_path(SETTINGS_PATH), ProjectSettings.globalize_path(path))
+	if not FileAccess.file_exists(SETTINGS_PATH):
+		return false
+	var absolute_path := ProjectSettings.globalize_path(path)
+	DirAccess.make_dir_recursive_absolute(absolute_path.get_base_dir())
+	var source := FileAccess.get_file_as_bytes(SETTINGS_PATH)
+	if source.is_empty():
+		return false
+	var backup := FileAccess.open(path, FileAccess.WRITE)
+	if backup == null:
+		return false
+	backup.store_buffer(source)
+	backup.close()
+	return FileAccess.get_file_as_bytes(path) == source
 
 
 func mark_howto() -> void:

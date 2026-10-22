@@ -3,6 +3,8 @@ name: Сборка APK
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -10,7 +12,7 @@ permissions:
 
 # Новая загрузка отменяет ещё идущую старую сборку.
 concurrency:
-  group: build-apk
+  group: build-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -20,8 +22,8 @@ jobs:
   build:
     # Версия сервера закреплена: ubuntu-latest с 19.10.2026 переезжает на Ubuntu 26.
     runs-on: ubuntu-24.04
-    # Сборка с самотестами занимает около 20 минут. Всё, что дольше 40, — зависание, а не работа.
-    timeout-minutes: 40
+    # Самотесты идут четырьмя процессами; длинные языковые прогоны имеют запас по времени.
+    timeout-minutes: 75
 
     steps:
       - name: Забрать код
@@ -132,7 +134,7 @@ jobs:
             echo "::error title=Не хватает файлов в game::Не загрузились: $(echo $missing). Загрузите папку game заново целиком."
           fi
           [ -z "$extra" ] && [ -z "$missing" ] || exit 1
-          for flag in sim flow layout lifecycle field crowd bubbles marks input hints difficulty howto night sound village talisman bell events mimic sabotage box roles meeting tunnel diary recap folk loc access daily cosmetics adapt display gestures; do
+          for flag in sim flow layout lifecycle field crowd bubbles marks input hints difficulty howto night eyes lights checkpoint sound village talisman bell events mimic sabotage box roles meeting tunnel diary recap folk loc access daily cosmetics adapt display gestures storage save; do
             grep -q -- "\"--$flag\"" scripts/boot.gd || { echo "::error::В scripts/boot.gd нет режима --$flag."; exit 1; }
           done
           echo "Комплект совпадает с описью: $(wc -l < /tmp/expected.txt) файлов"
@@ -142,356 +144,55 @@ jobs:
           godot --headless --path game --import
           godot --headless --path game --import
 
-      - name: Самотест баланса и грамматики (3000 партий, коридор 30–70%)
-        timeout-minutes: 5
+      - name: Самотесты и раскладка на 10 языках
+        timeout-minutes: 65
         run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --sim 2>&1 | tee /tmp/sim.log
-          if grep -q "SCRIPT ERROR" /tmp/sim.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --sim в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест экранов (обе роли у двери обязательны)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --flow 2>&1 | tee /tmp/flow.log
-          if grep -q "SCRIPT ERROR" /tmp/flow.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --flow в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест раскладки (7 типов экранов, вырезы, кнопки от 48 dp)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --layout 2>&1 | tee /tmp/layout.log
-          if grep -q "SCRIPT ERROR" /tmp/layout.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --layout в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест жизненного цикла (сворачивание, «Назад», экран)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --lifecycle 2>&1 | tee /tmp/lifecycle.log
-          if grep -q "SCRIPT ERROR" /tmp/lifecycle.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --lifecycle в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест игрового поля (посёлок, туман, 30 fps в покое)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --field 2>&1 | tee /tmp/field.log
-          if grep -q "SCRIPT ERROR" /tmp/field.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --field в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест толпы (5–12 жителей, днём и ночью, имена читаются)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --crowd 2>&1 | tee /tmp/crowd.log
-          if grep -q "SCRIPT ERROR" /tmp/crowd.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --crowd в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест пузырей реплик (не налезают, видны над говорящим)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --bubbles 2>&1 | tee /tmp/bubbles.log
-          if grep -q "SCRIPT ERROR" /tmp/bubbles.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --bubbles в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест живого поля (тап по жителю, глаз, улики, уговор)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --marks 2>&1 | tee /tmp/marks.log
-          if grep -q "SCRIPT ERROR" /tmp/marks.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --marks в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест ввода (быстрые фразы, клавиатура не закрывает поле)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --input 2>&1 | tee /tmp/input.log
-          if grep -q "SCRIPT ERROR" /tmp/input.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --input в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест подсказок (три штуки, исчезают после действия)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --hints 2>&1 | tee /tmp/hints.log
-          if grep -q "SCRIPT ERROR" /tmp/hints.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --hints в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест сложности (лёгкий старт, предложение после партии, метка «Вы»)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --difficulty 2>&1 | tee /tmp/difficulty.log
-          if grep -q "SCRIPT ERROR" /tmp/difficulty.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --difficulty в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест «Как играть» (один раз перед первой партией, повтор из меню)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --howto 2>&1 | tee /tmp/howto.log
-          if grep -q "SCRIPT ERROR" /tmp/howto.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --howto в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест ночи (сумерки по шагам, выбор дома тапом)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --night 2>&1 | tee /tmp/night.log
-          if grep -q "SCRIPT ERROR" /tmp/night.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --night в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест звука (каждое событие звучит, громкость, сворачивание)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --sound 2>&1 | tee /tmp/sound.log
-          if grep -q "SCRIPT ERROR" /tmp/sound.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --sound в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест живого дня (камера, ходьба, дела, запасы, фонари)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --village 2>&1 | tee /tmp/village.log
-          if grep -q "SCRIPT ERROR" /tmp/village.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --village в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест оберегов (слабеют, чинятся, тварь у расколотого)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --talisman 2>&1 | tee /tmp/talisman.log
-          if grep -q "SCRIPT ERROR" /tmp/talisman.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --talisman в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест колокола (бег до дома, очередь по прибытию)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --bell 2>&1 | tee /tmp/bell.log
-          if grep -q "SCRIPT ERROR" /tmp/bell.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --bell в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест событий ночи (туман, луна, тишина, ливень)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --events 2>&1 | tee /tmp/events.log
-          if grep -q "SCRIPT ERROR" /tmp/events.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --events в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест Подражателя у двери
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --mimic 2>&1 | tee /tmp/mimic.log
-          if grep -q "SCRIPT ERROR" /tmp/mimic.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --mimic в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест саботажа (упыри портят запасы)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --sabotage 2>&1 | tee /tmp/sabotage.log
-          if grep -q "SCRIPT ERROR" /tmp/sabotage.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --sabotage в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест ящика (находка на площади)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --box 2>&1 | tee /tmp/box.log
-          if grep -q "SCRIPT ERROR" /tmp/box.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --box в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест ролей (старожил, знахарь, староста)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --roles 2>&1 | tee /tmp/roles.log
-          if grep -q "SCRIPT ERROR" /tmp/roles.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --roles в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест экстренного сбора
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --meeting 2>&1 | tee /tmp/meeting.log
-          if grep -q "SCRIPT ERROR" /tmp/meeting.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --meeting в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест туннеля между домами
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --tunnel 2>&1 | tee /tmp/tunnel.log
-          if grep -q "SCRIPT ERROR" /tmp/tunnel.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --tunnel в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест дневника улик
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --diary 2>&1 | tee /tmp/diary.log
-          if grep -q "SCRIPT ERROR" /tmp/diary.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --diary в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест разбора партии (почему погиб, что решило исход)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --recap 2>&1 | tee /tmp/recap.log
-          if grep -q "SCRIPT ERROR" /tmp/recap.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --recap в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест новых жителей (пол, эмоции, анимация, реакции толпы)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --folk 2>&1 | tee /tmp/folk.log
-          if grep -q "SCRIPT ERROR" /tmp/folk.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --folk в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест доступности (размер текста, глаз и улики без цвета)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --access 2>&1 | tee /tmp/access.log
-          if grep -q "SCRIPT ERROR" /tmp/access.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --access в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест испытания дня (правило по дате, одна попытка, серия)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --daily 2>&1 | tee /tmp/daily.log
-          if grep -q "SCRIPT ERROR" /tmp/daily.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --daily в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест косметики (фонари и шапки, без влияния на партию)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --cosmetics 2>&1 | tee /tmp/cosmetics.log
-          if grep -q "SCRIPT ERROR" /tmp/cosmetics.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --cosmetics в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест экранных профилей и safe area
-        timeout-minutes: 3
-        run: |
-          set -euo pipefail
-          timeout 180 godot --headless --path game -- --display 2>&1 | tee /tmp/display.log
-          if grep -q "SCRIPT ERROR" /tmp/display.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --display в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест подстройки ботов (поддавки и собранность, баланс по ступеням)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --adapt 2>&1 | tee /tmp/adapt.log
-          if grep -q "SCRIPT ERROR" /tmp/adapt.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --adapt в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест жестов (долгое нажатие, палец, верю, не верю)
-        timeout-minutes: 5
-        run: |
-          set -o pipefail
-          timeout 300 godot --headless --path game -- --gestures 2>&1 | tee /tmp/gestures.log
-          if grep -q "SCRIPT ERROR" /tmp/gestures.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста --gestures в логе есть SCRIPT ERROR — см. выше."
-            exit 1
-          fi
-
-      - name: Самотест языков (все ключи, шаблоны, посёлки, шрифты; раскладка и толпа на длинных языках и крупном тексте)
-        timeout-minutes: 25
-        run: |
-          set -o pipefail
-          timeout 400 godot --headless --path game -- --loc 2>&1 | tee /tmp/loc.log
-          for lang in de fr hi; do
-            timeout 300 godot --headless --path game -- --layout --lang=$lang 2>&1 | tee -a /tmp/loc.log
+          set -uo pipefail
+          rm -f /tmp/pustite-test-failures
+          running=0
+          failed=0
+          run_case() {
+            local label="$1"
+            shift
+            local log="/tmp/pustite-${label}.log"
+            local status=0
+            timeout 600 godot --headless --path game --log-file "/tmp/pustite-${label}-engine.log" -- "$@" > "$log" 2>&1 || status=$?
+            if [ "$status" -ne 0 ] || grep -q "SCRIPT ERROR" "$log"; then
+              printf '%s\n' "$label" >> /tmp/pustite-test-failures
+              return 1
+            fi
+          }
+          schedule_case() {
+            run_case "$@" &
+            running=$((running + 1))
+            if [ "$running" -ge 4 ]; then
+              if wait -n; then :; else failed=1; fi
+              running=$((running - 1))
+            fi
+          }
+          flags=(sim flow layout lifecycle field crowd bubbles marks input hints difficulty howto night eyes lights checkpoint sound village talisman bell events mimic sabotage box roles meeting tunnel diary recap folk loc access daily cosmetics adapt display gestures storage save)
+          for flag in "${flags[@]}"; do
+            schedule_case "$flag" "--$flag"
           done
-          # самый крупный текст: русский, немецкий (длинные слова) и хинди (высокие строки)
-          for lang in ru de hi; do
-            timeout 300 godot --headless --path game -- --layout --lang=$lang --text=2 2>&1 | tee -a /tmp/loc.log
+          langs=(ru en de fr es pt tr hi vi zh)
+          for lang in "${langs[@]}"; do
+            schedule_case "layout_${lang}" --layout "--lang=$lang"
+            schedule_case "layout_${lang}_text2" --layout "--lang=$lang" --text=2
+            schedule_case "crowd_${lang}" --crowd "--lang=$lang"
           done
-          for lang in en fr tr pt; do
-            timeout 300 godot --headless --path game -- --crowd --lang=$lang 2>&1 | tee -a /tmp/loc.log
+          while [ "$running" -gt 0 ]; do
+            if wait -n; then :; else failed=1; fi
+            running=$((running - 1))
           done
-          if grep -q "SCRIPT ERROR" /tmp/loc.log; then
-            echo "::error title=Ошибки скриптов::Во время самотеста языков в логе есть SCRIPT ERROR — см. выше."
+          if [ "$failed" -ne 0 ]; then
+            echo "::error title=Самотесты не пройдены::См. логи перечисленных ниже тестов."
+            sort -u /tmp/pustite-test-failures | while read -r label; do
+              echo "===== $label ====="
+              cat "/tmp/pustite-${label}.log"
+            done
             exit 1
           fi
-
+          echo "Все ${#flags[@]} основных тестов и 30 языковых проверок пройдены."
       - name: Экспорт APK
         run: |
           mkdir -p build
@@ -507,6 +208,7 @@ jobs:
           retention-days: 30
 
       - name: Выложить релиз со ссылкой на APK
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

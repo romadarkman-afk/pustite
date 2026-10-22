@@ -31,6 +31,8 @@ var host_pleas: Dictionary[int, String] = {}
 var clock: PhaseClock
 var screen_kept_on: bool = false
 var _feed_gen: int = 0
+var _restoring_checkpoint := false
+var _preserve_checkpoint_on_abandon := false
 
 ## Дела дня. Время дня идёт вместе с часами фазы: пауза — стоят и дела.
 var tasks: Array[Director.JobTask] = []
@@ -135,6 +137,9 @@ func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = 
 
 ## Бросить партию: остановить таймер и отменить очередь реплик.
 func abandon() -> void:
+	if not _preserve_checkpoint_on_abandon:
+		DayCheckpoint.clear(_checkpoint_path())
+	_preserve_checkpoint_on_abandon = false
 	_feed_gen += 1
 	tasks.clear()
 	player_job = -1
@@ -363,6 +368,8 @@ func busy_job(vid: int) -> int:
 func _on_phase(p: Match.Phase) -> void:
 	if skipping:
 		return                     # «Закончить партию»: фазы пролистываются без экранов
+	if p == Match.Phase.DAY and not _restoring_checkpoint:
+		_write_day_checkpoint()
 	clock.stop()
 	if p != Match.Phase.DAY:
 		tasks.clear()
@@ -399,6 +406,7 @@ func _on_phase(p: Match.Phase) -> void:
 			run_on = false
 			_prepare_door()
 		Match.Phase.OVER:
+			DayCheckpoint.clear(_checkpoint_path())
 			_keep_screen(false)
 			var you := m.player()
 			var won := (m.winner == Match.Team.PEOPLE) != you.is_upyr
@@ -416,6 +424,119 @@ func _on_phase(p: Match.Phase) -> void:
 			phase_entered.emit(p)
 		_:
 			phase_entered.emit(p)
+
+
+func has_day_checkpoint() -> bool:
+	return not DayCheckpoint.read(_checkpoint_path()).is_empty()
+
+
+## Восстановить снимок на входе в тот же день. План ботов строится из сохранённых
+## зёрен случайных чисел, поэтому после загрузки утро начинается так же.
+func resume_day_checkpoint() -> bool:
+	var payload := DayCheckpoint.read(_checkpoint_path())
+	if payload.is_empty():
+		return false
+	var session: Variant = DayCheckpoint.decode(payload.get("session", {}))
+	if not session is Dictionary:
+		return false
+	var saved_chapter: Dictionary = session.get("chapter", {})
+	var map_path := String(payload.get("map", ""))
+	var restored_village: VillageDef
+	if not saved_chapter.is_empty():
+		restored_village = Campaign.village_for_chapter(String(saved_chapter.get("id", "")))
+	else:
+		if map_path.is_empty():
+			return false
+		restored_village = load(map_path) as VillageDef
+	if restored_village == null:
+		return false
+	var cfg := Save.config.duplicate() as GameConfig
+	if cfg == null:
+		return false
+	_preserve_checkpoint_on_abandon = true
+	abandon()
+	chapter = saved_chapter
+	chapter_result = session.get("chapter_result", {})
+	progress_result = session.get("progress_result", {})
+	new_items = PackedStringArray(session.get("new_items", []))
+	daily = String(session.get("daily", ""))
+	opening_done = bool(session.get("opening_done", false))
+	first_contact = bool(session.get("first_contact", false))
+	board_done = bool(session.get("board_done", false))
+	scenes_done = session.get("scenes_done", {})
+	inspection_bonus = int(session.get("inspection_bonus", 0))
+	host_pleas = session.get("host_pleas", {})
+	dilemma = session.get("dilemma", {})
+	player_tunnel = bool(session.get("player_tunnel", false))
+	m = Match.new()
+	m.rule = String(session.get("rule", ""))
+	m.cast.assign(session.get("cast", []))
+	m.guests.assign(session.get("guests", []))
+	m.guest_roles_fixed = bool(session.get("guest_roles_fixed", false))
+	m.chapter_id = String(session.get("chapter_id", ""))
+	m.plant_chapter = String(session.get("plant_chapter", ""))
+	m.force_upyr_story = int(session.get("force_upyr_story", -1))
+	m.npc_id = String(session.get("npc_id", ""))
+	if not chapter.is_empty():
+		Campaign.setup_match(m, chapter)
+	m.village = restored_village
+	if daily != "":
+		m.rule = Challenge.rule_for(daily)
+	var cfg_data: Variant = payload.get("config", {})
+	if cfg_data is Dictionary:
+		DayCheckpoint.apply_resource(cfg, cfg_data)
+	m.start(cfg, int(session.get("match_seed", 0)))
+	director = Director.new()
+	director.tune = 0.0 if daily != "" else Save.tune()
+	director.attach(m)
+	m.phase_changed.connect(_on_phase)
+	m.chat_posted.connect(func(l: ChatLine) -> void: chat_line.emit(l))
+	if not DayCheckpoint.apply(m, director, payload):
+		_preserve_checkpoint_on_abandon = true
+		abandon()
+		return false
+	_keep_screen(true)
+	_restoring_checkpoint = true
+	_on_phase(Match.Phase.DAY)
+	_restoring_checkpoint = false
+	m.post(ChatLine.system(L.t("sys.dawn1") if m.day == 1 else L.t("sys.dawn", {"d": m.day, "n": m.alive().size()})))
+	marks_changed.emit()
+	return true
+
+
+func _checkpoint_path() -> String:
+	return Diag.test_path("day_checkpoint.json")
+
+
+func _write_day_checkpoint() -> void:
+	if m == null or director == null:
+		return
+	var session := {
+		"daily": daily,
+		"chapter": chapter,
+		"chapter_result": chapter_result,
+		"progress_result": progress_result,
+		"new_items": new_items,
+		"opening_done": opening_done,
+		"first_contact": first_contact,
+		"board_done": board_done,
+		"scenes_done": scenes_done,
+		"inspection_bonus": inspection_bonus,
+		"host_pleas": host_pleas,
+		"dilemma": dilemma,
+		"player_tunnel": player_tunnel,
+		"rule": m.rule,
+		"cast": Array(m.cast),
+		"guests": Array(m.guests),
+		"guest_roles_fixed": m.guest_roles_fixed,
+		"chapter_id": m.chapter_id,
+		"plant_chapter": m.plant_chapter,
+		"force_upyr_story": m.force_upyr_story,
+		"npc_id": m.npc_id,
+		"match_seed": m.rng.seed,
+	}
+	if not DayCheckpoint.write(_checkpoint_path(), m, director, session):
+		push_warning("Не удалось сохранить снимок начала дня.")
 
 
 ## Тебя не стало, смотреть дальше не хочется: боты доигрывают без экранов, сразу итог партии.

@@ -39,6 +39,7 @@ scripts/core/campaign.gd
 scripts/core/challenge.gd
 scripts/core/chat_line.gd
 scripts/core/cosmetics.gd
+scripts/core/day_checkpoint.gd
 scripts/core/difficulty.gd
 scripts/core/dread.gd
 scripts/core/feelings.gd
@@ -72,6 +73,8 @@ scripts/loc/voices.gd
 scripts/loc/zh.gd
 scripts/tests/plan_tests.gd
 scripts/tests/self_test.gd
+tests/light_benchmark.gd
+tests/light_benchmark.tscn
 scripts/ui/action_sheet.gd
 scripts/ui/atmosphere.gd
 scripts/ui/bubbles.gd
@@ -118,6 +121,7 @@ scripts/village/folk.gd
 scripts/village/folk_beast.gd
 scripts/village/folk_wear.gd
 scripts/village/house_def.gd
+scripts/village/light_halo.gd
 scripts/village/job_def.gd
 scripts/village/job_layer.gd
 scripts/village/look_book.gd
@@ -129,6 +133,7 @@ scripts/village/village_view.gd
 scripts/village/villager_figure.gd
 shaders/atmos.gdshader
 shaders/lantern_tint.gdshader
+shaders/night_grade.gdshader
 scripts/ui/widgets/door_candle.gd
 scripts/ui/widgets/living_portrait.gd
 tools/check_pair.gd

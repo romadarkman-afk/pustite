@@ -57,6 +57,13 @@ func _build_sound_tab() -> void:
 
 
 func _build_display_tab() -> void:
+	var simple := W.button(L.t("settings.simplified_graphics"), &"RowOn" if Save.simplified_graphics else &"Row")
+	simple.name = "SimplifiedGraphics"
+	simple.pressed.connect(func() -> void:
+		Save.set_simplified_graphics(not Save.simplified_graphics)
+		Nav.set_simplified_graphics(Save.simplified_graphics)
+		build())
+	body.add_child(simple)
 	if OS.has_feature("mobile"):
 		body.add_child(W.label(L.t("settings.mobile_display"), &"Small"))
 		return

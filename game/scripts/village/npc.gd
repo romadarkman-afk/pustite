@@ -29,6 +29,7 @@ var _tex: Texture2D
 var _font: Font
 var _t := 0.0
 var _glow := 0.0
+var _lantern_halo: LightHalo
 
 
 static func has_def(id: String) -> bool:
@@ -59,6 +60,14 @@ func setup(id: String) -> void:
 	_tex = load(sprite_path(id)) as Texture2D
 	_font = ThemeFactory.font_bold()
 	position = DEFS[id].spot
+	_lantern_halo = LightHalo.new()
+	_lantern_halo.position = _lantern_position()
+	_lantern_halo.radius = 24.0
+	_lantern_halo.color = Color("ff9e2c")
+	_lantern_halo.flicker = 0.2
+	_lantern_halo.intensity = 0.0
+	_lantern_halo.z_index = -1
+	add_child(_lantern_halo)
 	queue_redraw()
 
 
@@ -69,6 +78,10 @@ func poke() -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	_glow = maxf(0.0, _glow - delta * 2.0)
+	if _lantern_halo != null:
+		_lantern_halo.position = _lantern_position()
+		var night := Nav.village.night if Nav.village != null else 0.0
+		_lantern_halo.set_intensity(night * (0.48 + _glow * 0.2))
 	queue_redraw()
 
 
@@ -82,8 +95,6 @@ func _draw() -> void:
 	# У мельника фонарь уже в руке на реалистичном спрайте. Для остальных хозяев места
 	# оставляем компактный игровой фонарь, чтобы не рисовать второй поверх изображения.
 	var lamp := Vector2(-w * 0.35, -h * 0.40) if npc_id == "miller" else Vector2(w * 0.42, -h * 0.42 + sin(_t * 1.7) * 1.2)
-	for i in range(4):
-		draw_circle(lamp, 15.0 - i * 3.2, Color(1.0, 0.68, 0.34, 0.035 + i * 0.025))
 	if npc_id != "miller":
 		draw_rect(Rect2(lamp - Vector2(3.5, 5), Vector2(7, 10)), Color(1.0, 0.82, 0.45, 0.95))
 		draw_rect(Rect2(lamp - Vector2(3.5, 5), Vector2(7, 10)), Art.INK, false, 1.4)
@@ -92,6 +103,14 @@ func _draw() -> void:
 	var gold := ThemeFactory.LAMP
 	Art.shape(self, Art.rrect(lr, lr.size.y * 0.5), Color(0.1, 0.07, 0.04, 0.82), Color(gold, 0.9 + 0.1 * _glow), 2.2 + _glow)
 	draw_string(_font, Vector2(lr.position.x + 9.0, lr.end.y - 5.0), who, HORIZONTAL_ALIGNMENT_LEFT, -1, LABEL_SIZE, gold)
+
+
+func _lantern_position() -> Vector2:
+	if _tex == null:
+		return Vector2.ZERO
+	var h := VillagerFigure.FIG_TOP * 1.02
+	var w := h * _tex.get_width() / _tex.get_height()
+	return Vector2(-w * 0.35, -h * 0.40) if npc_id == "miller" else Vector2(w * 0.42, -h * 0.42 + sin(_t * 1.7) * 1.2)
 
 
 func label_rect_local() -> Rect2:

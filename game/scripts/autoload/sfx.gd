@@ -1,6 +1,6 @@
 extends Node
 ## Звук: одиночные звуки, фон (ветер, сверчки), музыка и сердцебиение.
-## Основные фоновые дорожки и голоса взяты из записей CC0 (см. AUDIO_SOURCES.md).
+## Основные фоновые дорожки и голоса взяты из записей CC0 (см. docs/sound-sources.md).
 ##
 ## Каналы громкости: Music, Sfx, Ambience — каждый отдельно в настройках.
 ## Свёрнута игра — все каналы заглушены, вернулась — звук возвращается.
@@ -14,9 +14,9 @@ const SOUNDS := {
 	&"bell": "res://assets/sfx/bell.ogg",
 	&"tick": "res://assets/sfx/tick.ogg",
 	&"death": "res://assets/sfx/death.ogg",
-	&"human_cry_m": "res://assets/sfx/human_cry.wav",
+	&"human_cry_m": "res://assets/sfx/human_cry_m.ogg",
 	&"human_cry_f": "res://assets/sfx/human_cry_f.ogg",
-	&"upyr_cry": "res://assets/sfx/upyr_cry.wav",
+	&"upyr_cry": "res://assets/sfx/upyr_cry.ogg",
 	&"exile": "res://assets/sfx/exile.ogg",
 	&"win": "res://assets/sfx/win.ogg",
 	&"lose": "res://assets/sfx/lose.ogg",
@@ -54,12 +54,12 @@ const LOOPS := {
 	&"typewriter": "res://assets/sfx/typewriter.ogg",   # список на поезд (TASK-033)
 	&"train": "res://assets/sfx/train.ogg",             # подходящий поезд (TASK-034, 035)
 	&"heartbeat": "res://assets/sfx/heartbeat.ogg",
-	&"menu": "res://assets/music/menu_theme.wav",
+	&"menu": "res://assets/music/menu_theme.ogg",
 	&"day": "res://assets/music/day.ogg",
 	&"night": "res://assets/music/night.ogg",
 	&"end_dawn": "res://assets/music/end_dawn.ogg",     # итог: люди дожили (tools/make_end_music.py)
 	&"end_dark": "res://assets/music/end_dark.ogg",     # итог: посёлок пал
-	&"river_theme": "res://assets/music/river_theme.wav",
+	&"river_theme": "res://assets/music/river_theme.ogg",
 }
 ## Звук с вариантами: каждый раз случайный из списка, в журнал пишется общее имя.
 const VARIANTS := {&"reveal": [&"reveal", &"reveal_2", &"reveal_3"]}

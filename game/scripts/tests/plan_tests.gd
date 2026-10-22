@@ -270,8 +270,12 @@ static func campaign_memory(fails: PackedStringArray) -> int:
 	old.set_value("profile", "name", "Тест")
 	old.save(Save.SETTINGS_PATH)
 	Save.load_all()
-	ok += SelfTest._expect(fails, Save.loaded_schema == 1 and Save.campaign_stars.get("a1c2", 0) == 1 and str(Save.campaign_dead) == "[3]"
-		and Save.campaign_memory.is_empty() and Save.player_name == "Тест", "память: сохранение v0.46 прочиталось с потерями")
+	var old_memory := Save.campaign_memory.size() == 2
+	for rec: Dictionary in Save.campaign_memory:
+		old_memory = old_memory and String(rec.kind) == "neutral" and int(rec.who) == -1
+	ok += SelfTest._expect(fails, Save.loaded_schema == Save.SCHEMA and Save.campaign_stars.get("a1c2", 0) == 1
+		and str(Save.campaign_dead) == "[3]" and old_memory and Save.player_name == "Тест",
+		"память: сохранение v0.46 мигрировало с потерями")
 
 	# глава: игрок не открыл жителю, тот погиб; другому сдержал слово
 	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
@@ -305,7 +309,8 @@ static func campaign_memory(fails: PackedStringArray) -> int:
 	Save.record_chapter("a1c3", 2, [], PackedStringArray(), recs)
 	var before := Save.campaign_memory.duplicate(true)
 	Save.load_all()
-	ok += SelfTest._expect(fails, Save.loaded_schema == Save.SCHEMA and str(Save.campaign_memory) == str(before) and before.size() == recs.size(),
+	ok += SelfTest._expect(fails, Save.loaded_schema == Save.SCHEMA and str(Save.campaign_memory) == str(before)
+		and before.size() == recs.size() + 2,
 		"память: после перезапуска записи другие (%d и %d)" % [Save.campaign_memory.size(), before.size()])
 	var lines := Campaign.memory_lines(lost.story_id)
 	ok += SelfTest._expect(fails, not lines.is_empty() and lines[0].contains(lost.name) and lines[0].contains("3"),

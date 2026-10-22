@@ -1,17 +1,17 @@
 extends Control
 ## Точка входа. Логотип ровно 1 секунду → меню. Тап — пропустить.
 ## Фон логотипа — картинка заставки (assets/splash.png): Android показывает её, пока грузится движок.
-## Для сборки здесь же запускаются самотесты: --sim, --flow, --layout, --lifecycle, --field, --crowd, --bubbles, --marks, --input, --hints, --difficulty, --howto, --night, --sound, --village, --talisman, --bell, --events, --mimic, --sabotage, --box, --roles, --meeting, --tunnel, --diary, --recap, --folk, --loc, --access, --daily, --cosmetics, --adapt, --display, --gestures.
+## Для сборки здесь же запускаются самотесты: --sim, --flow, --layout, --lifecycle, --field, --crowd, --bubbles, --marks, --input, --hints, --difficulty, --howto, --night, --eyes, --lights, --checkpoint, --sound, --village, --talisman, --bell, --events, --mimic, --sabotage, --box, --roles, --meeting, --tunnel, --diary, --recap, --folk, --loc, --access, --daily, --cosmetics, --adapt, --display, --gestures, --storage.
 ## --lang=en рядом с любым самотестом гоняет его на другом языке, --text=2 — с самым крупным текстом.
 
-const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk", "--loc", "--access", "--daily", "--cosmetics", "--adapt", "--display", "--gestures"]
+const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--eyes", "--lights", "--checkpoint", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk", "--loc", "--access", "--daily", "--cosmetics", "--adapt", "--display", "--gestures", "--storage", "--save"]
 const TEST_TIMEOUT_SEC := 240.0
 const LOGO_SEC := 2.2
 const SPLASH: Texture2D = preload("res://assets/splash.png")
 const MENU_PRELOAD: Array[String] = [
 	"res://scripts/ui/screens/menu_screen.gd",
 	"res://fonts/Nunito.ttf",
-	"res://assets/music/menu_theme.wav",
+	"res://assets/music/menu_theme.ogg",
 ]
 
 var open: float = 0.0          ## насколько приоткрыта щель, 0..1
@@ -107,6 +107,18 @@ func _run_test(flag: String) -> void:
 			Juice.instant = true
 			Nav.start()
 			SelfTest.night()
+		"--eyes":
+			Juice.instant = true
+			Nav.start()
+			SelfTest.eyes()
+		"--lights":
+			Juice.instant = true
+			Nav.start()
+			SelfTest.lights()
+		"--checkpoint":
+			Juice.instant = true
+			Nav.start()
+			SelfTest.checkpoint()
 		"--sound":
 			Juice.instant = true
 			Nav.start()
@@ -185,6 +197,10 @@ func _run_test(flag: String) -> void:
 			Juice.instant = true
 			Nav.start()
 			SelfTest.gestures()
+		"--storage":
+			SelfTest.storage()
+		"--save":
+			SelfTest.save()
 
 
 # ---------------------------------------------------------------
