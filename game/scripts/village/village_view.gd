@@ -11,6 +11,7 @@ const BAND := Rect2(0, 120, 720, 400)    ## полоса с домами — е�
 ## их можно подрезать, а фигурки от этого крупнее.
 const SIDE_VISIBLE := 0.88
 const SKY_SHARE := 0.50                   ## горизонт не уходит за верх поля на вытянутых экранах
+const BUBBLE_HEADROOM := 210.0             ## место над верхним жителем для пузыря на планшетах
 const SAFE_X := Vector2(84, 624)          ## куда можно ставить жителей: слева половина имени, справа колонка отметок
 static var _shadow_outline_cache: Dictionary = {}
 
@@ -223,6 +224,26 @@ func frame_to(rect: Rect2, vp_w: float, dur: float, zoom: float = 1.0, focus_x: 
 	var base := minf(vp_w / (LOGICAL.x * SIDE_VISIBLE), rect.size.y / BAND.size.y)
 	var s := minf(base * zoom, rect.size.y / BAND.size.y)
 	s = maxf(s, 0.5)
+	var sky_share := SKY_SHARE
+	var top_head_y := INF
+	if crowd != null:
+		for figure: VillagerFigure in crowd.figures.values():
+			if not is_instance_valid(figure):
+				continue
+			var height := figure.look.height if figure.look != null else 1.0
+			top_head_y = minf(top_head_y, figure.position.y - VillagerFigure.FIG_TOP * height)
+	if is_finite(top_head_y):
+		var extra_y := maxf(0.0, rect.size.y - BAND.size.y * s)
+		var head_gap := extra_y * sky_share + (top_head_y - BAND.position.y) * s
+		if head_gap < BUBBLE_HEADROOM:
+			# Сначала используем свободное место сверху. Если его не хватает,
+			# чуть уменьшаем кадр, чтобы верхняя реплика оставалась над жителем.
+			sky_share = 1.0
+			var head_depth := BAND.end.y - top_head_y
+			if head_depth > 0.0:
+				var needed_scale := (rect.size.y - BUBBLE_HEADROOM) / head_depth
+				if needed_scale > 0.0:
+					s = maxf(0.5, minf(s, needed_scale))
 	_vp_w = vp_w
 	if focus_x >= 0.0:
 		cam_x = focus_x
@@ -232,7 +253,7 @@ func frame_to(rect: Rect2, vp_w: float, dur: float, zoom: float = 1.0, focus_x: 
 	_backdrop.position.x = (cam_x - LOGICAL.x * 0.5) * Backdrop.PARALLAX
 	# Полоса с домами остаётся в поле, лишняя высота делится между небом и передним планом.
 	var extra := maxf(0.0, rect.size.y - BAND.size.y * s)
-	var target := Vector2(vp_w * 0.5 - cam_x * s, rect.position.y + extra * SKY_SHARE - BAND.position.y * s)
+	var target := Vector2(vp_w * 0.5 - cam_x * s, rect.position.y + extra * sky_share - BAND.position.y * s)
 	if _tw_frame != null:
 		_tw_frame.kill()
 	if dur <= 0.0:
