@@ -54,6 +54,7 @@ const IDENTITY_COLORS := [Color("bb7440"), Color("a83e59"), Color("4676b0"), Col
 	Color("ad913e"), Color("8461a6"), Color("c2b190"), Color("527e49"), Color("ae6048"),
 	Color("4c91ab"), Color("936581"), Color("8c984f"), Color("ab8598")]
 const STRIDE_LENGTH := 70.0
+static var _foot_shadow_texture: Texture2D
 var _turn_t: float = 0.0
 var _knock_t: float = 0.0
 const KNOCK_LEN := 0.24
@@ -626,9 +627,7 @@ func run_to(target: Vector2, dur: float = 0.75, delay: float = 0.0, door_house: 
 		_tw.tween_interval(delay)
 		_tw.tween_callback(func() -> void: state = State.RUN)
 	var total := _path_length(path)
-	var direct := maxf(1.0, position.distance_to(destination))
-	var speed := direct / maxf(0.05, dur)
-	var move_time := maxf(0.05, total / maxf(1.0, speed))
+	var move_time := maxf(0.05, dur)
 	var from := position
 	for point: Vector2 in path:
 		var segment := from.distance_to(point)
@@ -910,11 +909,29 @@ func _redraw() -> void:
 		tag.queue_redraw()
 
 
+static func _foot_shadow() -> Texture2D:
+	if _foot_shadow_texture != null:
+		return _foot_shadow_texture
+	var gradient := Gradient.new()
+	gradient.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+	gradient.colors = PackedColorArray([Color(0.015, 0.012, 0.02, 0.38), Color(0.015, 0.012, 0.02, 0.12), Color(0.015, 0.012, 0.02, 0.0)])
+	var texture := GradientTexture2D.new()
+	texture.gradient = gradient
+	texture.width = 96
+	texture.height = 40
+	texture.fill = GradientTexture2D.FILL_RADIAL
+	texture.fill_from = Vector2(0.5, 0.5)
+	texture.fill_to = Vector2(0.5, 0.0)
+	_foot_shadow_texture = texture
+	return _foot_shadow_texture
+
+
 ## Тень, кольцо «Вы» и надгробие — на земле, в общем порядке по глубине.
 func _draw() -> void:
 	if state == State.GONE:
 		return
-	draw_colored_polygon(_ellipse(Vector2(0, 2), Vector2(18, 5.5)), Color(0, 0, 0, 0.26))
+	var shadow_alpha := lerpf(0.15, 0.25, night)
+	draw_texture_rect(_foot_shadow(), Rect2(-23, -5, 46, 15), false, Color(1, 1, 1, shadow_alpha))
 	if state == State.DEAD:
 		# надгробие: пухлый камень с крестом и травой
 		var k := Art.INK

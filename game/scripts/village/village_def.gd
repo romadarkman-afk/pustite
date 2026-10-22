@@ -14,6 +14,7 @@ extends Resource
 ## Земля: картинки assets/village/<ground>_day.jpg и _night.jpg и куда они ложатся на поле.
 @export var ground: String = "ground"
 @export var ground_rect: Rect2 = Rect2(-88.8, 31.6, 816.0, 609.3)
+@export var color_grade: Color = Color.WHITE ## лёгкая цветовая температура локации
 @export var well_sprite: bool = true          ## колодец картинкой поверх земли; false — он уже нарисован на земле
 @export var houses_key: String = "houses"     ## названия убежищ в файле языка
 @export var presentation_id: String = ""      ## id локации кампании для проверки

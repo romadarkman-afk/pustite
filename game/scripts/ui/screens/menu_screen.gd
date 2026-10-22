@@ -17,6 +17,7 @@ var _diff_note: Label
 var _menu_art_nodes: Array[TextureRect] = []
 var _menu_art_front := 0
 var _menu_art_index := 0
+var _menu_backdrop: Control
 
 
 func screen_id() -> String:
@@ -24,13 +25,7 @@ func screen_id() -> String:
 
 
 func field_ratio() -> float:
-	return clampf(0.23 / ThemeFactory.text_scale, 0.19, 0.23)
-
-
-func field_height(h: float) -> float:
-	# Вырезы уменьшают безопасную область. Фон меню сохраняет минимум 18.1% всей высоты экрана.
-	var full_height := get_viewport_rect().size.y
-	return maxf(h * field_ratio(), full_height * 0.181)
+	return 0.0
 
 
 func mood() -> Vector2:
@@ -47,16 +42,17 @@ func music() -> StringName:
 
 func build() -> void:
 	_install_menu_art()
+	body.add_theme_constant_override("separation", 10)
 
 	var t := W.label(L.t("game.title"), &"Title")
-	t.add_theme_font_size_override("font_size", 74)
+	t.add_theme_font_size_override("font_size", 56)
 	body.add_child(t)
 	var case_file := W.label(L.t("menu.case_file"), &"Speaker")
-	case_file.add_theme_font_size_override("font_size", ThemeFactory.fs(17))
+	case_file.add_theme_font_size_override("font_size", ThemeFactory.fs(15))
 	body.add_child(case_file)
 	body.add_child(W.label(L.t("menu.tale"), &"Tale"))
 	var hint := W.label(L.t("menu.hint"), &"Hint")
-	hint.add_theme_font_size_override("font_size", ThemeFactory.fs(18))
+	hint.add_theme_font_size_override("font_size", ThemeFactory.fs(16))
 	body.add_child(hint)
 
 	var name_button := W.wrap(W.button(SocialContent.player_name_label(Save.player_display_name()), &"Row"))
@@ -72,47 +68,15 @@ func build() -> void:
 	modes.columns = 2
 	modes.add_theme_constant_override("h_separation", 10)
 	modes.add_theme_constant_override("v_separation", 10)
-	var camp_card := W.panel(&"Card")
-	camp_card.custom_minimum_size = Vector2(140, ThemeFactory.TOUCH * 2.3)
-	camp_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var camp_box := W.vbox(8)
-	camp_card.add_child(camp_box)
-	camp_box.add_child(W.label(L.t("menu.mode_campaign"), &"Speaker"))
-	camp_box.add_child(W.label(L.t("menu.mode_campaign_desc"), &"Small"))
-	var camp := W.button(L.t("menu.play"), &"Primary")
-	camp_card.custom_minimum_size.x = maxf(camp_card.custom_minimum_size.x, W.button_need(camp) + 28.0)
-	camp.name = "Campaign"
-	camp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	camp.pressed.connect(func() -> void: emit_intent(Intent.OPEN_CAMPAIGN))
-	camp_box.add_child(camp)
-	modes.add_child(camp_card)
-
-	var solo_card := W.panel(&"Card")
-	solo_card.custom_minimum_size = Vector2(140, ThemeFactory.TOUCH * 2.3)
-	solo_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var solo_box := W.vbox(8)
-	solo_card.add_child(solo_box)
-	solo_box.add_child(W.label(L.t("menu.mode_solo"), &"Speaker"))
-	solo_box.add_child(W.label(L.t("menu.mode_solo_desc"), &"Small"))
-	var start := W.button(L.t("menu.play"), &"RowOn")
-	solo_card.custom_minimum_size.x = maxf(solo_card.custom_minimum_size.x, W.button_need(start) + 28.0)
-	start.name = "Start"
-	start.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	start.pressed.connect(func() -> void: emit_intent(Intent.START_SOLO))
-	solo_box.add_child(start)
-	modes.add_child(solo_card)
+	modes.add_child(_mode_tile(L.t("menu.mode_campaign"), L.t("menu.mode_campaign_desc"), L.t("menu.play"),
+		"Campaign", &"Primary", Intent.OPEN_CAMPAIGN))
+	modes.add_child(_mode_tile(L.t("menu.mode_solo"), L.t("menu.mode_solo_desc"), L.t("menu.play"),
+		"Start", &"RowOn", Intent.START_SOLO))
+	modes.add_child(_mode_tile(L.t("menu.mode_online"), L.t("menu.mode_online_desc"), L.t("menu.mode_online"),
+		"OnlineSoon", &"Row", &"", true))
+	modes.add_child(_mode_tile(L.t("settings.title"), L.t("menu.settings_desc"), L.t("settings.title"),
+		"Settings", &"Row", Intent.OPEN_SETTINGS))
 	body.add_child(modes)
-
-	var online := W.wrap(W.button(L.t("menu.mode_online"), &"Row"))
-	online.name = "OnlineSoon"
-	online.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	online.disabled = true
-	var settings := W.wrap(W.button(L.t("settings.title"), &"Row"))
-	settings.name = "Settings"
-	settings.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	settings.pressed.connect(func() -> void: emit_intent(Intent.OPEN_SETTINGS))
-	body.add_child(W.fit_row([online, settings]))
-	body.add_child(W.label(L.t("menu.mode_online_desc"), &"Small"))
 
 	var dbs: Array[Button] = []
 	var custom_b: Button = null
@@ -164,7 +128,9 @@ func build() -> void:
 			emit_intent(Intent.EXIT))
 	footer_actions.append(exit)
 	footer.add_child(W.fit_row(footer_actions))
-	(start if Campaign.is_new() else footer_actions[0]).call_deferred("grab_focus")
+	var first_focus := find_child("Start", true, false) as Control if Campaign.is_new() else footer_actions[0]
+	if first_focus != null:
+		first_focus.call_deferred("grab_focus")
 	_diff_note = W.label("", &"Small")
 	body.add_child(_diff_note)
 	refresh(difficulty, cfg)
@@ -172,10 +138,36 @@ func build() -> void:
 		Juice.pop_in(body.get_child(i) as Control, 0.08 * i)
 
 
+func _mode_tile(heading: String, description: String, action_text: String, node_name: String,
+		variation: StringName, action: StringName, disabled: bool = false) -> PanelContainer:
+	var card := W.panel(&"Card")
+	card.custom_minimum_size = Vector2(140, ThemeFactory.TOUCH * 1.75)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var box := W.vbox(6)
+	card.add_child(box)
+	box.add_child(W.label(heading, &"Speaker"))
+	var detail := W.label(description, &"Small")
+	detail.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(detail)
+	var button := W.wrap(W.button(action_text, variation))
+	button.name = node_name
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.disabled = disabled
+	if not disabled:
+		button.pressed.connect(func() -> void: emit_intent(action))
+	box.add_child(button)
+	return card
+
+
 func _install_menu_art() -> void:
-	if field_spacer == null or MENU_ART.is_empty():
+	if not is_instance_valid(Nav.ui) or MENU_ART.is_empty():
 		return
-	field_spacer.clip_contents = true
+	_menu_backdrop = Control.new()
+	_menu_backdrop.name = "MenuBackdrop"
+	_menu_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_menu_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	Nav.ui.add_child(_menu_backdrop)
+	Nav.ui.move_child(_menu_backdrop, 0)
 	for i in range(2):
 		var art := TextureRect.new()
 		art.name = "MenuBackdrop%d" % i
@@ -186,7 +178,7 @@ func _install_menu_art() -> void:
 		art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		art.modulate.a = 1.0 if i == 0 else 0.0
 		art.visible = i == 0
-		field_spacer.add_child(art)
+		_menu_backdrop.add_child(art)
 		_menu_art_nodes.append(art)
 
 	var gradient := Gradient.new()
@@ -207,7 +199,7 @@ func _install_menu_art() -> void:
 	shade.stretch_mode = TextureRect.STRETCH_SCALE
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	field_spacer.add_child(shade)
+	_menu_backdrop.add_child(shade)
 
 	var timer := Timer.new()
 	timer.name = "MenuBackdropTimer"
@@ -215,6 +207,11 @@ func _install_menu_art() -> void:
 	timer.autostart = true
 	timer.timeout.connect(_advance_menu_art)
 	add_child(timer)
+
+
+func _exit_tree() -> void:
+	if is_instance_valid(_menu_backdrop):
+		_menu_backdrop.queue_free()
 
 
 func _advance_menu_art() -> void:

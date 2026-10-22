@@ -27,10 +27,27 @@ const BROOCHES: Array[Dictionary] = [
 	{"id": "bone", "need": {}},
 	{"id": "seal", "need": {}},
 ]
+const AVATARS: Array[Dictionary] = [
+	{"id": "hero", "need": {}}, {"id": "1", "need": {}}, {"id": "2", "need": {}}, {"id": "3", "need": {}},
+	{"id": "4", "need": {}}, {"id": "5", "need": {}}, {"id": "6", "need": {}}, {"id": "7", "need": {}},
+	{"id": "8", "need": {}}, {"id": "9", "need": {}}, {"id": "10", "need": {}}, {"id": "11", "need": {}},
+	{"id": "12", "need": {}}, {"id": "13", "need": {}}, {"id": "14", "need": {}}, {"id": "15", "need": {}}, {"id": "16", "need": {}},
+]
+
+
+static func avatar_exists(id: String) -> bool:
+	for avatar: Dictionary in AVATARS:
+		if String(avatar.id) == id:
+			return true
+	return false
+
+
+static func avatar_sprite(id: String, l: LookDef) -> int:
+	return VillagerFigure.hero_for(l) if id == "hero" else (int(id) if avatar_exists(id) else VillagerFigure.hero_for(l))
 
 
 static func item(kind: String, id: String) -> Dictionary:
-	var items: Array[Dictionary] = LANTERNS if kind == "lantern" else (HATS if kind == "hat" else BROOCHES)
+	var items: Array[Dictionary] = LANTERNS if kind == "lantern" else (HATS if kind == "hat" else (AVATARS if kind == "avatar" else BROOCHES))
 	for it: Dictionary in items:
 		if it.id == id:
 			return it
@@ -65,6 +82,8 @@ static func need_text(it: Dictionary) -> String:
 
 
 static func title(kind: String, id: String) -> String:
+	if kind == "avatar":
+		return L.t("cos.avatar_hero") if id == "hero" else L.t("cos.avatar", {"n": int(id)})
 	if kind == "brooch":
 		var titles := {"none": ["Без значка", "No brooch"], "sun": ["Солнце", "Sun"],
 			"bone": ["Кость", "Bone"], "seal": ["Печать", "Seal"]}
@@ -87,6 +106,8 @@ static func open_ids(prog: Dictionary = {}) -> PackedStringArray:
 	for it: Dictionary in BROOCHES:
 		if is_open(it, prog):
 			out.append("brooch:" + String(it.id))
+	for it: Dictionary in AVATARS:
+		out.append("avatar:" + String(it.id))
 	return out
 
 

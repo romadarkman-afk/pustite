@@ -14,6 +14,7 @@ var day_life := false           ## днём жители переминаютс�
 var _whisper_in := 4.0
 var _fidget_clock := 2.0
 var _life_rng := RandomNumberGenerator.new()
+var place_grade := Color.WHITE
 var whispers := 0               ## для самотеста
 var flinched := 0               ## сколько жителей вздрогнули на последний колокол
 var npc: Npc = null              ## хозяин места вне голосования (TASK-021): мельник, Игнат, начальник станции
@@ -55,12 +56,12 @@ func populate(m: Match) -> void:
 		f.set_fidget_seed(hash("%d:%d" % [v.id, m.rng.seed]))
 		f.set_identity_color(v.id)
 		if v.is_player:
-			f.set_sprite(VillagerFigure.hero_for(l))
-			f.set_hero_hat(Save.hat)
+			f.set_sprite(Cosmetics.avatar_sprite(Save.avatar_id, l))
+			f.set_hero_hat(Save.hat if Save.avatar_id == "hero" else "own")
 		else:
 			var gs := VillagerFigure.guest_sprite(v.guest_id)
 			f.sprite_id = gs if gs > 0 else VillagerFigure.pick_cast_sprite(v, used)
-		f.modulate = night_tint
+		f.modulate = _figure_tint()
 		add_child(f)
 		if v.is_player:
 			f.set_lantern(Save.lantern)
@@ -79,7 +80,7 @@ func populate(m: Match) -> void:
 			continue
 		var n := Npc.new()
 		n.setup(id)
-		n.modulate = night_tint
+		n.modulate = _figure_tint()
 		add_child(n)
 		npcs[id] = n
 		if npc == null:
@@ -149,7 +150,7 @@ func _free(r: Rect2, obs: Array[Rect2]) -> bool:
 
 ## Последний запасной вариант: любое свободное место на площади, где житель виден целиком и не
 ## задевает уже расставленных, ближе к середине. Нужен, когда дома закрыли концы рядов.
-func _any_spot(out: Array[Vector2], widths: Array[float], i: int, w: float, obs: Array[Rect2]) -> Vector2:
+func _any_spot(out: Array[Vector2], widths: Array[float], i: int, w: float, obs: Array[Rect2], walls: Array[Rect2]) -> Vector2:
 	var taken: Array[Rect2] = obs.duplicate()
 	for k in range(i):
 		taken.append(fig_rect(out[k], maxf(widths[k], MIN_W)))
@@ -163,7 +164,7 @@ func _any_spot(out: Array[Vector2], widths: Array[float], i: int, w: float, obs:
 		while x <= VillageView.SAFE_X.y - w * 0.5:
 			var p := Vector2(x, y)
 			var d := ((p - c) / r).length()
-			if d <= 1.0 and d < best_d and _spot_ok(p, w, taken):
+			if d <= 1.0 and d < best_d and _spot_ok(p, w, taken, walls):
 				best = p
 				best_d = d
 			x += 8.0
@@ -187,8 +188,8 @@ func _hidden(p: Vector2, check_torso: bool = false) -> bool:
 	return false
 
 
-func _spot_ok(p: Vector2, w: float, obs: Array[Rect2]) -> bool:
-	return _free(fig_rect(p, w), obs) and not _hidden(p, true)
+func _spot_ok(p: Vector2, w: float, obs: Array[Rect2], walls: Array[Rect2]) -> bool:
+	return _free(fig_rect(p, w), obs) and not _hidden(p, true) and not _point_in_walls(p, walls)
 
 
 ## Совместимость: места по числу жителей (без учёта ширины имён).
@@ -202,15 +203,16 @@ func spots_for(n: int) -> Array[Vector2]:
 ## Дневная расстановка в два захода: сначала строго на площади; если все не поместились
 ## в два ряда (11–12 человек с длинными именами), ряды расширяются до краёв кадра.
 func layout_day(widths: Array[float]) -> Array[Vector2]:
-	var strict := _layout_day(widths, false)
+	var walls := _walk_walls()
+	var strict := _layout_day(widths, false, walls)
 	var back_y := view.def.square_center.y + ROW_BACK
 	for p: Vector2 in strict:
 		if p.y < back_y - 0.5:        # кто-то попал в запасной третий ряд — пробуем ряды пошире
-			return _layout_day(widths, true)
+			return _layout_day(widths, true, walls)
 	return strict
 
 
-func _layout_day(widths: Array[float], wide: bool) -> Array[Vector2]:
+func _layout_day(widths: Array[float], wide: bool, walls: Array[Rect2]) -> Array[Vector2]:
 	var c := view.def.square_center
 	var r := view.def.square_radii
 	var a_y := c.y + ROW_FRONT
@@ -245,14 +247,14 @@ func _layout_day(widths: Array[float], wide: bool) -> Array[Vector2]:
 		for attempt in range(2):
 			var sd := side if attempt == 0 else -side
 			if sd > 0 and a_open[1] and a_right + w <= c.x + a_half:
-				if _spot_ok(Vector2(a_right + w * 0.5, a_y), w - GAP, obs):
+				if _spot_ok(Vector2(a_right + w * 0.5, a_y), w - GAP, obs, walls):
 					out[i] = Vector2(a_right + w * 0.5, a_y)
 					a_right += w
 					placed = true
 				else:
 					a_open[1] = false
 			elif sd < 0 and a_open[0] and a_left - w >= c.x - a_half:
-				if _spot_ok(Vector2(a_left - w * 0.5, a_y), w - GAP, obs):
+				if _spot_ok(Vector2(a_left - w * 0.5, a_y), w - GAP, obs, walls):
 					out[i] = Vector2(a_left - w * 0.5, a_y)
 					a_left -= w
 					placed = true
@@ -264,14 +266,14 @@ func _layout_day(widths: Array[float], wide: bool) -> Array[Vector2]:
 			for attempt in range(2):
 				var sd := side if attempt == 0 else -side
 				if sd > 0 and b_open[1] and b_right + w <= minf(c.x + b_half, b_max):
-					if _spot_ok(Vector2(b_right + w * 0.5, b_y), w - GAP, obs):
+					if _spot_ok(Vector2(b_right + w * 0.5, b_y), w - GAP, obs, walls):
 						out[i] = Vector2(b_right + w * 0.5, b_y)
 						b_right += w
 						placed = true
 					else:
 						b_open[1] = false
 				elif sd < 0 and b_open[0] and b_left - w >= c.x - b_half:
-					if _spot_ok(Vector2(b_left - w * 0.5, b_y), w - GAP, obs):
+					if _spot_ok(Vector2(b_left - w * 0.5, b_y), w - GAP, obs, walls):
 						out[i] = Vector2(b_left - w * 0.5, b_y)
 						b_left -= w
 						placed = true
@@ -294,7 +296,7 @@ func _layout_day(widths: Array[float], wide: bool) -> Array[Vector2]:
 					for cx: float in xs3:
 						if cx - w * 0.5 < VillageView.SAFE_X.x or cx + w * 0.5 > VillageView.SAFE_X.y:
 							continue
-						if _spot_ok(Vector2(cx, y3 + dy), w - GAP, obs + c_used):
+						if _spot_ok(Vector2(cx, y3 + dy), w - GAP, obs + c_used, walls):
 							best = Vector2(cx, y3 + dy)
 							break
 					if best != Vector2.INF:
@@ -302,7 +304,7 @@ func _layout_day(widths: Array[float], wide: bool) -> Array[Vector2]:
 				if best != Vector2.INF:
 					break
 			if best == Vector2.INF:
-				best = _any_spot(out, widths, i, w - GAP, obs + c_used)
+				best = _any_spot(out, widths, i, w - GAP, obs + c_used, walls)
 			if best == Vector2.INF:
 				best = Vector2(c.x, y3)
 			out[i] = best
@@ -418,7 +420,30 @@ func walk_clamp(p: Vector2) -> Vector2:
 		d = d.normalized()
 		p = c + d * r
 	p.x = clampf(p.x, VillageView.SAFE_X.x, VillageView.SAFE_X.y)
+	var walls := _walk_walls()
+	if _point_in_walls(p, walls):
+		var found := false
+		for radius in range(1, 33):
+			for step in range(16):
+				var a := TAU * float(step) / 16.0
+				var candidate := p + Vector2(cos(a), sin(a)) * float(radius * 6)
+				if candidate.x < VillageView.SAFE_X.x or candidate.x > VillageView.SAFE_X.y:
+					continue
+				if ((candidate - c) / r).length() > 1.0 or _point_in_walls(candidate, walls):
+					continue
+				p = candidate
+				found = true
+				break
+			if found:
+				break
 	return p
+
+
+func _point_in_walls(p: Vector2, walls: Array[Rect2]) -> bool:
+	for wall: Rect2 in walls:
+		if wall.has_point(p):
+			return true
+	return false
 
 
 ## Проложить путь по площади: фасады домов непроходимы, у нужной двери остаётся проход.
@@ -446,9 +471,11 @@ func walk_route(from: Vector2, destination: Vector2, door_house: int = -1) -> Pa
 					grid.set_point_solid(id, true)
 	var start_id := _free_cell(grid, from, CELL, GRID)
 	var end_id := _free_cell(grid, target, CELL, GRID)
+	if grid.is_point_solid(start_id) or grid.is_point_solid(end_id):
+		return PackedVector2Array([from])
 	var cells: Array[Vector2i] = grid.get_id_path(start_id, end_id, true)
 	if cells.is_empty():
-		return direct
+		return PackedVector2Array([from])
 	var raw: Array[Vector2] = []
 	for i in range(1, cells.size()):
 		raw.append(grid.get_point_position(cells[i]))
@@ -456,16 +483,18 @@ func walk_route(from: Vector2, destination: Vector2, door_house: int = -1) -> Pa
 	var smooth := PackedVector2Array()
 	var anchor := from
 	while not raw.is_empty():
-		var far := 0
+		var far := -1
 		for i in range(raw.size() - 1, -1, -1):
 			if _segment_clear(anchor, raw[i], walls):
 				far = i
 				break
+		if far < 0:
+			return smooth if not smooth.is_empty() else PackedVector2Array([from])
 		var next: Vector2 = raw[far]
 		smooth.append(next)
 		anchor = next
 		raw = raw.slice(far + 1)
-	return smooth if not smooth.is_empty() else direct
+	return smooth if not smooth.is_empty() else PackedVector2Array([from])
 
 
 func _free_cell(grid: AStarGrid2D, p: Vector2, cell: float, dimensions: Vector2i) -> Vector2i:
@@ -491,19 +520,26 @@ func _walk_walls(door_house: int = -1) -> Array[Rect2]:
 	for i in range(houses.size()):
 		var h: HouseDef = houses[i]
 		var r := view.house_rect(h)
-		var facade := Rect2(r.position.x + r.size.x * 0.14, h.pos.y - 12.0, r.size.x * 0.72, 30.0)
-		var door_gap := Rect2()
-		if i == door_house:
-			door_gap = view.door_rect(h).grow_individual(10.0, 0.0, 10.0, 18.0)
-		if door_gap.size.x <= 0.0 or not facade.intersects(door_gap):
-			out.append(facade)
+		# Коллизия совпадает с областью, за которой дом закрывает фигуру.
+		# Дорожка и очередь перед основанием остаются свободны.
+		var footprint := Rect2(r.position.x + r.size.x * 0.08, r.position.y,
+			r.size.x * 0.84, h.pos.y - r.position.y)
+		if i != door_house:
+			out.append(footprint)
 			continue
-		var left_end := minf(facade.end.x, door_gap.position.x)
-		var right_start := maxf(facade.position.x, door_gap.end.x)
-		if left_end > facade.position.x:
-			out.append(Rect2(facade.position, Vector2(left_end - facade.position.x, facade.size.y)))
-		if right_start < facade.end.x:
-			out.append(Rect2(Vector2(right_start, facade.position.y), Vector2(facade.end.x - right_start, facade.size.y)))
+		# Только выбранный вход получает проход; остальная проекция здания остаётся твёрдой.
+		var door := view.door_rect(h)
+		var gap_width := maxf(door.size.x + 34.0, 48.0)
+		var gap := Rect2(door.get_center().x - gap_width * 0.5, footprint.position.y,
+			gap_width, footprint.size.y)
+		gap = gap.intersection(footprint)
+		if gap.size.x <= 0.0 or gap.size.y <= 0.0:
+			out.append(footprint)
+			continue
+		if gap.position.x > footprint.position.x:
+			out.append(Rect2(footprint.position, Vector2(gap.position.x - footprint.position.x, footprint.size.y)))
+		if gap.end.x < footprint.end.x:
+			out.append(Rect2(Vector2(gap.end.x, footprint.position.y), Vector2(footprint.end.x - gap.end.x, footprint.size.y)))
 	return out
 
 
@@ -575,13 +611,22 @@ func turn_to(x: float, except: Array[int] = [], radius: float = 320.0, seconds: 
 var night_tint := Color(1, 1, 1)
 
 
+func set_color_grade(grade: Color) -> void:
+	place_grade = grade
+	set_night(view.night if view != null else 0.0)
+
+
 func set_night(n: float) -> void:
-	night_tint = Color(1, 1, 1).lerp(Color(0.76, 0.79, 0.91), n)
+	night_tint = Color.WHITE.lerp(place_grade, 0.14).lerp(Color(0.76, 0.79, 0.91), n)
 	for f: VillagerFigure in figures.values():
 		f.set_night(n)
 		f.modulate = night_tint
 	for hn: Npc in npcs.values():
 		hn.modulate = night_tint
+
+
+func _figure_tint() -> Color:
+	return Color.WHITE.lerp(place_grade, 0.14).lerp(Color(0.76, 0.79, 0.91), view.night if view != null else 0.0)
 
 
 func set_player_highlight(on: bool) -> void:

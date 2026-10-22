@@ -134,6 +134,7 @@ well = Vector2(360, 384)
 props = Array[Dictionary]([{"id": "prop_crates", "pos": Vector2(282, 548), "w": 70.0}, {"id": "prop_kennel", "pos": Vector2(56, 350), "w": 46.0}, {"id": "prop_stump_axe", "pos": Vector2(472, 550), "w": 56.0}, {"id": "prop_trough", "pos": Vector2(688, 470), "w": 62.0}, {"id": "prop_laundry", "pos": Vector2(686, 528), "w": 60.0}])
 houses_key = "houses_station"
 ground = "ground_station"
+color_grade = Color(1, 0.82, 0.68, 1)
 square_center = Vector2(360, 392)
 square_radii = Vector2(270, 100)
 river = true

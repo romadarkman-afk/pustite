@@ -24,6 +24,7 @@ var _menu_preview: Match
 var _menu_horror: Node
 var _walk_gen := 0                 ## каждая новая прогулка игрока отменяет прежнюю цель
 var _spoiled_ji := -1              ## у этого дела только что испортили сделанное: всплывашка уже показана
+var _solo_after_howto := false
 const SIDE_UP := 1
 const SIDE_DOWN := 3
 const SIDE_LEFT := 0
@@ -144,6 +145,7 @@ func start() -> void:
 # =============================================================
 func show_menu() -> void:
 	Game.abandon()
+	_solo_after_howto = false
 	_menu_village()
 	var s := MenuScreen.new()
 	s.difficulty = Save.difficulty
@@ -167,8 +169,8 @@ func show_wardrobe() -> void:
 	show(WardrobeScreen.new())
 
 
-func start_match() -> void:
-	Game.start(Save.config)
+func start_match(varied_solo_map: bool = false) -> void:
+	Game.start(Save.config, "", {}, varied_solo_map)
 
 
 ## Глава кампании. Пустой id — продолжить с первой непройденной.
@@ -563,16 +565,19 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			_new_game_audio_cue()
 			_apply_settings(data)
 			if not Save.howto_seen:
+				_solo_after_howto = true
 				show_howto(true)
 			else:
-				start_match()
+				start_match(true)
 		Intent.OPEN_HOWTO:
 			show_howto(false)
 		Intent.HOWTO_DONE:
 			Save.mark_howto()
 			if data.get("play", false):
-				start_match()
+				start_match(_solo_after_howto)
+				_solo_after_howto = false
 			else:
+				_solo_after_howto = false
 				show_menu()
 		Intent.OPEN_SETTINGS:
 			show_settings()
@@ -866,7 +871,14 @@ func _run_distance(vid: int, house: int) -> float:
 	var f: VillagerFigure = village.crowd.figures.get(vid)
 	if f == null or house < 0 or house >= village.def.shelters.size():
 		return 200.0
-	return f.position.distance_to(village.def.shelters[house].pos)
+	var target := village.crowd.door_spot(house, 0)
+	var path := village.crowd.walk_route(f.position, target, house)
+	var distance := 0.0
+	var previous := f.position
+	for point: Vector2 in path:
+		distance += previous.distance_to(point)
+		previous = point
+	return maxf(distance, f.position.distance_to(target))
 
 
 func _on_run() -> void:

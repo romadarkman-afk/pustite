@@ -140,6 +140,7 @@ square_radii = Vector2(200, 104)
 river = false
 ground = "ground_monastery"
 ground_rect = Rect2(-50, 20, 819.2, 612)
+color_grade = Color(0.88, 0.94, 0.77, 1)
 fences = PackedVector2Array()
 fish_planks = false
 box_spots = PackedVector2Array(232, 420, 556, 420, 300, 470, 488, 476)

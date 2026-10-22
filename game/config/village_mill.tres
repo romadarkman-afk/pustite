@@ -139,6 +139,7 @@ square_center = Vector2(384, 400)
 square_radii = Vector2(222, 100)
 ground = "ground_mill"
 ground_rect = Rect2(-55.3, 57.4, 816, 609.3)
+color_grade = Color(0.79, 0.88, 1, 1)
 well_sprite = false
 houses_key = "houses_mill"
 fences = PackedVector2Array(604, 560)

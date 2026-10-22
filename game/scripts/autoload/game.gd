@@ -77,7 +77,7 @@ func active() -> bool:
 
 
 ## daily — дата испытания дня ("" — обычная партия): правило и зерно берутся по ней.
-func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = {}) -> void:
+func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = {}, varied_solo_map: bool = false) -> void:
 	abandon()
 	chapter = chapter_data
 	chapter_result = {}
@@ -92,6 +92,11 @@ func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = 
 	m = Match.new()
 	director = Director.new()
 	daily = daily_date
+	if varied_solo_map and daily_date.is_empty() and chapter_data.is_empty():
+		var map_id := Campaign.solo_map(Save.solo_last_map)
+		m.village = load(Campaign.MAPS[map_id]) as VillageDef
+		Save.solo_last_map = map_id
+		Save.flush()
 	if daily != "":
 		m.rule = Challenge.rule_for(daily)
 	if not chapter.is_empty():

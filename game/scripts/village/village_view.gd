@@ -65,6 +65,7 @@ var _tw_night: Tween
 var _t: float = 0.0
 var _vignette: Sprite2D
 var _unease := 0.0
+var _contact_shadow_texture: Texture2D
 
 
 func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
@@ -86,6 +87,7 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	crowd.view = self
 	crowd.book = L.looks()
 	add_child(crowd)
+	crowd.set_color_grade(def.color_grade)
 	_build_props()
 	_smoke = Node2D.new()
 	_smoke.name = "Smoke"
@@ -132,6 +134,8 @@ func set_village(village: VillageDef, open: int, names: PackedStringArray) -> vo
 		set_open_count(open)
 		return
 	def = village
+	if crowd != null:
+		crowd.set_color_grade(def.color_grade)
 	loss_houses.clear()
 	_load_art()
 	for l: PointLight2D in _lamp_lights:
@@ -458,9 +462,10 @@ func _draw() -> void:
 	var gr := def.ground_rect
 	var forest := Backdrop.FOREST_DAY.lerp(Backdrop.FOREST_NIGHT, n)
 	draw_rect(Rect2(-2000, gr.position.y + 40.0, 4720, 3000), Color("4a4636").lerp(Color("1c2430"), n))
-	draw_texture_rect(_tex.ground_day, gr, false)
+	var place_grade: Color = Color.WHITE.lerp(def.color_grade, 0.2)
+	draw_texture_rect(_tex.ground_day, gr, false, place_grade)
 	if n > 0.0:
-		draw_texture_rect(_tex.ground_night, gr, false, Color(1, 1, 1, n))
+		draw_texture_rect(_tex.ground_night, gr, false, Color(place_grade, n))
 	if not _tex.has("real_sky_day"):
 		Art.vgrad(self, Rect2(gr.position.x, gr.position.y, gr.size.x, 40.0), Color(forest, 0.75), Color(forest, 0.0))
 	# На реалистичных фонах стык закрывает лёгкая приземная дымка.
@@ -635,6 +640,9 @@ func _load_art() -> void:
 		_realistic[f] = has_realistic
 		var source_path := realistic_path if has_realistic else ART_DIR + f + ".png"
 		_tex[f] = load(source_path) as Texture2D
+	var fence_path := REALISTIC_ART_DIR + "fence.png"
+	_realistic["fence"] = ResourceLoader.exists(fence_path)
+	_tex["fence"] = load(fence_path) as Texture2D if _realistic["fence"] else null
 	_ground_is_composite = false
 	for g: String in GROUND_FILES:
 		var ground_name := g.replace("ground", def.ground if def != null else "ground")
@@ -705,7 +713,7 @@ func door_rect(h: HouseDef) -> Rect2:
 
 
 func _night_mod(n: float) -> Color:
-	return Color(1, 1, 1).lerp(Art.NIGHT_TINT, n)
+	return Color.WHITE.lerp(def.color_grade, 0.12).lerp(Art.NIGHT_TINT, n)
 
 
 ## Картинка в прямоугольник; flip — зеркально по горизонтали.
@@ -725,8 +733,7 @@ func _decor_prop(ci: CanvasItem, id: String, p: Vector2, w: float, flip: bool, n
 	if tex == null:
 		return
 	var h := w * tex.get_height() / tex.get_width()
-	if not bool(_realistic.get(id, false)):
-		ci.draw_colored_polygon(Art.ellipse(p + Vector2(0, -4), Vector2(w * 0.44, 6)), Color(0, 0, 0, 0.2))
+	_draw_contact_shadow(ci, p + Vector2(0, -3), w * 0.72, 18.0, 0.18)
 	_blit(ci, tex, Rect2(p.x - w * 0.5, p.y - h, w, h), flip, _night_mod(n).darkened(0.06))
 
 
@@ -734,8 +741,16 @@ func _decor_prop(ci: CanvasItem, id: String, p: Vector2, w: float, flip: bool, n
 func _prop(ci: CanvasItem, tex: Texture2D, p: Vector2, w: float, n: float, baked_shadow: bool = false) -> void:
 	var h := w * tex.get_height() / tex.get_width()
 	if not baked_shadow:
-		ci.draw_colored_polygon(Art.ellipse(p + Vector2(0, -3), Vector2(w * 0.46, 6)), Color(0, 0, 0, 0.2))
+		_draw_contact_shadow(ci, p + Vector2(0, -3), w * 0.72, 18.0, 0.18)
 	_blit(ci, tex, Rect2(p.x - w * 0.5, p.y - h, w, h), false, _night_mod(n))
+
+
+func _draw_contact_shadow(ci: CanvasItem, p: Vector2, w: float, h: float, alpha: float) -> void:
+	if _contact_shadow_texture == null:
+		_contact_shadow_texture = _soft_texture()
+	var offset := Vector2.ZERO if ci == self else -(ci as Node2D).position
+	ci.draw_texture_rect(_contact_shadow_texture, Rect2(p.x - w * 0.5 + offset.x,
+		p.y - h * 0.5 + offset.y, w, h), false, Color(0.025, 0.02, 0.03, alpha))
 
 
 ## Дом: дневная картинка, к ночи темнеет; когда в доме загорается свет, поверх ложится
@@ -744,8 +759,8 @@ func _draw_house(ci: CanvasItem, h: HouseDef, state: int, n: float, lit: float, 
 	var a := _art(h)
 	var r := house_rect(h)
 	var flip := _flip(h)
-	if not bool(_realistic.get(a[0], false)):
-		ci.draw_colored_polygon(Art.ellipse(Vector2(r.get_center().x, h.pos.y + 2.0), Vector2(r.size.x * 0.5, 11)), Color(0, 0, 0, 0.2))
+	_draw_contact_shadow(ci, Vector2(h.pos.x, h.pos.y - 1.0), r.size.x * 0.78, 24.0,
+		lerpf(0.12, 0.2, n))
 	var mod := _night_mod(n)
 	if state == 2:
 		mod = mod.darkened(0.32)
@@ -927,18 +942,29 @@ func _draw_lamp_post(ci: CanvasItem, p: Vector2, n: float, on: float = -1.0) -> 
 		on = n
 	var w: float = LAMP_H * _tex.lamp_day.get_width() / _tex.lamp_day.get_height()
 	var r := Rect2(p.x - LAMP_BASE_X * w, p.y - LAMP_H * 0.98, w, LAMP_H)
-	ci.draw_colored_polygon(Art.ellipse(p + Vector2(0, 2), Vector2(9, 3.5)), Color(0, 0, 0, 0.22))
+	_draw_contact_shadow(ci, p + Vector2(0, 1), 24.0, 12.0, 0.22)
 	_blit(ci, _tex.lamp_day, r, true, _night_mod(n))
 	if on > 0.0:
 		_blit(ci, _tex.lamp_night, r, true, Color(1, 1, 1, on))
 
 
 func _draw_fences(n: float, k: Color) -> void:
-	var wood := Art.dn(Color("9a7652"), n)
+	var tex: Texture2D = _tex.get("fence")
+	if tex != null:
+		var w := 150.0
+		var h := w * tex.get_height() / tex.get_width()
+		for row: Vector2 in def.fences:
+			var x := row.x - 8.0 if row.x < def.square_center.x else row.x - w + 8.0
+			_blit(self, tex, Rect2(x, row.y - h, w, h), row.x >= def.square_center.x, _night_mod(n))
+		return
+	var wood := Art.dn(Color("6e5a47"), n)
 	for row: Vector2 in def.fences:
-		for i in range(6):
-			Art.shape(self, Art.rrect(Rect2(row.x + i * 17, row.y - 32, 11, 34), 4), wood, k, 2.4)
-		draw_line(Vector2(row.x - 3, row.y - 19), Vector2(row.x + 6 * 17, row.y - 19), k, 3.6, true)
+		for i in range(5):
+			var px := row.x + i * 21.0
+			Art.shape(self, Art.rrect(Rect2(px, row.y - 34, 9, 36), 3), wood, k.darkened(0.25), 2.0)
+		for rail_y: float in [row.y - 24.0, row.y - 12.0]:
+			draw_line(Vector2(row.x - 2, rail_y), Vector2(row.x + 88, rail_y), wood.darkened(0.25), 5.0, true)
+			draw_line(Vector2(row.x - 2, rail_y - 1.5), Vector2(row.x + 88, rail_y - 1.5), wood.lightened(0.12), 1.3, true)
 
 
 ## Окна загораются по одному: у каждого дома свой порог «ночи». Убежища — раньше.
@@ -969,9 +995,9 @@ func _build_lights() -> void:
 		l.energy = 0.0
 		l.visible = false
 		l.shadow_enabled = true
-		l.shadow_color = Color(0, 0, 0, 0.7)
+		l.shadow_color = Color(0.01, 0.012, 0.02, 0.3)
 		l.shadow_filter = Light2D.SHADOW_FILTER_PCF5
-		l.shadow_filter_smooth = 4.0
+		l.shadow_filter_smooth = 7.0
 		add_child(l)
 		_lamp_lights.append(l)
 	for h: HouseDef in def.shelters + def.decor:
@@ -1324,7 +1350,7 @@ class Eyes extends Node2D:
 
 
 ## Небо и дальний лес за посёлком: три неба (день, сумерки, ночь) и две полосы леса.
-## Картинки повторяются зеркально по горизонтали: на широком планшете края не видны.
+## Каждая текстура заполняет видимую ширину одним кадром, без повторных картинок по краям.
 ## Сдвигается за камерой с долей PARALLAX — так лес выглядит дальше домов.
 class Backdrop extends Node2D:
 	const PARALLAX := 0.35
@@ -1378,15 +1404,12 @@ class Backdrop extends Node2D:
 
 	## Полоса картинки по всей ширине, копии через одну отражены — шов не виден.
 	func _strip(tex: Texture2D, y: float, w: float, h: float, mod: Color) -> void:
-		var x0 := VillageView.LOGICAL.x * 0.5 - w * 0.5
-		for k in range(-3, 4):
-			var r := Rect2(x0 + k * w, y, w, h)
-			if k % 2 != 0:
-				draw_set_transform(Vector2(r.end.x, y), 0.0, Vector2(-1, 1))
-				draw_texture_rect(tex, Rect2(Vector2.ZERO, r.size), false, mod)
-				draw_set_transform(Vector2.ZERO)
-			else:
-				draw_texture_rect(tex, r, false, mod)
+		var viewport_world_w := view._vp_w / maxf(view.scale.x, 0.5)
+		var target_w := maxf(w, viewport_world_w + 320.0)
+		var target_h := h * target_w / w
+		var bottom := y + h
+		var r := Rect2(VillageView.LOGICAL.x * 0.5 - target_w * 0.5, bottom - target_h, target_w, target_h)
+		draw_texture_rect(tex, r, false, mod)
 
 
 ## Еловые ветки по верхним углам поля: рамка кадра, поверх посёлка. Стоят на экране, а не в посёлке:

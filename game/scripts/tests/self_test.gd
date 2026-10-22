@@ -1633,7 +1633,9 @@ static func field() -> void:
 
 	Nav.show_menu()
 	await _settle(tree)
-	ok += _expect(fails, v.modulate.a > 0.9, "в меню посёлок не виден")
+	var menu_screen := Nav.host.current as MenuScreen
+	ok += _expect(fails, menu_screen != null and is_instance_valid(menu_screen._menu_backdrop)
+		and menu_screen._menu_art_nodes.size() == 2, "в меню нет полноэкранных иллюстраций")
 	ok += _expect(fails, v.open_shelters() == Save.config.shelters and v.boarded_shelters() == 5 - Save.config.shelters,
 		"открыто убежищ %d, заколочено %d — а по балансу открыто %d" % [v.open_shelters(), v.boarded_shelters(), Save.config.shelters])
 	ok += _expect(fails, v.fog().emitting and v.fog().amount >= 10 and v.fog().initial_velocity_min > 0.0,
@@ -1770,7 +1772,7 @@ static func field() -> void:
 	for f: VillagerFigure in cr.figures.values():
 		if f.position.distance_to(cr.walk_clamp(f.position)) > 1.0:
 			inside = false
-	ok += _expect(fails, inside, "кто-то из жителей стоит за пределами площади")
+	ok += _expect(fails, inside, "житель стоит за пределами площади или внутри фасада здания")
 
 	# дыхание: 16 замеров за 2 секунды — размах масштаба тела. Вдох длится ~3,7 с: за одну секунду
 	# у вершины вдоха размах бывал ровно 0.010, и тест ложно падал.
@@ -1785,7 +1787,7 @@ static func field() -> void:
 		"дыхание отсутствует или слишком сильно растягивает тело (размах %.3f)" % (hi_b - lo_b))
 
 	Juice.instant = false
-	var target := probe.position + Vector2(70, 0)
+	var target := cr.walk_clamp(probe.position + Vector2(70, 0))
 	probe.run_to(target, 0.5)
 	var hi := 0.0
 	var lo := 9.0
@@ -1797,7 +1799,7 @@ static func field() -> void:
 			break
 	Juice.instant = true
 	ok += _expect(fails, hi < 1.01 and lo > 0.99, "перемещение растягивает и сжимает корпус (%.2f / %.2f)" % [hi, lo])
-	ok += _expect(fails, probe.position.distance_to(target) < 1.0, "житель не добежал до точки")
+	ok += _expect(fails, probe.position.distance_to(target) < 1.0, "житель не добежал до точки: %s → %s, маршрут %s" % [probe.position, target, cr.walk_route(probe.position, target)])
 
 	Game.proceed()
 	await _settle(tree)
@@ -1828,7 +1830,7 @@ static func field() -> void:
 			var vv: Villager = members[k]
 			runners += 1
 			if cr.figures[vv.id].position.distance_to(spots[k]) > 2.0:
-				wrong.append(vv.name)
+				wrong.append("%s %s → %s via %s" % [vv.name, cr.figures[vv.id].position, spots[k], cr.walk_route(cr.figures[vv.id].position, spots[k], hh)])
 			avoid.append(Crowd.slot_rect(spots[k], Crowd.QUEUE_COL - 2.0))
 	ok += _expect(fails, runners > 0 and wrong.is_empty(), "ночью не добежали до своих домов: %s" % ", ".join(wrong))
 
@@ -3032,11 +3034,12 @@ static func sound() -> void:
 		and main_menu.find_child("Settings", true, false) != null,
 		"в главном меню отсутствует один из четырёх основных пунктов")
 	var mode_cards := main_menu.find_child("ModeCards", true, false) as GridContainer if main_menu != null else null
-	ok += _expect(fails, mode_cards != null and mode_cards.columns == 2 and mode_cards.get_child_count() == 2,
-		"кампания и одиночная игра не показаны отдельными карточками режимов")
-	ok += _expect(fails, main_menu != null and main_menu._menu_art_nodes.size() == 2
-		and main_menu.find_child("MenuBackdropShade", true, false) != null,
-		"в меню не собран затемнённый фон со сменой иллюстраций")
+	ok += _expect(fails, mode_cards != null and mode_cards.columns == 2 and mode_cards.get_child_count() == 4,
+		"кампания, одиночная игра, онлайн и настройки не показаны четырьмя карточками")
+	ok += _expect(fails, main_menu != null and main_menu.field_ratio() == 0.0
+		and main_menu._menu_art_nodes.size() == 2 and is_instance_valid(main_menu._menu_backdrop)
+		and Nav.ui.find_child("MenuBackdropShade", true, false) != null,
+		"фон меню не занимает весь экран или иллюстрации не переключаются")
 	if main_menu != null:
 		var previous_art := main_menu._menu_art_nodes[main_menu._menu_art_front].texture
 		main_menu._advance_menu_art()
@@ -3257,7 +3260,8 @@ static func village() -> void:
 			church = house
 			break
 	if church != null:
-		var route_from := Vector2(church.pos.x, church.pos.y - 35.0)
+		var church_rect := v.house_rect(church)
+		var route_from := Vector2(church.pos.x, church_rect.position.y - 20.0)
 		var route_to := Vector2(church.pos.x, church.pos.y + 45.0)
 		var route := cr.walk_route(route_from, route_to)
 		var walls := cr._walk_walls()
@@ -3438,6 +3442,10 @@ static func village() -> void:
 		if absf(cr.ring[b2.id].y - row_y) < 1.0:
 			cr.figures[b2.id].walk_to(cr.ring[b2.id])
 			row.append(b2)
+	if row.size() < 2:
+		row = m.alive_bots().duplicate()
+		for fallback: Villager in row:
+			cr.figures[fallback.id].walk_to(cr.ring[fallback.id])
 	await _frames(tree, 4)
 	# двое ближе всех к середине кадра — их пузыри стоят ровно над головами, а не прижаты к краю
 	var cx := vp.x * 0.5
@@ -6594,7 +6602,8 @@ static func cosmetics() -> void:
 
 	# 1. С нуля открыто только своё; закрытое не надевается
 	var open0 := Cosmetics.open_ids()
-	ok += _expect(fails, open0.size() == 6 and open0.has("lantern:classic") and open0.has("hat:own") and open0.has("brooch:seal"), "с нуля неверный набор: %s" % ", ".join(open0))
+	ok += _expect(fails, open0.size() == 23 and open0.has("lantern:classic") and open0.has("hat:own")
+		and open0.has("brooch:seal") and open0.has("avatar:hero") and open0.has("avatar:16"), "с нуля неверный набор: %s" % ", ".join(open0))
 	ok += _expect(fails, not Save.wear("lantern", "copper") and Save.lantern == "classic", "закрытый фонарь надевается")
 	ok += _expect(fails, not Cosmetics.is_open(Cosmetics.item("hat", "flower")) and Cosmetics.is_open(Cosmetics.item("hat", "flower"), {"bond": 6}), "венок не открывается доверием к постоянным жителям")
 	ok += _expect(fails, Cosmetics.is_open(Cosmetics.item("hat", "flower"), {"saved_bond": 1}), "спасение близкого не открывает венок")
@@ -6618,10 +6627,22 @@ static func cosmetics() -> void:
 	var lg := ws.find_child("Grid_lantern", true, false) as GridContainer
 	var hg := ws.find_child("Grid_hat", true, false) as GridContainer
 	var bg := ws.find_child("Grid_brooch", true, false) as GridContainer
-	ok += _expect(fails, lg != null and hg != null and bg != null and lg.get_child_count() == Cosmetics.LANTERNS.size() and hg.get_child_count() == Cosmetics.HATS.size() and bg.get_child_count() == Cosmetics.BROOCHES.size(), "в шкафу не все вещи")
+	var ag := ws.find_child("Grid_avatar", true, false) as GridContainer
+	ok += _expect(fails, lg != null and hg != null and bg != null and ag != null
+		and lg.get_child_count() == Cosmetics.LANTERNS.size() and hg.get_child_count() == Cosmetics.HATS.size()
+		and bg.get_child_count() == Cosmetics.BROOCHES.size() and ag.get_child_count() == Cosmetics.AVATARS.size(), "в шкафу не все вещи и образы")
 	var frost := ws.find_child("lantern_frost", true, false) as Button
 	ok += _expect(fails, frost != null and frost.disabled and frost.text.contains(Cosmetics.need_text(Cosmetics.item("lantern", "frost"))), "закрытый фонарь без условия или нажимается")
 	(ws.find_child("lantern_paper", true, false) as Button).pressed.emit()
+	await _settle(tree)
+	ws = Nav.host.current as WardrobeScreen
+	(ws.find_child("avatar_1", true, false) as Button).pressed.emit()
+	await _settle(tree)
+	ws = Nav.host.current as WardrobeScreen
+	ok += _expect(fails, Save.avatar_id == "1" and ws.preview.sprite_id == 1
+		and (ws.find_child("hat_top_hat", true, false) as Button).disabled,
+		"выбранный образ не появился в примерке или несовместимая шапка доступна")
+	(ws.find_child("avatar_hero", true, false) as Button).pressed.emit()
 	await _settle(tree)
 	ws = Nav.host.current as WardrobeScreen
 	(ws.find_child("hat_top_hat", true, false) as Button).pressed.emit()
@@ -6630,7 +6651,7 @@ static func cosmetics() -> void:
 	(ws.find_child("brooch_sun", true, false) as Button).pressed.emit()
 	await _settle(tree)
 	ws = Nav.host.current as WardrobeScreen
-	ok += _expect(fails, Save.lantern == "paper" and Save.hat == "top_hat" and Save.brooch == "sun", "вещи не надеваются (%s, %s, %s)" % [Save.lantern, Save.hat, Save.brooch])
+	ok += _expect(fails, Save.avatar_id == "hero" and Save.lantern == "paper" and Save.hat == "top_hat" and Save.brooch == "sun", "образ или вещи не надеваются (%s, %s, %s, %s)" % [Save.avatar_id, Save.lantern, Save.hat, Save.brooch])
 	ok += _expect(fails, ws.preview.look.head == LookDef.Head.TOP_HAT and ws.preview.lantern_id == "paper", "в примерке не видно надетого")
 	ok += _expect(fails, (ws.find_child("hat_top_hat", true, false) as Button).theme_type_variation == &"RowOn", "надетая шапка не подсвечена")
 	var cf := ConfigFile.new()
@@ -6927,6 +6948,10 @@ static func gestures() -> void:
 	_finish(fails, ok, "жесты", "долгое нажатие — палец, «верю», «не верю»; видно на поле, есть в журнале, боты отвечают и запоминают")
 
 static func _solo_variation_check() -> bool:
+	for previous_map: String in Campaign.SOLO_MAP_IDS:
+		var next_map := Campaign.solo_map(previous_map)
+		if next_map == previous_map or not Campaign.MAPS.has(next_map) or not ResourceLoader.exists(Campaign.MAPS[next_map]):
+			return false
 	var saved_name := Save.player_name
 	Save.player_name = ""
 	var cfg := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig

@@ -31,6 +31,8 @@ var daily_best: int = 0                ## лучшая серия дней по�
 var lantern: String = "classic"        ## фонарь твоего жителя (Cosmetics.LANTERNS)
 var hat: String = "own"                ## шапка (Cosmetics.HATS)
 var brooch: String = "none"           ## значок на одежде игрока
+var avatar_id: String = "hero"          ## выбранный полный образ игрока
+var solo_last_map: String = ""           ## карта предыдущей одиночной партии
 var player_name: String = ""            ## имя игрока, пусто — локализованное обращение по умолчанию
 var anchor_bonds: Dictionary[String, int] = {} ## отношения с тремя постоянными жителями
 var campaign_stars: Dictionary[String, int] = {}  ## кампания: пройденные главы -> звёзды (1–3)
@@ -99,6 +101,10 @@ func load_all() -> void:
 	lantern = String(cf.get_value("look", "lantern", "classic")) if has else "classic"
 	hat = String(cf.get_value("look", "hat", "own")) if has else "own"
 	brooch = String(cf.get_value("look", "brooch", "none")) if has else "none"
+	avatar_id = String(cf.get_value("look", "avatar", "hero")) if has else "hero"
+	if not Cosmetics.avatar_exists(avatar_id):
+		avatar_id = "hero"
+	solo_last_map = String(cf.get_value("game", "solo_last_map", "")) if has else ""
 	player_name = String(cf.get_value("profile", "name", "")).strip_edges().left(20) if has else ""
 	campaign_stars.clear()
 	campaign_dead.clear()
@@ -148,6 +154,7 @@ func load_all() -> void:
 		lantern = "classic"   # самотесты видят жителя без косметики; --cosmetics надевает сам
 		hat = "own"
 		brooch = "none"
+		avatar_id = "hero"
 	if has:
 		haptics = bool(cf.get_value("ui", "haptics", true))
 		window_fullscreen = bool(cf.get_value("display", "fullscreen", false))
@@ -229,7 +236,15 @@ func wear(kind: String, id: String) -> bool:
 	if kind == "lantern":
 		lantern = id
 	elif kind == "hat":
+		if avatar_id != "hero":
+			return false
 		hat = id
+	elif kind == "avatar":
+		if not Cosmetics.avatar_exists(id):
+			return false
+		avatar_id = id
+		if avatar_id != "hero":
+			hat = "own"
 	elif kind == "brooch":
 		brooch = id
 	else:
@@ -373,6 +388,7 @@ func flush() -> void:
 	cf.set_value("game", "win_streak", win_streak)
 	cf.set_value("game", "recent", ",".join(PackedStringArray(Array(recent).map(func(x: int) -> String: return str(x)))))
 	cf.set_value("game", "howto_seen", howto_seen)
+	cf.set_value("game", "solo_last_map", solo_last_map)
 	cf.set_value("ui", "haptics", haptics)
 	cf.set_value("ui", "lang", lang)
 	cf.set_value("ui", "text_size", text_size)
@@ -390,6 +406,7 @@ func flush() -> void:
 	cf.set_value("look", "lantern", lantern)
 	cf.set_value("look", "hat", hat)
 	cf.set_value("look", "brooch", brooch)
+	cf.set_value("look", "avatar", avatar_id)
 	cf.set_value("profile", "name", player_name)
 	for i in range(3):
 		cf.set_value("relationships", str(i), anchor_bond(i))

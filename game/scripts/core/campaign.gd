@@ -20,6 +20,7 @@ static var _chapter_catalog_loaded := false
 const ORDER: PackedStringArray = ["a1c1", "a1c2", "a1c3", "a2c1", "a2c2", "a2c3", "a3c1", "a3c2", "a3c3", "a4c1", "a4c2", "a4c3"]
 const MAPS := {"default": "res://config/village_default.tres", "mill": "res://config/village_mill.tres",
 	"monastery": "res://config/village_monastery.tres", "station": "res://config/village_station.tres"}
+const SOLO_MAP_IDS: PackedStringArray = ["default", "mill", "monastery", "station"]
 const SHELTER_OFFSETS := [
 	[Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO],
 	[Vector2(-24, 18), Vector2(24, -20), Vector2(12, -22), Vector2(-28, 8), Vector2(30, 14)],
@@ -146,6 +147,16 @@ static func chapter(id: String) -> Dictionary:
 	if not d.is_empty():
 		d["id"] = id
 	return d
+
+
+## Карта следующей одиночной партии отличается от предыдущей, если есть выбор.
+static func solo_map(previous_id: String = "") -> String:
+	var choices: PackedStringArray = SOLO_MAP_IDS.duplicate()
+	if choices.size() > 1:
+		choices.erase(previous_id)
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	return choices[rng.randi_range(0, choices.size() - 1)]
 
 
 ## Поле кампании: копируем базовую карту и применяем расстановку главы.
