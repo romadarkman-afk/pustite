@@ -6814,16 +6814,14 @@ static func adapt() -> void:
 		var cfg := Difficulty.preset(diff)
 		var r: Array[Dictionary] = []
 		for t: float in [-1.0, 0.0, 1.0]:
-			r.append(balance(cfg, 500, "", t))
+			r.append(balance(cfg, 3000, "", t))
 		print("%s: человек %.0f / %.0f / %.0f%%, упырь %.0f / %.0f / %.0f%% (поддавки / как есть / собранные)" % [diff,
 			100 * r[0].human_win, 100 * r[1].human_win, 100 * r[2].human_win, 100 * r[0].upyr_win, 100 * r[1].upyr_win, 100 * r[2].upyr_win])
-		# На лёгкой ступени 500 партий могут дать одинаковые соседние проценты;
-		# проверяем общий монотонный сдвиг и различие между крайними настройками.
-		ok += _expect(fails, r[0].human_win >= r[1].human_win and r[1].human_win >= r[2].human_win and r[0].human_win > r[2].human_win,
+		# На соседних настройках остаётся статистический разброс; сравниваем с допуском 2 п.п.
+		ok += _expect(fails, r[0].human_win + 0.02 >= r[1].human_win and r[1].human_win + 0.02 >= r[2].human_win and r[0].human_win > r[2].human_win + 0.01,
 			"%s: подстройка не меняет шансы игрока-человека" % diff)
 		if not cfg.player_always_human:
-			# В 500 партиях за упыря выпадает около 150 ролей: соседние оценки могут
-			# различаться на пару пунктов из-за выбора роли и домов по seed.
+			# За упыря выпадает меньше ролей: соседние оценки могут различаться на пару пунктов.
 			ok += _expect(fails, r[0].upyr_win > r[2].upyr_win + 0.03 and r[0].upyr_win + 0.03 >= r[1].upyr_win and r[1].upyr_win + 0.03 >= r[2].upyr_win, "%s: подстройка не меняет шансы игрока-упыря" % diff)
 		# подстройка мягкая: шанс игрока сдвигается не больше чем на 20 пунктов
 		for x: Dictionary in [r[0], r[2]]:
