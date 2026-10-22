@@ -16,7 +16,10 @@ const KEYS: PackedStringArray = ["fear", "hope", "grief", "rage", "despair", "gu
 const KEEP: PackedFloat32Array = [0.55, 0.75, 0.72, 0.6, 0.7, 0.8, 0.75, 0.9, 0.45]
 const SHOW_FROM := 0.45          ## с какой силы состояние видно на поле и в карточке
 
-var m: Match
+var _match_ref: WeakRef
+var m: Match:
+	get:
+		return _match_ref.get_ref() as Match if _match_ref != null else null
 var level: Dictionary = {}        ## id -> PackedFloat32Array(9)
 var rage_at: Dictionary = {}      ## id -> на кого злится
 var guilt_for: Dictionary = {}    ## id -> перед кем виноват (кому не открыл)
@@ -24,7 +27,7 @@ var nights_awake: Dictionary = {} ## id -> сколько ночей подря�
 
 
 func attach(match_ref: Match) -> void:
-	m = match_ref
+	_match_ref = weakref(match_ref)
 	level.clear()
 	rage_at.clear()
 	guilt_for.clear()

@@ -1,0 +1,20 @@
+# Godot and local test data
+.godot/
+.godot-profile/
+.godot-appdata/
+.godot-localappdata/
+.godot-final-suite*/
+.godot-*.log
+**/__pycache__/
+*.py[cod]
+
+# Temporary local validation helpers and logs
+/.check_*.py
+/.integrate_*.py
+/.probe_*.py
+/probe.out
+/probe.err
+
+# Old staged snapshots and art previews
+/work/
+/pustite-v0.50.0-update/

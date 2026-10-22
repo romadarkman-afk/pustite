@@ -276,6 +276,7 @@ static func campaign_memory(fails: PackedStringArray) -> int:
 	# глава: игрок не открыл жителю, тот погиб; другому сдержал слово
 	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
 	var m := Match.new()
+	m.cast = [0, 1, 2, 3, 4, 5] # память кампании опирается на стабильные имена сюжетного состава
 	m.start(c, 61)
 	m.begin_day()
 	var lost: Villager = m.alive_bots()[0]
@@ -376,10 +377,13 @@ static func feelings_and_bonds(fails: PackedStringArray) -> int:
 	var ok := 0
 	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
 	c.players = 12
+	var stable_cast: Array[int] = []
+	stable_cast.assign(range(11))
 	# TASK-007: в любой партии с Лидой и Костей они бабушка и внук; давние связи на месте
 	var family_ok := true
 	for seed_i in range(5):
 		var fm := Match.new()
+		fm.cast = stable_cast.duplicate()
 		fm.start(c, 800 + seed_i)
 		var p := _pair(fm, 2, 3)
 		var lida: Villager = p[0]
@@ -398,6 +402,7 @@ static func feelings_and_bonds(fails: PackedStringArray) -> int:
 
 	# TASK-006: вдовец горюет сильно наутро и почти отпускает через четыре дня
 	var m := Match.new()
+	m.cast = stable_cast.duplicate()
 	m.start(c, 811)
 	var widow: Villager = null
 	var lost: Villager = null
@@ -450,14 +455,18 @@ static func reactions(fails: PackedStringArray) -> int:
 	]
 	var path := ProjectSettings.globalize_path(Save.SETTINGS_PATH)
 	var backup := FileAccess.get_file_as_bytes(path) if FileAccess.file_exists(path) else PackedByteArray()
+	var stable_cast: Array[int] = []
+	stable_cast.assign(range(11))
 	for cs: Dictionary in cases:
 		var m := Match.new()
 		var d := Director.new()
 		var sd := 821
+		m.cast = stable_cast.duplicate()
 		m.start(c, sd)
 		while (_pair(m, 2, 3)[1] == null or _pair(m, 2, 3)[0] == null) and sd < 900:
 			sd += 1
 			m = Match.new()
+			m.cast = stable_cast.duplicate()
 			m.start(c, sd)
 		d.attach(m)
 		var p := _pair(m, 2, 3)
@@ -516,6 +525,7 @@ static func reactions(fails: PackedStringArray) -> int:
 			ok += SelfTest._expect(fails, Campaign.active_grudges().has(2), "реакции: месть Лиды не перешла в следующую главу")
 			var m2 := Match.new()
 			var d2 := Director.new()
+			m2.cast = stable_cast.duplicate()
 			m2.start(c, 822)
 			d2.attach(m2)
 			d2.apply_campaign(Save.campaign_bonds, Campaign.active_grudges(), Campaign.defenders())

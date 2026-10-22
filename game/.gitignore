@@ -1,0 +1,6 @@
+.godot/
+.godot-profile/
+Godot/
+build/
+.godot-final-suite*/
+.godot-*.log

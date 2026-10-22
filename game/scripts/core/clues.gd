@@ -12,12 +12,15 @@ const MAX := 8
 ##  "text", "source": id или -1, "mystery": "" или boat, "pair": id записи, с которой противоречит}
 var entries: Array[Dictionary] = []
 var asked: Dictionary = {}          ## "id1|id2" -> true: это противоречие уже спрашивали
-var m: Match
+var _match_ref: WeakRef
+var m: Match:
+	get:
+		return _match_ref.get_ref() as Match if _match_ref != null else null
 var _n := 0
 
 
 func attach(match_ref: Match) -> void:
-	m = match_ref
+	_match_ref = weakref(match_ref)
 	entries.clear()
 	asked.clear()
 	_n = 0
