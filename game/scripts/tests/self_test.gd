@@ -7681,7 +7681,7 @@ static func _door_gesture_check(tree: SceneTree, fails: PackedStringArray) -> in
 	await _settle(tree)
 	ok += _expect(fails, pm.door_inspections.size() == records0 + 1 and ds._inspected.has(who) and ds._inspection_left == left0 - 1,
 		"тап по портрету не дал ровно один осмотр (записей %d → %d, попыток %d → %d)" % [records0, pm.door_inspections.size(), left0, ds._inspection_left])
-	var vg := portrait.get_node_or_null("Vignette") as TextureRect
+	var vg := portrait.get_node_or_null("Vignette") as Control
 	ok += _expect(fails, vg != null and vg.modulate.a > 0.9 and ds._observations[who].visible, "после осмотра нет виньетки или примет")
 	_push_mouse(tree, pc, true, 0)
 	_push_mouse(tree, pc, false, 0)
