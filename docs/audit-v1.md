@@ -61,7 +61,7 @@
 
 ## Статус исправлений (TASK-100)
 
-Исправления лежат в коммите [COMMIT_SHORT](https://github.com/romadarkman-afk/pustite/commit/COMMIT_FULL). Пометка «ждёт Влади» значит, что решение или материал нужны от человека (список: `docs/backlog.md`).
+Исправления лежат в коммите [eb9b596](https://github.com/romadarkman-afk/pustite/commit/eb9b596ccc01af32b2671df9c1f07c4d3e0b8348). Пометка «ждёт Влади» значит, что решение или материал нужны от человека (список: `docs/backlog.md`).
 
 | № | Статус | Что сделано |
 |---|---|---|
