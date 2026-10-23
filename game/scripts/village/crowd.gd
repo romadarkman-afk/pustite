@@ -169,7 +169,7 @@ func _any_spot(out: Array[Vector2], widths: Array[float], i: int, w: float, obs:
 		while x <= VillageView.SAFE_X.y - w * 0.5:
 			var p := Vector2(x, y)
 			var d := ((p - c) / r).length()
-			if d <= 1.0 and d < best_d and _spot_ok(p, w, taken, walls):
+			if d <= 1.0 and d < best_d and _spot_ok(p, w, taken, walls) and _conflicts(p, w, out, widths, i) == 0:
 				best = p
 				best_d = d
 			x += 8.0
@@ -177,13 +177,43 @@ func _any_spot(out: Array[Vector2], widths: Array[float], i: int, w: float, obs:
 	return best
 
 
-## Совсем последний вариант: свободное от домов место, самое далёкое от уже стоящих.
-## Имена тут могут слегка налезть друг на друга, но житель не прячется за церковью.
-func _roomiest_spot(out: Array[Vector2], i: int, obs: Array[Rect2], walls: Array[Rect2]) -> Vector2:
+## Прямоугольники имени (w — ширина с капсулой) и тела, как их считает фигурка: имя под ступнями,
+## тело выше точки. У игрока над головой стрелка «ты», поэтому тело выше на 26.
+static func _label_box(p: Vector2, w: float) -> Rect2:
+	return Rect2(p.x - w * 0.5, p.y + 6.0, w, 21.0)
+
+
+static func _body_box(p: Vector2, tall: bool) -> Rect2:
+	var top := VillagerFigure.FIG_TOP * 1.04 + (26.0 if tall else 0.0)
+	return Rect2(p.x - 23.0, p.y - top, 46.0, top + 2.0)
+
+
+## Сколько уже стоящих мешают жителю в точке p: имена налезают друг на друга или имя дальнего
+## закрыто телом ближнего. Игрок (индекс 0) выше остальных из-за стрелки «ты».
+func _conflicts(p: Vector2, w: float, out: Array[Vector2], widths: Array[float], i: int) -> int:
+	var n := 0
+	var lp := _label_box(p, w).grow(2.0)
+	var bp := _body_box(p, false)
+	for k in range(i):
+		var q := out[k]
+		var lq := _label_box(q, widths[k]).grow(2.0)
+		if lp.intersects(lq):
+			n += 1
+		elif q.y > p.y + 0.5 and lp.intersects(_body_box(q, k == 0)):
+			n += 1
+		elif p.y > q.y + 0.5 and lq.intersects(bp):
+			n += 1
+	return n
+
+
+## Совсем последний вариант: свободное от домов место, где меньше всего помех именам, а среди
+## равных самое далёкое от уже стоящих. Житель не прячется за церковью.
+func _roomiest_spot(out: Array[Vector2], widths: Array[float], i: int, obs: Array[Rect2], walls: Array[Rect2]) -> Vector2:
 	var c := view.def.square_center
 	var r := view.def.square_radii * Vector2(1.1, 1.3)
 	var best := Vector2.INF
 	var best_gap := -1.0
+	var best_bad := 1 << 20
 	var y := c.y - r.y
 	while y <= minf(c.y + r.y, VillageView.BAND.end.y - 30.0):
 		var x := VillageView.SAFE_X.x + 30.0
@@ -193,7 +223,9 @@ func _roomiest_spot(out: Array[Vector2], i: int, obs: Array[Rect2], walls: Array
 				var gap := INF
 				for k in range(i):
 					gap = minf(gap, Vector2((p.x - out[k].x) * 0.6, p.y - out[k].y).length())
-				if gap > best_gap:
+				var bad := _conflicts(p, widths[i], out, widths, i)
+				if bad < best_bad or (bad == best_bad and gap > best_gap):
+					best_bad = bad
 					best_gap = gap
 					best = p
 			x += 8.0
@@ -336,7 +368,7 @@ func _layout_day(widths: Array[float], wide: bool, walls: Array[Rect2]) -> Array
 				best = _any_spot(out, widths, i, w - GAP, obs + c_used, walls)
 			if best == Vector2.INF:
 				# мест без наложения нет: встаём туда, где просторнее всего, но не за дом и не в стену
-				best = _roomiest_spot(out, i, obs, walls)
+				best = _roomiest_spot(out, widths, i, obs, walls)
 			if best == Vector2.INF:
 				best = Vector2(c.x, y3)
 			out[i] = best

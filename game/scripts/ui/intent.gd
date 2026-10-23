@@ -21,6 +21,7 @@ const VOTE := &"vote"
 const CHOOSE_HOUSE := &"choose_house"
 const ADMIT := &"admit"
 const DOOR_INSPECT := &"door_inspect"    ## осмотр стучащего: {"id"}
+const CANDLE := &"candle"                ## тап по свече у двери: огонь по кругу обычный, выше, ниже (TASK-073)
 const PLEA := &"plea"
 const AGAIN := &"again"
 const FIELD_TAP := &"field_tap"

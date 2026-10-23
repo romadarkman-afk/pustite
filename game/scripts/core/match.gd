@@ -86,6 +86,9 @@ var village: VillageDef
 const TALISMAN_MAX := 2
 const TALISMAN_DECAY := 0.5
 const CREATURE_KILL := 0.7
+const CANDLE_TELL_CREATURE: Array[float] = [0.44, 0.58, 0.72]   ## свеча у двери тусклая / обычная / яркая: шанс приметы у упыря (TASK-073)
+const CANDLE_TELL_HUMAN: Array[float] = [0.18, 0.23, 0.26]      ## то же у человека
+const CANDLE_PRESS := 0.10                  ## яркая свеча: тварь за дверью давит сильнее на столько, тусклая слабее
 const ALONE_SAFE := 0.8                      ## целый оберег: одному в доме безопаснее (шанс гибели × 0.8)
 var talisman: PackedInt32Array = PackedInt32Array()
 var job_left: PackedInt32Array = PackedInt32Array()
@@ -128,6 +131,7 @@ var tunnel_log: Array[Array] = []   ## этой ночью: [житель, от�
 
 ## Дневник (задача 34): что было каждой ночью. {"day", "where": {id: дом, -1 — улица}, "said": {id: дом}, "dead": [id]}
 var history: Array[Dictionary] = []
+var candle := 0                          ## свеча у двери игрока этой ночью: -1 тусклая, 0 обычная, 1 яркая
 var door_inspections: Array[Dictionary] = [] ## осмотры у двери: день, житель и неоднозначная примета
 var question_tokens: int = 0             ## жетоны за проверенные противоречия; один вопрос у двери за ночь
 var question_used_day: int = -1
@@ -680,13 +684,14 @@ static func job_texts(j: JobDef) -> JobDef:
 
 
 ## Шанс погибнуть одному в доме: целый оберег снижает, расколотый — тварь из леса.
-func alone_death_chance(h: int, p_out: float) -> float:
+func alone_death_chance(h: int, p_out: float, press: float = 0.0) -> float:
+	var p := p_out
 	match talisman[h] if h >= 0 and h < talisman.size() else TALISMAN_MAX:
 		TALISMAN_MAX:
-			return p_out * ALONE_SAFE
+			p = p_out * ALONE_SAFE
 		0:
-			return maxf(p_out, CREATURE_KILL)
-	return p_out
+			p = maxf(p_out, CREATURE_KILL)
+	return p if press == 0.0 else clampf(p + press, 0.0, 0.95)
 
 
 func job_index(id: StringName) -> int:
@@ -916,6 +921,7 @@ func seat_night(choices: Dictionary[int, int], arrival: Dictionary[int, float] =
 			s.queue.append(arrivals[k])
 		seats.append(s)
 	_place_mimic()
+	candle = 0
 	_set_phase(Phase.DOOR)
 
 
@@ -1350,13 +1356,36 @@ func spend_question_token() -> bool:
 	return true
 
 
+## Свеча видна только у двери, где хозяин игрок. Боты свечой не пользуются.
+func candle_for(seat: Seat) -> int:
+	return candle if seat != null and seat.host != null and seat.host.is_player else 0
+
+
+func set_candle(level: int) -> void:
+	if phase == Phase.DOOR:
+		candle = clampi(level, -1, 1)
+
+
+## Тварь за дверью (упырь, которому отказали, или голос Подражателя) давит на дом: яркая свеча усиливает, тусклая ослабляет.
+func candle_press(seat: Seat) -> float:
+	var level := candle_for(seat)
+	if level == 0:
+		return 0.0
+	var outside := seat.mimic != null and not seat.mimic_in
+	for v: Villager in seat.turned_away():
+		if v.is_upyr:
+			outside = true
+	return CANDLE_PRESS * float(level) if outside else 0.0
+
+
 func door_sign_for(visitor: Villager, seat: Seat) -> StringName:
 	if visitor == null or seat == null:
 		return &"ordinary"
 	var dice := RandomNumberGenerator.new()
 	dice.seed = hash("door-sign:%d:%d:%d:%d" % [day, visitor.id, seat.house, case_id])
 	var is_creature := visitor == seat.mimic or visitor.is_upyr
-	if dice.randf() >= (0.58 if is_creature else 0.23):
+	var lamp := candle_for(seat) + 1
+	if dice.randf() >= (CANDLE_TELL_CREATURE[lamp] if is_creature else CANDLE_TELL_HUMAN[lamp]):
 		return &"ordinary"
 	var preferred: StringName = [&"breath", &"shadow", &"rhythm"][posmod(case_id, 3)]
 	if dice.randf() < 0.55:
@@ -1393,7 +1422,7 @@ func resolve_night() -> NightReport:
 	var p_out := outside_death_chance()
 	r.p_out = p_out
 	for s0: Seat in seats:
-		r.p_alone[s0.house] = alone_death_chance(s0.house, p_out)
+		r.p_alone[s0.house] = alone_death_chance(s0.house, p_out, candle_press(s0))
 	if supply_total > 0:
 		_log("night", "log.supplies", {"p": roundi(100.0 * supplies())})
 
@@ -1487,7 +1516,7 @@ func resolve_night() -> NightReport:
 				r.add(NightReport.Kind.SURVIVED_ALONE, lone, s.house)
 			elif lone.is_upyr:
 				r.add(NightReport.Kind.SURVIVED_ALONE, lone, s.house)
-			elif rng.randf() < alone_death_chance(s.house, p_out):
+			elif rng.randf() < alone_death_chance(s.house, p_out, candle_press(s)):
 				lone.alive = false
 				r.add(NightReport.Kind.KILLED_ALONE, lone, s.house)
 				_log("night", "log.alone_dead", {"who": lone, "house": house_name(s.house)})
@@ -1533,7 +1562,7 @@ func resolve_night() -> NightReport:
 		for v: Villager in inside2:
 			if v.alive and not v.is_upyr and not opening_night_protects(v):
 				prey.append(v)
-		if prey.is_empty() or rng.randf() >= CREATURE_KILL:
+		if prey.is_empty() or rng.randf() >= CREATURE_KILL + candle_press(s):
 			continue
 		var taken: Villager = prey[rng.randi_range(0, prey.size() - 1)]
 		if _healed(s, taken, r, "creature"):

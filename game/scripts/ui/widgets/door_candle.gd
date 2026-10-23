@@ -5,6 +5,9 @@ extends Control
 var _time := 0.0
 var _flare := 0.0
 var _halo: LightHalo
+var _level := 0              ## -1 тусклая, 0 обычная, 1 яркая (TASK-073)
+var _shown := 1.0            ## плавный множитель огня: 0.62 / 1.0 / 1.38
+const LEVEL_SCALE: Array[float] = [0.62, 1.0, 1.38]
 
 
 func _ready() -> void:
@@ -23,19 +26,27 @@ func flare() -> void:
 	_flare = 0.55
 
 
+func set_level(level: int, instant: bool = false) -> void:
+	_level = clampi(level, -1, 1)
+	if instant:
+		_shown = LEVEL_SCALE[_level + 1]
+
+
 func _process(delta: float) -> void:
 	_time += delta
 	_flare = maxf(0.0, _flare - delta)
+	_shown = move_toward(_shown, LEVEL_SCALE[_level + 1], delta * 1.6)
 	if _halo != null:
-		_halo.position = Vector2(size.x * 0.85, size.y * 0.82)
-		_halo.set_intensity(0.42 + _flare * 0.16 + sin(_time * 5.0) * 0.035)
+		_halo.position = Vector2(size.x * 0.86, size.y * 0.66)
+		_halo.radius = 44.0 * _shown
+		_halo.set_intensity((0.42 + _flare * 0.16 + sin(_time * 5.0) * 0.035) * _shown)
 	queue_redraw()
 
 
 func _draw() -> void:
-	var center := Vector2(size.x * 0.85, size.y * 0.82)
+	var center := Vector2(size.x * 0.86, size.y * 0.66)
 	var wav := sin(_time * 8.1) * 0.11 + sin(_time * 13.7) * 0.07
-	var power := 1.0 + wav + _flare * 0.8
+	var power := (1.0 + wav + _flare * 0.8) * _shown
 	draw_rect(Rect2(center.x - 5.0, center.y + 1.0, 10.0, 26.0), Color(0.16, 0.12, 0.12, 0.95))
 	draw_colored_polygon(PackedVector2Array([
 		center + Vector2(-5, 2), center + Vector2(-3, -12 * power),

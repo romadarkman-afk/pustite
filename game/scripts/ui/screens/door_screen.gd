@@ -8,6 +8,7 @@ extends Screen
 
 signal knock_fx
 signal open_fx(amount: float)
+signal candle_fx(level: int)
 
 var role: Match.DoorRole
 var seat: Match.Seat
@@ -24,6 +25,7 @@ var _inspection_left := 2
 var _portrait_used: Dictionary = {}
 var _go: Button
 var _bolt: BoltSwipe
+var _candle_btn: CandleToggle
 var _peep_origin: Dictionary = {}     ## id стучащего -> где началось касание портрета
 var _box: VBoxContainer       ## содержимое двери на тёмной подложке
 var _seats: HBoxContainer     ## свободные места значками: занятые светятся
@@ -112,6 +114,13 @@ func _build_host() -> void:
 	Sfx.set_heartbeat_pace(1.0 + 0.04 * float(mini(seat.knockers().size() - 1, 3)))
 	# до первого решения — одна строка и значки; пояснения под «Подробнее»
 	var head := W.icon_line("knock", L.t("door.host_short"), &"Tale", 52)
+	# свеча (TASK-073): тап меняет огонь, ярче видно примету, но тварь за дверью давит сильнее
+	_candle_btn = CandleToggle.new()
+	_candle_btn.name = "Candle"
+	_candle_btn.tooltip_text = L.t("door.candle_hint")
+	_candle_btn.level = m.candle
+	_candle_btn.pressed.connect(func() -> void: emit_intent(Intent.CANDLE, {}))
+	head.add_child(_candle_btn)
 	head.add_child(W.more(self, _host_info))
 	_box.add_child(head)
 	var cap := m.config.capacity - 1
@@ -391,6 +400,7 @@ func _host_info() -> Array:
 		["people", "" if elsewhere.is_empty() else L.t("door.elsewhere", {"list": L.t("list.sep").join(elsewhere)})],
 		["fang" if upyr else "alone", L.t("door.upyr_note") if upyr else L.t("door.alone_note")],
 		["info", SocialContent.door_ui("limit")],
+		["info", L.t("door.candle_info")],
 		["info", L.t("door.hint_host")]]
 
 
@@ -410,6 +420,21 @@ func _toggle(gid: int, cap: int) -> void:
 		if c is Glyph and (c as Glyph).kind.begins_with("seat"):
 			(c as Glyph).set_kind("seat_on" if i < _selected.size() else "seat")
 			i += 1
+
+
+## Свеча (TASK-073): Nav уже записал уровень в Match. Здесь кнопка, подпись, фон и приметы тех, кого ещё не осматривали.
+func show_candle(level: int) -> void:
+	_touched = true
+	if is_instance_valid(_candle_btn):
+		_candle_btn.level = level
+	for g: Villager in seat.knockers():
+		var figure: VillagerFigure = _visitor_figures.get(g.id)
+		if is_instance_valid(figure) and not _inspected.has(g.id):
+			figure.door_tell = m.door_sign_for(g, seat)
+	candle_fx.emit(level)
+	Juice.haptic(Juice.Haptic.TAP)
+	Sfx.play(&"tap")
+	Nav.toast(L.t(["door.candle_down", "door.candle_mid", "door.candle_up"][level + 1]))
 
 
 func _inspect(gid: int) -> void:

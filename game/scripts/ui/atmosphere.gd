@@ -139,6 +139,10 @@ func _fade_door_art(alpha: float, dur: float) -> void:
 				_door_art.visible = false)
 
 
+func set_candle(level: int, instant: bool) -> void:
+	_candle.set_level(level, instant)
+
+
 func knock() -> void:
 	_candle.flare()
 	mat.set_shader_parameter("knock", 1.0)

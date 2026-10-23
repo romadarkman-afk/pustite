@@ -293,6 +293,8 @@ func show(s: Screen) -> void:
 		var d := s as DoorScreen
 		d.knock_fx.connect(atmos.knock)
 		d.open_fx.connect(func(a: float) -> void: atmos.door(a, 0.5))
+		d.candle_fx.connect(func(level: int) -> void: atmos.set_candle(level, false))
+		atmos.set_candle(Game.m.candle if Game.m != null and d.role == Match.DoorRole.HOST else 0, true)
 	if s is MorningScreen:
 		(s as MorningScreen).death_fx.connect(atmos.blood_flash)
 	if s is NightScreen and Game.m != null:
@@ -768,6 +770,11 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 				var tell := Game.inspect_visitor(int(data.id))
 				if tell != &"":
 					(sender as DoorScreen).show_inspection(int(data.id), tell)
+		Intent.CANDLE:
+			if sender is DoorScreen and Game.m != null and Game.m.phase == Match.Phase.DOOR and not (sender as DoorScreen).is_locked():
+				var next: int = {0: 1, 1: -1, -1: 0}.get(Game.m.candle, 0)
+				Game.m.set_candle(next)
+				(sender as DoorScreen).show_candle(next)
 		Intent.PLEA:
 			Game.plea(data.plea)
 		Intent.ELDER:

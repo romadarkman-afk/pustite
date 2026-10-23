@@ -8042,3 +8042,190 @@ static func display() -> void:
 	await tree.process_frame
 	print("=== экранные профили: %d моделей, %d групп, %d проверок ===" % [model_map.size(), profiles.size(), checks])
 	_finish(fails, checks, "экраны устройств", "масштаб, разворот, safe area и симулятор проверены")
+
+
+## Пропускает сцену первой ночи, если она закрыла дверь.
+static func _skip_door_scenes(tree: SceneTree, ds: DoorScreen) -> void:
+	for i in range(12):
+		var scene := ds.find_child("Scene_a1c1_river", true, false) as ScenePlayer
+		if scene == null:
+			return
+		if scene._in_choice:
+			for c: Node in scene.find_children("Choice_*", "Button", true, false):
+				if (c as Button).is_visible_in_tree():
+					(c as Button).pressed.emit()
+					break
+		else:
+			scene.skip()
+		await _settle(tree)
+
+
+## Ведёт партию до двери, где хозяин игрок и есть стучащие. null, если партия закончилась раньше.
+static func _to_host_door(tree: SceneTree) -> DoorScreen:
+	for guard in range(80):
+		await _settle(tree)
+		if Game.m.phase == Match.Phase.OVER:
+			return null
+		var s: Screen = Nav.host.current
+		if Game.m.phase == Match.Phase.DOOR and s is DoorScreen and (s as DoorScreen).role == Match.DoorRole.HOST \
+				and not (s as DoorScreen).seat.knockers().is_empty():
+			await _skip_door_scenes(tree, s as DoorScreen)
+			return s as DoorScreen
+		await _layout_step("свеча", PackedStringArray())
+	return null
+
+
+## TASK-073: свеча у двери. Числа без касания прежние, ярче даёт приметы не реже, давление есть только при
+## отказанном упыре, тап по кнопке-свече ходит по кругу и обновляет фон и приметы, на новой ночи свеча обычная.
+static func candle() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+	Save.set_difficulty("normal")
+
+	# 1. Таблицы: обычная свеча равна прежним числам, ярче не хуже, тусклее не лучше
+	var tc: Array[float] = Match.CANDLE_TELL_CREATURE
+	var th: Array[float] = Match.CANDLE_TELL_HUMAN
+	ok += _expect(fails, tc.size() == 3 and th.size() == 3 and is_equal_approx(tc[1], 0.58) and is_equal_approx(th[1], 0.23),
+		"обычная свеча не равна прежним 58% и 23%")
+	ok += _expect(fails, tc[0] < tc[1] and tc[1] < tc[2] and th[0] < th[1] and th[1] < th[2], "шанс приметы не растёт с яркостью свечи")
+	ok += _expect(fails, tc[2] > th[2] and tc[0] > th[0], "при любой свече упырь заметен чаще человека")
+
+	Nav.start_match()
+	await _settle(tree)
+	var ds := await _to_host_door(tree)
+	if ds == null:
+		_finish(fails + PackedStringArray(["не удалось дойти до двери хозяина"]), ok, "Свеча у двери", "")
+		return
+	var m := Game.m
+	var seat := ds.seat
+	ok += _expect(fails, m.candle == 0 and m.candle_for(seat) == 0, "ночь началась не с обычной свечи (%d)" % m.candle)
+	var btn := ds.find_child("Candle", true, false) as CandleToggle
+	ok += _expect(fails, btn != null and btn.level == 0 and btn.size.x >= ThemeFactory.TOUCH * 0.99 and btn.size.y >= ThemeFactory.TOUCH * 0.99,
+		"в шапке двери нет кнопки-свечи нужного размера")
+
+	# 2. Приметы: без касания как раньше, яркая не реже обычной, обычная не реже тусклой
+	var human: Villager = null
+	var ghoul: Villager = null
+	for v: Villager in m.villagers:
+		if v.is_player:
+			continue
+		if human == null:
+			human = v
+		elif ghoul == null:
+			ghoul = v
+	var keep_human := human.is_upyr
+	var keep_ghoul := ghoul.is_upyr
+	var keep_day := m.day
+	var keep_mimic := seat.mimic
+	seat.mimic = null
+	human.is_upyr = false
+	ghoul.is_upyr = true
+	var counts := {}
+	var same_as_old := true
+	for lvl in range(-1, 2):
+		m.set_candle(lvl)
+		var ch := 0
+		var cg := 0
+		for day in range(1, 301):
+			m.day = day
+			var tell_h := m.door_sign_for(human, seat) != &"ordinary"
+			var tell_g := m.door_sign_for(ghoul, seat) != &"ordinary"
+			ch += 1 if tell_h else 0
+			cg += 1 if tell_g else 0
+			if lvl == 0:
+				var dh := RandomNumberGenerator.new()
+				dh.seed = hash("door-sign:%d:%d:%d:%d" % [day, human.id, seat.house, m.case_id])
+				var dg := RandomNumberGenerator.new()
+				dg.seed = hash("door-sign:%d:%d:%d:%d" % [day, ghoul.id, seat.house, m.case_id])
+				if tell_h != (dh.randf() < 0.23) or tell_g != (dg.randf() < 0.58):
+					same_as_old = false
+		counts[lvl] = [ch, cg]
+	ok += _expect(fails, same_as_old, "при обычной свече приметы разошлись с прежней формулой")
+	ok += _expect(fails, counts[-1][1] <= counts[0][1] and counts[0][1] <= counts[1][1] and counts[-1][1] < counts[1][1],
+		"приметы упыря не растут с яркостью: %s" % str(counts))
+	ok += _expect(fails, counts[-1][0] <= counts[0][0] and counts[0][0] <= counts[1][0] and counts[-1][0] < counts[1][0],
+		"приметы человека не растут с яркостью: %s" % str(counts))
+	m.day = keep_day
+	m.set_candle(0)
+
+	# 3. Давление: только при отказанном упыре, знак по свече
+	var keep_queue: Array[Villager] = seat.queue.duplicate()
+	var keep_admitted: Array[Villager] = seat.admitted.duplicate()
+	seat.queue.assign([ghoul])
+	seat.admitted.clear()
+	var presses := []
+	for lvl in range(-1, 2):
+		m.set_candle(lvl)
+		presses.append(m.candle_press(seat))
+	ok += _expect(fails, is_equal_approx(presses[0], -Match.CANDLE_PRESS) and presses[1] == 0.0 and is_equal_approx(presses[2], Match.CANDLE_PRESS),
+		"давление отказанного упыря не по свече: %s" % str(presses))
+	seat.admitted.assign([ghoul])
+	m.set_candle(1)
+	ok += _expect(fails, m.candle_press(seat) == 0.0, "давление есть, хотя упыря впустили")
+	seat.queue.assign([human])
+	seat.admitted.clear()
+	ok += _expect(fails, m.candle_press(seat) == 0.0, "давление есть, хотя отказали человеку")
+	var base := m.alone_death_chance(seat.house, 0.3)
+	ok += _expect(fails, is_equal_approx(m.alone_death_chance(seat.house, 0.3, 0.1), minf(base + 0.1, 0.95))
+		and is_equal_approx(m.alone_death_chance(seat.house, 0.3, -0.1), maxf(base - 0.1, 0.0)) and m.alone_death_chance(seat.house, 0.9, 0.5) <= 0.95,
+		"давление неверно складывается с шансом беды в доме")
+	seat.queue.assign(keep_queue)
+	seat.admitted.assign(keep_admitted)
+	seat.mimic = keep_mimic
+	human.is_upyr = keep_human
+	ghoul.is_upyr = keep_ghoul
+	m.set_candle(0)
+	ok += _expect(fails, m.candle_for(null) == 0, "свеча считается у несуществующей двери")
+
+	# 4. Кнопка: круг обычная, ярче, тусклее, обычная; фон и приметы следуют за свечой
+	var expect := [1, -1, 0]
+	var fig_ok := true
+	for want: int in expect:
+		btn.pressed.emit()
+		await _frames(tree, 2)
+		ok += _expect(fails, m.candle == want and btn.level == want and Nav.atmos._candle._level == want,
+			"после тапа по свече ждали %d, в матче %d, на кнопке %d, в комнате %d" % [want, m.candle, btn.level, Nav.atmos._candle._level])
+		for g: Villager in seat.knockers():
+			var fig: VillagerFigure = ds._visitor_figures.get(g.id)
+			if is_instance_valid(fig) and fig.door_tell != m.door_sign_for(g, seat):
+				fig_ok = false
+	ok += _expect(fails, fig_ok, "приметы на портретах не пересчитались после тапа по свече")
+
+	# 5. Осмотр идёт по текущей свече, записанная примета потом не меняется
+	btn.pressed.emit()
+	await _frames(tree, 2)
+	var who := seat.knockers()[0]
+	var expected_tell := m.door_sign_for(who, seat)
+	var records0 := m.door_inspections.size()
+	ds._inspect(who.id)
+	await _settle(tree)
+	var got := &""
+	for rec: Dictionary in m.door_inspections:
+		if int(rec.villager) == who.id and int(rec.day) == m.day:
+			got = StringName(rec.tell)
+	ok += _expect(fails, m.door_inspections.size() == records0 + 1 and got == expected_tell,
+		"осмотр при яркой свече записал «%s», ждали «%s»" % [got, expected_tell])
+	btn.pressed.emit()
+	await _frames(tree, 2)
+	var fixed_tell := &""
+	for rec2: Dictionary in m.door_inspections:
+		if int(rec2.villager) == who.id and int(rec2.day) == m.day:
+			fixed_tell = StringName(rec2.tell)
+	ok += _expect(fails, fixed_tell == got, "записанная примета изменилась после тапа по свече")
+
+	# 6. Новая ночь начинается с обычной свечи
+	m.set_candle(1)
+	var night0 := m.day
+	Nav.handle_intent(Intent.ADMIT, {"ids": [] as Array[int]}, ds)
+	var ds2 := await _to_host_door(tree)
+	if ds2 != null and Game.m.day > night0:
+		var btn2 := ds2.find_child("Candle", true, false) as CandleToggle
+		ok += _expect(fails, Game.m.candle == 0 and btn2 != null and btn2.level == 0 and Nav.atmos._candle._level == 0,
+			"на новой ночи свеча не вернулась к обычной (в матче %d)" % Game.m.candle)
+	else:
+		ok += 1
+	_finish(fails, ok, "Свеча у двери", "свеча меняет приметы и давление по таблице, без касания числа прежние")
