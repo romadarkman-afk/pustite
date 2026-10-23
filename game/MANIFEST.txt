@@ -146,5 +146,6 @@ shaders/ground_weather.gdshader
 shaders/night_grade.gdshader
 scripts/ui/widgets/door_candle.gd
 scripts/ui/widgets/candle_toggle.gd
+scripts/ui/widgets/talisman_reveal.gd
 scripts/ui/widgets/living_portrait.gd
 tools/check_pair.gd

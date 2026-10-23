@@ -26,6 +26,7 @@ var _portrait_used: Dictionary = {}
 var _go: Button
 var _bolt: BoltSwipe
 var _candle_btn: CandleToggle
+var _tal: TalismanReveal
 var _peep_origin: Dictionary = {}     ## id стучащего -> где началось касание портрета
 var _box: VBoxContainer       ## содержимое двери на тёмной подложке
 var _seats: HBoxContainer     ## свободные места значками: занятые светятся
@@ -132,6 +133,14 @@ func _build_host() -> void:
 		_seats.add_child(W.gap(10))
 		_seats.add_child(Glyph.make("fang", 40, ThemeFactory.BLOOD))
 	_box.add_child(_seats)
+	# оберег дома (TASK-074): протяжка или тап показывают его состояние из правил матча
+	_tal = TalismanReveal.new()
+	_tal.name = "Talisman"
+	_tal.hint = L.t("door.tal_hint")
+	_tal.tooltip_text = L.t("door.tal_hint")
+	_tal.level_of = func() -> int: return m.talisman[seat.house] if seat.house >= 0 and seat.house < m.talisman.size() else Match.TALISMAN_MAX
+	_tal.revealed.connect(func(_lvl: int) -> void: _touched = true)
+	_box.add_child(_tal)
 	if not dilemma.is_empty():
 		_box.add_child(dilemma_card(m, dilemma))
 

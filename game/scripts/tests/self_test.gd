@@ -4440,6 +4440,46 @@ static func talisman() -> void:
 		"в списке домов не видно, что оберег ослаб")
 	ok += _expect(fails, v.talismans[0] == 0, "ночью на поле оберег не расколот")
 
+	# 7. У двери (TASK-074): протяжка и тап по карточке показывают состояние оберега из правил матча
+	var door_seat := Match.Seat.new()
+	door_seat.house = 0
+	door_seat.host = m.player()
+	var door_bots := m.alive_bots()
+	door_seat.queue.assign([door_bots[0]])
+	var door_scr := DoorScreen.new()
+	door_scr.role = Match.DoorRole.HOST
+	door_scr.seat = door_seat
+	door_scr.pleas[door_bots[0].id] = "Открой."
+	Nav.show(door_scr)
+	await _settle(tree)
+	var reveal := door_scr.find_child("Talisman", true, false) as TalismanReveal
+	ok += _expect(fails, reveal != null and reveal.level == -1 and reveal.get_global_rect().size.y >= 48.0, "у двери нет карточки оберега нужного размера")
+	if reveal != null:
+		var shown: Array[int] = []
+		reveal.revealed.connect(func(l: int) -> void: shown.append(l))
+		var want_kinds := {2: "talisman", 1: "talisman_cracked", 0: "talisman_broken"}
+		for lvl: int in [2, 1, 0]:
+			m.talisman[0] = lvl
+			shown.clear()
+			await _swipe_right(tree, reveal.get_global_rect(), 0.5)
+			ok += _expect(fails, shown == [lvl] and reveal.level == lvl and reveal._glyph.kind == want_kinds[lvl] and reveal._text.text == L.t(TalismanReveal.text_key(lvl)),
+				"протяжка по оберегу при состоянии %d: показано %s, значок %s" % [lvl, str(shown), reveal._glyph.kind])
+		m.talisman[0] = 1
+		shown.clear()
+		var centre := reveal.get_global_rect().get_center()
+		_push_mouse(tree, centre, true, 0)
+		_push_mouse(tree, centre, false, 0)
+		await _frames(tree, 2)
+		ok += _expect(fails, shown == [1], "тап по оберегу показал %s" % str(shown))
+		m.talisman[0] = 0
+		shown.clear()
+		_push_mouse(tree, centre, true, 0)
+		_push_mouse(tree, centre + Vector2(20, 0), null, MOUSE_BUTTON_MASK_LEFT)
+		_push_mouse(tree, centre + Vector2(20, 0), false, 0)
+		await _frames(tree, 2)
+		ok += _expect(fails, shown.is_empty(), "короткое движение показало оберег %s" % str(shown))
+		ok += _expect(fails, _reading_lines(door_scr) <= 2, "карточка оберега добавила строки текста до первого действия")
+
 	print("=== обереги: %d проверок ===" % (ok + fails.size()))
 	if fails.is_empty():
 		print("ИТОГ: OK — обереги слабеют, чинятся делом, расколотый пускает тварь, целый бережёт")
