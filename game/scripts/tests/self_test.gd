@@ -4216,6 +4216,13 @@ static func _village_layout(tree: SceneTree, fails: PackedStringArray) -> int:
 				ok += _expect(fails, share_p <= 0.12, "%s: реквизит %s стоит в доме %d (%.0f%%)" % [id, pr.get("id", ""), i, share_p * 100.0])
 		for job: JobDef in def.jobs:
 			ok += _expect(fails, not vv.water_at(job.pos), "%s: дело %s стоит в воде" % [id, job.id])
+		# ночью у одной двери может собраться вся деревня: очередь из 12 должна встать на разные места
+		for hi in range(def.shelters.size()):
+			var spots := vv.crowd.door_spots(hi, 12, [])
+			var distinct := {}
+			for sp: Vector2 in spots:
+				distinct[Vector2i(sp.round())] = true
+			ok += _expect(fails, spots.size() >= 12 and distinct.size() >= 12, "%s: у двери дома %d помещается %d из 12 (разных мест %d)" % [id, hi, spots.size(), distinct.size()])
 	vv.queue_free()
 	return ok
 
