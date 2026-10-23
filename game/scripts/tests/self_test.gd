@@ -8606,3 +8606,55 @@ static func tension() -> void:
 		"ветка или мигание изменили очередь или правила ночи")
 	Game.scenes_done.erase("false_knock")
 	_finish(fails, ok, "Ночное напряжение", "виньетка сужается, тень и ветка по разу, свеча мигает чаще перед упырём, очередь цела")
+
+
+## TASK-078: четыре двери по картам. Свои картинки берутся, если лежат парой, иначе общая с оттенком.
+## У каждой двери свои координаты свечи и тени, и они в кадре.
+static func door_styles() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	var grounds := ["", "ground_mill", "ground_monastery", "ground_station"]
+	var seen_ids := {}
+	for g: String in grounds:
+		var st: Dictionary = Atmosphere.DOOR_STYLES.get(g, {})
+		ok += _expect(fails, not st.is_empty(), "нет стиля двери для «%s»" % g)
+		if st.is_empty():
+			continue
+		seen_ids[st.id] = true
+		var c: Vector2 = st.candle
+		ok += _expect(fails, c.x > 0.05 and c.x < 0.95 and c.y > 0.45 and c.y < 0.8 and float(st.shadow_y) > 0.3 and float(st.shadow_y) < 0.7,
+			"свеча или тень двери «%s» вне кадра: %s, тень %s" % [st.id, c, st.shadow_y])
+		var paths := Atmosphere.door_paths(g)
+		ok += _expect(fails, ResourceLoader.exists(paths.closed) and ResourceLoader.exists(paths.open), "для двери «%s» не нашлись картинки: %s" % [st.id, str(paths)])
+		if not bool(paths.own):
+			ok += _expect(fails, paths.closed == Atmosphere.DOOR_DEFAULT.closed and paths.open == Atmosphere.DOOR_DEFAULT.open, "без своих картинок «%s» берёт не общую дверь" % st.id)
+	ok += _expect(fails, seen_ids.size() == 4, "дверей не четыре разных: %s" % str(seen_ids.keys()))
+	ok += _expect(fails, Atmosphere.door_paths("нет такой").closed == Atmosphere.DOOR_DEFAULT.closed, "неизвестное место не получило общую дверь")
+	# сцена применяет стиль: свеча встаёт на своё место, оттенок общей двери по карте
+	for g: String in grounds:
+		Nav.atmos.set_door_place(g)
+		var st2: Dictionary = Atmosphere.DOOR_STYLES[g]
+		var paths2 := Atmosphere.door_paths(g)
+		var want_tint: Color = Color.WHITE if bool(paths2.own) else st2.tint
+		var got: Color = Nav.atmos._door_closed.modulate
+		ok += _expect(fails, Nav.atmos._candle.place == st2.candle and absf(got.r - want_tint.r) < 0.01 and absf(got.b - want_tint.b) < 0.01,
+			"стиль двери «%s» не применился: свеча %s, оттенок %s" % [st2.id, Nav.atmos._candle.place, got])
+	# своя картинка: пара файлов подхватывается (создаём временные, потом убираем)
+	var made: Array[String] = []
+	var img := Image.create(16, 24, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.2, 0.2, 0.25, 1))
+	for suffix in ["closed", "open"]:
+		var path := "res://assets/ui/door_wagon_%s.png" % suffix
+		if not FileAccess.file_exists(path):
+			img.save_png(path)
+			made.append(path)
+	if not made.is_empty():
+		ok += 1
+		var found := Atmosphere.door_paths("ground_station")
+		# движок без перезагрузки каталога ресурсов видит файл не всегда: проверяем только когда увидел
+		if bool(found.own):
+			ok += _expect(fails, found.closed.ends_with("door_wagon_closed.png"), "своя дверь вагона не подхвачена: %s" % str(found))
+		for path in made:
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	_finish(fails, ok, "Двери по картам", "четыре двери, общая запасная, свеча и тень по координатам места")

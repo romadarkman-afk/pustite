@@ -16,6 +16,17 @@ var _tension_grad: Gradient
 var _shadow: TextureRect               ## тень мимо двери (TASK-077)
 var _shadow_tween: Tween
 const SHADOW_PATH := "res://assets/ui/window_shadow.png"   ## картинка от Влади; нет файла: тёмное пятно
+## Четыре двери (TASK-078): изба, мельница, келья, вагон. Картинки door_<id>_closed.png и _open.png;
+## нет файла: общая дверь с оттенком карты. candle — где стоит свеча (доли экрана), shadow_y — где идёт тень,
+## peep — светлая щель, у которой осмотр через глазок (доля ширины).
+const DOOR_STYLES := {
+	"": {"id": "izba", "candle": Vector2(0.86, 0.66), "shadow_y": 0.50, "peep": 0.50, "tint": Color(1, 1, 1)},
+	"ground_mill": {"id": "mill", "candle": Vector2(0.84, 0.64), "shadow_y": 0.50, "peep": 0.50, "tint": Color(0.82, 0.91, 1.0)},
+	"ground_monastery": {"id": "cell", "candle": Vector2(0.14, 0.64), "shadow_y": 0.48, "peep": 0.50, "tint": Color(0.98, 0.88, 0.76)},
+	"ground_station": {"id": "wagon", "candle": Vector2(0.86, 0.60), "shadow_y": 0.46, "peep": 0.50, "tint": Color(0.78, 0.84, 0.91)},
+}
+const DOOR_DEFAULT := {"closed": "res://assets/ui/door_closed.png", "open": "res://assets/ui/door_open.png"}
+var door_style: Dictionary = DOOR_STYLES[""]
 var _art_tween: Tween
 var _pose_tween: Tween
 
@@ -119,17 +130,26 @@ func door(open_amount: float, dur: float = 0.7) -> void:
 	_fade_door_art(1.0, dur)
 
 
+## Картинки двери этой карты: свои, если лежат в assets/ui, иначе общая.
+static func door_paths(ground: String) -> Dictionary:
+	var st: Dictionary = DOOR_STYLES.get(ground, DOOR_STYLES[""])
+	var own_closed := "res://assets/ui/door_%s_closed.png" % st.id
+	var own_open := "res://assets/ui/door_%s_open.png" % st.id
+	if ResourceLoader.exists(own_closed) and ResourceLoader.exists(own_open):
+		return {"closed": own_closed, "open": own_open, "own": true}
+	return {"closed": DOOR_DEFAULT.closed, "open": DOOR_DEFAULT.open, "own": false}
+
+
 func set_door_place(ground: String) -> void:
-	var tint := Color.WHITE
-	match ground:
-		"ground_mill":
-			tint = Color(0.82, 0.91, 1.0)
-		"ground_monastery":
-			tint = Color(0.98, 0.88, 0.76)
-		"ground_station":
-			tint = Color(0.78, 0.84, 0.91)
+	door_style = DOOR_STYLES.get(ground, DOOR_STYLES[""])
+	var paths := door_paths(ground)
+	_door_closed.texture = load(paths.closed) as Texture2D
+	_door_open.texture = load(paths.open) as Texture2D
+	# своя картинка уже в цвете места; общая красится оттенком карты
+	var tint: Color = Color.WHITE if bool(paths.own) else door_style.tint
 	_door_closed.modulate = Color(tint.r, tint.g, tint.b, _door_closed.modulate.a)
 	_door_open.modulate = Color(tint.r, tint.g, tint.b, _door_open.modulate.a)
+	_candle.place = door_style.candle
 
 
 func _set_door_pose(open_amount: float, dur: float) -> void:
@@ -207,7 +227,7 @@ func pass_shadow() -> void:
 		move_child(_shadow, _tension.get_index())
 	if _shadow_tween != null and _shadow_tween.is_running():
 		return
-	var y := size.y * 0.5 - _shadow.size.y * 0.5
+	var y := size.y * float(door_style.shadow_y) - _shadow.size.y * 0.5
 	_shadow.position = Vector2(-_shadow.size.x, y)
 	_shadow.modulate.a = 0.0
 	_shadow_tween = create_tween().set_parallel(true)

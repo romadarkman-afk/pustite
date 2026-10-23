@@ -10,6 +10,7 @@ var _shown := 1.0            ## плавный множитель огня: 0.62
 const LEVEL_SCALE: Array[float] = [0.62, 1.0, 1.38]
 const FLICKER_LEN := 1.0     ## мигание перед стуком (TASK-077)
 var _flicker := 0.0
+var place := Vector2(0.86, 0.66)       ## где стоит свеча, доли экрана; задаёт стиль двери (TASK-078)
 
 
 func _ready() -> void:
@@ -52,14 +53,14 @@ func _process(delta: float) -> void:
 	_flicker = maxf(0.0, _flicker - delta)
 	_shown = move_toward(_shown, LEVEL_SCALE[_level + 1], delta * 1.6)
 	if _halo != null:
-		_halo.position = Vector2(size.x * 0.86, size.y * 0.66)
+		_halo.position = Vector2(size.x * place.x, size.y * place.y)
 		_halo.radius = 44.0 * _shown
 		_halo.set_intensity((0.42 + _flare * 0.16 + sin(_time * 5.0) * 0.035) * _shown * flicker_factor())
 	queue_redraw()
 
 
 func _draw() -> void:
-	var center := Vector2(size.x * 0.86, size.y * 0.66)
+	var center := Vector2(size.x * place.x, size.y * place.y)
 	var wav := sin(_time * 8.1) * 0.11 + sin(_time * 13.7) * 0.07
 	var power := (1.0 + wav + _flare * 0.8) * _shown * flicker_factor()
 	draw_rect(Rect2(center.x - 5.0, center.y + 1.0, 10.0, 26.0), Color(0.16, 0.12, 0.12, 0.95))
