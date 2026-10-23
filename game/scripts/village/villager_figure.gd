@@ -664,6 +664,8 @@ func run_to(target: Vector2, dur: float = 0.75, delay: float = 0.0, door_house: 
 	if _tw != null:
 		_tw.kill()
 	var path := _path_to(target, door_house)
+	if path.is_empty() or path[path.size() - 1].distance_to(target) > 1.0:
+		path.append(target)   # маршрут не дошёл (нет пути или последний шаг упёрся в стену): последний отрезок напрямик, чтобы встать на отведённое место, а не посреди чужой очереди
 	if Juice.instant:
 		position = target if path.is_empty() else path[path.size() - 1]
 		_settle_idle()
