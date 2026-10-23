@@ -440,8 +440,9 @@ func _on_peep_input(event: InputEvent, gid: int) -> void:
 	_inspect(gid)
 
 
-## Тёмные края круглого окошка: радиальный градиент, который рисует движок.
-func _peep_vignette() -> TextureRect:
+## Тёмные края круглого окошка: радиальный градиент рисует движок. Узел занимает только область
+## фигуры и обрезает лишнее, поэтому не выходит за портрет.
+func _peep_vignette() -> Control:
 	var grad := Gradient.new()
 	grad.offsets = PackedFloat32Array([0.0, 0.34, 0.55, 1.0])
 	grad.colors = PackedColorArray([Color(0, 0, 0, 0), Color(0, 0, 0, 0), Color(0, 0, 0, 0.9), Color(0, 0, 0, 0.9)])
@@ -452,16 +453,15 @@ func _peep_vignette() -> TextureRect:
 	tex.fill_to = Vector2(1.0, 0.5)
 	tex.width = 128
 	tex.height = 128
-	var vg := TextureRect.new()
+	var vg := Control.new()
 	vg.name = "Vignette"
-	vg.texture = tex
-	vg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	vg.stretch_mode = TextureRect.STRETCH_SCALE
 	vg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# квадрат, чтобы окошко было круглым; центр на лице, всё за кругом темнеет (портрет обрезает лишнее)
-	vg.size = Vector2(420, 420)
-	vg.position = Vector2(50.0 - 210.0, 62.0 - 210.0)
+	vg.clip_contents = true
+	vg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vg.offset_right = -32.0                 # дверная полоса справа остаётся светлой
 	vg.modulate.a = 0.0
+	# квадрат, чтобы окошко было круглым; центр на лице, всё за кругом темнеет
+	vg.draw.connect(func() -> void: vg.draw_texture_rect(tex, Rect2(Vector2(50.0 - 210.0, 62.0 - 210.0), Vector2(420, 420)), false))
 	return vg
 
 
@@ -473,7 +473,7 @@ func _peep_fx(gid: int) -> void:
 		return
 	var zoom := figure.scale * 1.22
 	var lowered := figure.position + Vector2(0, 30)
-	var vg := portrait.get_node_or_null("Vignette") as TextureRect
+	var vg := portrait.get_node_or_null("Vignette") as Control
 	if Juice.instant:
 		figure.scale = zoom
 		figure.position = lowered
