@@ -295,7 +295,7 @@ static func memory_card(mm: Match) -> PanelContainer:
 	var lines := memory_lines(mm)
 	if lines.is_empty():
 		return null
-	var card := W.panel(&"Card")
+	var card := W.panel(&"Page")
 	card.name = "TheirMemory"
 	var box := W.vbox(6)
 	card.add_child(box)

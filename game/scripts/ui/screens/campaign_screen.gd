@@ -51,7 +51,7 @@ func build() -> void:
 			n += 1
 			body.add_child(_chapter_row(id, n))
 		if Save.campaign_stars.has(String(chapters[chapters.size() - 1])):
-			var end := W.panel(&"Sheet")
+			var end := W.panel(&"Page")
 			end.name = "ActEnd_%d" % aid
 			end.add_child(W.label(Campaign.act_ending(aid), &"Tale"))
 			body.add_child(end)

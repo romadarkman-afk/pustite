@@ -9204,3 +9204,44 @@ static func campmap() -> void:
 	ThemeFactory.text_scale = ThemeFactory.TEXT_SCALES[keep_size]
 	L.use(keep_lang)
 	_finish(fails, ok, "Карта кампании", "четыре места на карте, состояния актов, сезоны, подписи внутри карты и не накладываются на 10 языках и трёх размерах текста, нажатие прокручивает к акту")
+
+
+## TASK-088: иконки достижений и страницы книги. У каждого достижения свой значок и тексты, картинка берётся, когда она есть.
+static func achicons() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	var keep_ach := Save.achievements.duplicate()
+	var kinds := PackedStringArray(Glyph.KINDS)
+	for id: String in Progress.ACHIEVEMENTS:
+		var kind := String(BookScreen.ACH_ICONS.get(id, ""))
+		ok += _expect(fails, not kind.is_empty() and kinds.has(kind), "достижение %s: значок «%s» не из набора Glyph" % [id, kind])
+		ok += _expect(fails, L.has("ach.%s.name" % id) and L.has("ach.%s.desc" % id), "достижение %s: нет названия или описания" % id)
+		var path := BookScreen.ach_icon_path(id)
+		if ResourceLoader.exists(path):
+			var tex := load(path) as Texture2D
+			ok += _expect(fails, tex != null and tex.get_width() >= 128 and tex.get_width() == tex.get_height(),
+				"картинка %s: нужен квадрат от 128 px" % path)
+	for key: String in BookScreen.ACH_ICONS:
+		ok += _expect(fails, Progress.ACHIEVEMENTS.has(key), "значок для неизвестного достижения %s" % key)
+	# книга без достижений и со всеми
+	for all: bool in [false, true]:
+		Save.achievements = Progress.ACHIEVEMENTS.duplicate() if all else PackedStringArray()
+		Nav.show_book()
+		await _settle(tree)
+		var bs := Nav.host.current
+		var missing := PackedStringArray()
+		for id2: String in Progress.ACHIEVEMENTS:
+			var row := bs.find_child("Ach_" + id2, true, false)
+			if row == null or row.find_child("AchIcon", true, false) == null:
+				missing.append(id2)
+		ok += _expect(fails, missing.is_empty(), "в книге нет иконки у %s (все получены: %s)" % [", ".join(missing), str(all)])
+		ok += _expect(fails, not _all_text(bs).contains("{") and not _all_text(bs).contains("ach."), "в книге метка подстановки или ключ")
+	# страница книги
+	var page := W.panel(&"Page")
+	Nav.host.add_child(page)
+	var sb := page.get_theme_stylebox("panel") as StyleBoxFlat
+	ok += _expect(fails, sb != null and sb.bg_color.r > sb.bg_color.b and sb.border_color.a > 0.2, "стиль Page не тёплый или без рамки")
+	page.free()
+	Save.achievements = keep_ach
+	_finish(fails, ok, "Достижения и страницы книги", "у каждого достижения значок и тексты, книга показывает все 19, стиль страницы тёплый")

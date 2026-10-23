@@ -12,6 +12,35 @@ const ACH_ICONS := {
 }
 
 
+## Иконка достижения (TASK-088). Своя картинка assets/ui/ach/<id>.png, пока её нет, значок из набора Glyph.
+## Не полученное: картинка потемнела, значок замка.
+const ACH_ICON_PATH := "res://assets/ui/ach/%s.png"
+const ACH_PX := 64.0
+
+
+static func ach_icon_path(id: String) -> String:
+	return ACH_ICON_PATH % id
+
+
+static func ach_icon(id: String, got: bool) -> Control:
+	var path := ach_icon_path(id)
+	if ResourceLoader.exists(path):
+		var t := TextureRect.new()
+		t.name = "AchIcon"
+		t.texture = load(path) as Texture2D
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.custom_minimum_size = Vector2(ACH_PX, ACH_PX)
+		t.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		t.modulate = Color.WHITE if got else Color(0.28, 0.28, 0.32, 0.8)
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return t
+	var g := Glyph.make(String(ACH_ICONS.get(id, "info")) if got else "lock", 40.0, ThemeFactory.LAMP if got else Glyph.tint("lock"))
+	g.name = "AchIcon"
+	g.custom_minimum_size = Vector2(ACH_PX * 0.7, ACH_PX * 0.7)
+	return g
+
+
 func screen_id() -> String:
 	return "book"
 
@@ -49,7 +78,7 @@ func build() -> void:
 		line.name = "Person_" + String(p[0])
 		body.add_child(line)
 		if story_step >= 0:
-			var story_card := W.panel(&"Card")
+			var story_card := W.panel(&"Page")
 			story_card.name = "Story_" + String(p[0])
 			var story_box := W.vbox(5)
 			story_card.add_child(story_box)
@@ -62,12 +91,19 @@ func build() -> void:
 		# память кампании (TASK-002): что было между игроком и этим жителем
 		if String(p[0]).begins_with("n"):
 			var k := 0
-			for mem: String in Campaign.memory_lines(int(String(p[0]).substr(1))):
-				var ml := W.label(mem, &"Hint")
-				ml.name = "Memory_%s_%d" % [String(p[0]), k]
-				ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-				body.add_child(ml)
-				k += 1
+			var mem_lines := Campaign.memory_lines(int(String(p[0]).substr(1)))
+			if not mem_lines.is_empty():
+				var mem_card := W.panel(&"Page")
+				mem_card.name = "Memory_" + String(p[0])
+				var mem_box := W.vbox(4)
+				mem_card.add_child(mem_box)
+				for mem: String in mem_lines:
+					var ml := W.label(mem, &"Small")
+					ml.name = "Memory_%s_%d" % [String(p[0]), k]
+					ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+					mem_box.add_child(ml)
+					k += 1
+				body.add_child(mem_card)
 
 	body.add_child(W.label(L.t("book.endings"), &"Speaker"))
 	for id: String in Progress.ENDINGS:
@@ -79,12 +115,16 @@ func build() -> void:
 	body.add_child(W.label(L.t("book.ach", {"n": Save.achievements.size(), "of": Progress.ACHIEVEMENTS.size()}), &"Speaker"))
 	for id: String in Progress.ACHIEVEMENTS:
 		var got := Save.achievements.has(id)
+		var row := W.hbox(14)
+		row.name = "Ach_" + id
+		row.add_child(ach_icon(id, got))
 		var box := W.vbox(2)
-		box.name = "Ach_" + id
-		box.add_child(W.icon_line(String(ACH_ICONS.get(id, "info")) if got else "lock", L.t("ach.%s.name" % id), &"Body" if got else &"Hint", 32,
-			ThemeFactory.LAMP if got else Color(0, 0, 0, 0)))
+		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		box.add_child(W.label(L.t("ach.%s.name" % id), &"Body" if got else &"Hint"))
 		box.add_child(W.label(L.t("ach.%s.desc" % id), &"Small"))
-		body.add_child(box)
+		row.add_child(box)
+		body.add_child(row)
 
 	var back := W.button(L.t("ui.back"), &"Ghost")
 	back.pressed.connect(func() -> void: emit_intent(Intent.BACK))
