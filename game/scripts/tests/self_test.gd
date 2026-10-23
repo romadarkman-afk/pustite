@@ -7776,6 +7776,38 @@ static func _door_gesture_check(tree: SceneTree, fails: PackedStringArray) -> in
 		await _settle(tree)
 	var who := ds.seat.knockers()[0].id
 	var cap := Game.m.config.capacity - 1
+	# глазок (TASK-072): протяжка по портрету не осматривает, тап осматривает, повторный тап ничего не добавляет
+	var pm := Game.m
+	var portrait := ds._portraits[who] as Control
+	await _frames(tree, 2)
+	var left0 := ds._inspection_left
+	var records0 := pm.door_inspections.size()
+	var pc := portrait.get_global_rect().get_center()
+	_push_mouse(tree, pc, true, 0)
+	_push_mouse(tree, pc + Vector2(0, 40), false, 0)
+	await _frames(tree, 2)
+	ok += _expect(fails, pm.door_inspections.size() == records0 and not ds._inspected.has(who), "протяжка по портрету осмотрела стучащего")
+	_push_mouse(tree, pc, true, 0)
+	_push_mouse(tree, pc, false, 0)
+	await _settle(tree)
+	ok += _expect(fails, pm.door_inspections.size() == records0 + 1 and ds._inspected.has(who) and ds._inspection_left == left0 - 1,
+		"тап по портрету не дал ровно один осмотр (записей %d → %d, попыток %d → %d)" % [records0, pm.door_inspections.size(), left0, ds._inspection_left])
+	var vg := portrait.get_node_or_null("Vignette") as TextureRect
+	ok += _expect(fails, vg != null and vg.modulate.a > 0.9 and ds._observations[who].visible, "после осмотра нет виньетки или примет")
+	_push_mouse(tree, pc, true, 0)
+	_push_mouse(tree, pc, false, 0)
+	await _frames(tree, 2)
+	ok += _expect(fails, pm.door_inspections.size() == records0 + 1 and ds._inspection_left == left0 - 1, "повторный тап по глазку потратил ещё попытку или добавил запись")
+	if ds.seat.knockers().size() > 1:
+		var second := ds.seat.knockers()[1].id
+		ds._inspect_rows[second].pressed.emit()
+		await _settle(tree)
+		ok += _expect(fails, pm.door_inspections.size() == records0 + 2 and ds._inspection_left == left0 - 2,
+			"осмотр кнопкой не дал ровно одну запись (записей %d)" % pm.door_inspections.size())
+		var uniq := {}
+		for rec: Dictionary in pm.door_inspections:
+			uniq["%d_%d" % [int(rec.day), int(rec.villager)]] = true
+		ok += _expect(fails, uniq.size() == pm.door_inspections.size(), "в журнале осмотров есть дубли")
 	var away := ds._go.get_global_rect()
 	await _swipe_right(tree, away, 1.0)
 	ok += _expect(fails, Nav.host.current == ds and not ds.is_locked(), "засов открыл дверь, хотя никого не выбрали")
