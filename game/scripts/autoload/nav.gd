@@ -374,6 +374,7 @@ func _sync_traces(phase: Match.Phase) -> void:
 			losses[villager.night_house] = 2 if villager.exiled else 1
 	village.set_loss_houses(losses)
 	village.set_rain(Game.m.night_event == Match.Event.RAIN and phase != Match.Phase.PROLOGUE and phase != Match.Phase.IDLE)
+	village.set_weather(Weather.for_match(Game.m, phase))
 	village.set_flood(Game.m.flooded_house)
 	if phase == Match.Phase.DAY and village.def != null and village.def.rails_y >= 0.0 and not Juice.instant and randf() < 0.6:
 		_whistle.call_deferred()                 # станция (TASK-031): редкий гудок вдали
@@ -404,6 +405,7 @@ func _home_village() -> void:
 	village.set_traces(PackedVector2Array(), PackedVector2Array())
 	village.set_loss_houses({})
 	village.set_rain(false)
+	village.set_weather(Weather.for_menu())
 	village.set_flood(-1)
 
 

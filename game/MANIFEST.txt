@@ -54,6 +54,7 @@ scripts/core/progress.gd
 scripts/core/recap.gd
 scripts/core/ru.gd
 scripts/core/villager.gd
+scripts/core/weather.gd
 scripts/core/world_log.gd
 scripts/loc/de.gd
 scripts/loc/en.gd
@@ -131,6 +132,7 @@ scripts/village/village_def.gd
 scripts/village/village_prop.gd
 scripts/village/village_view.gd
 scripts/village/villager_figure.gd
+scripts/village/weather_layer.gd
 shaders/atmos.gdshader
 shaders/lantern_tint.gdshader
 shaders/night_grade.gdshader

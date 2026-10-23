@@ -3134,6 +3134,131 @@ static func eyes() -> void:
 		Nav.get_tree().quit(1)
 
 
+## TASK-061–066: менеджер погоды. Все 12 глав имеют профиль, эмиттеры создаются и удаляются,
+## на эмиттер не больше 60 частиц, упрощённая графика режет их вдвое.
+static func weather() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	var view := Nav.village
+	var layer := view.weather
+	ok += _expect(fails, layer != null, "в посёлке нет слоя погоды")
+	Weather.enabled = true
+	Weather.forced_season = -1
+	view.set_simplified_graphics(false)
+	view.set_weather(Weather.EMPTY.duplicate())
+	ok += _expect(fails, layer.emitter_names().is_empty(), "пустая погода оставила эмиттеры: %s" % layer.emitter_names())
+
+	var seen_seasons := {}
+	var by_season := {}
+	for id: String in Campaign.ORDER:
+		var ch := Campaign.chapter(id)
+		var world: Dictionary = ch.get("world", {})
+		var profile := String(world.get("weather_profile", ""))
+		ok += _expect(fails, Weather.PROFILES.has(profile), "%s: нет описания погоды «%s»" % [id, profile])
+		var st := Weather.state(id, 1)
+		ok += _expect(fails, bool(st["active"]) and String(st["id"]) == profile, "%s: погода не взяла профиль главы" % id)
+		ok += _expect(fails, Weather.season_id(int(st["season"])) == String(world.get("season", "")),
+			"%s: сезон профиля %s не совпал с сезоном главы %s" % [id, Weather.season_id(int(st["season"])), world.get("season", "")])
+		seen_seasons[int(st["season"])] = true
+		for day in range(1, 5):
+			for event: int in [Match.Event.NONE, Match.Event.RAIN, Match.Event.FOG, Match.Event.QUIET, Match.Event.MOON]:
+				var s := Weather.state(id, day, event)
+				ok += _expect(fails, float(s["power"]) >= 0.0 and float(s["power"]) <= 1.0, "%s день %d: сила осадков %.2f вне 0..1" % [id, day, float(s["power"])])
+				ok += _expect(fails, float(s["fog"]) >= 0.0 and float(s["fog"]) <= 1.0, "%s день %d: туман %.2f вне 0..1" % [id, day, float(s["fog"])])
+				ok += _expect(fails, float(s["cover"]) >= 0.0 and float(s["cover"]) <= 1.0, "%s день %d: снег %.2f вне 0..1" % [id, day, float(s["cover"])])
+				var want := WeatherLayer.wanted(s)
+				for key: String in want.keys():
+					ok += _expect(fails, WeatherLayer.FULL.has(key) and int(WeatherLayer.FULL[key]) <= WeatherLayer.MAX_PARTICLES,
+						"%s: у эмиттера %s больше %d частиц" % [id, key, WeatherLayer.MAX_PARTICLES])
+					ok += _expect(fails, float(want[key]) >= 0.0 and float(want[key]) <= 1.0, "%s: сила эмиттера %s вне 0..1" % [id, key])
+		# эмиттеры создаются и совпадают с описанием
+		var day_state := Weather.state(id, 2)
+		view.set_weather(day_state)
+		var names := layer.emitter_names()
+		var expected := PackedStringArray(WeatherLayer.wanted(day_state).keys())
+		expected.sort()
+		ok += _expect(fails, names == expected, "%s: эмиттеры %s, ожидались %s" % [id, names, expected])
+		ok += _expect(fails, layer.get_child_count() == names.size(), "%s: в слое %d узлов при %d эмиттерах" % [id, layer.get_child_count(), names.size()])
+		for key: String in names:
+			ok += _expect(fails, layer.amount_of(key) >= 1 and layer.amount_of(key) <= WeatherLayer.MAX_PARTICLES,
+				"%s: у %s %d частиц" % [id, key, layer.amount_of(key)])
+		by_season[Weather.season_id(int(day_state["season"]))] = names
+		# упрощённая графика режет вдвое
+		view.set_simplified_graphics(true)
+		for key: String in layer.emitter_names():
+			var full := roundi(float(WeatherLayer.FULL[key]) * float(WeatherLayer.wanted(day_state)[key]))
+			ok += _expect(fails, layer.amount_of(key) <= maxi(1, ceili(float(full) * 0.5)),
+				"%s: на упрощённой графике у %s %d частиц из %d" % [id, key, layer.amount_of(key), full])
+		view.set_simplified_graphics(false)
+		await _frames(tree, 2)
+		# удаляются
+		view.set_weather(Weather.EMPTY.duplicate())
+		ok += _expect(fails, layer.get_child_count() == 0, "%s: после снятия погоды осталось %d узлов" % [id, layer.get_child_count()])
+	ok += _expect(fails, seen_seasons.size() == 4, "в главах не все 4 сезона: %d" % seen_seasons.size())
+
+	# правила сезонов
+	var summer := WeatherLayer.wanted(Weather.state("a1c1", 1))
+	var autumn := WeatherLayer.wanted(Weather.state("a2c1", 1))
+	var winter := WeatherLayer.wanted(Weather.state("a3c1", 3))
+	var spring := WeatherLayer.wanted(Weather.state("a4c2", 1))
+	ok += _expect(fails, summer.has("fluff") and summer.has("ash") and summer.has("midges") and not summer.has("rain_far"), "лето: пух, пепел и мошкара без дождя: %s" % [summer.keys()])
+	ok += _expect(fails, autumn.has("leaves") and autumn.has("rain_far") and autumn.has("ripples"), "осень: листья, дождь и рябь: %s" % [autumn.keys()])
+	ok += _expect(fails, winter.has("flakes_far") and winter.has("flakes_mid") and winter.has("flakes_near") and winter.has("drift") and winter.has("grains"),
+		"метель: снег трёх слоёв, позёмка и крупа: %s" % [winter.keys()])
+	ok += _expect(fails, spring.has("drip") and not spring.has("rain_far") and not spring.has("flakes_far"), "весна: капель без осадков: %s" % [spring.keys()])
+	ok += _expect(fails, float(Weather.state("a4c2", 1)["fog"]) >= 0.9, "весна: туман на угольном дворе слабее 0.9")
+	ok += _expect(fails, float(Weather.state("a3c1", 3)["cover"]) > 0.5 and float(Weather.state("a1c1", 3)["cover"]) == 0.0, "снег лежит зимой и не лежит летом")
+
+	# ночные события меняют погоду
+	var rain_event := Weather.state("a1c1", 2, Match.Event.RAIN)
+	ok += _expect(fails, int(rain_event["precip"]) == Weather.Precip.RAIN and float(rain_event["power"]) >= 0.85, "ливень не дал дождь летом")
+	ok += _expect(fails, int(Weather.state("a3c1", 2, Match.Event.RAIN)["precip"]) == Weather.Precip.SNOW, "ливень зимой должен идти снегом")
+	ok += _expect(fails, float(Weather.state("a1c1", 2, Match.Event.FOG)["fog"]) >= 0.9, "событие тумана не сгустило туман")
+	var m := Match.new()
+	m.chapter_id = "a3c1"
+	m.day = 2
+	m.night_event = Match.Event.RAIN
+	ok += _expect(fails, int(Weather.for_match(m, Match.Phase.NIGHT)["precip"]) == Weather.Precip.SNOW, "ночью событие не учтено")
+	ok += _expect(fails, float(Weather.for_match(m, Match.Phase.DAY)["power"]) < 0.85, "событие ночи осталось днём")
+
+	# вне кампании: сезон по дате
+	ok += _expect(fails, Weather.season_by_date(1) == Weather.Season.WINTER and Weather.season_by_date(4) == Weather.Season.SPRING \
+		and Weather.season_by_date(7) == Weather.Season.SUMMER and Weather.season_by_date(10) == Weather.Season.AUTUMN, "сезон по месяцу")
+	Weather.forced_season = Weather.Season.WINTER
+	ok += _expect(fails, int(Weather.state("", 1)["season"]) == Weather.Season.WINTER and bool(Weather.state("", 1)["active"]), "быстрая партия не взяла сезон")
+	ok += _expect(fails, int(Weather.for_menu()["precip"]) == Weather.Precip.NONE, "в меню идут осадки")
+	Weather.forced_season = -1
+
+	# время суток: пух днём, мошкара ночью
+	view.set_weather(Weather.state("a1c1", 1))
+	view.set_night(0.0)
+	layer._tick(0.1)
+	var fluff := layer.emitter("fluff") as CPUParticles2D
+	var midges := layer.emitter("midges") as CanvasItem
+	ok += _expect(fails, fluff != null and midges != null, "летом нет пуха или мошкары")
+	if fluff != null and midges != null:
+		ok += _expect(fails, fluff.emitting and not midges.visible, "днём пух должен идти, мошкары нет")
+		view.set_night(1.0)
+		layer._tick(0.1)
+		ok += _expect(fails, not fluff.emitting and midges.visible, "ночью пуха нет, мошкара есть")
+	view.set_night(0.0)
+
+	# повтор без утечек
+	for i in range(30):
+		view.set_weather(Weather.state(Campaign.ORDER[i % Campaign.ORDER.size()], 1 + i % 4))
+	ok += _expect(fails, layer.get_child_count() <= WeatherLayer.FULL.size(), "эмиттеры копятся: %d узлов" % layer.get_child_count())
+
+	# выключенная погода не оставляет следов
+	Weather.enabled = false
+	view.set_weather(Weather.state("a3c1", 3))
+	ok += _expect(fails, layer.get_child_count() == 0 and view.snow_cover == 0.0, "выключенная погода оставила эмиттеры или снег")
+	Weather.enabled = true
+	view.set_weather(Weather.EMPTY.duplicate())
+	await _frames(tree, 2)
+	_finish(fails, ok, "ПОГОДА", "12 глав, 4 сезона, эмиттеры создаются и удаляются, до 60 частиц на эмиттер")
+
+
 ## TASK-058/059: ореолы, упрощённая графика и степень ночного тонирования.
 static func lights() -> void:
 	var fails: PackedStringArray = []
