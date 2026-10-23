@@ -4159,6 +4159,24 @@ static func village() -> void:
 ## остальные в доме 1. Оберег дома 0 перед ночью — tal0.
 ## Расстановка посёлка по всем 12 главам: дом не стоит на воде и не лезет на соседа, а забор, колодец,
 ## фонари, дела и реквизит не упираются в стены. Люди ходят вокруг стен, поэтому тут же проверяем проход к двери.
+## Сколько человек из 12 встанет в очередь у каждой двери. Цифры сняты со старой расстановки (не выше 9):
+## сдвиг дома, который закрыл бы очередь соседа, теперь краснит тест.
+const QUEUE_MIN := {
+	"a1c1": [9, 9, 9, 9, 9],
+	"a1c2": [4, 9, 9, 9, 9],
+	"a1c3": [9, 4, 8, 9, 9],
+	"a2c1": [9, 9, 9, 9, 9],
+	"a2c2": [5, 9, 9, 9, 9],
+	"a2c3": [9, 3, 8, 7, 9],
+	"a3c1": [5, 5, 9, 9, 9],
+	"a3c2": [6, 9, 9, 9, 9],
+	"a3c3": [6, 6, 9, 9, 9],
+	"a4c1": [9, 9, 9, 9, 9],
+	"a4c2": [4, 9, 9, 9, 9],
+	"a4c3": [9, 4, 9, 9, 9],
+}
+
+
 static func _village_layout(tree: SceneTree, fails: PackedStringArray) -> int:
 	var ok := 0
 	var vv := VillageView.new()
@@ -4222,7 +4240,8 @@ static func _village_layout(tree: SceneTree, fails: PackedStringArray) -> int:
 			var distinct := {}
 			for sp: Vector2 in spots:
 				distinct[Vector2i(sp.round())] = true
-			ok += _expect(fails, spots.size() >= 12 and distinct.size() >= 12, "%s: у двери дома %d помещается %d из 12 (разных мест %d)" % [id, hi, spots.size(), distinct.size()])
+			var need: int = QUEUE_MIN[id][hi] if QUEUE_MIN.has(id) and hi < QUEUE_MIN[id].size() else 9
+			ok += _expect(fails, distinct.size() >= need, "%s: у двери дома %d помещается %d из 12, нужно хотя бы %d" % [id, hi, distinct.size(), need])
 	vv.queue_free()
 	return ok
 

@@ -8,7 +8,7 @@
 script = ExtResource("2_house")
 title = "Вокзал"
 kind = 0
-pos = Vector2(144, 312)
+pos = Vector2(153, 310)
 size = Vector2(118, 92)
 art = "station_house"
 art_door = Rect2(0.26, 0.55, 0.16, 0.29)
@@ -17,7 +17,7 @@ art_door = Rect2(0.26, 0.55, 0.16, 0.29)
 script = ExtResource("2_house")
 title = "Водокачка"
 kind = 1
-pos = Vector2(592, 312)
+pos = Vector2(594, 310)
 size = Vector2(142, 100)
 art = "station_water"
 art_w = 1.1
@@ -27,7 +27,7 @@ art_door = Rect2(0.21, 0.59, 0.28, 0.32)
 script = ExtResource("2_house")
 title = "Пакгауз"
 kind = 2
-pos = Vector2(360, 232)
+pos = Vector2(385, 231)
 size = Vector2(96, 104)
 art = "station_warehouse"
 art_w = 1.65
@@ -37,7 +37,7 @@ art_door = Rect2(0.15, 0.40, 0.27, 0.47)
 script = ExtResource("2_house")
 title = "Будка"
 kind = 3
-pos = Vector2(218, 494)
+pos = Vector2(219, 490)
 size = Vector2(122, 58)
 art = "station_hut"
 art_w = 1.2
@@ -47,7 +47,7 @@ art_door = Rect2(0.22, 0.52, 0.24, 0.32)
 script = ExtResource("2_house")
 title = "Вагон"
 kind = 4
-pos = Vector2(552, 486)
+pos = Vector2(545, 484)
 size = Vector2(128, 72)
 art = "station_wagon"
 art_w = 1.4
@@ -57,28 +57,28 @@ art_door = Rect2(0.11, 0.35, 0.17, 0.38)
 script = ExtResource("2_house")
 title = ""
 kind = 5
-pos = Vector2(124, 134)
+pos = Vector2(145, 122)
 size = Vector2(70, 56)
 
 [sub_resource type="Resource" id="house_6"]
 script = ExtResource("2_house")
 title = ""
 kind = 0
-pos = Vector2(248, 174)
+pos = Vector2(268, 156)
 size = Vector2(84, 66)
 
 [sub_resource type="Resource" id="house_7"]
 script = ExtResource("2_house")
 title = ""
 kind = 0
-pos = Vector2(500, 148)
+pos = Vector2(514, 132)
 size = Vector2(86, 66)
 
 [sub_resource type="Resource" id="house_8"]
 script = ExtResource("2_house")
 title = ""
 kind = 5
-pos = Vector2(642, 394)
+pos = Vector2(644, 397)
 size = Vector2(72, 56)
 
 [sub_resource type="Resource" id="job_water"]
