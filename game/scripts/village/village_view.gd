@@ -193,6 +193,10 @@ func set_village(village: VillageDef, open: int, names: PackedStringArray) -> vo
 	_build_lights()
 	set_simplified_graphics(simplified_graphics)
 	_build_props()
+	if ground_fx != null:
+		ground_fx.refresh()
+	if sky_fx != null:
+		sky_fx.refresh()
 	set_open_count(open)
 	if weather != null:
 		weather.refresh_geometry()
@@ -870,8 +874,14 @@ func _load_art() -> void:
 		_backdrop.visible = not _ground_is_composite
 	if is_instance_valid(_forest):
 		_forest.visible = not _ground_is_composite
+	var real_sky := true                         # настоящее небо есть: старое не грузим, это 18 МиБ видеопамяти зря (TASK-095)
+	for f: String in ["sky_day", "sky_dusk", "sky_night"]:
+		real_sky = real_sky and ResourceLoader.exists(REALISTIC_ART_DIR + f + ".jpg")
 	for f: String in MAP_FILES:
 		var map_key := f.get_basename()
+		if real_sky and map_key.begins_with("sky_"):
+			_tex.erase(map_key)
+			continue
 		var chapter_path := String(chapter_visuals.get(map_key, ""))
 		var map_path := ART_DIR + f
 		if not chapter_path.is_empty() and ResourceLoader.exists(chapter_path):

@@ -161,6 +161,19 @@ jobs:
           ls -la build/
           test -s build/pustite.apk || { echo "APK не создан"; exit 1; }
 
+      - name: Бюджет веса APK
+        run: |
+          size=$(stat -c %s build/pustite.apk)
+          mib=$(awk -v s="$size" 'BEGIN{printf "%.1f", s/1048576}')
+          top=$(unzip -lv build/pustite.apk | awk 'NR>3 && $3+0>0 {print $3, $NF}' | sort -rn | head -6 | awk '{printf "%.1f МиБ %s; ", $1/1048576, $2}')
+          echo "APK: $size байт, $mib МиБ"
+          echo "::notice title=Вес APK::$mib МиБ ($size байт). Крупнейшие записи: $top"
+          limit=192600000   # база 176 921 857 байт (v0.62.0) плюс 15 МиБ по плану второй волны, docs/budget.md
+          if [ "$size" -gt "$limit" ]; then
+            echo "::error title=APK тяжелее бюджета::$size байт при пределе $limit"
+            exit 1
+          fi
+
       - name: Положить APK в артефакты
         uses: actions/upload-artifact@v5
         with:

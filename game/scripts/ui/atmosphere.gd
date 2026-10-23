@@ -27,6 +27,7 @@ const DOOR_STYLES := {
 }
 const DOOR_DEFAULT := {"closed": "res://assets/ui/door_closed.png", "open": "res://assets/ui/door_open.png"}
 var door_style: Dictionary = DOOR_STYLES[""]
+var _door_paths: Dictionary = {}
 var _art_tween: Tween
 var _pose_tween: Tween
 
@@ -44,8 +45,8 @@ func _ready() -> void:
 	_door_art.modulate.a = 0.0
 	_door_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_door_art)
-	_door_closed = _door_layer(load(DOOR_CLOSED_PATH) as Texture2D, "Closed")
-	_door_open = _door_layer(load(DOOR_OPEN_PATH) as Texture2D, "Open")
+	_door_closed = _door_layer(null, "Closed")     # картинки по 8,5 МиБ в видеопамяти: грузятся при входе к двери, уходят вместе с ней
+	_door_open = _door_layer(null, "Open")
 	_door_art.add_child(_door_closed)
 	_door_art.add_child(_door_open)
 	_candle = DoorCandle.new()
@@ -123,6 +124,7 @@ func mood(night: float, lamp: float, dur: float = 0.9) -> void:
 
 
 func door(open_amount: float, dur: float = 0.7) -> void:
+	_ensure_door_textures()
 	var entering := not _door_art.visible or _door_art.modulate.a <= 0.02
 	_door_art.visible = true
 	_to("door_mix", 1.0, dur)
@@ -143,13 +145,31 @@ static func door_paths(ground: String) -> Dictionary:
 func set_door_place(ground: String) -> void:
 	door_style = DOOR_STYLES.get(ground, DOOR_STYLES[""])
 	var paths := door_paths(ground)
-	_door_closed.texture = load(paths.closed) as Texture2D
-	_door_open.texture = load(paths.open) as Texture2D
+	_door_paths = paths
+	_load_door_textures()
 	# своя картинка уже в цвете места; общая красится оттенком карты
 	var tint: Color = Color.WHITE if bool(paths.own) else door_style.tint
 	_door_closed.modulate = Color(tint.r, tint.g, tint.b, _door_closed.modulate.a)
 	_door_open.modulate = Color(tint.r, tint.g, tint.b, _door_open.modulate.a)
 	_candle.place = door_style.candle
+
+
+func _load_door_textures() -> void:
+	_door_closed.texture = load(String(_door_paths.closed)) as Texture2D
+	_door_open.texture = load(String(_door_paths.open)) as Texture2D
+
+
+func _ensure_door_textures() -> void:
+	if _door_closed.texture == null or _door_open.texture == null:
+		if _door_paths.is_empty():
+			_door_paths = door_paths("")
+		_load_door_textures()
+
+
+## Дверь погасла: картинки отпускаются, видеопамять свободна до следующей двери.
+func _release_door_textures() -> void:
+	_door_closed.texture = null
+	_door_open.texture = null
 
 
 func _set_door_pose(open_amount: float, dur: float) -> void:
@@ -174,13 +194,15 @@ func _fade_door_art(alpha: float, dur: float) -> void:
 		_door_art.modulate.a = alpha
 		if alpha <= 0.01:
 			_door_art.visible = false
+			_release_door_textures()
 		return
 	_art_tween = Juice.tween()
 	_art_tween.tween_property(_door_art, "modulate:a", alpha, dur)
 	if alpha <= 0.01:
 		_art_tween.tween_callback(func() -> void:
 			if _door_art.modulate.a <= 0.01:
-				_door_art.visible = false)
+				_door_art.visible = false
+				_release_door_textures())
 
 
 ## Виньетка сужается с каждой ночью (TASK-077): первая почти не заметна, седьмая подступает к середине.

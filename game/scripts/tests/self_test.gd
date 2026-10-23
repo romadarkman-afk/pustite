@@ -1651,7 +1651,9 @@ static func field() -> void:
 	ok += _expect(fails, missing.is_empty(), "нет картинок посёлка: %s" % ", ".join(missing))
 	var map_missing := PackedStringArray()
 	for f: String in VillageView.MAP_FILES:
-		if not (v._tex.get(f.get_basename()) is Texture2D):
+		var key := f.get_basename()
+		var real_sky: bool = key.begins_with("sky_") and v._tex.get("real_" + key) is Texture2D     # настоящее небо вместо старого (TASK-095)
+		if not (v._tex.get(key) is Texture2D or real_sky):
 			map_missing.append(f)
 	ok += _expect(fails, map_missing.is_empty(), "нет неба, леса, тумана или дыма: %s" % ", ".join(map_missing))
 	ok += _expect(fails, v.smoke_count() >= 2, "из труб не идёт дым: труб с дымом %d" % v.smoke_count())

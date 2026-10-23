@@ -35,9 +35,14 @@ class Run:
 	var causes: Dictionary = {}           ## причина гибели -> сколько человек за главу
 
 
-## Партии считаются на чистой кампании: ни погибших, ни памяти, ни обид. Файл сохранения не трогаем.
-static func fresh_campaign() -> Dictionary:
-	var snap := {"stars": Save.campaign_stars.duplicate(), "dead": Save.campaign_dead.duplicate(), "seed": Save.campaign_seed,
+## Ступень сложности, на которой считается коридор. Основа партии главы (смерть на улице, время) берётся из ступени игрока,
+## поэтому от профиля на диске результат зависеть не должен: «обычная» это эталон, «лёгкая» и «сложная» идут справкой.
+const REFERENCE_DIFFICULTY := "normal"
+
+## Партии считаются на чистой кампании: ни погибших, ни памяти, ни обид, ступень сложности задана явно.
+## Файл сохранения не трогаем.
+static func fresh_campaign(diff: String = REFERENCE_DIFFICULTY) -> Dictionary:
+	var snap := {"config": Save.config, "difficulty": Save.difficulty, "stars": Save.campaign_stars.duplicate(), "dead": Save.campaign_dead.duplicate(), "seed": Save.campaign_seed,
 		"memory": Save.campaign_memory.duplicate(true), "bonds": Save.campaign_bonds.duplicate(true),
 		"dead_guests": Save.campaign_dead_guests.duplicate(), "name": Save.player_name}
 	Save.campaign_stars.clear()
@@ -47,10 +52,14 @@ static func fresh_campaign() -> Dictionary:
 	Save.campaign_dead_guests.clear()
 	Save.campaign_seed = 1
 	Save.player_name = ""
+	Save.config = Difficulty.preset(diff)
+	Save.difficulty = diff
 	return snap
 
 
 static func restore_campaign(snap: Dictionary) -> void:
+	Save.config = snap.config
+	Save.difficulty = String(snap.difficulty)
 	Save.campaign_stars = snap.stars
 	Save.campaign_dead = snap.dead
 	Save.campaign_seed = int(snap.seed)
@@ -502,6 +511,7 @@ static func cli() -> void:
 	var only := PackedStringArray()
 	var out_path := ""
 	var opt := {}
+	var diff := REFERENCE_DIFFICULTY
 	for a: String in OS.get_cmdline_user_args():
 		if a.begins_with("--add="):
 			var add := {}
@@ -512,6 +522,9 @@ static func cli() -> void:
 		if a.begins_with("--tune="):
 			opt["tune"] = float(a.substr(7))
 			continue
+		if a.begins_with("--diff="):
+			diff = a.substr(7)
+			continue
 		if a.begins_with("--runs="):
 			runs = maxi(1, int(a.substr(7)))
 		elif a.begins_with("--only="):
@@ -519,7 +532,7 @@ static func cli() -> void:
 		elif a.begins_with("--out="):
 			out_path = a.substr(6)
 	var t0 := Time.get_ticks_msec()
-	var snap := fresh_campaign()
+	var snap := fresh_campaign(diff)
 	if OS.get_cmdline_user_args().has("--grid"):
 		_grid(runs, only)
 		restore_campaign(snap)
@@ -739,6 +752,20 @@ static func selftest() -> void:
 		print("  %s %s: %s" % ["OK " if bool(c.ok) else "ЛОЖЬ", c.name, c.note])
 		if not bool(c.ok):
 			fails.append(String(c.name))
+	# лёгкая ступень не тяжелее сложной (в кампании ступень меняет только смерть на улице: числа берутся из главы)
+	var ladder := {}
+	for dname: String in ["easy", "normal", "hard"]:
+		restore_campaign(snap)
+		snap = fresh_campaign(dname)
+		var sum := 0.0
+		for id: String in Campaign.ORDER:
+			sum += chapter_share(table(LADDER_RUNS, PackedStringArray([id]), {}, PackedStringArray(["careful"])), id)
+		ladder[dname] = sum / float(Campaign.ORDER.size())
+	var ladder_ok: bool = float(ladder.easy) >= float(ladder.hard) - 0.02
+	print("  %s ступени сложности (осторожный, среднее по главам): лёгкая %.0f%%, обычная %.0f%%, сложная %.0f%%" % [
+		"OK " if ladder_ok else "ЛОЖЬ", 100.0 * float(ladder.easy), 100.0 * float(ladder.normal), 100.0 * float(ladder.hard)])
+	if not ladder_ok:
+		fails.append("ступени сложности идут не по порядку")
 	print("время: %.1f с" % (float(Time.get_ticks_msec() - t0) / 1000.0))
 	restore_campaign(snap)
 	print("ИТОГ: %s" % ("OK" if fails.is_empty() else "ПРОВАЛ: " + "; ".join(fails)))
@@ -746,3 +773,4 @@ static func selftest() -> void:
 
 
 const SELFTEST_SLACK := 0.08
+const LADDER_RUNS := 30

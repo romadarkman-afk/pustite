@@ -4,7 +4,7 @@ extends Control
 ## Самотесты запускаются вручную флагами ниже. Текущий android.yml выполняет короткий smoke-запуск, не полный набор тестов.
 ## --lang=en рядом с любым самотестом гоняет его на другом языке, --text=2 — с самым крупным текстом.
 
-const TEST_FLAGS: PackedStringArray = ["--sim", "--simchapters", "--chapters", "--story", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--eyes", "--lights", "--checkpoint", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk", "--loc", "--access", "--daily", "--cosmetics", "--adapt", "--display", "--gestures", "--doors", "--emptying", "--pairs", "--themes", "--soundmaps", "--actscenes", "--campmap", "--achicons", "--parallax", "--traces", "--tension", "--portraits", "--haptics", "--candle", "--storage", "--save", "--weather"]
+const TEST_FLAGS: PackedStringArray = ["--sim", "--simchapters", "--chapters", "--story", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--eyes", "--lights", "--checkpoint", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk", "--loc", "--access", "--daily", "--cosmetics", "--adapt", "--display", "--gestures", "--doors", "--emptying", "--pairs", "--themes", "--soundmaps", "--actscenes", "--campmap", "--achicons", "--parallax", "--traces", "--tension", "--portraits", "--haptics", "--candle", "--storage", "--save", "--weather", "--perf"]
 const TEST_TIMEOUT_SEC := 240.0
 const LONG_TEST_TIMEOUT_SEC := 3600.0      ## полная таблица баланса глав
 const LOGO_SEC := 2.2
@@ -35,7 +35,7 @@ func _ready() -> void:
 			L.use(Save.lang)
 			Nav.relocalize()
 			continue
-		if a.begins_with("--runs=") or a.begins_with("--only=") or a.begins_with("--out=") or a.begins_with("--add=") or a.begins_with("--tune=") or a == "--grid" or a == "--checks" or a == "--campaign" or a.begins_with("--report="):
+		if a.begins_with("--runs=") or a.begins_with("--only=") or a.begins_with("--out=") or a.begins_with("--add=") or a.begins_with("--tune=") or a.begins_with("--diff=") or a == "--grid" or a == "--checks" or a == "--campaign" or a.begins_with("--report="):
 			continue                                   # параметры --simchapters
 		if a.begins_with("--") and not TEST_FLAGS.has(a):
 			print("ИТОГ: неизвестный режим %s. Есть: %s" % [a, ", ".join(TEST_FLAGS)])
@@ -272,6 +272,10 @@ func _run_test(flag: String) -> void:
 			Juice.instant = true
 			Nav.start()
 			await SelfTest.weather()
+		"--perf":
+			Juice.instant = true
+			Nav.start()
+			await PerfTests.run()
 
 
 # ---------------------------------------------------------------

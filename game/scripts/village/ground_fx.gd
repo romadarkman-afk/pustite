@@ -61,6 +61,27 @@ func setup(v: VillageView, k: String) -> void:
 	visible = false
 
 
+## Другая карта (set_village): область, картинка земли, лужи и трава берутся заново.
+## Без этого шейдер держал землю первой загруженной карты: лужи и рельеф чужие, 6 МиБ видеопамяти зря (TASK-095).
+func refresh() -> void:
+	area_rect = view.def.ground_rect
+	_rect.position = area_rect.position
+	_rect.size = area_rect.size
+	_mat.set_shader_parameter("area_size", area_rect.size)
+	if kind == "ground":
+		_mat.set_shader_parameter("ground_tex", view.ground_texture())
+		_set_puddles()
+		if _grass != null:
+			remove_child(_grass)
+			_grass.queue_free()
+			_grass = null
+
+
+## Картинка земли, которую сейчас держит шейдер (для самотеста).
+func bound_ground() -> Texture2D:
+	return _mat.get_shader_parameter("ground_tex") as Texture2D
+
+
 ## Бесшовный шум движка: один на запуск, 256×256.
 static func mask_texture() -> ImageTexture:
 	if _mask_tex == null:
