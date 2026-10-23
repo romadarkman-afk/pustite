@@ -199,6 +199,21 @@ static func pick_cast_sprite(v: Villager, used: Dictionary) -> int:
 	return candidates[posmod(v.story_id, candidates.size())]
 
 
+## Картинка с закрытыми глазами для моргания портрета (TASK-076): рядом с оригиналом, имя с суффиксом
+## _blink. Нет файла — null, моргания у этого жителя нет.
+static var _blink_tex: Dictionary = {}
+
+
+static func blink_tex(id: int) -> Texture2D:
+	if not _blink_tex.has(id):
+		var file := "hero_m" if id == HERO_M else ("hero_f" if id == HERO_F else "f%d" % id)
+		if GUEST_SPRITES.values().has(id):
+			file = "guest_" + String(GUEST_SPRITES.find_key(id))
+		var path := FOLK_REALISTIC_DIR + file + "_blink.png"
+		_blink_tex[id] = load(path) if ResourceLoader.exists(path) else null
+	return _blink_tex[id]
+
+
 static func folk_tex(id: int) -> Texture2D:
 	if not _folk_tex.has(id):
 		var file := "hero_m" if id == HERO_M else ("hero_f" if id == HERO_F else "f%d" % id)

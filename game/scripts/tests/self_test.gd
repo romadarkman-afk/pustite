@@ -8349,3 +8349,121 @@ static func _scan_for(out: PackedStringArray, dir: String, needle: String, skip:
 		var fp := dir + "/" + f
 		if f.ends_with(".gd") and not skip.has(fp) and FileAccess.get_file_as_string(fp).contains(needle):
 			out.append(fp)
+
+
+## TASK-076: живые портреты. Дыхание, дрожь, наклон, затемнение лжеца, моргание по второй картинке.
+static func portraits() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	var img := Image.create(8, 8, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.5, 0.5, 0.5, 1.0))
+	var open_tex := ImageTexture.create_from_image(img)
+	var shut := Image.create(8, 8, false, Image.FORMAT_RGBA8)
+	shut.fill(Color(0.2, 0.2, 0.2, 1.0))
+	var shut_tex := ImageTexture.create_from_image(shut)
+	var holder := Control.new()
+	holder.size = Vector2(200, 200)
+	tree.root.add_child(holder)
+	var p := LivingPortrait.new()
+	p.texture = open_tex
+	p.size = Vector2(70, 128)
+	holder.add_child(p)
+	await _frames(tree, 2)
+	p.active = false
+
+	# 1. Дыхание: до 2% по размеру, период от 3 до 4 с
+	var dev_x := 0.0
+	var dev_y := 0.0
+	var ups: Array[float] = []
+	var prev := 0.0
+	for i in range(0, 1201):
+		var t := float(i) * 0.01
+		p.pose(t)
+		dev_x = maxf(dev_x, absf(p.scale.x - 1.0))
+		dev_y = maxf(dev_y, absf(p.scale.y - 1.0))
+		var cur := p.scale.y - 1.0
+		if i > 0 and prev < 0.0 and cur >= 0.0:
+			ups.append(t)
+		prev = cur
+	ok += _expect(fails, dev_x > 0.004 and dev_x <= 0.02 and dev_y > 0.004 and dev_y <= 0.02, "глубина дыхания %.3f / %.3f вне 0,4–2%%" % [dev_x, dev_y])
+	ok += _expect(fails, ups.size() >= 2 and ups[1] - ups[0] >= 3.0 and ups[1] - ups[0] <= 4.0, "период дыхания %s вне 3–4 с" % str(ups))
+
+	# 2. Дрожь при страхе: до 2 px, слабый страх слабее, в других состояниях нет
+	var shake := {}
+	for level: float in [0.0, 0.5, 1.0]:
+		p.state = "fear"
+		p.intensity = level
+		var mx := 0.0
+		for i in range(0, 400):
+			p.pose(float(i) * 0.01)
+			mx = maxf(mx, absf(p.position.x))
+		shake[level] = mx
+	ok += _expect(fails, shake[1.0] <= LivingPortrait.SHAKE_MAX + 0.001 and shake[1.0] > 1.6 and shake[0.0] < shake[0.5] and shake[0.5] < shake[1.0] and shake[0.0] > 0.3,
+		"дрожь по силе страха не растёт или выше 2 px: %s" % str(shake))
+	p.state = "hope"
+	var calm := 0.0
+	for i in range(0, 200):
+		p.pose(float(i) * 0.01)
+		calm = maxf(calm, absf(p.position.x))
+	ok += _expect(fails, calm < 0.001, "без страха портрет дрожит: %.3f" % calm)
+	# контейнер сдвинул портрет: основа берётся от него
+	p.state = "fear"
+	p.intensity = 1.0
+	p.position.x = 30.0
+	p.pose(0.3)
+	p.pose(0.4)
+	ok += _expect(fails, absf(p.position.x - 30.0) <= 2.01, "дрожь сбила положение от контейнера (%.2f)" % p.position.x)
+
+	# 3. Наклон при горе и отчаянии
+	var tilts := {}
+	for s: String in ["grief", "despair", "fear", ""]:
+		p.state = s
+		p.pose(1.0)
+		tilts[s] = p.rotation
+	ok += _expect(fails, tilts["grief"] < -0.01 and tilts["despair"] < -0.01 and tilts["fear"] == 0.0 and tilts[""] == 0.0, "наклон по состояниям не тот: %s" % str(tilts))
+
+	# 4. Затемнение лжеца
+	p.lying = true
+	var dark := p.self_modulate
+	p.lying = false
+	ok += _expect(fails, dark.r < 0.9 and dark.g < 0.9 and p.self_modulate == Color.WHITE, "лжец не темнее остальных (%s)" % str(dark))
+
+	# 5. Моргание: без второй картинки нет, с ней глаза закрываются и открываются
+	p.blink_now()
+	ok += _expect(fails, not p.is_blinking() and p.texture == open_tex, "портрет без второй картинки моргнул")
+	p.blink_texture = shut_tex
+	p.blink_now()
+	ok += _expect(fails, p.is_blinking() and p.texture == shut_tex, "моргание не закрыло глаза")
+	p.active = true
+	p._tick_blink(LivingPortrait.BLINK_LEN + 0.05)
+	ok += _expect(fails, not p.is_blinking() and p.texture == open_tex, "после моргания глаза не открылись")
+	var gaps: Array[float] = []
+	for i in range(30):
+		p.blink_now()
+		gaps.append(p._blink_in)
+		p._tick_blink(LivingPortrait.BLINK_LEN + 0.05)
+	ok += _expect(fails, gaps.min() >= LivingPortrait.BLINK_GAP.x - 0.001 and gaps.max() <= LivingPortrait.BLINK_GAP.y + 0.001 and gaps.max() - gaps.min() > 0.3,
+		"паузы между морганиями вне 3–6 с или одинаковые: %.2f…%.2f" % [gaps.min(), gaps.max()])
+	holder.queue_free()
+
+	# 6. Привязка к партии: чувство, ложь, картинка с закрытыми глазами
+	Nav.start_match()
+	await _settle(tree)
+	var m := Game.m
+	var bot: Villager = m.alive_bots()[0]
+	var plain := W.portrait(bot) as LivingPortrait
+	ok += _expect(fails, plain != null and not plain.lying, "у жителя без улик портрет затемнён")
+	Game.director.evidence[bot.id] = {"liar": 1}
+	var liar := W.portrait(bot) as LivingPortrait
+	ok += _expect(fails, liar.lying and liar.self_modulate.r < 0.9, "уличённый во лжи не затемнён на портрете")
+	Game.director.evidence.erase(bot.id)
+	m.feelings.set_f(bot.id, Feelings.F.FEAR, 0.9)
+	var scared := W.portrait(bot) as LivingPortrait
+	ok += _expect(fails, scared.state == "fear" and absf(scared.intensity - 0.9) < 0.01, "страх не дошёл до портрета (%s, %.2f)" % [scared.state, scared.intensity])
+	var player_pic := W.portrait(m.player()) as LivingPortrait
+	ok += _expect(fails, not player_pic.lying and player_pic.blink_texture == null, "у героя не должно быть лжи и моргания по картинке жителя")
+	ok += _expect(fails, VillagerFigure.blink_tex(99999) == null, "для несуществующего жителя нашлась картинка моргания")
+	for node: Control in [plain, liar, scared, player_pic]:
+		node.free()
+	_finish(fails, ok, "Живые портреты", "дыхание 3–4 с до 2%, дрожь до 2 px, наклон, лжец темнее, моргание по картинке")

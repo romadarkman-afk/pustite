@@ -166,11 +166,17 @@ static func portrait(v: Villager, sz: Vector2 = Vector2(70, 128), tint: Color = 
 	p.active = v != null and v.alive
 	if v != null and Game.m != null and Game.m.feelings != null:
 		p.state = Game.m.feelings.main(v.id)
+		if p.state == "fear":
+			p.intensity = Game.m.feelings.get_f(v.id, Feelings.F.FEAR)
+	# уличённый во лжи темнее остальных: игрок записал это в улики (значок «лжец»)
+	p.lying = v != null and v.alive and not v.is_player and Game.director != null and Game.director.badges(v.id).has("liar")
 	var figure: VillagerFigure = null
 	if v != null and Nav.village != null and Nav.village.crowd != null:
 		figure = Nav.village.crowd.figures.get(v.id)
 	if figure != null:
 		p.texture = figure._hero_texture() if v.is_player else VillagerFigure.folk_tex(figure.sprite_id)
+		if not v.is_player:
+			p.blink_texture = VillagerFigure.blink_tex(figure.sprite_id)
 	p.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	p.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	p.custom_minimum_size = sz
