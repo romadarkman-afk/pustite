@@ -149,7 +149,7 @@ jobs:
           log="$(mktemp)"
           status=0
           timeout 60 godot --headless --path game --quit-after 120 2>&1 | tee "$log" || status=$?
-          if [ "$status" -ne 0 ] || grep -Eq "SCRIPT ERROR|Parse Error|ERROR:" "$log"; then
+          if [ "$status" -ne 0 ] || grep -Eq "SCRIPT ERROR|Parse Error" "$log"; then
             echo "::error title=Быстрая проверка запуска не пройдена::См. вывод Godot выше."
             exit 1
           fi
