@@ -6391,12 +6391,17 @@ static func recap() -> void:
 	# 5. Голоса жителей (51): у каждого свой характер, банк большой, реплики не повторяются
 	ok += _expect(fails, Voices.total() >= 200, "в банке голосов мало строк: %d" % Voices.total())
 	var personas_ok := true
-	var personas: Dictionary = {}
 	for v: Villager in m.alive_bots():
-		if v.persona < 0:
+		if v.persona < 0 or v.persona >= Voices.Persona.size():
 			personas_ok = false
-		personas[v.persona] = true
-	ok += _expect(fails, personas_ok and personas.size() >= 3, "жителям не назначены характеры: %s" % [personas.keys()])
+	ok += _expect(fails, personas_ok, "жителям не назначены характеры")
+	# разнообразие проверяем на фиксированной выборке: в партии из 4–5 живых случайно выпадают два одинаковых характера
+	var prng := RandomNumberGenerator.new()
+	prng.seed = 51
+	var drawn: Dictionary = {}
+	for _k in range(60):
+		drawn[Voices.random_persona(prng)] = true
+	ok += _expect(fails, drawn.size() >= 5, "выдача характеров однообразна: %s" % [drawn.keys()])
 	var dv := Director.new()
 	dv.attach(m)
 	var heard: Dictionary = {}
