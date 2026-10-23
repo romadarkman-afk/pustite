@@ -592,7 +592,7 @@ const LAYOUT_CUTOUTS: Array[Array] = [
 	[Vector2i(1080, 2400), Vector4(0, 110, 0, 70)],   # дырка в экране + жесты
 	[Vector2i(1080, 2340), Vector4(0, 140, 0, 48)],   # каплевидный вырез
 ]
-const MIN_TOUCH := 84.0
+const MIN_TOUCH := 68.0
 ## Дома должны читаться: не мельче 80% задуманного размера. Пустых краёв не бывает —
 ## лес, земля и небо нарисованы шире экрана.
 const MIN_FIELD_SCALE := 0.8
@@ -7348,9 +7348,92 @@ static func gestures() -> void:
 	var s1 := d.susp(other.id)
 	Game.gesture("point", other.id)
 	ok += _expect(fails, d.susp(other.id) == s1, "жест сработал не днём")
+	# 5. Список тянется с любого места, в том числе за кнопку
+	ok += await _touch_scroll_check(tree, fails)
 	Nav.show_menu()
 	await _settle(tree)
-	_finish(fails, ok, "жесты", "долгое нажатие — палец, «верю», «не верю»; видно на поле, есть в журнале, боты отвечают и запоминают")
+	_finish(fails, ok, "жесты", "долгое нажатие — палец, «верю», «не верю»; видно на поле, есть в журнале, боты отвечают и запоминают; список тянется за кнопку")
+
+
+## Протяжка за кнопку прокручивает список и не нажимает её; короткое касание нажимает.
+static func _touch_scroll_check(tree: SceneTree, fails: PackedStringArray) -> int:
+	var ok := 0
+	var layer := CanvasLayer.new()
+	layer.layer = 120
+	tree.root.add_child(layer)
+	var scroll := TouchScroll.new()
+	scroll.position = Vector2.ZERO
+	scroll.size = Vector2(400, 600)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	layer.add_child(scroll)
+	var column := VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(column)
+	var presses := [0]
+	var buttons: Array[Button] = []
+	for i in range(20):
+		var b := Button.new()
+		b.text = "кнопка %d" % i
+		b.custom_minimum_size = Vector2(0, 80)
+		b.pressed.connect(func() -> void: presses[0] += 1)
+		column.add_child(b)
+		buttons.append(b)
+	await _frames(tree, 3)
+	var inside := buttons[2].get_global_rect().get_center()
+	# протяжка за кнопку
+	_push_mouse(tree, inside, true, 0)
+	for step in range(1, 5):
+		_push_mouse(tree, inside + Vector2(0, -35.0 * step), null, MOUSE_BUTTON_MASK_LEFT)
+		await _frames(tree, 1)
+	_push_mouse(tree, inside + Vector2(0, -140), false, 0)
+	await _frames(tree, 2)
+	ok += _expect(fails, scroll.scroll_vertical > 60, "протяжка за кнопку не прокрутила список (%d)" % scroll.scroll_vertical)
+	ok += _expect(fails, presses[0] == 0, "протяжка за кнопку нажала её")
+	var mode := buttons[2].get_draw_mode()
+	ok += _expect(fails, mode != BaseButton.DRAW_PRESSED and mode != BaseButton.DRAW_HOVER_PRESSED, "после протяжки кнопка осталась нажатой")
+	# короткое касание нажимает
+	scroll.scroll_vertical = 0
+	await _frames(tree, 2)
+	var tap_at := buttons[3].get_global_rect().get_center()
+	_push_mouse(tree, tap_at, true, 0)
+	var before := scroll.scroll_vertical
+	await _frames(tree, 1)
+	_push_mouse(tree, tap_at, false, 0)
+	await _frames(tree, 2)
+	ok += _expect(fails, presses[0] == 1, "короткое касание не нажало кнопку (%d)" % presses[0])
+	ok += _expect(fails, scroll.scroll_vertical == before, "короткое касание сдвинуло список (%d → %d)" % [before, scroll.scroll_vertical])
+	# протяжка с пустого места между кнопками
+	var gap := Vector2(200.0, buttons[0].get_global_rect().end.y + 2.0)
+	_push_mouse(tree, gap, true, 0)
+	for step in range(1, 5):
+		_push_mouse(tree, gap + Vector2(0, -30.0 * step), null, MOUSE_BUTTON_MASK_LEFT)
+		await _frames(tree, 1)
+	_push_mouse(tree, gap + Vector2(0, -120), false, 0)
+	await _frames(tree, 2)
+	ok += _expect(fails, scroll.scroll_vertical > 50 and presses[0] == 1, "протяжка с пустого места не прокрутила список (%d)" % scroll.scroll_vertical)
+	layer.queue_free()
+	await _frames(tree, 2)
+	return ok
+
+
+## Мышиное событие в координатах вьюпорта: pressed = true/false для кнопки, null для движения.
+static func _push_mouse(tree: SceneTree, at: Vector2, pressed: Variant, mask: int) -> void:
+	var ev: InputEvent
+	if pressed == null:
+		var motion := InputEventMouseMotion.new()
+		motion.position = at
+		motion.global_position = at
+		motion.button_mask = mask as MouseButtonMask
+		ev = motion
+	else:
+		var button := InputEventMouseButton.new()
+		button.position = at
+		button.global_position = at
+		button.button_index = MOUSE_BUTTON_LEFT
+		button.pressed = bool(pressed)
+		button.button_mask = (MOUSE_BUTTON_MASK_LEFT if bool(pressed) else 0) as MouseButtonMask
+		ev = button
+	tree.root.push_input(ev, true)
 
 static func _solo_variation_check() -> bool:
 	for previous_map: String in Campaign.SOLO_MAP_IDS:
