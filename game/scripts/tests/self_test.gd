@@ -8269,3 +8269,83 @@ static func candle() -> void:
 	else:
 		ok += 1
 	_finish(fails, ok, "Свеча у двери", "свеча меняет приметы и давление по таблице, без касания числа прежние")
+
+
+## TASK-075: вибрация тремя ступенями. Сила идёт только через Juice.haptic, ступень сохраняется,
+## старый файл с «да/нет» читается, выключатель из старого кода не теряет выбранную ступень.
+static func haptics() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	# 1. Таблица силы
+	for kind: int in Juice.HAPTIC_SPEC.keys():
+		var strong := Juice.haptic_spec(kind, 2)
+		var weak := Juice.haptic_spec(kind, 1)
+		var off := Juice.haptic_spec(kind, 0)
+		ok += _expect(fails, off == Vector2.ZERO and strong == Juice.HAPTIC_SPEC[kind] and weak.x >= float(Juice.WEAK_MIN_MS)
+			and weak.x <= strong.x and weak.y < strong.y and weak.y > 0.0,
+			"сила вибрации %s не по ступеням: выкл %s, слабая %s, сильная %s" % [Juice.Haptic.keys()[kind], off, weak, strong])
+	# 2. Прямых вызовов вибрации вне juice.gd нет
+	var direct := PackedStringArray()
+	_scan_for(direct, "res://scripts", "vibrate_handheld", ["res://scripts/autoload/juice.gd", "res://scripts/tests"])
+	ok += _expect(fails, direct.is_empty(), "прямая вибрация вне juice.gd: %s" % ", ".join(direct))
+	# 3. Старый файл настроек и новый
+	var cf := ConfigFile.new()
+	cf.set_value("ui", "haptics", false)
+	var from_off := Save.haptic_level_from(cf)
+	cf.set_value("ui", "haptics", true)
+	var from_on := Save.haptic_level_from(cf)
+	cf.set_value("ui", "haptic_level", 1)
+	var from_weak := Save.haptic_level_from(cf)
+	cf.set_value("ui", "haptic_level", 9)
+	var from_junk := Save.haptic_level_from(cf)
+	ok += _expect(fails, from_off == 0 and from_on == 2 and from_weak == 1 and from_junk == 2,
+		"чтение ступени из файла: выкл %d, вкл %d, слабая %d, мусор %d" % [from_off, from_on, from_weak, from_junk])
+	# 4. Настройки: три кнопки, ступень доходит до Juice и в файл
+	var keep := Save.haptic_level
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+	Nav.show_settings()
+	await _settle(tree)
+	var tab: Button = null
+	for c: Control in _controls(Nav.host.current):
+		if c is Button and c.name == "Tab_controls":
+			tab = c
+			break
+	if tab != null:
+		tab.pressed.emit()
+		await _settle(tree)
+	var row := Nav.host.current.find_child("HapticLevels", true, false) as HBoxContainer
+	ok += _expect(fails, row != null and row.get_child_count() == 3, "в настройках нет трёх ступеней вибрации")
+	if row != null:
+		for i in [1, 0, 2]:
+			(row.get_child(i) as Button).pressed.emit()
+			await _frames(tree, 2)
+			var file := ConfigFile.new()
+			file.load(Save.SETTINGS_PATH)
+			var lit := -1
+			for k in range(3):
+				if (row.get_child(k) as Button).theme_type_variation == &"RowOn":
+					lit = k
+			ok += _expect(fails, Save.haptic_level == i and Juice.haptic_level == i and Save.haptics == (i > 0) and lit == i and int(file.get_value("ui", "haptic_level", -1)) == i,
+				"ступень %d: Save %d, Juice %d, подсвечена %d, в файле %s" % [i, Save.haptic_level, Juice.haptic_level, lit, str(file.get_value("ui", "haptic_level", -1))])
+	# 5. Старый выключатель помнит ступень
+	Save.set_haptic_level(1)
+	Save.haptics = false
+	var after_off := Save.haptic_level
+	Save.haptics = true
+	ok += _expect(fails, after_off == 0 and Save.haptic_level == 1 and Juice.haptic_level == 1, "выключатель потерял слабую ступень (%d, потом %d)" % [after_off, Save.haptic_level])
+	Save.set_haptic_level(keep)
+	_finish(fails, ok, "Вибрация", "три ступени, сила только через Juice, настройки и файл согласованы")
+
+
+static func _scan_for(out: PackedStringArray, dir: String, needle: String, skip: Array) -> void:
+	for sub in DirAccess.get_directories_at(dir):
+		var path := dir + "/" + sub
+		if not skip.has(path):
+			_scan_for(out, path, needle, skip)
+	for f in DirAccess.get_files_at(dir):
+		var fp := dir + "/" + f
+		if f.ends_with(".gd") and not skip.has(fp) and FileAccess.get_file_as_string(fp).contains(needle):
+			out.append(fp)

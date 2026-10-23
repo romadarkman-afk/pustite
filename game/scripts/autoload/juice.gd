@@ -15,7 +15,7 @@ const HAPTIC_SPEC := {
 	Haptic.SUCCESS: Vector2(24, 0.5),
 }
 
-var haptics_enabled: bool = true
+var haptic_level: int = 2             ## 0 выключена, 1 слабая, 2 сильная (TASK-075)
 var instant: bool = false            ## самотесты: без задержек и анимаций
 var _boost_left: float = 0.0
 
@@ -42,10 +42,25 @@ func boost(seconds: float) -> void:
 	Engine.max_fps = FPS_ACTIVE
 
 
-func haptic(kind: Haptic) -> void:
-	if not haptics_enabled or instant or not OS.has_feature("mobile"):
-		return
+## Слабая вибрация: короче вдвое по времени и вдвое мягче по силе, но не короче 6 мс.
+const WEAK_SCALE := 0.5
+const WEAK_MIN_MS := 6
+
+
+## Длительность (мс) и сила 0..1 для вида отклика на ступени level. Нули: вибрации нет.
+static func haptic_spec(kind: Haptic, level: int) -> Vector2:
+	if level <= 0:
+		return Vector2.ZERO
 	var spec: Vector2 = HAPTIC_SPEC[kind]
+	if level == 1:
+		return Vector2(maxf(float(WEAK_MIN_MS), spec.x * WEAK_SCALE), spec.y * WEAK_SCALE)
+	return spec
+
+
+func haptic(kind: Haptic) -> void:
+	if haptic_level <= 0 or instant or not OS.has_feature("mobile"):
+		return
+	var spec := haptic_spec(kind, haptic_level)
 	Diag.step("вибро: %s" % Haptic.keys()[kind])
 	Input.vibrate_handheld(int(spec.x), spec.y)
 

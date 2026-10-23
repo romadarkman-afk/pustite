@@ -12,7 +12,13 @@ const MEMORY_PER_CHAPTER := 40
 var save_writable := true
 
 var config: GameConfig
-var haptics: bool = true
+var haptic_level: int = 2                  ## вибрация: 0 выключена, 1 слабая, 2 сильная (TASK-075)
+var _haptic_last_on: int = 2
+var haptics: bool:                        ## включена ли вибрация вообще; ступень задаёт haptic_level
+	get:
+		return haptic_level > 0
+	set(on):
+		set_haptic_level((_haptic_last_on if haptic_level == 0 else haptic_level) if on else 0, false)
 var simplified_graphics: bool = false
 var perf_auto_done: bool = false          ## игра уже сама включала упрощённую графику (TASK-070); второй раз не будет
 var difficulty: String = "easy"
@@ -179,7 +185,9 @@ func load_all() -> void:
 		brooch = "none"
 		avatar_id = "hero"
 	if has:
-		haptics = bool(cf.get_value("ui", "haptics", true))
+		haptic_level = haptic_level_from(cf)
+		if haptic_level > 0:
+			_haptic_last_on = haptic_level
 		simplified_graphics = bool(cf.get_value("ui", "simplified_graphics", false))
 		perf_auto_done = bool(cf.get_value("ui", "perf_auto_done", false))
 		window_fullscreen = bool(cf.get_value("display", "fullscreen", false))
@@ -191,7 +199,7 @@ func load_all() -> void:
 		hints_seen.clear()
 		for h: String in String(cf.get_value("hints", "seen", "")).split(",", false):
 			hints_seen[h] = true
-	Juice.haptics_enabled = haptics
+	Juice.haptic_level = haptic_level
 	for b: StringName in volumes.keys():
 		var def_v: float = DEFAULT_VOLUMES[b]
 		volumes[b] = clampf(float(cf.get_value("sound", String(b), def_v)) if has else def_v, 0.0, 1.0)
@@ -280,8 +288,22 @@ func wear(kind: String, id: String) -> bool:
 
 func set_haptics(on: bool) -> void:
 	haptics = on
-	Juice.haptics_enabled = on
 	flush()
+
+
+## Ступень вибрации из файла настроек. Старый файл хранил только да/нет: да значит сильная, как было.
+static func haptic_level_from(cf: ConfigFile) -> int:
+	return clampi(int(cf.get_value("ui", "haptic_level", 2 if bool(cf.get_value("ui", "haptics", true)) else 0)), 0, 2)
+
+
+## Вибрация тремя ступенями (TASK-075). Все вызовы идут через Juice.haptic, там и сила.
+func set_haptic_level(level: int, save_now: bool = true) -> void:
+	haptic_level = clampi(level, 0, 2)
+	if haptic_level > 0:
+		_haptic_last_on = haptic_level
+	Juice.haptic_level = haptic_level
+	if save_now:
+		flush()
 
 
 func set_simplified_graphics(on: bool) -> void:
@@ -334,7 +356,6 @@ func set_settings(cfg: GameConfig, haptics_on: bool) -> void:
 	difficulty = "custom"
 	config = cfg.sanitized()
 	haptics = haptics_on
-	Juice.haptics_enabled = haptics_on
 	flush()
 
 
@@ -427,6 +448,7 @@ func flush() -> void:
 	cf.set_value("game", "howto_seen", howto_seen)
 	cf.set_value("game", "solo_last_map", solo_last_map)
 	cf.set_value("ui", "haptics", haptics)
+	cf.set_value("ui", "haptic_level", haptic_level)
 	cf.set_value("ui", "simplified_graphics", simplified_graphics)
 	cf.set_value("ui", "perf_auto_done", perf_auto_done)
 	cf.set_value("ui", "lang", lang)

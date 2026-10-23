@@ -33,7 +33,7 @@ jobs:
           - name: Основные 1
             cases: "sim=--sim flow=--flow lifecycle=--lifecycle field=--field crowd=--crowd bubbles=--bubbles marks=--marks input=--input hints=--hints difficulty=--difficulty howto=--howto night=--night eyes=--eyes lights=--lights checkpoint=--checkpoint sound=--sound village=--village"
           - name: Основные 2
-            cases: "talisman=--talisman bell=--bell events=--events mimic=--mimic sabotage=--sabotage box=--box roles=--roles meeting=--meeting tunnel=--tunnel diary=--diary recap=--recap folk=--folk loc=--loc access=--access daily=--daily cosmetics=--cosmetics adapt=--adapt display=--display gestures=--gestures candle=--candle storage=--storage save=--save weather=--weather"
+            cases: "talisman=--talisman bell=--bell events=--events mimic=--mimic sabotage=--sabotage box=--box roles=--roles meeting=--meeting tunnel=--tunnel diary=--diary recap=--recap folk=--folk loc=--loc access=--access daily=--daily cosmetics=--cosmetics adapt=--adapt display=--display gestures=--gestures candle=--candle haptics=--haptics storage=--storage save=--save weather=--weather"
           - name: Раскладка ru en
             cases: "layout_ru=--layout,--lang=ru layout_ru_t2=--layout,--lang=ru,--text=2 layout_en=--layout,--lang=en layout_en_t2=--layout,--lang=en,--text=2 crowd_ru=--crowd,--lang=ru crowd_en=--crowd,--lang=en"
           - name: Раскладка de fr

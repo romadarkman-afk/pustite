@@ -87,12 +87,23 @@ func _build_display_tab() -> void:
 
 func _build_controls_tab() -> void:
 	body.add_child(W.label(L.t("settings.input_help"), &"Tale"))
-	var hb := W.button(L.t("settings.haptics_on" if haptics else "settings.haptics_off"), &"Row")
-	hb.pressed.connect(func() -> void:
-		haptics = not haptics
-		Juice.haptics_enabled = haptics
-		hb.text = L.t("settings.haptics_on" if haptics else "settings.haptics_off"))
-	body.add_child(hb)
+	body.add_child(W.label(L.t("settings.haptics"), &"Hint"))
+	var levels := W.hbox(8)
+	levels.name = "HapticLevels"
+	var level_keys := ["settings.haptic_off", "settings.haptic_weak", "settings.haptic_strong"]
+	for i in range(3):
+		var lb := W.button(L.t(level_keys[i]), &"RowOn" if i == Save.haptic_level else &"Row")
+		lb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lb.name = "Haptic_%d" % i
+		var lvl := i
+		lb.pressed.connect(func() -> void:
+			Save.set_haptic_level(lvl)
+			haptics = lvl > 0
+			Juice.haptic(Juice.Haptic.KNOCK)           # сразу чувствуешь, какая ступень
+			for k in range(levels.get_child_count()):
+				(levels.get_child(k) as Button).theme_type_variation = &"RowOn" if k == lvl else &"Row")
+		levels.add_child(lb)
+	body.add_child(levels)
 
 
 func _build_game_tab() -> void:
