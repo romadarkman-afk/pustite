@@ -3785,6 +3785,20 @@ static func sound() -> void:
 		if not Sfx.has_sound(fk):
 			fear_missing.append(String(fk))
 	ok += _expect(fails, fear_missing.is_empty(), "нет звуков из набора страха: %s" % ", ".join(fear_missing))
+	# петли (гудок, поезд, лязг) как разовые звуки не зацикливаются
+	var looped_once := PackedStringArray()
+	for lk: StringName in [&"whistle", &"train", &"rails", &"typewriter"]:
+		if not Sfx.has_sound(lk):
+			continue
+		Sfx.play(lk, 1.0, -80.0)
+		var pl: AudioStreamPlayer = Sfx._pool[(Sfx._next + Sfx.POOL - 1) % Sfx.POOL]
+		var os_stream := pl.stream
+		var is_loop := (os_stream is AudioStreamOggVorbis and (os_stream as AudioStreamOggVorbis).loop) \
+			or (os_stream is AudioStreamWAV and (os_stream as AudioStreamWAV).loop_mode != AudioStreamWAV.LOOP_DISABLED)
+		if is_loop:
+			looped_once.append(String(lk))
+		pl.stop()
+	ok += _expect(fails, looped_once.is_empty(), "разовый звук играет по кругу: %s" % ", ".join(looped_once))
 	var breaths: Array = Sfx.VARIANTS.get(&"breath", [])
 	var breath_bad := PackedStringArray()
 	for bk: StringName in breaths:

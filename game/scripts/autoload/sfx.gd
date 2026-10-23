@@ -220,10 +220,32 @@ func play(n: StringName, pitch: float = 1.0, vol_db: float = 0.0) -> void:
 		stream_name = opts[randi() % opts.size()]
 	var p := _pool[_next]
 	_next = (_next + 1) % POOL
-	p.stream = _streams.get(stream_name, _streams[n])
+	p.stream = _one_shot(stream_name, n)
 	p.pitch_scale = clampf(pitch, 0.25, 4.0)
 	p.volume_db = vol_db
 	p.play()
+
+
+var _one_shots: Dictionary = {}
+
+
+## Разовый звук из набора петель (гудок, поезд, лязг) играет один раз, а не по кругу:
+## у петель включён loop, поэтому для разового проигрывания берётся копия без него.
+func _one_shot(stream_name: StringName, fallback: StringName) -> AudioStream:
+	var s: AudioStream = _streams.get(stream_name, _streams[fallback])
+	if s is AudioStreamOggVorbis and (s as AudioStreamOggVorbis).loop:
+		if not _one_shots.has(stream_name):
+			var c := (s as AudioStreamOggVorbis).duplicate() as AudioStreamOggVorbis
+			c.loop = false
+			_one_shots[stream_name] = c
+		return _one_shots[stream_name]
+	if s is AudioStreamWAV and (s as AudioStreamWAV).loop_mode != AudioStreamWAV.LOOP_DISABLED:
+		if not _one_shots.has(stream_name):
+			var w := (s as AudioStreamWAV).duplicate() as AudioStreamWAV
+			w.loop_mode = AudioStreamWAV.LOOP_DISABLED
+			_one_shots[stream_name] = w
+		return _one_shots[stream_name]
+	return s
 
 
 ## Разовый звук по краю стереополя. Канал проходит через Sfx, поэтому его громкость
@@ -238,7 +260,7 @@ func play_panned(n: StringName, side: int, pitch: float = 1.0, vol_db: float = -
 		stream_name = opts[randi() % opts.size()]
 	_panned_player.stop()
 	_panned_player.bus = HORROR_LEFT if side < 0 else HORROR_RIGHT
-	_panned_player.stream = _streams.get(stream_name, _streams[n])
+	_panned_player.stream = _one_shot(stream_name, n)
 	_panned_player.pitch_scale = clampf(pitch, 0.25, 4.0)
 	_panned_player.volume_db = vol_db
 	_panned_player.play()
