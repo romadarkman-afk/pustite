@@ -72,6 +72,16 @@ const LOOPS := {
 	&"life_murmur": "res://assets/sfx/life_murmur.ogg",
 	&"mill_wheel": "res://assets/sfx/mill_wheel.ogg",
 }
+## Темы акта, пары и кульминации (TASK-082). Файлов может не быть: тогда тема молчит, и экран играет то, что играл раньше.
+## Файлы кладутся в assets/music/ под этими именами; 60–90 с, цикл, −16 LUFS (проверка tools/check_music.py).
+const THEMES := {
+	&"theme_act1": "res://assets/music/theme_act1.ogg",
+	&"theme_act2": "res://assets/music/theme_act2.ogg",
+	&"theme_act3": "res://assets/music/theme_act3.ogg",
+	&"theme_act4": "res://assets/music/theme_act4.ogg",
+	&"theme_pair": "res://assets/music/theme_pair.ogg",       # утром: тот, кто потерял пару
+	&"theme_climax": "res://assets/music/theme_climax.ogg",   # у двери в последнюю ночь главы
+}
 ## Звук с вариантами: каждый раз случайный из списка, в журнал пишется общее имя.
 const VARIANTS := {
 	&"reveal": [&"reveal", &"reveal_2", &"reveal_3"],
@@ -140,6 +150,12 @@ func _ready() -> void:
 		elif s is AudioStreamWAV:
 			(s as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_FORWARD
 		_streams[k] = s
+	for k: StringName in THEMES:
+		if ResourceLoader.exists(THEMES[k]):
+			var theme_stream := load(THEMES[k]) as AudioStream
+			if theme_stream is AudioStreamOggVorbis:
+				(theme_stream as AudioStreamOggVorbis).loop = true
+			_streams[k] = theme_stream
 	for i in range(POOL):
 		var p := AudioStreamPlayer.new()
 		p.bus = &"Sfx"
@@ -180,6 +196,16 @@ func _player(bus: StringName) -> AudioStreamPlayer:
 
 func has_sound(n: StringName) -> bool:
 	return _streams.has(n) and _streams[n] != null
+
+
+func has_theme(n: StringName) -> bool:
+	return THEMES.has(n) and has_sound(n)
+
+
+## Тема акта (1–4) для пролога и итога; пусто, если акта нет или файла темы нет.
+func act_theme(act: int) -> StringName:
+	var n := StringName("theme_act%d" % act)
+	return n if has_theme(n) else &""
 
 
 ## Одиночный звук. pitch — высота (голоса жителей), vol_db — громкость относительно канала.

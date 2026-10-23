@@ -491,6 +491,8 @@ func close_slides() -> void:
 
 
 func music() -> StringName:
+	if m != null and m.winner == Match.Team.PEOPLE:
+		return Sfx.act_theme(int(Game.chapter.get("act", 0)))
 	return &""
 
 

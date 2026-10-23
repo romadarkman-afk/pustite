@@ -286,4 +286,4 @@ func ambience() -> StringName:
 
 
 func music() -> StringName:
-	return &""
+	return Sfx.act_theme(int(Game.chapter.get("act", 0)))

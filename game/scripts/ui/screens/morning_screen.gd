@@ -426,4 +426,17 @@ func ambience() -> StringName:
 
 
 func music() -> StringName:
-	return &""
+	return &"theme_pair" if Sfx.has_theme(&"theme_pair") and lost_partner() else &""
+
+
+## Этим утром кто-то из живых потерял пару: играет тема пары, если файл темы есть.
+func lost_partner() -> bool:
+	if m == null or m.report == null:
+		return false
+	for e: NightReport.Entry in m.report.deaths():
+		if e.who == null:
+			continue
+		for kin: Villager in m.mourners(e.who):
+			if kin.partner_id == e.who.id:
+				return true
+	return false

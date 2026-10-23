@@ -8814,3 +8814,86 @@ static func pairs() -> void:
 			ok += _expect(fails, share <= 3.0, "%s: маска ночи расходится с дневной на %.1f%% (допуск 3%%)" % [f, share])
 	ok += _expect(fails, checked >= 7, "нашлось %d пар день-ночь, ждём не меньше 7 (дом, сарай, церковь, погреб, гараж, навес, фонарь)" % checked)
 	_finish(fails, ok, "Пары день-ночь", "ночные картинки лежат в тех же пикселях, что дневные (проверено пар: %d)" % checked)
+
+
+## TASK-082: темы акта, пары и кульминации. Файлов пока нет, поэтому экраны играют по-старому;
+## когда файл появляется, пролог и итог акта, утро с потерей пары и последняя ночь выбирают тему.
+static func themes() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	var names: Array[StringName] = [&"theme_act1", &"theme_act2", &"theme_act3", &"theme_act4", &"theme_pair", &"theme_climax"]
+	ok += _expect(fails, Sfx.THEMES.size() == 6 and names.all(func(n: StringName) -> bool: return Sfx.THEMES.has(n)), "в списке не шесть тем")
+	var had: Dictionary = {}
+	for n: StringName in names:
+		had[n] = Sfx.has_theme(n)
+		if not had[n]:
+			Sfx._streams[n] = AudioStreamWAV.new()      # подставляем тему, как будто файл положили
+	Save.set_difficulty("normal")
+	Nav.start_match()
+	await _settle(tree)
+	var keep_chapter := Game.chapter
+	# пролог: тема своего акта; вне кампании и у несуществующего акта тишина
+	for act in [1, 2, 3, 4]:
+		Game.chapter = {"act": act}
+		ok += _expect(fails, PrologueScreen.new().music() == StringName("theme_act%d" % act), "пролог акта %d играет «%s»" % [act, PrologueScreen.new().music()])
+	Game.chapter = {}
+	ok += _expect(fails, PrologueScreen.new().music() == &"" and Sfx.act_theme(9) == &"", "быстрая партия или акт 9 получили тему")
+	# итог: тема акта, если люди выжили; при поражении без неё
+	Game.chapter = {"act": 3}
+	var end := EndScreen.new()
+	end.m = Game.m
+	Game.m.winner = Match.Team.PEOPLE
+	ok += _expect(fails, end.music() == &"theme_act3", "итог акта III при победе людей играет «%s»" % end.music())
+	Game.m.winner = Match.Team.UPYRI
+	ok += _expect(fails, end.music() == &"", "итог при поражении играет тему акта")
+	Game.m.winner = Match.Team.NONE
+	end.free()
+	Game.chapter = keep_chapter
+	# утро: тема пары, если живой потерял пару
+	var morning := MorningScreen.new()
+	morning.m = Game.m
+	Game.m.report = NightReport.new()
+	ok += _expect(fails, morning.music() == &"" and not morning.lost_partner(), "утро без потерь играет тему пары")
+	var a: Villager = null
+	var b: Villager = null
+	for v: Villager in Game.m.villagers:
+		if v.alive and not v.is_player:
+			if a == null:
+				a = v
+			elif b == null:
+				b = v
+	if a != null and b != null:
+		var keep_a := [a.partner_id, a.grief_for, b.partner_id, b.grief_for, a.alive]
+		a.partner_id = b.id
+		b.partner_id = a.id
+		a.alive = false
+		b.grief_for = a.id
+		Game.m.report.add(NightReport.Kind.KILLED_STREET, a)
+		ok += _expect(fails, morning.lost_partner() and morning.music() == &"theme_pair", "утро с потерей пары не играет тему пары")
+		b.partner_id = -1                                # теперь скорбит не партнёр, а родственник
+		ok += _expect(fails, not morning.lost_partner() and morning.music() == &"", "траур не по паре сыграл тему пары")
+		a.partner_id = keep_a[0]
+		a.grief_for = keep_a[1]
+		b.partner_id = keep_a[2]
+		b.grief_for = keep_a[3]
+		a.alive = keep_a[4]
+	morning.free()
+	# дверь: тема кульминации только в последнюю ночь главы
+	var door := DoorScreen.new()
+	door.m = Game.m
+	Game.m.day = 1
+	ok += _expect(fails, door.music() == &"night" or Game.m.config.nights <= 1, "первая ночь играет «%s»" % door.music())
+	Game.m.day = Game.m.config.nights
+	ok += _expect(fails, door.music() == &"theme_climax", "последняя ночь играет «%s»" % door.music())
+	door.free()
+	# без файлов (как сейчас на диске) всё молчит или играет старое
+	for n: StringName in names:
+		if not had[n]:
+			Sfx._streams.erase(n)
+	Game.m.day = Game.m.config.nights
+	var plain := DoorScreen.new()
+	plain.m = Game.m
+	ok += _expect(fails, plain.music() == &"night" or had[&"theme_climax"], "без файла кульминации дверь не играет ночную музыку")
+	plain.free()
+	_finish(fails, ok, "Музыкальные темы", "тема акта в прологе и итоге, пара утром, кульминация у двери; без файлов всё по-старому")
