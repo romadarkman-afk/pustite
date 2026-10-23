@@ -19,7 +19,7 @@ func _ready() -> void:
 	_sprite = Sprite2D.new()
 	_sprite.texture = _soft_texture()
 	_sprite.centered = true
-		add_child(_sprite)
+	add_child(_sprite)
 	_sync_sprite()
 	_sync_alpha()
 
