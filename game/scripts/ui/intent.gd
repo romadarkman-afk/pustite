@@ -49,4 +49,7 @@ const SKIP_TO_END := &"skip_to_end"  ## тебя не стало: доиграт
 const CONFRONT := &"confront"    ## спросить при всех о противоречии: {"a", "b"} — id записей тетради (TASK-017)
 const SEND_AWAY := &"send_away"  ## отправить на лодке за реку: {"id"} (TASK-020)
 const PROMISE := &"promise"      ## обещание жителю: {"id", "kind": "open" | "come"} (TASK-004)
+const OPEN_DEBUG := &"open_debug"        ## пять тапов по версии в настройках; только отладочная сборка (TASK-096)
+const DEBUG_CHAPTER := &"debug_chapter"  ## отладка: начать главу {"id"} без прохождения предыдущих
+const DEBUG_CLOSE := &"debug_close"      ## выйти из отладочного меню в настройки
 const WORK := &"work"            ## встать к делу: {"ji": индекс, "sab": портить вместо работы}

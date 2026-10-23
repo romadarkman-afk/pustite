@@ -8,6 +8,7 @@ var reset_hints: bool = false
 var difficulty: String = "custom"
 var _chips: Dictionary = {}
 var _tab := "sound"
+var _taps := DebugScreen.TapCounter.new()
 
 
 func screen_id() -> String:
@@ -41,12 +42,29 @@ func build() -> void:
 		"controls": _build_controls_tab()
 		_: _build_game_tab()
 
+	body.add_child(_version_row())
 	var go := W.button(L.t("settings.start"))
 	go.pressed.connect(func() -> void: emit_intent(Intent.START, {"cfg": cfg, "haptics": haptics, "reset_hints": reset_hints, "difficulty": difficulty}))
 	footer.add_child(go)
 	var back := W.button(L.t("ui.back"), &"Ghost")
 	back.pressed.connect(func() -> void: emit_intent(Intent.BACK, {"cfg": cfg, "haptics": haptics, "reset_hints": reset_hints, "difficulty": difficulty}))
 	footer.add_child(back)
+
+
+## Строка версии внизу. Пять быстрых тапов в отладочной сборке открывают скрытое меню (TASK-096).
+func _version_row() -> Label:
+	var v := W.label("v%s" % ProjectSettings.get_setting("application/config/version", "?"), &"Small")
+	v.name = "Version"
+	v.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.modulate = Color(1, 1, 1, 0.5)
+	v.custom_minimum_size = Vector2(0, 40)
+	v.mouse_filter = Control.MOUSE_FILTER_STOP
+	if DebugScreen.available():
+		v.gui_input.connect(func(e: InputEvent) -> void:
+			if e is InputEventMouseButton and (e as InputEventMouseButton).pressed and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+				if _taps.hit(Time.get_ticks_msec()):
+					emit_intent(Intent.OPEN_DEBUG, {}))
+	return v
 
 
 func _build_sound_tab() -> void:

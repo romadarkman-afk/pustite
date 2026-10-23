@@ -74,6 +74,7 @@ scripts/loc/voices.gd
 scripts/loc/zh.gd
 scripts/tests/plan_tests.gd
 scripts/tests/self_test.gd
+scripts/tests/debug_tests.gd
 scripts/tests/loc_audit.gd
 scripts/tests/perf_tests.gd
 scripts/tests/sim_chapters.gd
@@ -104,6 +105,7 @@ scripts/ui/screen.gd
 scripts/ui/screen_host.gd
 scripts/ui/screens/book_screen.gd
 scripts/ui/screens/campaign_screen.gd
+scripts/ui/screens/debug_screen.gd
 scripts/ui/screens/crash_screen.gd
 scripts/ui/screens/day_screen.gd
 scripts/ui/screens/door_screen.gd

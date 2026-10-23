@@ -215,6 +215,15 @@ func show_settings() -> void:
 	show(s)
 
 
+## Скрытое отладочное меню. Только в отладочной сборке.
+func show_debug() -> void:
+	if not DebugScreen.available():
+		return
+	Game.abandon()
+	_home_village()
+	show(DebugScreen.new())
+
+
 func show_wardrobe() -> void:
 	Game.abandon()
 	_home_village()
@@ -226,10 +235,10 @@ func start_match(varied_solo_map: bool = false) -> void:
 
 
 ## Глава кампании. Пустой id — продолжить с первой непройденной.
-func start_chapter(id: String = "") -> void:
+func start_chapter(id: String = "", force: bool = false) -> void:
 	if id.is_empty():
 		id = Campaign.current()
-	if not Campaign.unlocked(id):
+	if not force and not Campaign.unlocked(id):
 		toast(L.t("camp.locked"))
 		return
 	Save.mark_howto()                      # правила новичку объясняются по ходу главы
@@ -669,6 +678,13 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 				show_menu()
 		Intent.OPEN_SETTINGS:
 			show_settings()
+		Intent.OPEN_DEBUG:
+			show_debug()
+		Intent.DEBUG_CLOSE:
+			show_settings()
+		Intent.DEBUG_CHAPTER:
+			if DebugScreen.available() and Campaign.ORDER.has(String(data.get("id", ""))):
+				start_chapter(String(data.id), true)
 		Intent.EXIT:
 			Diag.clean_exit()
 			get_tree().quit()
