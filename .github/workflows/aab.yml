@@ -181,9 +181,10 @@ jobs:
           echo "категория приложения в манифесте: ${category:-нет}"
           app_tag=$(tr '\n' ' ' < build/manifest.txt | grep -oP '<application\b[^>]*>' | head -1 | tr -s ' ' | cut -c1-1500)
           echo "::notice title=Тег application в манифесте::${app_tag:-не найден}"
+          # bundletool печатает число: 0 значит «игра» (проверено по сборке 1.0.0: appCategory="0", isGame="true")
           case "${category:-}" in
-            game|2) ;;
-            *) echo "::warning title=Нет категории «игра»::В манифесте нет android:appCategory=game: на планшетах Android 16 может игнорировать портретную ориентацию." ;;
+            game|0) ;;
+            *) echo "::error title=Нет категории «игра»::В манифесте appCategory=${category:-нет}, нужно game (0): на планшетах Android 16 может игнорировать портретную ориентацию."; exit 1 ;;
           esac
 
       # Google Play с 1 ноября 2025 требует от приложений с API 35 и выше работы на страницах памяти 16 КБ:
