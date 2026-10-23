@@ -611,6 +611,10 @@ func _walk_walls(door_house: int = -1) -> Array[Rect2]:
 			out.append(Rect2(Vector2(footprint.position.x, gap.position.y), Vector2(gap.position.x - footprint.position.x, gap.size.y)))
 		if gap.end.x < footprint.end.x:
 			out.append(Rect2(Vector2(gap.end.x, gap.position.y), Vector2(footprint.end.x - gap.end.x, gap.size.y)))
+	# перед дверью пустого дома погибшего никто не стоит и не ходит (TASK-079)
+	for i in range(view.def.shelters.size()):
+		if i != door_house and view.dead_house(i):
+			out.append(view.dead_zone(i))
 	return out
 
 

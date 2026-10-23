@@ -8658,3 +8658,104 @@ static func door_styles() -> void:
 		for path in made:
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	_finish(fails, ok, "Двери по картам", "четыре двери, общая запасная, свеча и тень по координатам места")
+
+
+## TASK-079: деревня пустеет. Дом погибшего: окна тёмные, доски крестом, перед дверью никто не стоит и не ходит.
+## Дом изгнанного: дверь качается, раз в 6–11 с порыв и скрип. Рассвет после ночи идёт 3–4 с.
+static func emptying() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	Save.set_difficulty("normal")
+	Nav.start_match()
+	await _settle(tree)
+	if Game.m.phase == Match.Phase.PROLOGUE:
+		Game.proceed()
+		await _settle(tree)
+	var v := Nav.village
+	for r: Villager in Game.m.villagers:
+		if r.night_house == 0 or r.night_house == 1:
+			r.night_house = -1
+	v.set_loss_houses({0: 1, 1: 2})
+	ok += _expect(fails, v.dead_house(0) and not v.dead_house(1) and v.ajar_house(1) and not v.ajar_house(0) and v.ajar_houses() == [1],
+		"пустые дома не распознаны: погибший %s, изгнанный %s" % [v.dead_house(0), v.ajar_house(1)])
+	ok += _expect(fails, v.house_lit(0, 1.0) == 0.0 and v.house_lit(1, 1.0) > 0.5 and v.house_lit(2, 1.0) > 0.5,
+		"окна: у погибшего %.2f (ждём 0), у изгнанного %.2f, у соседа %.2f" % [v.house_lit(0, 1.0), v.house_lit(1, 1.0), v.house_lit(2, 1.0)])
+	# если в доме кто-то живёт, он не пустой
+	var tenant: Villager = null
+	for r2: Villager in Game.m.villagers:
+		if r2.alive and not r2.departed:
+			tenant = r2
+			break
+	if tenant != null:
+		var was := tenant.night_house
+		tenant.night_house = 0
+		v.set_loss_houses({0: 1, 1: 2})
+		ok += _expect(fails, not v.dead_house(0) and v.house_lit(0, 1.0) > 0.5, "дом с жильцом считается пустым")
+		tenant.night_house = was
+		v.set_loss_houses({0: 1, 1: 2})
+		ok += _expect(fails, v.dead_house(0), "после ухода жильца дом не опустел")
+	# зона перед дверью: в стенах ходьбы, кроме случая, когда идут именно в этот дом
+	var zone := v.dead_zone(0)
+	var cr := v.crowd
+	ok += _expect(fails, zone.size.x >= 60.0 and zone.size.y >= 30.0 and cr._walk_walls().has(zone), "зона у двери погибшего не закрыта для ходьбы: %s" % zone)
+	ok += _expect(fails, not cr._walk_walls(0).has(zone), "в дом погибшего нельзя пройти, даже если идти к нему")
+	var widths: Array[float] = []
+	for i in range(8):
+		widths.append(60.0)
+	var inside := 0
+	for p: Vector2 in cr.layout_day(widths):
+		if zone.has_point(p):
+			inside += 1
+	ok += _expect(fails, inside == 0, "в зоне у двери погибшего встали %d из 8 жителей" % inside)
+	var clamped := cr.walk_clamp(zone.get_center())
+	ok += _expect(fails, not zone.has_point(clamped), "точку у двери погибшего не вытолкнуло из зоны: %s" % clamped)
+	# дверь изгнанного качается
+	var opens: Array[float] = []
+	for t: float in [0.0, 1.3, 2.9, 4.4, 5.8]:
+		v._t = t
+		v._gust = 0.0
+		opens.append(v.ajar_open())
+	ok += _expect(fails, opens.min() >= 0.2 and opens.max() <= 0.85 and opens.max() - opens.min() > 0.05, "дверь изгнанного не качается: %s" % str(opens))
+	v._t = 2.0
+	v._gust = 1.0
+	var gusty: Array[float] = []
+	for t2: float in [2.0, 2.05, 2.1, 2.15, 2.2]:
+		v._t = t2
+		gusty.append(v.ajar_open())
+	ok += _expect(fails, gusty.max() - gusty.min() > 0.15, "порыв не распахивает дверь: %s" % str(gusty))
+	# скрип по таймеру: раз в 6–11 с
+	v.modulate.a = 1.0
+	v.visible = true
+	Sfx.played.clear()
+	v._creak_in = 0.05
+	v._ajar_step(0.1)
+	ok += _expect(fails, Sfx.played.has(&"creak") and v._creak_in >= 6.0 and v._creak_in <= 11.0, "дверь изгнанного не скрипнула вовремя: %s, следующий через %.1f" % [str(Sfx.played), v._creak_in])
+	var before := v._creak_in
+	v._ajar_step(1.0)
+	ok += _expect(fails, absf(before - 1.0 - v._creak_in) < 0.01, "таймер скрипа идёт не по секундам")
+	for i in range(40):
+		v._ajar_step(0.1)
+	ok += _expect(fails, v._gust < 0.01, "порыв не затухает: %.2f" % v._gust)
+	# пустых домов изгнанных нет: тишина
+	v.set_loss_houses({0: 1})
+	Sfx.played.clear()
+	v._creak_in = 0.01
+	v._ajar_step(0.5)
+	ok += _expect(fails, not Sfx.played.has(&"creak"), "скрип без дома изгнанного")
+	# рисование не падает ночью и днём
+	for n: float in [0.0, 0.5, 1.0]:
+		v.set_night(n)
+		v.set_loss_houses({0: 1, 1: 2})
+		await _frames(tree, 3)
+	ok += 1
+	v.set_loss_houses({})
+	ok += _expect(fails, v.ajar_houses().is_empty() and not v.dead_house(0), "потери не сброшены")
+	# рассвет и закат идут 3–4 с
+	var morning := MorningScreen.new()
+	var night_s := NightScreen.new()
+	ok += _expect(fails, morning.mood_duration() >= 3.0 and morning.mood_duration() <= 4.0 and night_s.mood_duration() >= 3.0 and night_s.mood_duration() <= 4.0,
+		"смена ночи и дня: рассвет %.1f с, закат %.1f с (ждём 3–4)" % [morning.mood_duration(), night_s.mood_duration()])
+	morning.free()
+	night_s.free()
+	_finish(fails, ok, "Деревня пустеет", "дом погибшего заколочен и тёмен, у двери пусто, дверь изгнанного качается и скрипит, рассвет 3–4 с")

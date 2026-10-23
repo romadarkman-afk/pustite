@@ -32,3 +32,17 @@ Edit this exact image: close the person's eyes (eyelids shut, relaxed, no smile 
 ```
 A dark soft silhouette of a person walking past a window at night, side profile, cloaked, head slightly bowed, blurred edges, no facial details, isolated on a transparent background, no ground, no text. Photorealistic shadow, near black.
 ```
+
+## TASK-079. Открытая дверь дома изгнанного
+
+Пока файла нет, дверь рисуется кодом: тёмный проём и светлая кромка створки. Дверь качается на ветру и раз в 6–11 с скрипит.
+
+- Файл: `game/assets/village/realistic/door_ajar.png`, PNG с прозрачным фоном, ориентир 120×200 (тот же ракурс сверху-сбоку, что у домов).
+- Картинка ложится на дверь любого дома и тянется по ширине двери ±12% (качание). Проём тёмный почти до чёрного, створка приоткрыта примерно на треть ширины, у края видна толщина доски и петля. Вне двери ничего нет: стену, крыльцо и соседние доски не рисовать.
+- Дом может быть отражён: игра зеркалит картинку сама.
+
+Промпт:
+
+```
+A wooden plank house door ajar by about a third, seen from a high three-quarter angle, dark empty interior visible through the gap, weathered grey boards, iron hinge, slight shadow on the leaf. Isolated on a transparent background, no wall, no steps, no ground, no text. Photorealistic, gritty, desaturated, 1890s rural Russia.
+```

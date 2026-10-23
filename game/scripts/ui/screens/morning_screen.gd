@@ -27,6 +27,11 @@ func mood() -> Vector2:
 	return Vector2(0.1, 0.3)
 
 
+## Рассвет после ночи идёт 3,4 с: небо светлеет, окна гаснут (TASK-079).
+func mood_duration() -> float:
+	return 3.4
+
+
 func build() -> void:
 	var r := m.report
 	var deaths := r.deaths()

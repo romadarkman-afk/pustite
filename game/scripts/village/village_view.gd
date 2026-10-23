@@ -53,6 +53,10 @@ var _field := Rect2()                      ## где поле на экране 
 var blood_spots := PackedVector2Array()    ## утром: где ночью погибли (до следующей ночи)
 var trail_doors := PackedVector2Array()    ## утром: к каким дверям из леса ведут следы
 var loss_houses: Dictionary = {}            ## дом -> 1 память о погибшем, 2 изгнание
+var _empty_loss: Dictionary = {}           ## то же, но только дома, где никто не живёт: они пустеют (TASK-079)
+var _creak_in := 4.0                       ## через сколько секунд хлопнет дверь изгнанного
+var _gust := 0.0                           ## порыв ветра: 1 в момент скрипа, затухает за 1,7 с
+var _ajar_acc := 0.0
 var rain := false                          ## лужи после дождливой ночи
 
 ## Камера. Днём приближена и следует за игроком по горизонтали; в остальных фазах
@@ -232,10 +236,61 @@ func set_branches_visible(v: bool) -> void:
 
 
 func set_loss_houses(houses: Dictionary) -> void:
-	if loss_houses == houses:
+	var empty := _empty_losses(houses)
+	if loss_houses == houses and _empty_loss == empty:
 		return
 	loss_houses = houses.duplicate()
+	_empty_loss = empty
+	_creak_in = minf(_creak_in, 2.5)
 	_refresh()
+
+
+## Из домов с потерей оставляем те, где никто не живёт: у них гаснут окна, а у погибшего ещё и заколочена дверь.
+func _empty_losses(houses: Dictionary) -> Dictionary:
+	var out := {}
+	for key: Variant in houses:
+		var lived := false
+		if Game.m != null:
+			for resident: Villager in Game.m.villagers:
+				if resident.alive and not resident.departed and resident.night_house == int(key):
+					lived = true
+					break
+		if not lived:
+			out[int(key)] = int(houses[key])
+	return out
+
+
+## Пустой дом погибшего: тёмные окна, доски крестом, у двери никто не стоит.
+func dead_house(i: int) -> bool:
+	return int(_empty_loss.get(i, 0)) == 1
+
+
+## Пустой дом изгнанного: дверь оставлена открытой.
+func ajar_house(i: int) -> bool:
+	return int(_empty_loss.get(i, 0)) == 2
+
+
+func ajar_houses() -> Array[int]:
+	var out: Array[int] = []
+	for key: Variant in _empty_loss:
+		if int(_empty_loss[key]) == 2:
+			out.append(int(key))
+	return out
+
+
+## Зона перед дверью пустого дома погибшего: сюда не ставят и не водят жителей.
+func dead_zone(i: int) -> Rect2:
+	var h: HouseDef = def.shelters[i]
+	var door := door_rect(h)
+	var half := maxf(door.size.x * 0.5 + 18.0, 30.0)
+	return Rect2(door.get_center().x - half, h.pos.y - 4.0, half * 2.0, 34.0)
+
+
+## Освещённость окон убежища: в доме погибшего огня нет.
+func house_lit(i: int, n: float) -> float:
+	if dead_house(i):
+		return 0.0
+	return _lit(def.shelters[i], n)
 
 
 ## Вписать полосу с домами в прямоугольник поля. vp_w — ширина экрана.
@@ -540,9 +595,10 @@ func _process(delta: float) -> void:
 		if on > 0.0 and on < 1.0 and randf() < 0.35:
 			on *= 0.15               # включение: лампа пару раз мигает
 		_lamp_glows[i].set_intensity(on * 0.72)
+	_ajar_step(delta)
 	for i in range(_house_glows.size()):
 		var house_index := int(i / 2)
-		var lit := _lit(def.shelters[house_index], night) if house_index < def.shelters.size() else night
+		var lit := house_lit(house_index, night) if house_index < def.shelters.size() else night
 		_house_glows[i].set_intensity(lit * (0.62 if house_index != selected_house else 0.82))
 
 
@@ -664,27 +720,23 @@ func _add_prop(at: Vector2, paint: Callable, depth: int = 0) -> void:
 func _paint_shelter(ci: CanvasItem, i: int) -> void:
 	var h: HouseDef = def.shelters[i]
 	var n := _nq()
-	_draw_house(ci, h, 1 if i < open_count else 2, n, _lit(h, n), talismans[i] if i < talismans.size() else 2)
+	var dead := dead_house(i)
+	# дом погибшего пуст: доски крестом, окна тёмные, оберега нет
+	_draw_house(ci, h, 2 if dead else (1 if i < open_count else 2), n, house_lit(i, n), talismans[i] if i < talismans.size() else 2)
 	var loss := int(loss_houses.get(i, 0))
 	if loss > 0:
-		var still_lived_in := false
-		if Game.m != null:
-			for resident: Villager in Game.m.villagers:
-				if resident.alive and not resident.departed and resident.night_house == i:
-					still_lived_in = true
-					break
-		if not still_lived_in:
+		var empty := _empty_loss.has(i)
+		if empty and not dead:
 			var art := _art(h)
 			_blit(ci, _tex[art[0] + "_day"], house_rect(h), _flip(h), Color(0.07, 0.09, 0.13, 0.56))
 		var door := door_rect(h)
 		if loss == 1:
-			# Траурная лента видна даже в занятом доме.
-			ci.draw_line(door.position + Vector2(-3, 1), door.position + Vector2(6, 17), Color("16161c"), 5.0)
-			ci.draw_line(door.position + Vector2(6, 1), door.position + Vector2(-3, 17), Color("292833"), 4.0)
+			if not dead:
+				# Траурная лента видна в занятом доме; в пустом вместо неё доски.
+				ci.draw_line(door.position + Vector2(-3, 1), door.position + Vector2(6, 17), Color("16161c"), 5.0)
+				ci.draw_line(door.position + Vector2(6, 1), door.position + Vector2(-3, 17), Color("292833"), 4.0)
 		else:
-			# После изгнания дверь оставили приоткрытой.
-			ci.draw_colored_polygon(PackedVector2Array([door.position, door.position + Vector2(door.size.x * 0.6, 3), door.position + Vector2(door.size.x * 0.5, door.size.y), Vector2(door.position.x, door.end.y)]), Color("100e13"))
-			ci.draw_line(door.position + Vector2(door.size.x * 0.6, 3), door.position + Vector2(door.size.x * 0.5, door.size.y), Color("856849"), 2.0)
+			_draw_ajar(ci, door, _flip(h), n)
 	if i == selected_house and i < open_count:
 		Art._outline(ci, Art.rrect(house_rect(h).grow(6.0), 12), ThemeFactory.LAMP, 3.5)
 
@@ -759,6 +811,10 @@ func _load_art() -> void:
 	var fence_path := REALISTIC_ART_DIR + "fence.png"
 	_realistic["fence"] = ResourceLoader.exists(fence_path)
 	_tex["fence"] = load(fence_path) as Texture2D if _realistic["fence"] else null
+	_tex["door_ajar"] = null
+	for ajar_dir: String in [REALISTIC_ART_DIR, ART_DIR]:
+		if _tex["door_ajar"] == null and ResourceLoader.exists(ajar_dir + "door_ajar.png"):
+			_tex["door_ajar"] = load(ajar_dir + "door_ajar.png") as Texture2D
 	_ground_is_composite = false
 	for g: String in GROUND_FILES:
 		var ground_name := g.replace("ground", def.ground if def != null else "ground")
@@ -989,6 +1045,57 @@ func _draw_house(ci: CanvasItem, h: HouseDef, state: int, n: float, lit: float, 
 		_draw_talisman(ci, dr, flip, n, tal)
 	elif state == 2:
 		_draw_boards(ci, dr, flip, n)
+
+
+## Дверь, оставленная открытой после изгнания: створка покачивается, от порыва ветра распахивается шире.
+## Положен файл door_ajar.png (realistic/ или village/) — рисуем его, иначе тёмный проём и кромка створки.
+func _draw_ajar(ci: CanvasItem, door: Rect2, flip: bool, n: float) -> void:
+	var k := ajar_open()
+	var tex: Texture2D = _tex.get("door_ajar")
+	if tex != null:
+		var grow := 0.88 + 0.24 * k
+		var w := door.size.x * grow
+		var x := door.position.x if not flip else door.end.x - w
+		_blit(ci, tex, Rect2(x, door.position.y, w, door.size.y), flip, _night_mod(n))
+		return
+	var edge := door.position.x if not flip else door.end.x
+	var dir := 1.0 if not flip else -1.0
+	var leaf := edge + dir * door.size.x * k
+	var back := edge + dir * door.size.x * (k - 0.1)
+	var dark := PackedVector2Array([Vector2(edge, door.position.y), Vector2(leaf, door.position.y + 3.0), Vector2(back, door.end.y), Vector2(edge, door.end.y)])
+	if flip:
+		dark.reverse()
+	ci.draw_colored_polygon(dark, Color("100e13"))
+	ci.draw_line(Vector2(leaf, door.position.y + 3.0), Vector2(back, door.end.y), Color("856849") * _night_mod(n), 2.0)
+
+
+## Насколько открыта дверь изгнанного (доля ширины двери, 0,2–0,85): ветер качает, порыв распахивает.
+func ajar_open() -> float:
+	return clampf(0.46 + 0.07 * sin(_t * 0.8) + 0.05 * sin(_t * 1.9 + 1.3) + 0.28 * _gust * sin(_t * 6.0), 0.2, 0.85)
+
+
+## Раз в 6–11 с порыв: дверь скрипит и распахивается. Дверь перерисовывается ~15 раз в секунду.
+func _ajar_step(delta: float) -> void:
+	_gust = maxf(0.0, _gust - delta * 0.6)
+	var ajar := ajar_houses()
+	if ajar.is_empty():
+		return
+	_creak_in -= delta
+	if _creak_in <= 0.0:
+		creak_now()
+	_ajar_acc += delta
+	if _ajar_acc >= 0.066:
+		_ajar_acc = 0.0
+		for i in ajar:
+			if i < _props.size():
+				_props[i].queue_redraw()
+
+
+func creak_now() -> void:
+	_creak_in = randf_range(6.0, 11.0)
+	_gust = 1.0
+	if modulate.a > 0.3 and is_visible_in_tree() and Sfx.has_sound(&"creak"):
+		Sfx.play(&"creak", randf_range(0.8, 0.95), -24.0)
 
 
 ## Закрытая створка на чердаке сарая: убирает чёрный проём, похожий на пропавшую текстуру.
