@@ -61,7 +61,7 @@
 
 ## Статус исправлений (TASK-100)
 
-Исправления лежат в коммитах [eb9b596](https://github.com/romadarkman-afk/pustite/commit/eb9b596ccc01af32b2671df9c1f07c4d3e0b8348), [c3d2f5b](https://github.com/romadarkman-afk/pustite/commit/c3d2f5b8155af620c9d4c7e2f886baebd285157e) (проверка категории «игра») и [c03123d](https://github.com/romadarkman-afk/pustite/commit/c03123dcc03060c33e1f6fa3fccb5c6b4a4bf043) (`run_to`, вторая причина F-06). Пометка «ждёт Влади» значит, что решение или материал нужны от человека (список: `docs/backlog.md`).
+Исправления лежат в коммитах [eb9b596](https://github.com/romadarkman-afk/pustite/commit/eb9b596ccc01af32b2671df9c1f07c4d3e0b8348), [c3d2f5b](https://github.com/romadarkman-afk/pustite/commit/c3d2f5b8155af620c9d4c7e2f886baebd285157e) (проверка категории «игра») и [c03123d](https://github.com/romadarkman-afk/pustite/commit/c03123dcc03060c33e1f6fa3fccb5c6b4a4bf043) (`run_to`, вторая причина F-06) и [1f443d6](https://github.com/romadarkman-afk/pustite/commit/1f443d649beebec942105d1cfbe64f8938b24807) (раскладка дня, третья причина F-06). Пометка «ждёт Влади» значит, что решение или материал нужны от человека (список: `docs/backlog.md`).
 
 | № | Статус | Что сделано |
 |---|---|---|
