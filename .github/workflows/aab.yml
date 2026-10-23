@@ -179,6 +179,8 @@ jobs:
           # Android 16 игнорирует запрет поворота на экранах от 600 dp, но не у игр с флагом категории (аудит F-20)
           category=$(grep -oP 'appCategory[^"]*"\K[^"]+' build/manifest.txt | head -1)
           echo "категория приложения в манифесте: ${category:-нет}"
+          app_tag=$(tr '\n' ' ' < build/manifest.txt | grep -oP '<application\b[^>]*>' | head -1 | tr -s ' ' | cut -c1-1500)
+          echo "::notice title=Тег application в манифесте::${app_tag:-не найден}"
           case "${category:-}" in
             game|2) ;;
             *) echo "::warning title=Нет категории «игра»::В манифесте нет android:appCategory=game: на планшетах Android 16 может игнорировать портретную ориентацию." ;;
