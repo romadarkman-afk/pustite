@@ -1,8 +1,9 @@
 class_name LightHalo
 extends Node2D
-## Небольшой аддитивный ореол у источника света. Рисуется спрайтом, не освещает землю.
+## Мягкий цветовой ореол рядом с источником света; саму сцену освещает PointLight2D.
 
-static var _soft_texture_cache: GradientTexture2D
+static var _soft_texture_cache: ImageTexture
+static var _point_texture_cache: ImageTexture
 
 var radius: float = 28.0
 var color: Color = Color("ff9e2c")
