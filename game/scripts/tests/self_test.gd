@@ -8759,3 +8759,44 @@ static func emptying() -> void:
 	morning.free()
 	night_s.free()
 	_finish(fails, ok, "Деревня пустеет", "дом погибшего заколочен и тёмен, у двери пусто, дверь изгнанного качается и скрипит, рассвет 3–4 с")
+
+
+## TASK-080: у каждой пары день-ночь одинаковый размер и почти одна маска (до 3% пикселей).
+## То же проверяет tools/check_pair.py; тест ловит сдвинутую ночную картинку, когда её положат в папку.
+static func pairs() -> void:
+	var fails: PackedStringArray = []
+	var ok := 0
+	var checked := 0
+	for dir_path: String in ["res://assets/village/realistic/", "res://assets/village/realistic/maps/"]:
+		for f: String in DirAccess.get_files_at(dir_path):
+			if not f.ends_with("_day.png") or f.begins_with("sky_") or f.begins_with("treeline_"):
+				continue
+			var night_path := dir_path + f.replace("_day.png", "_night.png")
+			if not FileAccess.file_exists(night_path):
+				continue
+			var d := Image.load_from_file(ProjectSettings.globalize_path(dir_path + f))
+			var n := Image.load_from_file(ProjectSettings.globalize_path(night_path))
+			if d == null or n == null:
+				fails.append("не открылась пара %s" % f)
+				continue
+			checked += 1
+			if d.get_size() != n.get_size():
+				fails.append("%s: размеры разные %s и %s" % [f, d.get_size(), n.get_size()])
+				continue
+			d.convert(Image.FORMAT_RGBA8)
+			n.convert(Image.FORMAT_RGBA8)
+			var union := 0
+			var diff := 0
+			var da := d.get_data()
+			var na := n.get_data()
+			for i in range(3, da.size(), 4):
+				var a := da[i] > 32
+				var b := na[i] > 32
+				if a or b:
+					union += 1
+					if a != b:
+						diff += 1
+			var share := 100.0 * diff / maxf(1.0, union)
+			ok += _expect(fails, share <= 3.0, "%s: маска ночи расходится с дневной на %.1f%% (допуск 3%%)" % [f, share])
+	ok += _expect(fails, checked >= 7, "нашлось %d пар день-ночь, ждём не меньше 7 (дом, сарай, церковь, погреб, гараж, навес, фонарь)" % checked)
+	_finish(fails, ok, "Пары день-ночь", "ночные картинки лежат в тех же пикселях, что дневные (проверено пар: %d)" % checked)
