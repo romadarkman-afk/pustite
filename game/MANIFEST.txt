@@ -94,6 +94,7 @@ scripts/ui/scene_player.gd
 scripts/ui/train_sheet.gd
 scripts/ui/trust_faces.gd
 scripts/ui/vouch_sheet.gd
+scripts/ui/campaign_map.gd
 scripts/ui/clue_book.gd
 scripts/ui/screen.gd
 scripts/ui/screen_host.gd
