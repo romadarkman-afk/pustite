@@ -53,7 +53,7 @@ func _build(lines: Array[ChatLine]) -> void:
 	var box := W.vbox(10)
 	sheet.add_child(box)
 	box.add_child(W.label(L.t("journal.head"), &"Hint"))
-	var sc := ScrollContainer.new()
+	var sc := TouchScroll.new()
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	sc.custom_minimum_size = Vector2(0, maxf(160.0, (get_parent() as Control).size.y * 0.6))
 	list = W.vbox(10)

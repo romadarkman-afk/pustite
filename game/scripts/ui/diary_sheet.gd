@@ -108,7 +108,7 @@ func _build(m: Match, d: Director) -> void:
 		ClueBook.open(parent, m, parent as Screen))
 	box.add_child(clues_b)
 	box.add_child(W.label(SocialContent.case_title(m.case_id), &"Body"))
-	var sc := ScrollContainer.new()
+	var sc := TouchScroll.new()
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	sc.custom_minimum_size = Vector2(0, maxf(200.0, (get_parent() as Control).size.y * 0.66))
 	list = W.vbox(10)

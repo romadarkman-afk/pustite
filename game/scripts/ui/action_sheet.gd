@@ -39,7 +39,7 @@ func _build(title: String, options: PackedStringArray) -> void:
 
 	var box := W.vbox(10)
 	sheet.add_child(box)
-	var sc := ScrollContainer.new()
+	var sc := TouchScroll.new()
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	sc.custom_minimum_size.y = minf((get_parent() as Control).size.y * 0.56, 500.0 * ThemeFactory.text_scale)
 	var content := W.vbox(10)
