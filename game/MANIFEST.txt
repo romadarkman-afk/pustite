@@ -118,6 +118,7 @@ scripts/ui/theme_factory.gd
 scripts/ui/touch_scroll.gd
 scripts/ui/weather_overlay.gd
 scripts/ui/perf_guard.gd
+scripts/ui/bolt_swipe.gd
 scripts/ui/w.gd
 scripts/village/art.gd
 scripts/village/crowd.gd
