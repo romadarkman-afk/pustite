@@ -317,6 +317,11 @@ func _make(key: String) -> CPUParticles2D:
 
 ## Эмиттер с атласом: материал включает анимацию кадров по сетке h×v.
 func _base(key: String, sheet: String, additive := false) -> CPUParticles2D:
+	return make_emitter(key, sheet, additive)
+
+
+## Общий конструктор: им же пользуется WeatherOverlay в сценах и у двери.
+static func make_emitter(key: String, sheet: String, additive := false) -> CPUParticles2D:
 	var def: Array = SHEETS[sheet]
 	var p := CPUParticles2D.new()
 	p.name = key

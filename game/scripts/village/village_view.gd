@@ -399,6 +399,30 @@ func season_mod() -> Color:
 func _apply_weather_grade() -> void:
 	if crowd != null and def != null:
 		crowd.set_color_grade(def.color_grade * season_mod())
+		var fx := figure_fx()
+		crowd.set_weather_fx(fx.x, fx.y)
+
+
+## Иней и влага на фигурах: x — иней, y — влага. На упрощённой графике шейдера фигур нет.
+func figure_fx() -> Vector2:
+	if simplified_graphics or not bool(weather_state.get("active", false)):
+		return Vector2.ZERO
+	var cover := float(weather_state.get("cover", 0.0))
+	var power := float(weather_state.get("power", 0.0))
+	var season := int(weather_state.get("season", Weather.Season.SUMMER))
+	var frost := 0.0
+	var wet := 0.0
+	match int(weather_state.get("precip", Weather.Precip.NONE)):
+		Weather.Precip.SNOW:
+			frost = clampf(cover * 0.6 + power * 0.6, 0.0, 1.0)
+		Weather.Precip.RAIN:
+			wet = clampf(power * 1.3, 0.0, 1.0)
+	if season == Weather.Season.WINTER:
+		frost = maxf(frost, cover * 0.7)
+	elif season == Weather.Season.SPRING:
+		wet = maxf(wet, 0.3 + float(weather_state.get("fog", 0.0)) * 0.3)
+		frost = maxf(frost, cover * 0.5)
+	return Vector2(frost, wet)
 
 
 func _apply_fog_amount() -> void:

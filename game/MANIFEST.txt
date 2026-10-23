@@ -116,6 +116,7 @@ scripts/ui/supplies_badge.gd
 scripts/ui/text_sheet.gd
 scripts/ui/theme_factory.gd
 scripts/ui/touch_scroll.gd
+scripts/ui/weather_overlay.gd
 scripts/ui/w.gd
 scripts/village/art.gd
 scripts/village/crowd.gd
@@ -137,9 +138,9 @@ scripts/village/villager_figure.gd
 scripts/village/weather_layer.gd
 shaders/atmos.gdshader
 shaders/cloud_shadow.gdshader
+shaders/figure_weather.gdshader
 shaders/grass_sway.gdshader
 shaders/ground_weather.gdshader
-shaders/lantern_tint.gdshader
 shaders/night_grade.gdshader
 scripts/ui/widgets/door_candle.gd
 scripts/ui/widgets/living_portrait.gd

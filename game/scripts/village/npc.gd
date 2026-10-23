@@ -30,6 +30,10 @@ var _font: Font
 var _t := 0.0
 var _glow := 0.0
 var _lantern_halo: LightHalo
+var _sprite: Sprite2D               ## сама фигура: на неё ложится шейдер погоды
+var _over: _Over                    ## фонарь и рамка имени поверх фигуры
+var fx_frost := 0.0
+var fx_wet := 0.0
 
 
 static func has_def(id: String) -> bool:
@@ -68,7 +72,39 @@ func setup(id: String) -> void:
 	_lantern_halo.intensity = 0.0
 	_lantern_halo.z_index = -1
 	add_child(_lantern_halo)
+	_sprite = Sprite2D.new()
+	_sprite.name = "Figure"
+	_sprite.texture = _tex
+	_sprite.centered = false
+	if _tex != null:
+		var h := VillagerFigure.FIG_TOP * 1.02
+		var w := h * _tex.get_width() / _tex.get_height()
+		_sprite.position = Vector2(-w * 0.5, -h)
+		_sprite.scale = Vector2(w / _tex.get_width(), h / _tex.get_height())
+	add_child(_sprite)
+	_over = _Over.new()
+	_over.owner_npc = self
+	add_child(_over)
 	queue_redraw()
+
+
+## Иней и влага на фигуре хозяина места, тот же шейдер, что у жителей.
+func set_weather_fx(frost: float, wet: float) -> void:
+	fx_frost = clampf(frost, 0.0, 1.0)
+	fx_wet = clampf(wet, 0.0, 1.0)
+	if _sprite == null:
+		return
+	if fx_frost <= 0.01 and fx_wet <= 0.01:
+		_sprite.material = null
+		return
+	var mat := _sprite.material as ShaderMaterial
+	if mat == null:
+		mat = ShaderMaterial.new()
+		mat.shader = VillagerFigure.FIGURE_FX
+		_sprite.material = mat
+	mat.set_shader_parameter("frost", fx_frost)
+	mat.set_shader_parameter("wet", fx_wet)
+	mat.set_shader_parameter("night", Nav.village.night if Nav.village != null else 0.0)
 
 
 func poke() -> void:
@@ -78,31 +114,49 @@ func poke() -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	_glow = maxf(0.0, _glow - delta * 2.0)
+	if _sprite != null and _sprite.material is ShaderMaterial and Nav.village != null:
+		(_sprite.material as ShaderMaterial).set_shader_parameter("night", Nav.village.night)
 	if _lantern_halo != null:
 		_lantern_halo.position = _lantern_position()
 		var night := Nav.village.night if Nav.village != null else 0.0
 		_lantern_halo.set_intensity(night * (0.3 + _glow * 0.12))
 	queue_redraw()
+	if _over != null:
+		_over.queue_redraw()
 
 
+## Тень под ногами. Фигура лежит отдельным спрайтом, фонарь и имя рисует _Over поверх неё.
 func _draw() -> void:
 	if _tex == null:
 		return
 	var h := VillagerFigure.FIG_TOP * 1.02
 	var w := h * _tex.get_width() / _tex.get_height()
 	draw_colored_polygon(_ellipse(Vector2(0, 1.5), Vector2(w * 0.42, 4.5)), Color(0, 0, 0, 0.28))
-	draw_texture_rect(_tex, Rect2(-w * 0.5, -h, w, h), false)
+
+
+class _Over extends Node2D:
+	var owner_npc: Npc
+
+	func _draw() -> void:
+		owner_npc._draw_over(self)
+
+
+func _draw_over(ci: CanvasItem) -> void:
+	if _tex == null:
+		return
+	var h := VillagerFigure.FIG_TOP * 1.02
+	var w := h * _tex.get_width() / _tex.get_height()
 	# У мельника фонарь уже в руке на реалистичном спрайте. Для остальных хозяев места
 	# оставляем компактный игровой фонарь, чтобы не рисовать второй поверх изображения.
 	var lamp := Vector2(-w * 0.35, -h * 0.40) if npc_id == "miller" else Vector2(w * 0.42, -h * 0.42 + sin(_t * 1.7) * 1.2)
 	if npc_id != "miller":
-		draw_rect(Rect2(lamp - Vector2(3.5, 5), Vector2(7, 10)), Color(1.0, 0.82, 0.45, 0.95))
-		draw_rect(Rect2(lamp - Vector2(3.5, 5), Vector2(7, 10)), Art.INK, false, 1.4)
+		ci.draw_rect(Rect2(lamp - Vector2(3.5, 5), Vector2(7, 10)), Color(1.0, 0.82, 0.45, 0.95))
+		ci.draw_rect(Rect2(lamp - Vector2(3.5, 5), Vector2(7, 10)), Art.INK, false, 1.4)
 	# имя в золотой рамке: хозяин места, не житель
 	var lr := label_rect_local()
 	var gold := ThemeFactory.LAMP
-	Art.shape(self, Art.rrect(lr, lr.size.y * 0.5), Color(0.1, 0.07, 0.04, 0.82), Color(gold, 0.9 + 0.1 * _glow), 2.2 + _glow)
-	draw_string(_font, Vector2(lr.position.x + 9.0, lr.end.y - 5.0), who, HORIZONTAL_ALIGNMENT_LEFT, -1, LABEL_SIZE, gold)
+	Art.shape(ci, Art.rrect(lr, lr.size.y * 0.5), Color(0.1, 0.07, 0.04, 0.82), Color(gold, 0.9 + 0.1 * _glow), 2.2 + _glow)
+	ci.draw_string(_font, Vector2(lr.position.x + 9.0, lr.end.y - 5.0), who, HORIZONTAL_ALIGNMENT_LEFT, -1, LABEL_SIZE, gold)
 
 
 func _lantern_position() -> Vector2:

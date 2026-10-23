@@ -3265,6 +3265,29 @@ static func weather() -> void:
 	view.set_simplified_graphics(true)
 	ok += _expect(fails, not view.sky_fx.visible, "на упрощённой графике остались тени облаков")
 	view.set_simplified_graphics(false)
+
+	# иней и влага на фигурах (TASK-067): шейдер ложится на жителей и хозяев места, на упрощённой графике его нет
+	var probe := VillagerFigure.new()
+	probe.setup("Проба", Nav.village.crowd.book.for_name("Проба", false), false)
+	view.add_child(probe)
+	view.set_weather(Weather.state("a3c1", 3))
+	var fx := view.figure_fx()
+	ok += _expect(fails, fx.x > 0.5 and fx.y < 0.2, "зимой иней должен быть сильным, влага слабой: %s" % fx)
+	view.crowd.set_weather_fx(fx.x, fx.y)
+	probe.set_weather_fx(fx.x, fx.y)
+	ok += _expect(fails, probe._door_rig.material is ShaderMaterial and float(probe._door_rig.material.get_shader_parameter("frost")) > 0.5, "иней не лёг на фигуру")
+	view.set_weather(Weather.state("a2c1", 2))
+	fx = view.figure_fx()
+	ok += _expect(fails, fx.y > 0.4 and fx.x < 0.2, "осенью в дождь должна быть влага: %s" % fx)
+	probe.set_weather_fx(0.0, 0.0)
+	ok += _expect(fails, probe._door_rig.material == null, "без погоды на фигуре остался шейдер")
+	view.set_simplified_graphics(true)
+	ok += _expect(fails, view.figure_fx() == Vector2.ZERO, "на упрощённой графике остались иней и влага")
+	view.set_simplified_graphics(false)
+	probe.queue_free()
+	for id: String in view.crowd.npcs.keys():
+		var hn: Npc = view.crowd.npcs[id]
+		ok += _expect(fails, hn.get_child_count() >= 2, "хозяин места %s без отдельного спрайта" % id)
 	view.set_weather(Weather.EMPTY.duplicate())
 	ok += _expect(fails, not view.ground_fx.visible and not view.sky_fx.visible, "без погоды слои земли и облаков видны")
 
@@ -3272,6 +3295,20 @@ static func weather() -> void:
 	for i in range(30):
 		view.set_weather(Weather.state(Campaign.ORDER[i % Campaign.ORDER.size()], 1 + i % 4))
 	ok += _expect(fails, layer.get_child_count() <= WeatherLayer.FULL.size(), "эмиттеры копятся: %d узлов" % layer.get_child_count())
+
+	# погода в сценах и у двери (TASK-068)
+	var wx := WeatherOverlay.new()
+	wx.size = Vector2(200, 300)
+	view.add_child(wx)
+	wx.apply(Weather.state("a3c1", 3))
+	ok += _expect(fails, wx.emitter_names() == PackedStringArray(["flakes_far", "flakes_near"]), "за дверью зимой нет снега: %s" % wx.emitter_names())
+	wx.apply(Weather.state("a2c1", 2))
+	ok += _expect(fails, wx.emitter_names() == PackedStringArray(["rain_far", "rain_near"]), "за дверью осенью нет дождя: %s" % wx.emitter_names())
+	wx.apply(Weather.state("a1c1", 1))
+	ok += _expect(fails, wx.emitter_names().is_empty(), "летом в ясный день за дверью осадки: %s" % wx.emitter_names())
+	wx.apply(WeatherOverlay.state_for_frame("rain"))
+	ok += _expect(fails, wx.emitter_names().size() == 2 and wx.particle_total() <= 2 * WeatherOverlay.MAX_PARTICLES, "явный дождь кадра сцены не пошёл")
+	wx.queue_free()
 
 	# выключенная погода не оставляет следов
 	Weather.enabled = false

@@ -19,6 +19,8 @@ var whispers := 0               ## для самотеста
 var flinched := 0               ## сколько жителей вздрогнули на последний колокол
 var npc: Npc = null              ## хозяин места вне голосования (TASK-021): мельник, Игнат, начальник станции
 var npcs: Dictionary[String, Npc] = {}   ## все хозяева места этой главы; npc — первый из них
+var fx_frost := 0.0              ## иней и влага на фигурах (TASK-067), задаёт VillageView по погоде
+var fx_wet := 0.0
 
 
 func _ready() -> void:
@@ -67,6 +69,7 @@ func populate(m: Match) -> void:
 			f.set_lantern(Save.lantern)
 			f.set_brooch(Save.brooch)
 		figures[v.id] = f
+		f.set_weather_fx(fx_frost, fx_wet)
 		figs.append(f)
 	var widths: Array[float] = []
 	for f: VillagerFigure in figs:
@@ -82,6 +85,7 @@ func populate(m: Match) -> void:
 		n.setup(id)
 		n.modulate = _figure_tint()
 		add_child(n)
+		n.set_weather_fx(fx_frost, fx_wet)
 		npcs[id] = n
 		if npc == null:
 			npc = n
@@ -610,6 +614,16 @@ func turn_to(x: float, except: Array[int] = [], radius: float = 320.0, seconds: 
 ## Ночью жители синеют вместе с посёлком. Красится каждая фигура: дома и колодец в этом же слое
 ## окрашивает сам посёлок, общий цвет слоя затемнил бы их дважды.
 var night_tint := Color(1, 1, 1)
+
+
+## Иней и влага на всех фигурах. Нули снимают шейдер совсем.
+func set_weather_fx(frost: float, wet: float) -> void:
+	fx_frost = frost
+	fx_wet = wet
+	for f: VillagerFigure in figures.values():
+		f.set_weather_fx(frost, wet)
+	for hn: Npc in npcs.values():
+		hn.set_weather_fx(frost, wet)
 
 
 func set_color_grade(grade: Color) -> void:
