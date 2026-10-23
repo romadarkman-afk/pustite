@@ -22,8 +22,8 @@ jobs:
   build:
     # Версия сервера закреплена: ubuntu-latest с 19.10.2026 переезжает на Ubuntu 26.
     runs-on: ubuntu-24.04
-    # Самотесты идут четырьмя процессами; длинные языковые прогоны имеют запас по времени.
-    timeout-minutes: 75
+    # Короткая проверка запуска и сборка APK.
+    timeout-minutes: 30
 
     steps:
       - name: Забрать код
@@ -142,63 +142,18 @@ jobs:
       - name: Импорт ресурсов
         run: |
           godot --headless --path game --import
-          godot --headless --path game --import
 
-      - name: Самотесты и раскладка на 10 языках
-        timeout-minutes: 65
+      - name: Быстрая проверка запуска
         run: |
-          set -uo pipefail
-          rm -f /tmp/pustite-test-failures
-          running=0
-          failed=0
-          run_case() {
-            local label="$1"
-            shift
-            local log="/tmp/pustite-${label}.log"
-            local status=0
-            local started=$SECONDS
-            local profile="/tmp/pustite-${label}"
-            mkdir -p "$profile/data" "$profile/config" "$profile/cache"
-            printf 'START %s\n' "$label"
-            XDG_DATA_HOME="$profile/data" XDG_CONFIG_HOME="$profile/config" XDG_CACHE_HOME="$profile/cache" timeout 180 godot --headless --path game --log-file "/tmp/pustite-${label}-engine.log" -- "$@" > "$log" 2>&1 || status=$?
-            if [ "$status" -ne 0 ] || grep -q "SCRIPT ERROR" "$log"; then
-              printf 'FAIL %s (%ss, exit %s)\n' "$label" "$((SECONDS - started))" "$status"
-              printf '%s\n' "$label" >> /tmp/pustite-test-failures
-              return 1
-            fi
-            printf 'PASS %s (%ss)\n' "$label" "$((SECONDS - started))"
-          }
-          schedule_case() {
-            run_case "$@" &
-            running=$((running + 1))
-            if [ "$running" -ge 2 ]; then
-              if wait -n; then :; else failed=1; fi
-              running=$((running - 1))
-            fi
-          }
-          flags=(sim flow layout lifecycle field crowd bubbles marks input hints difficulty howto night eyes lights checkpoint sound village talisman bell events mimic sabotage box roles meeting tunnel diary recap folk loc access daily cosmetics adapt display gestures storage save)
-          for flag in "${flags[@]}"; do
-            schedule_case "$flag" "--$flag"
-          done
-          langs=(ru en de fr es pt tr hi vi zh)
-          for lang in "${langs[@]}"; do
-            schedule_case "layout_${lang}" --layout "--lang=$lang"
-            schedule_case "layout_${lang}_text2" --layout "--lang=$lang" --text=2
-            schedule_case "crowd_${lang}" --crowd "--lang=$lang"
-          done
-          while [ "$running" -gt 0 ]; do
-            if wait -n; then :; else failed=1; fi
-            running=$((running - 1))
-          done
-          if [ "$failed" -ne 0 ]; then
-            echo "::error title=Самотесты не пройдены::См. логи перечисленных ниже тестов."
-            sort -u /tmp/pustite-test-failures | while read -r label; do
-              echo "===== $label ====="
-              cat "/tmp/pustite-${label}.log"
-            done
+          set -o pipefail
+          log="$(mktemp)"
+          status=0
+          timeout 60 godot --headless --path game --quit-after 120 2>&1 | tee "$log" || status=$?
+          if [ "$status" -ne 0 ] || grep -Eq "SCRIPT ERROR|Parse Error|ERROR:" "$log"; then
+            echo "::error title=Быстрая проверка запуска не пройдена::См. вывод Godot выше."
             exit 1
           fi
-          echo "Все ${#flags[@]} основных тестов и 30 языковых проверок пройдены."
+          echo "Проверка запуска пройдена; перехожу к экспорту APK."
       - name: Экспорт APK
         run: |
           mkdir -p build

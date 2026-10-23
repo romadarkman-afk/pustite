@@ -40,7 +40,7 @@ func _ready() -> void:
 			return
 	for f: String in TEST_FLAGS:
 		if args.has(f):
-			_run_test(f)
+			await _run_test(f)
 			return
 	_play_logo()
 
@@ -58,55 +58,55 @@ func _run_test(flag: String) -> void:
 		"--loc":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.loc()
+			await SelfTest.loc()
 		"--flow":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.flow()
+			await SelfTest.flow()
 		"--layout":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.layout()
+			await SelfTest.layout()
 		"--lifecycle":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.lifecycle()
+			await SelfTest.lifecycle()
 		"--field":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.field()
+			await SelfTest.field()
 		"--crowd":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.crowd()
+			await SelfTest.crowd()
 		"--bubbles":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.bubbles()
+			await SelfTest.bubbles()
 		"--marks":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.marks()
+			await SelfTest.marks()
 		"--input":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.input()
+			await SelfTest.input()
 		"--hints":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.hints()
+			await SelfTest.hints()
 		"--difficulty":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.difficulty()
+			await SelfTest.difficulty()
 		"--howto":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.howto()
+			await SelfTest.howto()
 		"--night":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.night()
+			await SelfTest.night()
 		"--eyes":
 			Juice.instant = true
 			Nav.start()
@@ -118,85 +118,85 @@ func _run_test(flag: String) -> void:
 		"--checkpoint":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.checkpoint()
+			await SelfTest.checkpoint()
 		"--sound":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.sound()
+			await SelfTest.sound()
 		"--village":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.village()
+			await SelfTest.village()
 		"--talisman":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.talisman()
+			await SelfTest.talisman()
 		"--bell":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.bell()
+			await SelfTest.bell()
 		"--events":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.events()
+			await SelfTest.events()
 		"--mimic":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.mimic()
+			await SelfTest.mimic()
 		"--sabotage":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.sabotage()
+			await SelfTest.sabotage()
 		"--box":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.box()
+			await SelfTest.box()
 		"--roles":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.roles()
+			await SelfTest.roles()
 		"--meeting":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.meeting()
+			await SelfTest.meeting()
 		"--tunnel":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.tunnel()
+			await SelfTest.tunnel()
 		"--diary":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.diary()
+			await SelfTest.diary()
 		"--recap":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.recap()
+			await SelfTest.recap()
 		"--folk":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.folk()
+			await SelfTest.folk()
 		"--access":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.access()
+			await SelfTest.access()
 		"--daily":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.daily()
+			await SelfTest.daily()
 		"--cosmetics":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.cosmetics()
+			await SelfTest.cosmetics()
 		"--adapt":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.adapt()
+			await SelfTest.adapt()
 		"--display":
-			SelfTest.display()
+			await SelfTest.display()
 		"--gestures":
 			Juice.instant = true
 			Nav.start()
-			SelfTest.gestures()
+			await SelfTest.gestures()
 		"--storage":
 			SelfTest.storage()
 		"--save":
@@ -321,3 +321,4 @@ func _draw() -> void:
 		var py := door.position.y + fposmod(float(i) * h / 18.0 - tick * 10.0, h)
 		var alpha := (0.12 + 0.18 * (0.5 + 0.5 * sin(phase * 1.6))) * open
 		draw_circle(Vector2(px, py), 1.2 + float(i % 3) * 0.35, Color(ThemeFactory.LAMP, alpha))
+
