@@ -23,6 +23,7 @@ var _inspected: Dictionary[int, bool] = {}
 var _inspection_left := 2
 var _portrait_used: Dictionary = {}
 var _go: Button
+var _bolt: BoltSwipe
 var _box: VBoxContainer       ## содержимое двери на тёмной подложке
 var _seats: HBoxContainer     ## свободные места значками: занятые светятся
 var _asked := false            ## вопрос «Кто там?» — один за ночь (TASK-013)
@@ -225,6 +226,11 @@ func _build_host() -> void:
 	_go.disabled = true
 	_go.pressed.connect(func() -> void: _finish_host(_selected))
 	footer.add_child(_go)
+	# засов (TASK-071): тот же результат жестом; тап по кнопке работает как раньше
+	_bolt = BoltSwipe.new()
+	_bolt.name = "Bolt"
+	_bolt.target = _go
+	_go.add_child(_bolt)
 	var refuse := W.button(L.t("door.refuse"), &"Danger")
 	refuse.pressed.connect(func() -> void: _finish_host([]))
 	footer.add_child(refuse)

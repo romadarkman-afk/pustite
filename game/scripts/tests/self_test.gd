@@ -7681,9 +7681,116 @@ static func gestures() -> void:
 	ok += _expect(fails, d.susp(other.id) == s1, "жест сработал не днём")
 	# 5. Список тянется с любого места, в том числе за кнопку
 	ok += await _touch_scroll_check(tree, fails)
+	# 6. Дверь: засов тянется вбок и даёт то же, что кнопка
+	ok += await _door_gesture_check(tree, fails)
 	Nav.show_menu()
 	await _settle(tree)
-	_finish(fails, ok, "жесты", "долгое нажатие — палец, «верю», «не верю»; видно на поле, есть в журнале, боты отвечают и запоминают; список тянется за кнопку")
+	_finish(fails, ok, "жесты", "долгое нажатие — палец, «верю», «не верю»; видно на поле, есть в журнале, боты отвечают и запоминают; список тянется за кнопку; засов открывает дверь жестом")
+
+
+## Протяжка по кнопке от левого края до правого на n шагов; возвращает позицию конца.
+static func _swipe_right(tree: SceneTree, r: Rect2, fraction: float, release: bool = true) -> void:
+	var y := r.get_center().y
+	var x0 := r.position.x + 20.0
+	var x1 := x0 + (r.size.x - 40.0) * fraction
+	_push_mouse(tree, Vector2(x0, y), true, 0)
+	await _frames(tree, 1)
+	for step in range(1, 7):
+		_push_mouse(tree, Vector2(lerpf(x0, x1, float(step) / 6.0), y), null, MOUSE_BUTTON_MASK_LEFT)
+		await _frames(tree, 1)
+	if release:
+		_push_mouse(tree, Vector2(x1, y), false, 0)
+		await _frames(tree, 2)
+
+
+## TASK-071: засов. Отдельная кнопка с засовом: тап нажимает, короткая протяжка возвращается,
+## полная нажимает один раз. Потом то же на настоящей двери первой ночи.
+static func _door_gesture_check(tree: SceneTree, fails: PackedStringArray) -> int:
+	var ok := 0
+	var layer := CanvasLayer.new()
+	layer.layer = 120
+	tree.root.add_child(layer)
+	var button := Button.new()
+	button.text = "Впустить"
+	button.position = Vector2(60, 300)
+	button.custom_minimum_size = Vector2(600, 72)
+	button.size = Vector2(600, 72)
+	layer.add_child(button)
+	var bolt := BoltSwipe.new()
+	bolt.target = button
+	button.add_child(bolt)
+	var presses := [0]
+	var halves := [0]
+	button.pressed.connect(func() -> void: presses[0] += 1)
+	bolt.half_way.connect(func() -> void: halves[0] += 1)
+	await _frames(tree, 3)
+	var r := button.get_global_rect()
+	# тап
+	_push_mouse(tree, r.get_center(), true, 0)
+	_push_mouse(tree, r.get_center(), false, 0)
+	await _frames(tree, 2)
+	ok += _expect(fails, presses[0] == 1, "тап по засову не нажал кнопку (%d)" % presses[0])
+	# короткая протяжка: до трети пути, отпустил, засов вернулся, кнопка не нажата
+	await _swipe_right(tree, r, 0.3)
+	ok += _expect(fails, presses[0] == 1 and bolt.progress == 0.0 and not bolt.fired and halves[0] == 0,
+		"короткая протяжка нажала кнопку или не вернула засов (нажатий %d, путь %.2f)" % [presses[0], bolt.progress])
+	# до середины и дальше, но не до конца: вибрация на середине один раз, кнопка не нажата
+	await _swipe_right(tree, r, 0.8)
+	ok += _expect(fails, presses[0] == 1 and halves[0] == 1 and bolt.progress == 0.0 and not bolt.fired,
+		"протяжка на 0,8 пути: нажатий %d, вибраций на середине %d, путь %.2f" % [presses[0], halves[0], bolt.progress])
+	# до конца: кнопка нажата один раз, засов закрыт для повторного жеста
+	await _swipe_right(tree, r, 1.0)
+	ok += _expect(fails, presses[0] == 2 and bolt.fired and halves[0] == 2, "полная протяжка: нажатий %d (нужно 2), дотянут %s" % [presses[0], bolt.fired])
+	await _swipe_right(tree, r, 1.0)
+	ok += _expect(fails, presses[0] == 2, "дотянутый засов нажал кнопку второй раз")
+	# выключенная кнопка: засов не двигается
+	bolt.reset()
+	button.disabled = true
+	await _swipe_right(tree, r, 1.0)
+	ok += _expect(fails, presses[0] == 2 and bolt.progress == 0.0 and not bolt.fired, "засов сработал над выключенной кнопкой")
+	layer.queue_free()
+	await _frames(tree, 2)
+
+	# настоящая дверь первой ночи
+	Save.stats["games"] = 0
+	Nav.show_menu()
+	await _settle(tree)
+	Nav.handle_intent(Intent.START, {}, Nav.host.current)
+	await _settle(tree)
+	var ds := Nav.host.current as DoorScreen
+	if ds == null or ds.role != Match.DoorRole.HOST or ds.seat.knockers().is_empty():
+		return ok + _expect(fails, false, "не удалось дойти до двери первой ночи для проверки засова (%s)" % [Nav.host.current])
+	ok += _expect(fails, ds._bolt != null and ds._bolt.get_parent() == ds._go, "на кнопке «Впустить» нет засова")
+	# сцена у реки перекрывает дверь: пропускаем до выбора и выбираем молчание
+	for i in range(12):
+		var scene := ds.find_child("Scene_a1c1_river", true, false) as ScenePlayer
+		if scene == null:
+			break
+		if scene._in_choice:
+			for c: Node in scene.find_children("Choice_*", "Button", true, false):
+				if (c as Button).is_visible_in_tree():
+					(c as Button).pressed.emit()
+					break
+		else:
+			scene.skip()
+		await _settle(tree)
+	var who := ds.seat.knockers()[0].id
+	var cap := Game.m.config.capacity - 1
+	var away := ds._go.get_global_rect()
+	await _swipe_right(tree, away, 1.0)
+	ok += _expect(fails, Nav.host.current == ds and not ds.is_locked(), "засов открыл дверь, хотя никого не выбрали")
+	ds._toggle(who, cap)
+	await _frames(tree, 2)
+	var got: Array = []
+	ds.intent.connect(func(action: StringName, data: Dictionary) -> void: got.append([action, data]))
+	await _swipe_right(tree, ds._go.get_global_rect(), 1.0, false)
+	await _settle(tree)
+	var ids: Array = got[0][1].get("ids", []) if not got.is_empty() else []
+	ok += _expect(fails, got.size() == 1 and got[0][0] == Intent.ADMIT and ids.size() == 1 and ids[0] == who,
+		"засов не отправил ту же команду, что кнопка: %s" % [got])
+	ok += _expect(fails, Nav.host.current is MorningScreen and Campaign.goal_done(Game.m, "admit_night1"),
+		"после засова ночь не прошла, как после кнопки (%s)" % [Nav.host.current])
+	return ok
 
 
 ## Протяжка за кнопку прокручивает список и не нажимает её; короткое касание нажимает.
