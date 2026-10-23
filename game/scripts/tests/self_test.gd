@@ -8897,3 +8897,89 @@ static func themes() -> void:
 	ok += _expect(fails, plain.music() == &"night" or had[&"theme_climax"], "без файла кульминации дверь не играет ночную музыку")
 	plain.free()
 	_finish(fails, ok, "Музыкальные темы", "тема акта в прологе и итоге, пара утром, кульминация у двери; без файлов всё по-старому")
+
+
+## TASK-083: звуковые карты сцен. Каждый кадр главы «Стук» имеет явный список событий (в том числе тишину),
+## все звуки из карт всех сцен существуют, события идут по порядку, плеер исполняет каждое действие.
+static func soundmaps() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	Save.set_difficulty("normal")
+	Nav.start_match()
+	await _settle(tree)
+	var m := Game.m
+	var bots := m.alive_bots()
+	var strict_scenes: Array[Dictionary] = [Scenes.river(m), Scenes.first_knock(false), Scenes.first_knock(true)]
+	# три исхода первого утра
+	m.world.clear()
+	strict_scenes.append(Scenes.first_morning(m))                                  # не открыл, стучавшего нет
+	var guest_human: Villager = null
+	var guest_upyr: Villager = null
+	for b: Villager in bots:
+		if b.is_upyr and guest_upyr == null:
+			guest_upyr = b
+		elif not b.is_upyr and guest_human == null:
+			guest_human = b
+	var kinds_seen: Dictionary = {}
+	for g: Villager in [guest_human, guest_upyr]:
+		if g == null:
+			continue
+		m.world.clear()
+		m.world.add(WorldLog.Kind.ADMIT, 1, 0, g.id, 0, [0], false, {"mimic": false})
+		var sc := Scenes.first_morning(m)
+		kinds_seen[String(Scenes.first_night_outcome(m).kind)] = true
+		strict_scenes.append(sc)
+	m.world.clear()
+	if guest_human != null:
+		m.world.add(WorldLog.Kind.REFUSE, 1, 0, guest_human.id, 0, [0], false, {})
+		strict_scenes.append(Scenes.first_morning(m))                              # не открыл, стучавший жив
+		guest_human.alive = false
+		strict_scenes.append(Scenes.first_morning(m))                              # не открыл, стучавший погиб
+		guest_human.alive = true
+	m.world.clear()
+	ok += _expect(fails, kinds_seen.has("close"), "не получилось собрать утро «впустил упыря»: %s" % str(kinds_seen.keys()))
+	for sc2: Dictionary in strict_scenes:
+		var frames: Array = sc2.get("frames", [])
+		ok += _expect(fails, not frames.is_empty(), "сцена %s без кадров" % sc2.get("id", "?"))
+		var problems := Scenes.sound_problems(sc2, true)
+		ok += _expect(fails, problems.is_empty(), "сцена главы «Стук»: " + "; ".join(problems))
+	# остальные сцены: звуки существуют, порядок верный (список может быть пустым: тишину пока не записали)
+	var other: Array[Dictionary] = [Scenes.board(m), Scenes.grave(m), Scenes.flood(m), Scenes.miller_secret(m),
+		Scenes.crossed_book(m), Scenes.crypt(m), Scenes.trial(m), Scenes.final_door()]
+	if bots.size() >= 2:
+		other.append(Scenes.betrayal(m, bots[0]))
+		other.append(Scenes.grief(bots[0], bots[1]))
+	for sc3: Dictionary in other:
+		var problems2 := Scenes.sound_problems(sc3, false)
+		ok += _expect(fails, problems2.is_empty(), "сцена %s: %s" % [sc3.get("id", "?"), "; ".join(problems2)])
+	# тишина у входа записана явно: первый кадр сцены у реки и сцены стука начинается с silence
+	var river_events: Array = (Scenes.river(m).frames[0] as Dictionary).sound
+	var knock_events: Array = (Scenes.first_knock(false).frames[0] as Dictionary).sound
+	ok += _expect(fails, String(river_events[0].do) == "silence" and String(knock_events[0].do) == "silence", "сцены стука не начинаются с явной тишины")
+	# проверка проверяющего: плохие карты ловятся
+	var bad := {"id": "bad", "frames": [{"sound": []}, {"sound": [{"at": 1.0, "do": "play", "id": "knock"}, {"at": 0.5, "do": "play", "id": "нет_такого"},
+		{"at": 2.0, "do": "dance"}, {"at": 3.0, "do": "start", "layer": "weather", "id": "amb_night"}]}]}
+	var bad_problems := Scenes.sound_problems(bad, true)
+	ok += _expect(fails, bad_problems.size() == 5, "проверка карт нашла %d проблем из 5: %s" % [bad_problems.size(), "; ".join(bad_problems)])
+	# плеер исполняет действия
+	var player := ScenePlayer.new()
+	Sfx.played.clear()
+	player.run_sound_event(Scenes.snd_start("amb", "amb_river", 0.0, 0.0))
+	ok += _expect(fails, Sfx.ambience_name == &"amb_river", "start amb не запустил фон: «%s»" % Sfx.ambience_name)
+	player.run_sound_event(Scenes.snd_start("music", "night", 0.0, 0.0))
+	ok += _expect(fails, Sfx.music_name == &"night", "start music не запустил музыку: «%s»" % Sfx.music_name)
+	player.run_sound_event(Scenes.snd_keep())
+	ok += _expect(fails, Sfx.ambience_name == &"amb_river" and Sfx.music_name == &"night", "keep поменял звук")
+	player.run_sound_event(Scenes.snd_play("knock", 0.0, -4.0))
+	ok += _expect(fails, Sfx.played.has(&"knock"), "play не сыграл звук")
+	player.run_sound_event(Scenes.snd_stop("amb", 0.0, 0.0))
+	ok += _expect(fails, Sfx.ambience_name == &"" and Sfx.music_name == &"night", "stop amb остановил не тот слой")
+	player.run_sound_event(Scenes.snd_silence(0.0, 0.0))
+	ok += _expect(fails, Sfx.ambience_name == &"" and Sfx.music_name == &"", "silence не погасил фон и музыку")
+	player.run_sound_event({"at": 0.0, "do": "amb", "id": "amb_night"})
+	ok += _expect(fails, Sfx.ambience_name == &"amb_night", "прежнее событие amb перестало работать")
+	player.free()
+	Sfx.set_ambience(&"", 0.0)
+	Sfx.set_music(&"", 0.0)
+	_finish(fails, ok, "Звуковые карты сцен", "кадры главы «Стук» с явной тишиной, звуки всех сцен существуют, плеер исполняет все действия")

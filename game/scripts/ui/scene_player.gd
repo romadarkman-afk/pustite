@@ -321,24 +321,41 @@ func _process(delta: float) -> void:
 		_next_line()
 
 
-## Звуковая карта кадра: [{"at": секунда, "do": play | amb | music | silence, "id", "vol"}].
+## Звуковая карта кадра (описание событий в Scenes): start и stop на слоях amb и music, play, silence, keep.
 func _run_sound() -> void:
 	var events: Array = current_frame().get("sound", [])
 	while _sound_i < events.size() and _t >= float((events[_sound_i] as Dictionary).get("at", 0.0)):
 		var ev: Dictionary = events[_sound_i]
 		_sound_i += 1
-		var id := StringName(ev.get("id", ""))
-		match String(ev.get("do", "play")):
-			"play":
-				if Sfx.has_sound(id):
-					Sfx.play(id, float(ev.get("pitch", 1.0)), float(ev.get("vol", -4.0)))
-			"amb":
-				Sfx.set_ambience(id, float(ev.get("fade", 1.2)))
-			"music":
-				Sfx.set_music(id, float(ev.get("fade", 1.2)))
-			"silence":
-				Sfx.set_ambience(&"", float(ev.get("fade", 0.8)))
-				Sfx.set_music(&"", float(ev.get("fade", 0.8)))
+		run_sound_event(ev)
+
+
+## Одно событие звуковой карты. Открыта для самотеста.
+func run_sound_event(ev: Dictionary) -> void:
+	var id := StringName(ev.get("id", ""))
+	var op := String(ev.get("do", "play"))
+	var layer := String(ev.get("layer", "amb" if op == "amb" else ("music" if op == "music" else "")))
+	var fade := float(ev.get("fade", 1.2))
+	match op:
+		"play":
+			if Sfx.has_sound(id):
+				Sfx.play(id, float(ev.get("pitch", 1.0)), float(ev.get("vol", -4.0)))
+		"start", "amb", "music":
+			if layer == "music":
+				Sfx.set_music(id, fade)
+			else:
+				Sfx.set_ambience(id, fade)
+		"stop":
+			if layer == "music":
+				Sfx.set_music(&"", fade)
+			else:
+				Sfx.set_ambience(&"", fade)
+		"silence":
+			var f := float(ev.get("fade", 0.8))
+			Sfx.set_ambience(&"", f)
+			Sfx.set_music(&"", f)
+		"keep":
+			pass
 
 
 ## Погода главы для сцены. Без партии или при выключенной погоде осадков нет.

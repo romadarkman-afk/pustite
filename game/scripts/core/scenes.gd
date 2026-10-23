@@ -4,9 +4,74 @@ extends RefCounted
 ## сцены утраты — GriefReactions. Сценарий главы «Стук» с раскадровкой: docs/scenes/a1c1.md.
 ##
 ## Кадр: {"art": путь, "portrait": житель, "zoom": [от, до], "light": night | dusk | dawn | warm | day,
-##        "weather": "" | fog | rain, "lines": [{"who", "text", "pause"}], "sound": [{"at", "do", "id", "vol"}]}
+##        "weather": "" | fog | rain, "lines": [{"who", "text", "pause"}], "sound": [событие, ...]}
+##
+## Звуковая карта кадра (TASK-083): список событий по возрастанию «at» (задержка от начала кадра, с).
+##   {"at": 0.0, "do": "start", "layer": "amb" | "music", "id": имя, "fade": с}   запустить петлю на слое
+##   {"at": 0.0, "do": "stop",  "layer": "amb" | "music", "fade": с}              погасить слой плавно
+##   {"at": 0.0, "do": "play",  "id": имя, "vol": дБ, "pitch": 1.0}               разовый звук (слой fx)
+##   {"at": 0.0, "do": "silence", "fade": с}                                       явная тишина: гаснут фон и музыка
+##   {"at": 0.0, "do": "keep"}                                                     в этом кадре звук не меняется
+## У каждого кадра главы «Стук» список непустой: тишина и «без изменений» записаны явно, а не пропущены.
+## Прежние события {"do": "amb"} и {"do": "music"} работают как start. Проверка: Scenes.sound_problems, тест --soundmaps.
 
 const ART := "res://assets/scenes/%s.jpg"
+const SOUND_OPS: PackedStringArray = ["start", "stop", "play", "silence", "keep", "amb", "music"]
+const SOUND_LAYERS: PackedStringArray = ["amb", "music"]
+
+
+static func snd_keep() -> Dictionary:
+	return {"at": 0.0, "do": "keep"}
+
+
+static func snd_silence(at: float = 0.0, fade: float = 0.6) -> Dictionary:
+	return {"at": at, "do": "silence", "fade": fade}
+
+
+static func snd_start(layer: String, id: String, at: float = 0.0, fade: float = 1.2) -> Dictionary:
+	return {"at": at, "do": "start", "layer": layer, "id": id, "fade": fade}
+
+
+static func snd_stop(layer: String, at: float = 0.0, fade: float = 1.0) -> Dictionary:
+	return {"at": at, "do": "stop", "layer": layer, "fade": fade}
+
+
+static func snd_play(id: String, at: float = 0.0, vol: float = -4.0, pitch: float = 1.0) -> Dictionary:
+	return {"at": at, "do": "play", "id": id, "vol": vol, "pitch": pitch}
+
+
+## Что не так в звуковых картах сцены. strict: у каждого кадра должен быть непустой список (глава «Стук»).
+static func sound_problems(scene: Dictionary, strict: bool) -> PackedStringArray:
+	var out := PackedStringArray()
+	var sid := String(scene.get("id", "?"))
+	var frames: Array = scene.get("frames", [])
+	for fi in range(frames.size()):
+		var tag := "%s, кадр %d" % [sid, fi + 1]
+		var events: Array = (frames[fi] as Dictionary).get("sound", [])
+		if events.is_empty():
+			if strict:
+				out.append("%s: нет звуковой карты (тишину тоже пишут: silence или keep)" % tag)
+			continue
+		var last_at := -1.0
+		for ev: Dictionary in events:
+			var op := String(ev.get("do", "play"))
+			var at := float(ev.get("at", 0.0))
+			if not SOUND_OPS.has(op):
+				out.append("%s: неизвестное действие «%s»" % [tag, op])
+				continue
+			if at < 0.0 or at < last_at:
+				out.append("%s: задержка %.1f идёт раньше предыдущей (%.1f)" % [tag, at, last_at])
+			last_at = maxf(last_at, at)
+			if float(ev.get("fade", 0.0)) < 0.0:
+				out.append("%s: отрицательное плавное время" % tag)
+			var layer := String(ev.get("layer", "amb" if op == "amb" else ("music" if op == "music" else "")))
+			if (op == "start" or op == "stop") and not SOUND_LAYERS.has(layer):
+				out.append("%s: слой «%s» не фон и не музыка" % [tag, layer])
+			if op == "start" or op == "amb" or op == "music" or op == "play":
+				var id := StringName(ev.get("id", ""))
+				if id == &"" or not Sfx.has_sound(id):
+					out.append("%s: нет звука «%s»" % [tag, id])
+	return out
 
 
 static func art(name: String) -> String:
@@ -41,13 +106,13 @@ static func river(m: Match) -> Dictionary:
 		"frames": [
 			{"art": art("a1c1"), "zoom": [1.0, 1.08], "light": "dusk", "weather": "fog",
 			 "lines": [{"text": L.t("sc.river.1")}],
-			 "sound": [{"at": 0.0, "do": "silence", "fade": 0.4},
-				{"at": 0.2, "do": "amb", "id": "amb_river", "fade": 1.0}]},
+			 "sound": [snd_silence(0.0, 0.4), snd_start("amb", "amb_river", 0.2, 1.0)]},
 			{"art": art("river"), "zoom": [1.04, 1.12], "light": "dusk", "weather": "fog",
 			 "lines": [{"who": L.t("sc.river.voice"), "text": L.t("sc.river.2", {"name": me}), "pause": 0.6}],
-			 "sound": [{"at": 0.8, "do": "play", "id": "call_far", "vol": -6.0}]},
+			 "sound": [snd_play("call_far", 0.8, -6.0)]},
 			{"portrait": ferry, "light": "night", "weather": "fog",
-			 "lines": [{"who": ferry_name, "text": L.t("sc.river.3", {"me": ferry if ferry != null else m.player()})}]},
+			 "lines": [{"who": ferry_name, "text": L.t("sc.river.3", {"me": ferry if ferry != null else m.player()})}],
+			 "sound": [snd_keep()]},
 		],
 		"choice": {"prompt": L.t("sc.river.ask"), "options": [
 			{"id": "silent", "text": L.t("sc.river.c_silent")}, {"id": "answer", "text": L.t("sc.river.c_answer")}]},
@@ -62,8 +127,8 @@ static func first_knock(answered: bool) -> Dictionary:
 		"frames": [
 			{"art": art("door_inside_night"), "zoom": [1.0, 1.06], "light": "night",
 			 "lines": [{"text": L.t("sc.river.4" if not answered else "sc.river.4b")}, {"text": L.t("sc.river.5"), "hold": 1.6}],
-			 "sound": [{"at": 0.0, "do": "silence", "fade": 0.6}, {"at": 0.4, "do": "amb", "id": "amb_night", "fade": 1.5},
-				{"at": 2.4, "do": "play", "id": "knock", "vol": -2.0}]},
+			 "sound": [snd_silence(0.0, 0.6), snd_start("amb", "amb_night", 0.4, 1.5),
+				snd_play("floorboard", 1.5, -16.0), snd_play("knock", 2.4, -2.0)]},
 		],
 	}
 
@@ -79,25 +144,29 @@ static func first_morning(m: Match) -> Dictionary:
 		"admit":
 			frames = [
 				{"portrait": who, "light": "dawn", "lines": [{"text": L.t("sc.m1.admit.1", {"who": who})}],
-				 "sound": [{"at": 0.0, "do": "amb", "id": "amb_dusk"}]},
-				{"portrait": who, "light": "warm", "lines": [{"who": who.name, "text": L.t("sc.m1.admit.2", {"me": who})}]},
+				 "sound": [snd_start("amb", "amb_dusk", 0.0, 2.0)]},
+				{"portrait": who, "light": "warm", "lines": [{"who": who.name, "text": L.t("sc.m1.admit.2", {"me": who})}],
+				 "sound": [snd_keep()]},
 			]
 		"close":
 			frames = [
 				{"art": art("door_inside_night"), "light": "night", "lines": [{"text": L.t("sc.m1.close.1")}],
-				 "sound": [{"at": 0.0, "do": "silence"}, {"at": 0.3, "do": "play", "id": "floorboard", "vol": -3.0}]},
+				 "sound": [snd_silence(0.0, 0.8), snd_play("floorboard", 0.3, -3.0)]},
 				{"art": art("door_inside_night"), "light": "night", "lines": [{"text": L.t("sc.m1.close.2")}],
-				 "sound": [{"at": 0.4, "do": "play", "id": "gasp", "vol": -10.0}, {"at": 1.4, "do": "play", "id": "floorboard", "vol": -8.0}]},
-				{"portrait": who, "light": "dawn", "lines": [{"text": L.t("sc.m1.close.3", {"who": who})}]},
+				 "sound": [snd_play("gasp", 0.4, -10.0), snd_play("floorboard", 1.4, -8.0)]},
+				{"portrait": who, "light": "dawn", "lines": [{"text": L.t("sc.m1.close.3", {"who": who})}],
+				 "sound": [snd_start("amb", "amb_dusk", 0.2, 2.0)]},
 			]
 		_:
 			var lines: Array = [{"text": L.t("sc.m1.refuse.1")}]
-			frames = [{"light": "dawn", "lines": lines, "sound": [{"at": 0.0, "do": "silence"}, {"at": 0.5, "do": "play", "id": "creak", "vol": -8.0}]}]
+			frames = [{"light": "dawn", "lines": lines, "sound": [snd_silence(0.0, 0.8), snd_play("creak", 0.5, -8.0)]}]
 			if who != null:
 				if who.alive:
-					frames.append({"portrait": who, "light": "dawn", "lines": [{"who": who.name, "text": L.t("sc.m1.refuse.2", {"me": who})}]})
+					frames.append({"portrait": who, "light": "dawn", "lines": [{"who": who.name, "text": L.t("sc.m1.refuse.2", {"me": who})}],
+						"sound": [snd_start("amb", "amb_dusk", 0.0, 2.0)]})
 				else:
-					frames.append({"light": "dawn", "lines": [{"text": L.t("sc.m1.refuse.3", {"who": who})}]})
+					frames.append({"light": "dawn", "lines": [{"text": L.t("sc.m1.refuse.3", {"who": who})}],
+						"sound": [snd_start("amb", "amb_dusk", 0.0, 2.0)]})
 	return {"id": "a1c1_morning_" + String(kind.kind), "frames": frames}
 
 
