@@ -215,30 +215,67 @@ func _conflicts(p: Vector2, w: float, out: Array[Vector2], widths: Array[float],
 	return n
 
 
+## Насколько жителя в точке p мешают уже стоящим: x — площадь настоящих наложений имён и тел,
+## y — площадь наложений с запасом в 2 пикселя. Нужна, когда мест без помех нет: из плохих
+## выбирается то, где имя закрыто меньше всего, а не просто с меньшим числом касаний.
+func _overlap(p: Vector2, w: float, out: Array[Vector2], widths: Array[float], i: int) -> Vector2:
+	var real := 0.0
+	var margin := 0.0
+	var lp := _label_box(p, w)
+	var bp := _body_box(p, false, _h(i))
+	for k in range(i):
+		var q := out[k]
+		var lq := _label_box(q, widths[k])
+		var pairs: Array[Rect2] = [lp]
+		var others: Array[Rect2] = [lq]
+		if q.y > p.y + 0.5:
+			pairs.append(lp)
+			others.append(_body_box(q, k == 0, _h(k)))
+		elif p.y > q.y + 0.5:
+			pairs.append(lq)
+			others.append(bp)
+		for n in range(pairs.size()):
+			var hit0 := pairs[n].intersection(others[n])
+			if hit0.has_area():
+				real += hit0.get_area()
+			var hit2 := pairs[n].grow(2.0).intersection(others[n].grow(2.0))
+			if hit2.has_area():
+				margin += hit2.get_area()
+	return Vector2(real, margin)
+
+
 ## Совсем последний вариант: свободное от домов место, где меньше всего помех именам, а среди
-## равных самое далёкое от уже стоящих. Житель не прячется за церковью.
+## равных самое далёкое от уже стоящих. Житель не прячется за церковью. Сначала ищем на площади,
+## не нашли место без настоящих наложений: поле поиска шире, до краёв кадра.
 func _roomiest_spot(out: Array[Vector2], widths: Array[float], i: int, obs: Array[Rect2], walls: Array[Rect2]) -> Vector2:
 	var c := view.def.square_center
-	var r := view.def.square_radii * Vector2(1.1, 1.3)
 	var best := Vector2.INF
 	var best_gap := -1.0
-	var best_bad := 1 << 20
-	var y := c.y - r.y
-	while y <= minf(c.y + r.y, VillageView.BAND.end.y - 30.0):
-		var x := VillageView.SAFE_X.x + 30.0
-		while x <= VillageView.SAFE_X.y - 30.0:
-			var p := Vector2(x, y)
-			if ((p - c) / r).length() <= 1.0 and not _hidden(p, true) and not _point_in_walls(p, walls) and _free(fig_rect(p, MIN_W), obs):
-				var gap := INF
-				for k in range(i):
-					gap = minf(gap, Vector2((p.x - out[k].x) * 0.6, p.y - out[k].y).length())
-				var bad := _conflicts(p, widths[i], out, widths, i)
-				if bad < best_bad or (bad == best_bad and gap > best_gap):
-					best_bad = bad
-					best_gap = gap
-					best = p
-			x += 8.0
-		y += 8.0
+	var best_bad := INF
+	var best_real := INF
+	var top_limit := VillageView.BAND.position.y + VillagerFigure.FIG_TOP * 1.1 + 4.0
+	for stretch: float in [1.0, 1.4, 1.8]:
+		var r := view.def.square_radii * Vector2(1.1, 1.3) * stretch
+		var y := maxf(c.y - r.y, top_limit)
+		while y <= minf(c.y + r.y, VillageView.BAND.end.y - 30.0):
+			var x := VillageView.SAFE_X.x + 30.0
+			while x <= VillageView.SAFE_X.y - 30.0:
+				var p := Vector2(x, y)
+				if ((p - c) / r).length() <= 1.0 and not _hidden(p, true) and not _point_in_walls(p, walls) and _free(fig_rect(p, MIN_W), obs):
+					var gap := INF
+					for k in range(i):
+						gap = minf(gap, Vector2((p.x - out[k].x) * 0.6, p.y - out[k].y).length())
+					var ov := _overlap(p, widths[i], out, widths, i)
+					var bad := ov.x * 10.0 + ov.y
+					if bad < best_bad - 0.01 or (absf(bad - best_bad) <= 0.01 and gap > best_gap):
+						best_bad = bad
+						best_real = ov.x
+						best_gap = gap
+						best = p
+				x += 8.0
+			y += 8.0
+		if best_real <= 0.0:
+			break
 	return best
 
 
@@ -312,14 +349,14 @@ func _layout_day(widths: Array[float], wide: bool, walls: Array[Rect2]) -> Array
 		for attempt in range(2):
 			var sd := side if attempt == 0 else -side
 			if sd > 0 and a_open[1] and a_right + w <= c.x + a_half:
-				if _spot_ok(Vector2(a_right + w * 0.5, a_y), w - GAP, obs, walls):
+				if _spot_ok(Vector2(a_right + w * 0.5, a_y), w - GAP, obs, walls) and _conflicts(Vector2(a_right + w * 0.5, a_y), w - GAP, out, widths, i) == 0:
 					out[i] = Vector2(a_right + w * 0.5, a_y)
 					a_right += w
 					placed = true
 				else:
 					a_open[1] = false
 			elif sd < 0 and a_open[0] and a_left - w >= c.x - a_half:
-				if _spot_ok(Vector2(a_left - w * 0.5, a_y), w - GAP, obs, walls):
+				if _spot_ok(Vector2(a_left - w * 0.5, a_y), w - GAP, obs, walls) and _conflicts(Vector2(a_left - w * 0.5, a_y), w - GAP, out, widths, i) == 0:
 					out[i] = Vector2(a_left - w * 0.5, a_y)
 					a_left -= w
 					placed = true
@@ -331,14 +368,14 @@ func _layout_day(widths: Array[float], wide: bool, walls: Array[Rect2]) -> Array
 			for attempt in range(2):
 				var sd := side if attempt == 0 else -side
 				if sd > 0 and b_open[1] and b_right + w <= minf(c.x + b_half, b_max):
-					if _spot_ok(Vector2(b_right + w * 0.5, b_y), w - GAP, obs, walls):
+					if _spot_ok(Vector2(b_right + w * 0.5, b_y), w - GAP, obs, walls) and _conflicts(Vector2(b_right + w * 0.5, b_y), w - GAP, out, widths, i) == 0:
 						out[i] = Vector2(b_right + w * 0.5, b_y)
 						b_right += w
 						placed = true
 					else:
 						b_open[1] = false
 				elif sd < 0 and b_open[0] and b_left - w >= c.x - b_half:
-					if _spot_ok(Vector2(b_left - w * 0.5, b_y), w - GAP, obs, walls):
+					if _spot_ok(Vector2(b_left - w * 0.5, b_y), w - GAP, obs, walls) and _conflicts(Vector2(b_left - w * 0.5, b_y), w - GAP, out, widths, i) == 0:
 						out[i] = Vector2(b_left - w * 0.5, b_y)
 						b_left -= w
 						placed = true

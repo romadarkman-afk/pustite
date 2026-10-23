@@ -2204,6 +2204,8 @@ static func crowd() -> void:
 			Nav.start_match()
 			await _settle(tree)
 			var tag := "%d×%d · %d жителей" % [sz.x, sz.y, n]
+			if sz == LAYOUT_SIZES[0] and n >= 11:
+				checks += _layout_fuzz(Nav.village.crowd, n, 150, problems, tag)
 			checks += _check_crowd(tag + " · день", problems)
 			# ночью: дома распределяет сам ИИ — теми же правилами, что в партии (в доме не больше
 			# двух по своей воле, остальные — в самый пустой). Сверху нагрузка: к одной двери ещё
@@ -2240,6 +2242,41 @@ static func crowd() -> void:
 			print("  ✗ " + p)
 		print("ИТОГ: НАРУШЕНИЙ: %d" % problems.size())
 		tree.quit(1)
+
+
+## Случайные ширины имён и рост на самом узком экране: у раскладки дня должно хватать места так,
+## чтобы ни одно имя не оказалось под телом соседа. Те же допуски, что в _check_crowd.
+static func _layout_fuzz(cr: Crowd, n: int, count: int, problems: PackedStringArray, tag: String) -> int:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	var pool: Array[float] = [0.96, 0.97, 1.0, 1.03, 1.06]
+	var bad_runs := 0
+	var sample := ""
+	for _t in range(count):
+		var ws: Array[float] = []
+		var hs: Array[float] = []
+		for _j in range(n):
+			ws.append(rng.randf_range(41.0, 72.0))
+			hs.append(pool[rng.randi_range(0, pool.size() - 1)])
+		var spots := cr.layout_day(ws, hs)
+		var found := ""
+		for a in range(n):
+			var la := Rect2(spots[a].x - ws[a] * 0.5, spots[a].y, ws[a], 19.3).grow(-1.0)
+			for b in range(n):
+				if a == b:
+					continue
+				var lb := Rect2(spots[b].x - ws[b] * 0.5, spots[b].y, ws[b], 19.3).grow(-1.0)
+				if b > a and la.intersects(lb):
+					found = "имена %d и %d налезают: %s %s" % [a, b, spots[a], spots[b]]
+				elif spots[b].y > spots[a].y + 0.5 and la.intersects(Crowd._body_box(spots[b], b == 0, hs[b]).grow(-2.0)):
+					found = "имя %d закрыто телом %d: %s %s" % [a, b, spots[a], spots[b]]
+		if found != "":
+			bad_runs += 1
+			if sample.is_empty():
+				sample = found
+	if bad_runs > 0:
+		problems.append("%s: у дневной раскладки не хватило места: %d из %d случайных расстановок с наложением (первая: %s)" % [tag, bad_runs, count, sample])
+	return 1
 
 
 static func _check_crowd(tag: String, out: PackedStringArray) -> int:
