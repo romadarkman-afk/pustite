@@ -21,8 +21,8 @@ static func write(path: String, m: Match, director: Director, session: Dictionar
 		"villagers": people,
 		"map": m.village.resource_path if m.village != null else "",
 		"config": _encode_object(m.config),
-		"rng": {"seed": m.rng.seed, "state": m.rng.state},
-		"director_rng": {"seed": director.rng.seed, "state": director.rng.state},
+		"rng": {"seed": str(m.rng.seed), "state": str(m.rng.state)},
+		"director_rng": {"seed": str(director.rng.seed), "state": str(director.rng.state)},
 	}
 	return _write_json(path, payload)
 
@@ -81,11 +81,11 @@ static func apply(m: Match, director: Director, payload: Dictionary) -> bool:
 	_apply_object(director, payload.get("director", {}), by_id)
 	_apply_object(m.config, payload.get("config", {}), by_id)
 	var rng_data: Dictionary = payload.get("rng", {})
-	m.rng.seed = int(rng_data.get("seed", m.rng.seed))
-	m.rng.state = int(rng_data.get("state", m.rng.state))
+	m.rng.seed = int(str(rng_data.get("seed", m.rng.seed)))
+	m.rng.state = int(str(rng_data.get("state", m.rng.state)))
 	var director_rng: Dictionary = payload.get("director_rng", {})
-	director.rng.seed = int(director_rng.get("seed", director.rng.seed))
-	director.rng.state = int(director_rng.get("state", director.rng.state))
+	director.rng.seed = int(str(director_rng.get("seed", director.rng.seed)))
+	director.rng.state = int(str(director_rng.get("state", director.rng.state)))
 	return m.day == int(payload.day) and m.phase == Match.Phase.DAY
 
 

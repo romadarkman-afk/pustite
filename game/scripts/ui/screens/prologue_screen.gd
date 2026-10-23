@@ -20,7 +20,7 @@ func is_busy() -> bool:
 
 
 func field_ratio() -> float:
-	return 0.26
+	return 0.30
 
 
 func title() -> String:

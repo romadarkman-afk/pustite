@@ -465,7 +465,9 @@ func resume_day_checkpoint() -> bool:
 	board_done = bool(session.get("board_done", false))
 	scenes_done = session.get("scenes_done", {})
 	inspection_bonus = int(session.get("inspection_bonus", 0))
-	host_pleas = session.get("host_pleas", {})
+	host_pleas = {}
+	for k in (session.get("host_pleas", {}) as Dictionary):
+		host_pleas[int(k)] = String(session["host_pleas"][k])
 	dilemma = session.get("dilemma", {})
 	player_tunnel = bool(session.get("player_tunnel", false))
 	m = Match.new()

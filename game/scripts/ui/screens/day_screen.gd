@@ -27,10 +27,8 @@ func min_content_ratio() -> float:
 ## Поле ограничено половиной экрана, чтобы оставить место под журнал и действия.
 func field_height(h: float) -> float:
 	var sep := float(get_theme_constant("separation", "VBoxContainer")) if has_theme_constant("separation", "VBoxContainer") else 18.0
-	var body_height := body.get_combined_minimum_size().y if body != null else 0.0
-	var footer_height := footer.get_combined_minimum_size().y if footer != null else 0.0
-	var reserved := 46.0 * ThemeFactory.text_scale + body_height + footer_height + ThemeFactory.TOUCH + 4.0 * sep + 24.0
-	return clampf(h - reserved, h * 0.27, h * 0.56)
+	var reserved := 46.0 * ThemeFactory.text_scale + footer.get_combined_minimum_size().y + ThemeFactory.TOUCH + 4.0 * sep + 24.0
+	return maxf(h * 0.44, minf(h * 0.68, h - reserved))
 
 
 func title() -> String:
