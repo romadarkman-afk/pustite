@@ -96,7 +96,7 @@ title = "Заправить фонари"
 place = "у фонаря"
 done_line = "Фонари заправлены."
 kind = 2
-pos = Vector2(234, 366)
+pos = Vector2(282, 372)
 portions = 2
 work_sec = 3.0
 

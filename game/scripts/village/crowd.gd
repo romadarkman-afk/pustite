@@ -177,6 +177,30 @@ func _any_spot(out: Array[Vector2], widths: Array[float], i: int, w: float, obs:
 	return best
 
 
+## Совсем последний вариант: свободное от домов место, самое далёкое от уже стоящих.
+## Имена тут могут слегка налезть друг на друга, но житель не прячется за церковью.
+func _roomiest_spot(out: Array[Vector2], i: int, obs: Array[Rect2], walls: Array[Rect2]) -> Vector2:
+	var c := view.def.square_center
+	var r := view.def.square_radii * Vector2(1.1, 1.3)
+	var best := Vector2.INF
+	var best_gap := -1.0
+	var y := c.y - r.y
+	while y <= minf(c.y + r.y, VillageView.BAND.end.y - 30.0):
+		var x := VillageView.SAFE_X.x + 30.0
+		while x <= VillageView.SAFE_X.y - 30.0:
+			var p := Vector2(x, y)
+			if ((p - c) / r).length() <= 1.0 and not _hidden(p, true) and not _point_in_walls(p, walls) and _free(fig_rect(p, MIN_W), obs):
+				var gap := INF
+				for k in range(i):
+					gap = minf(gap, Vector2((p.x - out[k].x) * 0.6, p.y - out[k].y).length())
+				if gap > best_gap:
+					best_gap = gap
+					best = p
+			x += 8.0
+		y += 8.0
+	return best
+
+
 ## Стоял бы за домом или колодцем: ступни внутри картинки предмета, выше точки, где тот стоит.
 func _hidden(p: Vector2, check_torso: bool = false) -> bool:
 	if view == null:
@@ -310,6 +334,9 @@ func _layout_day(widths: Array[float], wide: bool, walls: Array[Rect2]) -> Array
 					break
 			if best == Vector2.INF:
 				best = _any_spot(out, widths, i, w - GAP, obs + c_used, walls)
+			if best == Vector2.INF:
+				# мест без наложения нет: встаём туда, где просторнее всего, но не за дом и не в стену
+				best = _roomiest_spot(out, i, obs, walls)
 			if best == Vector2.INF:
 				best = Vector2(c.x, y3)
 			out[i] = best

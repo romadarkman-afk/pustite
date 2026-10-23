@@ -4184,11 +4184,11 @@ static func _village_layout(tree: SceneTree, fails: PackedStringArray) -> int:
 	for id: String in Campaign.ORDER:
 		var def := Campaign.village_for_chapter(id)
 		if first:
-			vv.setup(def, 5, PackedStringArray())
+			vv.setup(def, 5, L.houses())
 			tree.root.add_child(vv)
 			first = false
 		else:
-			vv.set_village(def, 5, PackedStringArray())
+			vv.set_village(def, 5, L.houses())
 		var houses: Array[HouseDef] = []
 		houses.append_array(def.shelters)
 		houses.append_array(def.decor)
@@ -4234,6 +4234,22 @@ static func _village_layout(tree: SceneTree, fails: PackedStringArray) -> int:
 				ok += _expect(fails, share_p <= 0.12, "%s: реквизит %s стоит в доме %d (%.0f%%)" % [id, pr.get("id", ""), i, share_p * 100.0])
 		for job: JobDef in def.jobs:
 			ok += _expect(fails, not vv.water_at(job.pos), "%s: дело %s стоит в воде" % [id, job.id])
+			# значок дела висит над работником: табличку дома он закрывать не должен
+			var icon := Rect2(job.pos.x - 26.0, job.pos.y + JobLayer.ICON_Y - 26.0, 52.0, 60.0)
+			for si in range(def.shelters.size()):
+				var plaque := vv.shelter_label_rect_local(si)
+				ok += _expect(fails, not icon.intersects(plaque), "%s: значок дела %s закрывает табличку дома %d (%s / %s)" % [id, job.id, si, icon, plaque])
+		# днём все 12 жителей с длинными именами встают на площадь, и никто не оказывается за домом
+		for name_w: float in [44.0, 56.0]:
+			var widths: Array[float] = []
+			for k in range(12):
+				widths.append(name_w + float((k * 7) % 6) * 7.0)
+			var day_spots := vv.crowd.layout_day(widths)
+			var hidden := PackedStringArray()
+			for sp: Vector2 in day_spots:
+				if vv.crowd._hidden(sp):
+					hidden.append(str(sp))
+			ok += _expect(fails, hidden.is_empty(), "%s: при именах %d px за домом или колодцем встают %d из 12 жителей (%s)" % [id, int(name_w), hidden.size(), ", ".join(hidden)])
 		# ночью у одной двери может собраться вся деревня: очередь из 12 должна встать на разные места
 		for hi in range(def.shelters.size()):
 			var spots := vv.crowd.door_spots(hi, 12, [])

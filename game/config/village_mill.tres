@@ -113,7 +113,7 @@ title = "Заправить фонари"
 place = "у фонаря"
 done_line = "Фонари заправлены."
 kind = 2
-pos = Vector2(234, 366)
+pos = Vector2(282, 372)
 portions = 2
 work_sec = 3.0
 
@@ -134,7 +134,7 @@ shelters = Array[ExtResource("2_house")]([SubResource("house_0"), SubResource("h
 decor = Array[ExtResource("2_house")]([SubResource("house_5"), SubResource("house_6"), SubResource("house_7"), SubResource("house_8")])
 lamps = PackedVector2Array(258, 312, 462, 312, 360, 468)
 well = Vector2(360, 384)
-props = Array[Dictionary]([{"id": "prop_boat", "pos": Vector2(352, 548), "w": 84.0}, {"id": "prop_nets", "pos": Vector2(590, 548), "w": 78.0}, {"id": "prop_millstones", "pos": Vector2(44, 352), "w": 58.0}, {"id": "prop_cart", "pos": Vector2(190, 522), "w": 72.0, "flip": true}])
+props = Array[Dictionary]([{"id": "prop_boat", "pos": Vector2(326, 554), "w": 84.0}, {"id": "prop_nets", "pos": Vector2(590, 548), "w": 78.0}, {"id": "prop_millstones", "pos": Vector2(44, 352), "w": 58.0}, {"id": "prop_cart", "pos": Vector2(190, 522), "w": 72.0, "flip": true}])
 square_center = Vector2(384, 400)
 square_radii = Vector2(222, 100)
 ground = "ground_mill"
