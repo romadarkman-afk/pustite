@@ -1051,7 +1051,7 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 	var c1 := Campaign.cast("a1c1")
 	ok += _expect(fails, c1.size() == 4 and c1.has(0) and c1.has(1) and c1.has(2), "в первой главе не те жители: %s" % [c1])
 	var cfg2 := Campaign.config("a1c2")
-	ok += _expect(fails, cfg2.players == 7 and cfg2.monsters == 1 and cfg2.player_always_human, "условия второй главы не применились")
+	ok += _expect(fails, cfg2.players == int(Campaign.chapter("a1c2").players) and cfg2.monsters == 1 and cfg2.player_always_human, "условия второй главы не применились")
 	ok += _expect(fails, Campaign.unlocked("a1c1") and not Campaign.unlocked("a1c2"), "вторая глава открыта раньше первой")
 
 	# новичок: «Играть» — сразу первая глава, и через несколько секунд стучат в дверь
@@ -1113,7 +1113,7 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 	var ps := Nav.host.current as PrologueScreen
 	ok += _expect(fails, ps != null and ps._beat_text.text in [L.t("camp.a1c2.beat1"), L.t("camp.a1c2.beat2"), String(Revelations.beat("boat", Game.m)[1])] and ps._cast.find_child("Goals", true, false) != null,
 		"вторая глава началась без своей сцены и целей")
-	ok += _expect(fails, Game.m.force_event == Match.Event.FOG and Game.m.villagers.size() == 7, "во второй главе нет тумана или не тот состав")
+	ok += _expect(fails, Game.m.force_event == Match.Event.FOG and Game.m.villagers.size() == int(Campaign.chapter("a1c2").players), "во второй главе нет тумана или не тот состав")
 
 	# экран глав: открытая и закрытая глава, акты «скоро», память о погибших, концовка акта
 	Nav.show_campaign()
@@ -7096,6 +7096,12 @@ static func loc() -> void:
 		ok += _expect(fails, glyphs.is_empty(), "%s: шрифт не рисует %d знаков: %s" % [code, glyphs.length(), glyphs.left(40)])
 		print("%s: %d строк, ключей %d" % [code, texts.size(), d.size()])
 		langs_ok += 1
+	L.use("ru")
+	var report_path := ""
+	for a: String in OS.get_cmdline_user_args():
+		if a.begins_with("--report="):
+			report_path = a.substr(9)
+	ok += LocAudit.run(fails, report_path)
 	L.use("ru")
 
 	# грамматика: падежи и числа

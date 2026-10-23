@@ -31,7 +31,7 @@ jobs:
       matrix:
         include:
           - name: Основные 1
-            cases: "sim=--sim flow=--flow lifecycle=--lifecycle field=--field crowd=--crowd bubbles=--bubbles marks=--marks input=--input hints=--hints difficulty=--difficulty howto=--howto night=--night eyes=--eyes lights=--lights checkpoint=--checkpoint sound=--sound village=--village"
+            cases: "sim=--sim story=--story chapters=--chapters flow=--flow lifecycle=--lifecycle field=--field crowd=--crowd bubbles=--bubbles marks=--marks input=--input hints=--hints difficulty=--difficulty howto=--howto night=--night eyes=--eyes lights=--lights checkpoint=--checkpoint sound=--sound village=--village"
           - name: Основные 2
             cases: "talisman=--talisman bell=--bell events=--events mimic=--mimic sabotage=--sabotage box=--box roles=--roles meeting=--meeting tunnel=--tunnel diary=--diary recap=--recap folk=--folk loc=--loc access=--access daily=--daily cosmetics=--cosmetics adapt=--adapt display=--display gestures=--gestures candle=--candle haptics=--haptics portraits=--portraits tension=--tension doors=--doors emptying=--emptying pairs=--pairs themes=--themes soundmaps=--soundmaps actscenes=--actscenes campmap=--campmap achicons=--achicons parallax=--parallax traces=--traces storage=--storage save=--save weather=--weather"
           - name: Раскладка ru en

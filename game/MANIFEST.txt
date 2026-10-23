@@ -74,6 +74,9 @@ scripts/loc/voices.gd
 scripts/loc/zh.gd
 scripts/tests/plan_tests.gd
 scripts/tests/self_test.gd
+scripts/tests/loc_audit.gd
+scripts/tests/sim_chapters.gd
+scripts/tests/story_tests.gd
 tests/light_benchmark.gd
 tests/light_benchmark.tscn
 scripts/ui/action_sheet.gd

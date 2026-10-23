@@ -895,7 +895,7 @@ static func group_four(fails: PackedStringArray) -> int:
 	var deny_upyr := 0
 	var asked_upyr := 0
 	for ch: String in ["a1c2", "a1c3"]:
-		for sd in range(30):
+		for sd in range(60):     # упырь признаётся в четверти случаев: на 30 сидах выборка в 19 раз давала 9 из 19
 			var md := _chapter_match(ch, 3300 + sd)
 			var m: Match = md[0]
 			var d: Director = md[1]

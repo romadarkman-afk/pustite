@@ -933,6 +933,7 @@ const MILLER_CLUES := {"a2c1": "clue.miller_book", "a2c2": "clue.miller_sack", "
 
 ## «Чужаки» (TASK-023): тот, кто ходит под именем охотницы, — упырь. Роль меняется местами
 ## с другим упырём из местных, число упырей то же. Гостей с ролью по сюжету не трогаем.
+## Если оба упыря выпали гостям со случайной ролью (одна партия из двенадцати во второй главе), берём роль у гостя.
 func _force_upyr() -> void:
 	if force_upyr_story < 0:
 		return
@@ -944,6 +945,13 @@ func _force_upyr() -> void:
 		return
 	for v: Villager in villagers:
 		if v.is_upyr and not v.is_player and v.guest_id.is_empty():
+			v.is_upyr = false
+			target.is_upyr = true
+			return
+	if guest_roles_fixed:
+		return
+	for v: Villager in villagers:
+		if v.is_upyr and not v.is_player:
 			v.is_upyr = false
 			target.is_upyr = true
 			return

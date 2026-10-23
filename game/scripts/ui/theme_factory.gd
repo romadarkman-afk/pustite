@@ -32,9 +32,10 @@ static func fs(n: float) -> int:
 
 
 ## Шрифт Nunito нужной толщины: 600 — текст, 800 — кнопки и имена, 900 — заголовки.
-## Запасные шрифты письменностей, которых нет в Nunito: иероглифы (урезаны до ~3900 частых)
-## и деванагари. Подключены к самому Nunito, поэтому работают во всех надписях и списке языков.
-const FALLBACKS: PackedStringArray = ["res://fonts/NotoSansSC.ttf", "res://fonts/NotoSansDevanagari.ttf"]
+## Запасные шрифты письменностей, которых нет в Nunito: иероглифы (урезаны до ~3900 частых),
+## деванагари и знаки ★ ☆ ✓ ✗ (Symbols.ttf: 7 знаков из DejaVu Sans, лицензия fonts/DejaVu-LICENSE.txt).
+## Подключены к самому Nunito, поэтому работают во всех надписях и списке языков.
+const FALLBACKS: PackedStringArray = ["res://fonts/NotoSansSC.ttf", "res://fonts/NotoSansDevanagari.ttf", "res://fonts/Symbols.ttf"]
 
 
 static func _base() -> FontFile:

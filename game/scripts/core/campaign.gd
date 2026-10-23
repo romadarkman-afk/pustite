@@ -226,7 +226,7 @@ static func config(id: String) -> GameConfig:
 		return c
 	# погибшие насовсем в главу не приходят: если живых местных меньше, чем мест в главе, жителей меньше
 	c.players = mini(int(ch.players), maxi(MIN_PLAYERS, cast(id).size() + 1))
-	c.monsters = int(ch.monsters)
+	c.monsters = mini(int(ch.monsters), maxi(1, (c.players - 1) / 3))   # поредевшая деревня: не больше одного упыря на троих (TASK-091)
 	c.shelters = int(ch.shelters)
 	c.capacity = int(ch.capacity)
 	c.nights = int(ch.nights)
@@ -236,8 +236,8 @@ static func config(id: String) -> GameConfig:
 
 ## Кто живёт в посёлке в этой главе: номера имён. Первые трое — постоянные жители, остальные
 ## в порядке, который задаётся один раз на всю кампанию. Погибшие пропускаются.
-static func cast(id: String) -> Array[int]:
-	var n := int(chapter(id).get("players", 5)) - 1
+static func cast(id: String, extra: int = 0) -> Array[int]:
+	var n := int(chapter(id).get("players", 5)) - 1 + extra     # extra: только для подбора баланса в sim_chapters
 	var names := L.names().size()
 	var order: Array[int] = []
 	for i in range(mini(3, names)):

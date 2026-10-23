@@ -97,7 +97,7 @@ func build() -> void:
 			known.add_child(W.label(ending, &"Small"))
 	var saved_pair := Progress.saved_bond_pair(m)
 	if saved_pair.size() == 2:
-		known.add_child(W.label(L.t("bond.saved", {"guest": saved_pair[0].name, "kin": saved_pair[1].name}), &"Small"))
+		known.add_child(W.label(L.t("bond.saved", {"who": saved_pair[0].name, "kin": saved_pair[1].name}), &"Small"))
 	if known.get_child_count() > 0:
 		var chapter := W.panel(&"Card")
 		var chapter_box := W.vbox(8)
