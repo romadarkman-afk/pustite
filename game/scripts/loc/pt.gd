@@ -969,6 +969,7 @@ func data() -> Dictionary:
 		"door.candle_down": "Chama mais baixa. O sinal aparece pior, mas a casa parece dormir.",
 		"door.candle_mid": "Chama normal.",
 		"door.candle_info": "Toque na vela para mudar a chama. Mais alta: a inspeção mostra mais, mas o que espera lá fora pressiona mais. Mais baixa: o contrário.",
+		"door.branch": "Algo bateu na janela. Um galho.",
 		"door.tal_hint": "Amuleto da casa. Deslize o dedo para conferir.",
 		"door.tal_ok": "O amuleto está inteiro. Sozinho em casa, um pouco mais seguro.",
 		"door.tal_cracked": "O amuleto rachou. Não protege e pode quebrar até de manhã.",

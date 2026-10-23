@@ -969,6 +969,7 @@ func data() -> Dictionary:
 		"door.candle_down": "Lửa thấp hơn. Dấu hiệu khó thấy hơn, nhưng nhà trông như đã ngủ.",
 		"door.candle_mid": "Lửa bình thường.",
 		"door.candle_info": "Chạm vào nến để đổi ngọn lửa. Cao hơn: khám xét thấy nhiều hơn, nhưng thứ đứng ngoài cửa thúc ép mạnh hơn. Thấp hơn: ngược lại.",
+		"door.branch": "Có gì gõ vào cửa sổ. Một cành cây.",
 		"door.tal_hint": "Bùa của ngôi nhà. Vuốt ngón tay qua để kiểm tra.",
 		"door.tal_ok": "Bùa còn nguyên. Ở một mình trong nhà an toàn hơn một chút.",
 		"door.tal_cracked": "Bùa bị nứt. Không còn che chở, và có thể vỡ trước sáng.",

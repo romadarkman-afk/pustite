@@ -88,6 +88,8 @@ const TALISMAN_DECAY := 0.5
 const CREATURE_KILL := 0.7
 const CANDLE_TELL_CREATURE: Array[float] = [0.44, 0.58, 0.72]   ## свеча у двери тусклая / обычная / яркая: шанс приметы у упыря (TASK-073)
 const CANDLE_TELL_HUMAN: Array[float] = [0.18, 0.23, 0.26]      ## то же у человека
+const FLICKER_CREATURE := 0.55             ## свеча мигает перед стуком, если за дверью упырь или Подражатель (TASK-077)
+const FLICKER_EMPTY := 0.15                ## и иногда мигает просто так
 const CANDLE_PRESS := 0.10                  ## яркая свеча: тварь за дверью давит сильнее на столько, тусклая слабее
 const ALONE_SAFE := 0.8                      ## целый оберег: одному в доме безопаснее (шанс гибели × 0.8)
 var talisman: PackedInt32Array = PackedInt32Array()
@@ -1354,6 +1356,20 @@ func spend_question_token() -> bool:
 	question_tokens -= 1
 	question_used_day = day
 	return true
+
+
+## Мигнёт ли свеча перед стуком (TASK-077): у упыря или Подражателя за дверью часто, у людей редко.
+## Это только картинка и звук: очередь и исход ночи от неё не зависят.
+func door_flicker(seat: Seat) -> bool:
+	if seat == null:
+		return false
+	var creature := seat.mimic != null
+	for v: Villager in seat.knockers():
+		if v.is_upyr:
+			creature = true
+	var dice := RandomNumberGenerator.new()
+	dice.seed = hash("flicker:%d:%d:%d" % [day, seat.house, case_id])
+	return dice.randf() < (FLICKER_CREATURE if creature else FLICKER_EMPTY)
 
 
 ## Свеча видна только у двери, где хозяин игрок. Боты свечой не пользуются.

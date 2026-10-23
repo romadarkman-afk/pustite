@@ -986,6 +986,7 @@ func data() -> Dictionary:
 		"door.candle_down": "Flamme plus basse. Le signe se voit moins bien, mais la maison paraît endormie.",
 		"door.candle_mid": "Flamme normale.",
 		"door.candle_info": "Touche la bougie pour changer la flamme. Plus haute : l'examen montre plus, mais ce qui attend dehors insiste davantage. Plus basse : l'inverse.",
+		"door.branch": "Quelque chose a tapé à la fenêtre. Une branche.",
 		"door.tal_hint": "Le talisman de la maison. Passe le doigt dessus pour le vérifier.",
 		"door.tal_ok": "Le talisman est intact. Seul dans la maison, un peu plus sûr.",
 		"door.tal_cracked": "Le talisman est fêlé. Il ne protège plus et peut se briser avant l'aube.",

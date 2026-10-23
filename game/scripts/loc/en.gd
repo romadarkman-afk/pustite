@@ -975,6 +975,7 @@ func data() -> Dictionary:
 		"door.candle_down": "Flame lower. The sign shows worse, but the house looks asleep.",
 		"door.candle_mid": "Flame steady.",
 		"door.candle_info": "Tap the candle to change the flame. Higher: inspection shows more, but whatever waits outside presses harder. Lower: the opposite.",
+		"door.branch": "Something tapped the window. A branch.",
 		"door.tal_hint": "The house charm. Swipe a finger across it to check.",
 		"door.tal_ok": "The charm is whole. Slightly safer alone in the house.",
 		"door.tal_cracked": "The charm is cracked. No protection, and it may break by morning.",

@@ -9,6 +9,8 @@ extends Screen
 signal knock_fx
 signal open_fx(amount: float)
 signal candle_fx(level: int)
+signal flicker_fx                 ## свеча мигает перед стуком (TASK-077)
+signal shadow_fx                  ## тень проходит мимо двери (TASK-077)
 
 var role: Match.DoorRole
 var seat: Match.Seat
@@ -273,6 +275,21 @@ func _start_knocks() -> void:
 		if choice == "answer" and director != null:
 			director.river_answered()
 		await ScenePlayer.play(self, Scenes.first_knock(choice == "answer"), m)
+		if not is_instance_valid(self):
+			return
+	# ветка (TASK-077): до настоящего стука что-то стукнуло в окно; очередь и правила не затронуты
+	if Dread.branch_due(m.day):
+		Sfx.play(&"knock", 1.3, -12.0)
+		await Juice.wait(0.25)
+		Sfx.play(&"scratch", 1.1, -10.0)
+		Nav.toast(L.t("door.branch"))
+		await Juice.wait(1.5)
+		if not is_instance_valid(self):
+			return
+	# свеча мигнула: часто перед упырём, изредка просто так (TASK-077)
+	if m.door_flicker(seat):
+		flicker_fx.emit()
+		await Juice.wait(1.1)
 		if not is_instance_valid(self):
 			return
 	_knock_sequence(seat.knockers().size())

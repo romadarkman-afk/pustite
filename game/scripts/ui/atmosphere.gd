@@ -11,6 +11,11 @@ var _door_art: Control
 var _door_closed: TextureRect
 var _door_open: TextureRect
 var _candle: DoorCandle
+var _tension: TextureRect              ## виньетка ночного напряжения (TASK-077)
+var _tension_grad: Gradient
+var _shadow: TextureRect               ## тень мимо двери (TASK-077)
+var _shadow_tween: Tween
+const SHADOW_PATH := "res://assets/ui/window_shadow.png"   ## картинка от Влади; нет файла: тёмное пятно
 var _art_tween: Tween
 var _pose_tween: Tween
 
@@ -35,6 +40,25 @@ func _ready() -> void:
 	_candle = DoorCandle.new()
 	_door_art.add_child(_candle)
 	_door_open.modulate.a = 0.0
+	_tension_grad = Gradient.new()
+	_tension_grad.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+	_tension_grad.colors = PackedColorArray([Color(0, 0, 0, 0), Color(0, 0, 0, 0), Color(0, 0, 0, 0.9)])
+	var vtex := GradientTexture2D.new()
+	vtex.gradient = _tension_grad
+	vtex.fill = GradientTexture2D.FILL_RADIAL
+	vtex.fill_from = Vector2(0.5, 0.5)
+	vtex.fill_to = Vector2(1.0, 0.5)
+	vtex.width = 128
+	vtex.height = 128
+	_tension = TextureRect.new()
+	_tension.name = "Tension"
+	_tension.texture = vtex
+	_tension.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_tension.stretch_mode = TextureRect.STRETCH_SCALE
+	_tension.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tension.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_tension.modulate.a = 0.0
+	add_child(_tension)
 
 	var fnl := FastNoiseLite.new()
 	fnl.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
@@ -137,6 +161,63 @@ func _fade_door_art(alpha: float, dur: float) -> void:
 		_art_tween.tween_callback(func() -> void:
 			if _door_art.modulate.a <= 0.01:
 				_door_art.visible = false)
+
+
+## Виньетка сужается с каждой ночью (TASK-077): первая почти не заметна, седьмая подступает к середине.
+## Яркость и край считаются от номера ночи, поэтому одна и та же ночь выглядит одинаково.
+func set_tension(day: int) -> void:
+	if day <= 0:
+		_tension.modulate.a = 0.0
+		return
+	var n := clampi(day - 1, 0, 6)
+	_tension_grad.offsets = PackedFloat32Array([0.0, lerpf(0.5, 0.22, float(n) / 6.0), 1.0])
+	_tension.modulate.a = lerpf(0.1, 0.55, float(n) / 6.0)
+
+
+func tension_alpha() -> float:
+	return _tension.modulate.a
+
+
+## Тень идёт мимо двери слева направо (TASK-077). Картинка силуэта от Влади или тёмное пятно.
+func pass_shadow() -> void:
+	if Juice.instant or size.x <= 0.0:
+		return
+	if _shadow == null:
+		_shadow = TextureRect.new()
+		_shadow.name = "WindowShadow"
+		_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_shadow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		if ResourceLoader.exists(SHADOW_PATH):
+			_shadow.texture = load(SHADOW_PATH) as Texture2D
+		else:
+			var g := Gradient.new()
+			g.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+			g.colors = PackedColorArray([Color(0, 0, 0, 0.9), Color(0, 0, 0, 0.55), Color(0, 0, 0, 0)])
+			var t := GradientTexture2D.new()
+			t.gradient = g
+			t.fill = GradientTexture2D.FILL_RADIAL
+			t.fill_from = Vector2(0.5, 0.5)
+			t.fill_to = Vector2(1.0, 0.5)
+			t.width = 64
+			t.height = 192
+			_shadow.texture = t
+		_shadow.size = Vector2(150.0, 420.0)
+		add_child(_shadow)
+		move_child(_shadow, _tension.get_index())
+	if _shadow_tween != null and _shadow_tween.is_running():
+		return
+	var y := size.y * 0.5 - _shadow.size.y * 0.5
+	_shadow.position = Vector2(-_shadow.size.x, y)
+	_shadow.modulate.a = 0.0
+	_shadow_tween = create_tween().set_parallel(true)
+	_shadow_tween.tween_property(_shadow, "position:x", size.x, 3.4).set_trans(Tween.TRANS_SINE)
+	_shadow_tween.tween_property(_shadow, "modulate:a", 0.6, 1.0)
+	_shadow_tween.chain().tween_property(_shadow, "modulate:a", 0.0, 1.0).set_delay(1.2)
+
+
+func flicker() -> void:
+	_candle.flicker()
 
 
 func set_candle(level: int, instant: bool) -> void:

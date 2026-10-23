@@ -18,3 +18,17 @@ Edit this exact image: close the person's eyes (eyelids shut, relaxed, no smile 
 ```
 
 Проверка: наложить оригинал и копию в графическом редакторе, отличаться должна только область глаз.
+
+## TASK-077. Силуэт тени за окном
+
+Тень проходит мимо двери слева направо раз за ночь, со второй ночи. Пока файла нет, идёт тёмное мягкое пятно.
+
+- Файл: `game/assets/ui/window_shadow.png`, PNG с прозрачным фоном, около 256×512.
+- Тёмный силуэт человека в профиль, идущего вдоль стены, мягкие размытые края, без деталей лица. Почти чёрный, прозрачность внутри 80–90%.
+- Игра сама растягивает картинку по высоте двери (420 единиц) и двигает по экрану, поэтому фигура должна быть по центру кадра.
+
+Промпт:
+
+```
+A dark soft silhouette of a person walking past a window at night, side profile, cloaked, head slightly bowed, blurred edges, no facial details, isolated on a transparent background, no ground, no text. Photorealistic shadow, near black.
+```

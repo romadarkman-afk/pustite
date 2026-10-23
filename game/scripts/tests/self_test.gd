@@ -8467,3 +8467,142 @@ static func portraits() -> void:
 	for node: Control in [plain, liar, scared, player_pic]:
 		node.free()
 	_finish(fails, ok, "Живые портреты", "дыхание 3–4 с до 2%, дрожь до 2 px, наклон, лжец темнее, моргание по картинке")
+
+
+## TASK-077: ночное напряжение. Виньетка сужается с ночью, тень раз за ночь, ветка раз за главу,
+## свеча мигает чаще перед упырём, и ничто из этого не трогает очередь и правила ночи.
+static func tension() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+	Save.set_difficulty("normal")
+
+	# 1. Виньетка: чем позже ночь, тем темнее и ближе к середине
+	var alphas: Array[float] = []
+	var edges: Array[float] = []
+	for d in range(1, 9):
+		Nav.atmos.set_tension(d)
+		alphas.append(Nav.atmos.tension_alpha())
+		edges.append(Nav.atmos._tension_grad.offsets[1])
+	var grows := true
+	for i in range(1, 7):
+		if alphas[i] <= alphas[i - 1] or edges[i] >= edges[i - 1]:
+			grows = false
+	ok += _expect(fails, grows and alphas[7] == alphas[6] and alphas[0] > 0.0 and alphas[6] <= 0.6, "виньетка по ночам: %s, край %s" % [str(alphas), str(edges)])
+	Nav.atmos.set_tension(0)
+	ok += _expect(fails, Nav.atmos.tension_alpha() == 0.0, "виньетка осталась без ночи")
+
+	# 2. Тень: со второй ночи, не чаще раза за ночь
+	Dread.reset()
+	Dread.rng.seed = 5
+	var per_day := {}
+	for round in range(40):
+		for d in range(1, 6):
+			if Dread.shadow_due(d):
+				per_day[d] = int(per_day.get(d, 0)) + 1
+		Dread.reset()
+		Dread.rng.seed = 100 + round
+	var shadows_ok := not per_day.has(1)
+	for d: Variant in per_day.keys():
+		if int(per_day[d]) > 40:       # за 40 партий по одной ночи не больше одной тени за ночь
+			shadows_ok = false
+	ok += _expect(fails, shadows_ok and per_day.size() >= 3, "тень идёт в первую ночь или ни разу не идёт: %s" % str(per_day))
+	Dread.reset()
+	var again := 0
+	for i in range(200):
+		if Dread.shadow_due(4):
+			again += 1
+	ok += _expect(fails, again == 1, "в одну ночь тень прошла %d раз (ждали ровно один)" % again)
+
+	# 3. Ветка: со второй ночи и вместе с ложным стуком на бегу не чаще раза за главу
+	Game.scenes_done.erase("false_knock")
+	var branches := 0
+	for i in range(400):
+		if Dread.branch_due(2 + i % 5):
+			branches += 1
+	ok += _expect(fails, branches == 1 and Game.scenes_done.has("false_knock"), "ветка за главу прозвучала %d раз (ждали один)" % branches)
+	Game.scenes_done.erase("false_knock")
+	ok += _expect(fails, not Dread.branch_due(1), "ветка стучит в первую ночь")
+	Game.scenes_done["false_knock"] = true
+	var blocked := false
+	for i in range(200):
+		blocked = blocked or Dread.branch_due(3)
+	ok += _expect(fails, not blocked, "ветка пришла после ложного стука на бегу")
+	Game.scenes_done.erase("false_knock")
+
+	# 4. Свеча мигает чаще перед упырём, чем без него; решение детерминировано
+	Nav.start_match()
+	await _settle(tree)
+	var ds := await _to_host_door(tree)
+	if ds == null:
+		_finish(fails + PackedStringArray(["не удалось дойти до двери хозяина"]), ok, "Ночное напряжение", "")
+		return
+	var m := Game.m
+	var seat := ds.seat
+	var keep_day := m.day
+	var keep_mimic := seat.mimic
+	var keeps: Array = []
+	for v: Villager in seat.knockers():
+		keeps.append(v.is_upyr)
+	var hits := {}
+	for mode in ["ghoul", "mimic", "none"]:
+		seat.mimic = null
+		for v: Villager in seat.knockers():
+			v.is_upyr = (mode == "ghoul")
+		if mode == "mimic":
+			seat.mimic = m.villagers[1]
+		var n := 0
+		for day in range(1, 601):
+			m.day = day
+			var a := m.door_flicker(seat)
+			if a != m.door_flicker(seat):
+				n -= 10000
+			n += 1 if a else 0
+		hits[mode] = float(n) / 600.0
+	ok += _expect(fails, absf(hits["ghoul"] - Match.FLICKER_CREATURE) < 0.07 and absf(hits["mimic"] - Match.FLICKER_CREATURE) < 0.07 and absf(hits["none"] - Match.FLICKER_EMPTY) < 0.06,
+		"мигание свечи: упырь %.2f, Подражатель %.2f, никого %.2f (ждали %.2f и %.2f)" % [hits["ghoul"], hits["mimic"], hits["none"], Match.FLICKER_CREATURE, Match.FLICKER_EMPTY])
+	ok += _expect(fails, hits["none"] > 0.05 and hits["ghoul"] < 0.95, "мигание свечи стало надёжной подсказкой или пропало совсем")
+	m.day = keep_day
+	seat.mimic = keep_mimic
+	var idx := 0
+	for v: Villager in seat.knockers():
+		v.is_upyr = bool(keeps[idx])
+		idx += 1
+	var cand := Nav.atmos._candle
+	cand.flicker()
+	var dipped := cand.flicker_factor()
+	cand._flicker = 0.0
+	ok += _expect(fails, dipped < 1.0 and cand.flicker_factor() == 1.0, "мигание свечи не меняет огонь (%.2f)" % dipped)
+	ok += _expect(fails, Nav.atmos.tension_alpha() > 0.0, "на двери нет виньетки напряжения")
+
+	# 5. Ветка и мигание у двери не ломают очередь и правила ночи
+	var q_before: Array[Villager] = seat.queue.duplicate()
+	var tal_before := m.talisman.duplicate()
+	var ins_before := m.door_inspections.size()
+	var phase_before := m.phase
+	var hosts_before := m.seats.size()
+	var day_before := m.day
+	m.day = maxi(2, m.day)
+	var forced := 0
+	while forced < 500:
+		var probe := RandomNumberGenerator.new()
+		probe.seed = forced
+		if probe.randf() < Dread.BRANCH_P:
+			break
+		forced += 1
+	Dread.rng.seed = forced
+	Game.scenes_done.erase("false_knock")
+	var signals := [0]
+	ds.flicker_fx.connect(func() -> void: signals[0] += 1)
+	await ds._start_knocks()
+	await _frames(tree, 3)
+	ok += _expect(fails, Game.scenes_done.has("false_knock"), "ветка не прозвучала при подходящем броске")
+	m.day = day_before
+	ok += _expect(fails, seat.queue == q_before and m.talisman == tal_before and m.door_inspections.size() == ins_before
+		and m.phase == phase_before and m.seats.size() == hosts_before and not seat.decided,
+		"ветка или мигание изменили очередь или правила ночи")
+	Game.scenes_done.erase("false_knock")
+	_finish(fails, ok, "Ночное напряжение", "виньетка сужается, тень и ветка по разу, свеча мигает чаще перед упырём, очередь цела")

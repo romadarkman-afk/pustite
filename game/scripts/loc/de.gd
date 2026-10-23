@@ -976,6 +976,7 @@ func data() -> Dictionary:
 		"door.candle_down": "Flamme niedriger. Das Zeichen ist schlechter zu sehen, dafür wirkt das Haus schlafend.",
 		"door.candle_mid": "Flamme ruhig.",
 		"door.candle_info": "Tippe auf die Kerze, um die Flamme zu ändern. Höher: Die Prüfung zeigt mehr, aber was draußen wartet, drängt stärker. Niedriger: umgekehrt.",
+		"door.branch": "Etwas klopfte ans Fenster. Ein Zweig.",
 		"door.tal_hint": "Das Bannzeichen des Hauses. Wisch mit dem Finger darüber, um es zu prüfen.",
 		"door.tal_ok": "Das Bannzeichen ist heil. Allein im Haus etwas sicherer.",
 		"door.tal_cracked": "Das Bannzeichen hat einen Riss. Es schützt nicht und kann bis zum Morgen zerbrechen.",

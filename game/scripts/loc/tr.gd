@@ -1013,6 +1013,7 @@ func data() -> Dictionary:
 		"door.candle_down": "Alev alçak. İşaret daha zor görünür ama ev uyuyor gibi durur.",
 		"door.candle_mid": "Alev normal.",
 		"door.candle_info": "Alevi değiştirmek için muma dokun. Yüksek: inceleme daha çok gösterir ama kapıdaki daha çok zorlar. Alçak: tersi.",
+		"door.branch": "Pencereye bir şey vurdu. Bir dal.",
 		"door.tal_hint": "Evin muskası. Kontrol etmek için parmağını üzerinde kaydır.",
 		"door.tal_ok": "Muska sağlam. Evde tek başına biraz daha güvenli.",
 		"door.tal_cracked": "Muska çatladı. Koruma yok, sabaha kadar kırılabilir.",

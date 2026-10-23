@@ -979,6 +979,7 @@ func data() -> Dictionary:
 		"door.candle_down": "火焰更低。征兆更难看清，但屋子像是睡着了。",
 		"door.candle_mid": "火焰正常。",
 		"door.candle_info": "点按蜡烛调整火焰。更高：查看能发现更多，但门外的东西逼得更紧。更低：相反。",
+		"door.branch": "窗上有东西敲了一下。是树枝。",
 		"door.tal_hint": "屋子的符。用手指划过去检查。",
 		"door.tal_ok": "符完好。一个人在屋里稍微安全些。",
 		"door.tal_cracked": "符裂了。已经不起作用，天亮前可能碎掉。",

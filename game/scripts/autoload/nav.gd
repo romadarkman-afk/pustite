@@ -283,6 +283,7 @@ func show(s: Screen) -> void:
 	s.setup(Game.m, Game.director)
 	s.intent.connect(handle_intent.bind(s))
 	host.show_screen(s)
+	atmos.set_tension(Game.m.day if Game.m != null and (s is DoorScreen or s is NightScreen) else 0)
 	if s.door_open() >= 0.0:
 		atmos.set_door_place(Game.m.village.ground if Game.m != null else "")
 		atmos.door(s.door_open())
@@ -294,6 +295,8 @@ func show(s: Screen) -> void:
 		d.knock_fx.connect(atmos.knock)
 		d.open_fx.connect(func(a: float) -> void: atmos.door(a, 0.5))
 		d.candle_fx.connect(func(level: int) -> void: atmos.set_candle(level, false))
+		d.flicker_fx.connect(atmos.flicker)
+		d.shadow_fx.connect(atmos.pass_shadow)
 		atmos.set_candle(Game.m.candle if Game.m != null and d.role == Match.DoorRole.HOST else 0, true)
 	if s is MorningScreen:
 		(s as MorningScreen).death_fx.connect(atmos.blood_flash)
