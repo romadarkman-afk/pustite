@@ -201,7 +201,7 @@ static func _encode(value: Variant) -> Variant:
 		if value is RandomNumberGenerator or value is WeakRef:
 			return {"$skip": true}
 		if value is Resource:
-			var resource_path := value.resource_path
+			var resource_path: String = value.resource_path
 			if not resource_path.is_empty():
 				return {"$resource": resource_path, "props": _encode_object(value).props}
 		var script := value.get_script() as Script
@@ -276,15 +276,15 @@ static func _decode(encoded: Variant, current: Variant, people: Dictionary) -> V
 		var c: Array = encoded["$color"]
 		return Color(float(c[0]), float(c[1]), float(c[2]), float(c[3]))
 	if encoded.has("$world_event"):
-		var event := current if current is WorldLog.Event else WorldLog.Event.new()
+		var event: WorldLog.Event = current if current is WorldLog.Event else WorldLog.Event.new()
 		_apply_object(event, encoded["$world_event"], people)
 		return event
 	if encoded.has("$night_entry"):
-		var entry := current if current is NightReport.Entry else NightReport.Entry.new()
+		var entry: NightReport.Entry = current if current is NightReport.Entry else NightReport.Entry.new()
 		_apply_object(entry, encoded["$night_entry"], people)
 		return entry
 	if encoded.has("$seat"):
-		var seat := current if current is Match.Seat else Match.Seat.new()
+		var seat: Match.Seat = current if current is Match.Seat else Match.Seat.new()
 		_apply_object(seat, encoded["$seat"], people)
 		return seat
 	if encoded.has("$resource"):
