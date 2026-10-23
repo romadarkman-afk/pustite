@@ -914,6 +914,7 @@ func data() -> Dictionary:
 		"daily.rain": "मूसलाधार",
 		"daily.rain_text": "हर रात बारिश: लालटेनें बुझ जाती हैं, भंडार का तेल काम नहीं आता।",
 		"cos.title": "रूप, लालटेन और टोपी",
+		"menu.look": "रूप",
 		"cos.appearances": "रूप",
 		"cos.avatar_hero": "आपका ग्रामीण",
 		"cos.avatar": "रूप {n}",

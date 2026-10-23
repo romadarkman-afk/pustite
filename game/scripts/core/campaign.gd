@@ -21,15 +21,17 @@ const ORDER: PackedStringArray = ["a1c1", "a1c2", "a1c3", "a2c1", "a2c2", "a2c3"
 const MAPS := {"default": "res://config/village_default.tres", "mill": "res://config/village_mill.tres",
 	"monastery": "res://config/village_monastery.tres", "station": "res://config/village_station.tres"}
 const SOLO_MAP_IDS: PackedStringArray = ["default", "mill", "monastery", "station"]
+## Сдвиги домов между главами одной карты. Малые: дом не должен залезать на воду, на соседа и на забор
+## (проверяет самотест --village по всем 12 главам). Большие сдвиги ставили дома как попало.
 const SHELTER_OFFSETS := [
 	[Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO],
-	[Vector2(-24, 18), Vector2(24, -20), Vector2(12, -22), Vector2(-28, 8), Vector2(30, 14)],
-	[Vector2(22, -12), Vector2(-28, 18), Vector2(-16, 20), Vector2(-14, 16), Vector2(24, -16)],
+	[Vector2(-8, 6), Vector2(8, -6), Vector2(6, -8), Vector2(-8, 4), Vector2(8, 6)],
+	[Vector2(8, -4), Vector2(-8, 6), Vector2(-6, 8), Vector2(-6, 6), Vector2(8, -6)],
 ]
 const DECOR_OFFSETS := [
 	[Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO],
-	[Vector2(-10, 8), Vector2(12, -8), Vector2(-12, -8), Vector2(10, 8)],
-	[Vector2(14, 10), Vector2(-14, 4), Vector2(12, 10), Vector2(-14, 4)],
+	[Vector2(-6, 6), Vector2(6, -6), Vector2(-6, -6), Vector2(6, 6)],
+	[Vector2(6, 6), Vector2(-6, 4), Vector2(6, 6), Vector2(-6, 4)],
 ]
 const CHAPTER_LANDMARKS := {
 	"a1c2": {"id": "prop_stump_axe", "pos": Vector2(286, 542), "w": 52.0},
@@ -37,7 +39,7 @@ const CHAPTER_LANDMARKS := {
 	"a2c2": {"id": "prop_crates", "pos": Vector2(292, 542), "w": 72.0},
 	"a2c3": {"id": "prop_stump_axe", "pos": Vector2(468, 544), "w": 56.0},
 	"a3c1": {"id": "prop_graves", "pos": Vector2(676, 480), "w": 60.0},
-	"a3c3": {"id": "prop_crates", "pos": Vector2(542, 526), "w": 72.0},
+	"a3c3": {"id": "prop_crates", "pos": Vector2(470, 538), "w": 72.0},
 	"a4c2": {"id": "prop_crates", "pos": Vector2(278, 542), "w": 72.0},
 	"a4c3": {"id": "prop_cart", "pos": Vector2(326, 546), "w": 82.0},
 }

@@ -913,6 +913,7 @@ func data() -> Dictionary:
 		"daily.rain": "Temporais",
 		"daily.rain_text": "Chuva toda noite: os lampiões apagam, o óleo das reservas não ajuda.",
 		"cos.title": "Aparência, lampião e chapéu",
+		"menu.look": "Aparência",
 		"cos.appearances": "Aparência",
 		"cos.avatar_hero": "Seu aldeão",
 		"cos.avatar": "Visual {n}",

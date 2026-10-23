@@ -957,6 +957,7 @@ func data() -> Dictionary:
 		"daily.rain": "Sağanak",
 		"daily.rain_text": "Her gece yağmur: fenerler söner, erzaktaki yağ işe yaramaz.",
 		"cos.title": "Görünüm, fener ve şapka",
+		"menu.look": "Görünüm",
 		"cos.appearances": "Görünüm",
 		"cos.avatar_hero": "Köylünüz",
 		"cos.avatar": "Görünüm {n}",

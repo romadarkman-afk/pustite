@@ -8,7 +8,7 @@
 script = ExtResource("2_house")
 title = "Вокзал"
 kind = 0
-pos = Vector2(128, 312)
+pos = Vector2(144, 312)
 size = Vector2(118, 92)
 art = "station_house"
 art_door = Rect2(0.26, 0.55, 0.16, 0.29)
@@ -37,7 +37,7 @@ art_door = Rect2(0.15, 0.40, 0.27, 0.47)
 script = ExtResource("2_house")
 title = "Будка"
 kind = 3
-pos = Vector2(178, 486)
+pos = Vector2(218, 494)
 size = Vector2(122, 58)
 art = "station_hut"
 art_w = 1.2
@@ -57,28 +57,28 @@ art_door = Rect2(0.11, 0.35, 0.17, 0.38)
 script = ExtResource("2_house")
 title = ""
 kind = 5
-pos = Vector2(36, 214)
+pos = Vector2(124, 134)
 size = Vector2(70, 56)
 
 [sub_resource type="Resource" id="house_6"]
 script = ExtResource("2_house")
 title = ""
 kind = 0
-pos = Vector2(232, 206)
+pos = Vector2(248, 174)
 size = Vector2(84, 66)
 
 [sub_resource type="Resource" id="house_7"]
 script = ExtResource("2_house")
 title = ""
 kind = 0
-pos = Vector2(500, 204)
+pos = Vector2(500, 148)
 size = Vector2(86, 66)
 
 [sub_resource type="Resource" id="house_8"]
 script = ExtResource("2_house")
 title = ""
 kind = 5
-pos = Vector2(690, 218)
+pos = Vector2(642, 394)
 size = Vector2(72, 56)
 
 [sub_resource type="Resource" id="job_water"]

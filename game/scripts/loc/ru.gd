@@ -967,6 +967,7 @@ func data() -> Dictionary:
 		"daily.rain": "Ливни",
 		"daily.rain_text": "Ливень каждую ночь: фонари гаснут, масло из запасов не помогает.",
 		"cos.title": "Внешность, фонарь и шапка",
+		"menu.look": "Образ",
 		"cos.appearances": "Внешность",
 		"cos.avatar_hero": "Ваш житель",
 		"cos.avatar": "Образ {n}",

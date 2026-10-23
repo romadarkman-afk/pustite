@@ -920,6 +920,7 @@ func data() -> Dictionary:
 		"daily.rain": "Platzregen",
 		"daily.rain_text": "Jede Nacht Regen: die Laternen gehen aus, Öl aus den Vorräten hilft nicht.",
 		"cos.title": "Aussehen, Laterne und Hut",
+		"menu.look": "Aussehen",
 		"cos.appearances": "Aussehen",
 		"cos.avatar_hero": "Dein Avatar",
 		"cos.avatar": "Aussehen {n}",

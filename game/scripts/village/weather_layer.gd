@@ -17,7 +17,7 @@ const DIR := "res://assets/weather/"
 const FULL := {
 	"rain_far": 60, "rain_back": 60, "rain_mid": 60, "rain_near": 40, "splash": 48, "ripples": 6,
 	"flakes_far": 60, "flakes_mid": 60, "flakes_near": 40, "drift": 24, "grains": 40,
-	"fluff": 40, "ash": 40, "midges": 6, "leaves": 30, "drip": 40, "mist": 16,
+	"fluff": 40, "ash": 40, "midges": 6, "leaves": 12, "drip": 40, "mist": 16,
 }
 
 ## Атласы: файл, столбцов, строк. Настоящие картинки ChatGPT ложатся на место заглушек.
@@ -556,8 +556,8 @@ func _leaves() -> CPUParticles2D:
 	p.angular_velocity_min = -160.0
 	p.angular_velocity_max = 160.0
 	p.angle_max = 360.0
-	p.scale_amount_min = 0.12
-	p.scale_amount_max = 0.2
+	p.scale_amount_min = 0.05
+	p.scale_amount_max = 0.09
 	return p
 
 

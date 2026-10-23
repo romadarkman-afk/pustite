@@ -70,6 +70,7 @@ func populate(m: Match) -> void:
 			f.set_brooch(Save.brooch)
 		figures[v.id] = f
 		f.set_weather_fx(fx_frost, fx_wet)
+		f.set_cast_shadow(view.shadow_alpha(view.night) if view != null else 0.0)
 		figs.append(f)
 	var widths: Array[float] = []
 	for f: VillagerFigure in figs:
@@ -517,6 +518,9 @@ func _free_cell(grid: AStarGrid2D, p: Vector2, cell: float, dimensions: Vector2i
 	return center
 
 
+const DOOR_GAP_DEPTH := 40.0    ## глубина прохода к двери: от порога вглубь, не сквозь дом
+
+
 func _walk_walls(door_house: int = -1) -> Array[Rect2]:
 	var out: Array[Rect2] = []
 	var houses: Array[HouseDef] = []
@@ -532,19 +536,22 @@ func _walk_walls(door_house: int = -1) -> Array[Rect2]:
 		if i != door_house:
 			out.append(footprint)
 			continue
-		# Только выбранный вход получает проход; остальная проекция здания остаётся твёрдой.
+		# Только выбранный вход получает проход, и только спереди: через весь дом от задней стены не пройти.
 		var door := view.door_rect(h)
 		var gap_width := maxf(door.size.x + 34.0, 48.0)
-		var gap := Rect2(door.get_center().x - gap_width * 0.5, footprint.position.y,
-			gap_width, footprint.size.y)
+		var gap_depth := minf(DOOR_GAP_DEPTH, footprint.size.y)
+		var gap := Rect2(door.get_center().x - gap_width * 0.5, footprint.end.y - gap_depth,
+			gap_width, gap_depth)
 		gap = gap.intersection(footprint)
 		if gap.size.x <= 0.0 or gap.size.y <= 0.0:
 			out.append(footprint)
 			continue
+		# Над проходом стена сплошная, по бокам от прохода тоже.
+		out.append(Rect2(footprint.position, Vector2(footprint.size.x, footprint.size.y - gap.size.y)))
 		if gap.position.x > footprint.position.x:
-			out.append(Rect2(footprint.position, Vector2(gap.position.x - footprint.position.x, footprint.size.y)))
+			out.append(Rect2(Vector2(footprint.position.x, gap.position.y), Vector2(gap.position.x - footprint.position.x, gap.size.y)))
 		if gap.end.x < footprint.end.x:
-			out.append(Rect2(Vector2(gap.end.x, footprint.position.y), Vector2(footprint.end.x - gap.end.x, footprint.size.y)))
+			out.append(Rect2(Vector2(gap.end.x, gap.position.y), Vector2(footprint.end.x - gap.end.x, gap.size.y)))
 	return out
 
 
@@ -633,8 +640,10 @@ func set_color_grade(grade: Color) -> void:
 
 func set_night(n: float) -> void:
 	night_tint = Color.WHITE.lerp(place_grade, 0.14).lerp(Color(0.76, 0.79, 0.91), n)
+	var cast := view.shadow_alpha(n) if view != null else 0.0
 	for f: VillagerFigure in figures.values():
 		f.set_night(n)
+		f.set_cast_shadow(cast)
 		f.modulate = night_tint
 	for hn: Npc in npcs.values():
 		hn.modulate = night_tint

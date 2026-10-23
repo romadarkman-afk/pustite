@@ -915,6 +915,7 @@ func data() -> Dictionary:
 		"daily.rain": "Aguaceros",
 		"daily.rain_text": "Lluvia cada noche: los faroles se apagan, el aceite de las reservas no sirve.",
 		"cos.title": "Aspecto, farol y sombrero",
+		"menu.look": "Aspecto",
 		"cos.appearances": "Aspecto",
 		"cos.avatar_hero": "Tu aldeano",
 		"cos.avatar": "Aspecto {n}",

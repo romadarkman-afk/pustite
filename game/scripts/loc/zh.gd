@@ -923,6 +923,7 @@ func data() -> Dictionary:
 		"daily.rain": "暴雨",
 		"daily.rain_text": "每夜都下雨：灯笼熄灭，存下的灯油也没用。",
 		"cos.title": "外观、灯笼和帽子",
+		"menu.look": "外观",
 		"cos.appearances": "外观",
 		"cos.avatar_hero": "你的村民",
 		"cos.avatar": "形象 {n}",

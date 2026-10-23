@@ -96,8 +96,7 @@ func build() -> void:
 	how.pressed.connect(func() -> void: emit_intent(Intent.OPEN_HOWTO))
 	var lb := lang_button(self)
 	lb.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	custom_b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	var wardrobe := W.button(L.t("cos.title"), &"Row")
+	var wardrobe := W.button(L.t("menu.look"), &"Row")
 	wardrobe.name = "Wardrobe"
 	wardrobe.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	wardrobe.pressed.connect(func() -> void: emit_intent(Intent.OPEN_WARDROBE))
@@ -105,9 +104,10 @@ func build() -> void:
 	book.name = "Book"
 	book.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	book.pressed.connect(func() -> void: emit_intent(Intent.OPEN_BOOK))
+	dbs.append(custom_b)
 	body.add_child(W.fit_row(dbs))
 	body.add_child(daily_button())
-	body.add_child(W.fit_row([how, lb, custom_b, wardrobe, book]))
+	body.add_child(W.fit_row([how, lb, wardrobe, book]))
 	body.add_child(W.label(L.t("menu.tale"), &"Tale"))
 
 	var footer_actions: Array[Button] = []

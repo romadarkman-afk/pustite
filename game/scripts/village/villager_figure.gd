@@ -53,7 +53,8 @@ var identity_color := Color.WHITE
 const IDENTITY_COLORS := [Color("bb7440"), Color("a83e59"), Color("4676b0"), Color("3e8b7c"),
 	Color("ad913e"), Color("8461a6"), Color("c2b190"), Color("527e49"), Color("ae6048"),
 	Color("4c91ab"), Color("936581"), Color("8c984f"), Color("ab8598")]
-const STRIDE_LENGTH := 70.0
+const STRIDE_LENGTH := 64.0            ## длина двойного шага (левая и правая нога), единиц посёлка
+const MAX_CADENCE := 2.3               ## двойных шагов в секунду: быстрее ноги не мелькают, бегущий растягивает шаг
 static var _foot_shadow_texture: Texture2D
 var _turn_t: float = 0.0
 var _knock_t: float = 0.0
@@ -62,6 +63,8 @@ var door_portrait := false
 var door_tell: StringName = &"ordinary"
 var _door_rig: Polygon2D
 var _door_shadow: Polygon2D
+var _cast_poly: Polygon2D        ## падающая тень в поле: та же сетка, прижатая к земле и сдвинутая вправо
+var cast_alpha := 0.0           ## сила тени; ставит толпа вместе с ночью и погодой, 0 — тени нет
 var _door_base := PackedVector2Array()
 var _door_weights := PackedFloat32Array()
 var _left_wrist_weights := PackedFloat32Array()
@@ -107,7 +110,9 @@ var sprite_id: int = 0
 var hero_hat_id: String = "own"
 var tag: Node2D               ## слой подписи над всем посёлком
 
-const WALK_SPEED := 145.0   ## единиц посёлка в секунду
+const CAST_KX := 0.4        ## те же числа, что у теней домов (VillageView.SHADOW_KX / SHADOW_KY)
+const CAST_KY := 0.17
+const WALK_SPEED := 105.0   ## единиц посёлка в секунду: шаг взрослого, 1 единица около 2 см
 
 
 func setup(name: String, l: LookDef, player: bool) -> void:
@@ -126,6 +131,10 @@ func setup(name: String, l: LookDef, player: bool) -> void:
 	_door_shadow.modulate = Color(0, 0, 0, 0.2)
 	_door_shadow.visible = false
 	body.add_child(_door_shadow)
+	_cast_poly = Polygon2D.new()
+	_cast_poly.show_behind_parent = true
+	_cast_poly.visible = false
+	body.add_child(_cast_poly)
 	_door_rig = Polygon2D.new()
 	_door_rig.show_behind_parent = true
 	_door_rig.visible = false
@@ -794,7 +803,8 @@ func _process(delta: float) -> void:
 	var walk_target := clampf(travelled / maxf(delta, 0.001) / WALK_SPEED, 0.0, 1.0) if state == State.RUN and not Juice.instant else 0.0
 	_walk_weight = lerpf(_walk_weight, walk_target, 1.0 - exp(-12.0 * delta))
 	if state == State.RUN and travelled > 0.0 and not Juice.instant:
-		_walk = fmod(_walk + travelled / STRIDE_LENGTH, 1.0)
+		var speed := travelled / maxf(delta, 0.001)
+		_walk = fmod(_walk + travelled / maxf(STRIDE_LENGTH, speed / MAX_CADENCE), 1.0)
 	var pose: Dictionary = pose_now()[1]
 	var tilt_target := float(pose.get("lean", 0.0)) * 0.45 + float(pose.get("tilt", 0.0)) * 0.25
 	var tilt_before := _render_tilt
@@ -1224,14 +1234,17 @@ func _draw_realistic_sprite(tex: Texture2D, h: float, w: float, pose: Dictionary
 	var idle_weight := 1.0 - _walk_weight
 	var breath := sin(_t * 1.7 + _phase) * idle_weight
 	var work := sin(float(pose.get("work", 0.0)) * TAU) if pose.has("work") else 0.0
-	var bob := absf(walk_phase) * 0.55 + breath * 0.16
-	var sway := walk_phase * 1.2 + sin(_t * 0.53 + _phase) * 0.2 * idle_weight
-	var turn := _render_tilt + walk_phase * 0.012 + breath * 0.003 + work * 0.004
+	# при шаге корпус подпрыгивает дважды за двойной шаг, переносит вес с ноги на ногу и качается
+	var bob := absf(walk_phase) * 2.0 + breath * 0.16
+	var sway := walk_phase * 1.7 + sin(_t * 0.53 + _phase) * 0.2 * idle_weight
+	var turn := _render_tilt + walk_phase * 0.034 + breath * 0.003 + work * 0.004
 	if pose.has("shiver"):
 		sway += sin(_t * 18.0 + _phase) * 0.28
-	_draw_field_rig(tex, h, w, pose, 0.25)
+	_draw_field_rig(tex, h, w, pose, 0.7)
 	_door_rig.position = Vector2(sway, bob)
 	_door_rig.rotation = turn
+	if _cast_poly.visible:
+		_cast_poly.position = Vector2(sway, 1.0)
 
 
 ## Значок на груди героя — маленький, потёртый металл, как всё в посёлке:
@@ -1288,7 +1301,7 @@ func _build_sprite_rig(tex: Texture2D, h: float, w: float) -> void:
 				var corner := row * 10 + column
 				faces.append(PackedInt32Array([corner, corner + 1, corner + 10]))
 				faces.append(PackedInt32Array([corner + 1, corner + 11, corner + 10]))
-		for rig: Polygon2D in [_door_rig, _door_shadow]:
+		for rig: Polygon2D in [_door_rig, _door_shadow, _cast_poly]:
 			rig.texture = tex
 			rig.uv = uv
 			rig.polygons = faces
@@ -1328,6 +1341,26 @@ func _draw_field_rig(tex: Texture2D, h: float, w: float, pose: Dictionary, motio
 	_door_rig.scale = Vector2.ONE
 	_door_rig.visible = true
 	_door_shadow.visible = false
+	_place_cast_shadow(points, 0.0)
+
+
+## Падающая тень стоит на земле: точка на высоте H уходит на SHADOW_KX*H вправо и SHADOW_KY*H вниз.
+## Тело отражается, когда житель смотрит влево, поэтому наклон умножаем на сторону: на экране тень всегда вправо.
+func _place_cast_shadow(points: PackedVector2Array, sway: float) -> void:
+	var on := cast_alpha > 0.01 and not door_portrait
+	_cast_poly.visible = on
+	if not on:
+		return
+	_cast_poly.polygon = points
+	_cast_poly.modulate = Color(0, 0, 0, cast_alpha)
+	_cast_poly.transform = Transform2D(Vector2(1.0, 0.0), Vector2(-CAST_KX * _face, -CAST_KY), Vector2(sway, 1.0))
+
+
+## Сила падающей тени (день сильнее, ночь и непогода слабее). Включает и гасит копию тела.
+func set_cast_shadow(a: float) -> void:
+	cast_alpha = a
+	if _cast_poly != null and a <= 0.01:
+		_cast_poly.visible = false
 
 
 ## У двери та же сетка и палитра; отдельно двигаются кисть и тень.

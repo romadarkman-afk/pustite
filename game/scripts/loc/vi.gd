@@ -913,6 +913,7 @@ func data() -> Dictionary:
 		"daily.rain": "Mưa lớn",
 		"daily.rain_text": "Đêm nào cũng mưa: đèn lồng tắt, dầu trong kho chẳng giúp được gì.",
 		"cos.title": "Ngoại hình, đèn và mũ",
+		"menu.look": "Ngoại hình",
 		"cos.appearances": "Ngoại hình",
 		"cos.avatar_hero": "Dân làng của bạn",
 		"cos.avatar": "Diện mạo {n}",

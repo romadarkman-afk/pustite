@@ -5,6 +5,8 @@ extends Screen
 
 const AVATAR_COLUMNS := 5
 const AVATAR_TILE_H := 112
+const TABS: PackedStringArray = ["avatar", "lantern", "hat", "brooch"]
+static var _tab := "avatar"     ## какой раздел открыт: остаётся и после надевания вещи, когда экран строится заново
 
 var preview: VillagerFigure
 var _art: Control
@@ -26,7 +28,7 @@ func build() -> void:
 	W.clear(body)
 	W.clear(footer)
 	_art = Control.new()
-	_art.custom_minimum_size = Vector2(0, 260)
+	_art.custom_minimum_size = Vector2(0, 230)
 	_art.clip_contents = true
 	_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	preview = VillagerFigure.new()
@@ -36,24 +38,43 @@ func build() -> void:
 	preview.set_hero_hat(Save.hat if Save.avatar_id == "hero" else "own")
 	preview.set_lantern(Save.lantern)
 	preview.set_brooch(Save.brooch)
-	preview.scale = Vector2(2.1, 2.1)
+	preview.scale = Vector2(1.9, 1.9)
 	_art.add_child(preview)
 	_art.resized.connect(func() -> void: preview.position = Vector2(_art.size.x * 0.5, _art.size.y - 24.0))
 	body.add_child(_art)
 
-	body.add_child(W.label(L.t("cos.appearances"), &"Hint"))
-	body.add_child(_avatar_grid())
-	body.add_child(W.label(L.t("cos.lanterns"), &"Hint"))
-	body.add_child(_grid("lantern", Cosmetics.LANTERNS, Save.lantern))
-	body.add_child(W.label(L.t("cos.hats"), &"Hint"))
-	body.add_child(_grid("hat", Cosmetics.HATS, Save.hat))
-	body.add_child(W.label((String((StoryLoc.get_v("misc") as Array)[1]) if StoryLoc.has("misc") else ("Значок" if L.code == "ru" else "Brooch")), &"Hint"))
-	body.add_child(_grid("brooch", Cosmetics.BROOCHES, Save.brooch))
+	# четыре раздела вкладками: на телефоне всё сразу не помещалось, приходилось тянуть вниз
+	var tab_buttons: Array[Button] = []
+	for t: String in TABS:
+		var tb := W.button(_tab_title(t), &"RowOn" if t == _tab else &"Row")
+		tb.name = "tab_" + t
+		var key := t
+		tb.pressed.connect(func() -> void:
+			_tab = key
+			build())
+		tab_buttons.append(tb)
+	body.add_child(W.fit_row(tab_buttons))
+	var grids: Array[Control] = [_avatar_grid(), _grid("lantern", Cosmetics.LANTERNS, Save.lantern),
+		_grid("hat", Cosmetics.HATS, Save.hat), _grid("brooch", Cosmetics.BROOCHES, Save.brooch)]
+	for i in range(grids.size()):
+		grids[i].visible = TABS[i] == _tab
+		body.add_child(grids[i])
 	body.add_child(W.label(L.t("cos.note"), &"Small"))
 
 	var back := W.button(L.t("ui.back"), &"Ghost")
 	back.pressed.connect(func() -> void: emit_intent(Intent.BACK))
 	footer.add_child(back)
+
+
+func _tab_title(kind: String) -> String:
+	match kind:
+		"avatar":
+			return L.t("cos.appearances")
+		"lantern":
+			return L.t("cos.lanterns")
+		"hat":
+			return L.t("cos.hats")
+	return String((StoryLoc.get_v("misc") as Array)[1]) if StoryLoc.has("misc") else ("Значок" if L.code == "ru" else "Brooch")
 
 
 func _grid(kind: String, items: Array[Dictionary], worn: String) -> GridContainer:

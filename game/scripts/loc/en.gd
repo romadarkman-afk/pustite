@@ -919,6 +919,7 @@ func data() -> Dictionary:
 		"daily.rain": "Downpours",
 		"daily.rain_text": "Rain every night: lanterns go out, oil from supplies doesn't help.",
 		"cos.title": "Appearance, lantern and hat",
+		"menu.look": "Look",
 		"cos.appearances": "Appearance",
 		"cos.avatar_hero": "Your villager",
 		"cos.avatar": "Look {n}",

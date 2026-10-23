@@ -3258,7 +3258,12 @@ static func weather() -> void:
 	await _frames(tree, 2)
 	var gmat := (view.ground_fx.get_child(0) as ColorRect).material as ShaderMaterial
 	ok += _expect(fails, float(gmat.get_shader_parameter("cover")) > 0.5 and view.ground_fx.get_child(0).visible, "зимой снег на земле не включился в шейдере")
-	ok += _expect(fails, view.ground_fx.tuft_count() > 20 and view.ground_fx.tuft_count() <= GroundFx.MAX_TUFTS, "трава: %d пучков" % view.ground_fx.tuft_count())
+	ok += _expect(fails, not GroundFx.grass_enabled and view.ground_fx.tuft_count() == 0, "трава-заглушка выключена: %d пучков" % view.ground_fx.tuft_count())
+	GroundFx.grass_enabled = true
+	view.set_weather(Weather.state("a3c1", 3))
+	await _frames(tree, 2)
+	ok += _expect(fails, view.ground_fx.tuft_count() > 20 and view.ground_fx.tuft_count() <= GroundFx.MAX_TUFTS, "трава (когда включена): %d пучков" % view.ground_fx.tuft_count())
+	GroundFx.grass_enabled = false
 	view.set_weather(Weather.state("a2c1", 2))
 	gmat = (view.ground_fx.get_child(0) as ColorRect).material as ShaderMaterial
 	ok += _expect(fails, float(gmat.get_shader_parameter("cover")) == 0.0 and float(gmat.get_shader_parameter("wet")) > 0.4, "осенью дождь не намочил землю в шейдере")
@@ -4133,6 +4138,7 @@ static func village() -> void:
 		if m.phase == Match.Phase.NIGHT:
 			ok += _expect(fails, v.lamps_fueled == 0, "без запасов ночью горят фонари (%d)" % v.lamps_fueled)
 
+	ok += await _village_layout(tree, fails)
 	print("=== живой день: %d проверок ===" % (ok + fails.size()))
 	if fails.is_empty():
 		print("ИТОГ: OK — камера идёт за игроком, ходьба и дела работают, запасы зажигают фонари")
@@ -4151,6 +4157,69 @@ static func village() -> void:
 # =============================================================
 ## Ночь по правилам: together людей в доме 0 (первый добежавший — хозяин, впускает всех),
 ## остальные в доме 1. Оберег дома 0 перед ночью — tal0.
+## Расстановка посёлка по всем 12 главам: дом не стоит на воде и не лезет на соседа, а забор, колодец,
+## фонари, дела и реквизит не упираются в стены. Люди ходят вокруг стен, поэтому тут же проверяем проход к двери.
+static func _village_layout(tree: SceneTree, fails: PackedStringArray) -> int:
+	var ok := 0
+	var vv := VillageView.new()
+	var first := true
+	for id: String in Campaign.ORDER:
+		var def := Campaign.village_for_chapter(id)
+		if first:
+			vv.setup(def, 5, PackedStringArray())
+			tree.root.add_child(vv)
+			first = false
+		else:
+			vv.set_village(def, 5, PackedStringArray())
+		var houses: Array[HouseDef] = []
+		houses.append_array(def.shelters)
+		houses.append_array(def.decor)
+		var feet: Array[Rect2] = []
+		var rects: Array[Rect2] = []
+		for h: HouseDef in houses:
+			var r := vv.house_rect(h)
+			rects.append(r)
+			feet.append(Rect2(r.position.x + r.size.x * 0.08, r.position.y, r.size.x * 0.84, h.pos.y - r.position.y))
+		for i in range(houses.size()):
+			var h := houses[i]
+			var f := feet[i]
+			var base := Rect2(f.position.x - 14.0, h.pos.y - 18.0, f.size.x + 28.0, 26.0)
+			ok += _expect(fails, vv.water_share(base) <= 0.0, "%s: дом %d стоит на воде (%.0f%% основания)" % [id, i, vv.water_share(base) * 100.0])
+			ok += _expect(fails, h.pos.x >= 90.0 and h.pos.x <= 650.0 and h.pos.y >= 120.0 and h.pos.y <= 520.0, "%s: дом %d у края поля %s" % [id, i, h.pos])
+			ok += _expect(fails, not vv.water_at(h.pos + Vector2(0, 22)), "%s: у двери дома %d вода" % [id, i])
+			for j in range(i + 1, houses.size()):
+				var inter := rects[i].intersection(rects[j])
+				if inter.get_area() <= 0.0:
+					continue
+				var back := i if houses[i].pos.y < houses[j].pos.y else j
+				var share := inter.get_area() / rects[back].get_area()
+				ok += _expect(fails, share <= 0.06, "%s: дома %d и %d наезжают друг на друга (%.0f%% дальнего)" % [id, i, j, share * 100.0])
+			var door_front := h.pos + Vector2(0, 22)
+			for j in range(houses.size()):
+				ok += _expect(fails, j == i or not feet[j].has_point(door_front), "%s: дверь дома %d закрыта домом %d" % [id, i, j])
+			var points: Array[Vector2] = [def.well]
+			points.append_array(def.lamps)
+			for job: JobDef in def.jobs:
+				points.append(job.pos)
+			for pt: Vector2 in points:
+				ok += _expect(fails, not f.grow_individual(8.0, 4.0, 8.0, 10.0).has_point(pt), "%s: точка %s внутри стены дома %d" % [id, pt, i])
+			for fence: Vector2 in def.fences:
+				var fr := vv.fence_rect(fence)
+				fr = Rect2(fr.position.x + 6.0, fr.position.y + fr.size.y * 0.1, fr.size.x - 12.0, fr.size.y * 0.8)
+				var share_f := fr.intersection(f).get_area() / fr.get_area()
+				ok += _expect(fails, share_f <= 0.03, "%s: забор у %s залез в дом %d (%.0f%%)" % [id, fence, i, share_f * 100.0])
+			for pr: Dictionary in def.props:
+				var w := float(pr.get("w", 60.0))
+				var at: Vector2 = pr.pos
+				var z := Rect2(at.x - w * 0.4, at.y - w * 0.8, w * 0.8, w * 0.8 + 4.0)
+				var share_p := z.intersection(f).get_area() / z.get_area()
+				ok += _expect(fails, share_p <= 0.12, "%s: реквизит %s стоит в доме %d (%.0f%%)" % [id, pr.get("id", ""), i, share_p * 100.0])
+		for job: JobDef in def.jobs:
+			ok += _expect(fails, not vv.water_at(job.pos), "%s: дело %s стоит в воде" % [id, job.id])
+	vv.queue_free()
+	return ok
+
+
 static func _rules_night(seed_v: int, tal0: int, together: int) -> Dictionary:
 	var c := (load("res://config/balance_7.tres") as GameConfig).duplicate() as GameConfig
 	var m := Match.new()

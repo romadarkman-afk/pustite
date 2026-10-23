@@ -8,63 +8,63 @@
 script = ExtResource("2_house")
 title = "Дом у реки"
 kind = 0
-pos = Vector2(128, 312)
+pos = Vector2(183, 313)
 size = Vector2(118, 92)
 
 [sub_resource type="Resource" id="house_1"]
 script = ExtResource("2_house")
 title = "Сарай"
 kind = 1
-pos = Vector2(592, 312)
+pos = Vector2(601, 319)
 size = Vector2(142, 100)
 
 [sub_resource type="Resource" id="house_2"]
 script = ExtResource("2_house")
 title = "Церковь"
 kind = 2
-pos = Vector2(360, 232)
+pos = Vector2(358, 234)
 size = Vector2(96, 104)
 
 [sub_resource type="Resource" id="house_3"]
 script = ExtResource("2_house")
 title = "Погреб"
 kind = 3
-pos = Vector2(178, 486)
+pos = Vector2(226, 482)
 size = Vector2(122, 58)
 
 [sub_resource type="Resource" id="house_4"]
 script = ExtResource("2_house")
 title = "Гараж"
 kind = 4
-pos = Vector2(552, 486)
+pos = Vector2(546, 482)
 size = Vector2(128, 72)
 
 [sub_resource type="Resource" id="house_5"]
 script = ExtResource("2_house")
 title = ""
 kind = 5
-pos = Vector2(36, 214)
+pos = Vector2(118, 122)
 size = Vector2(70, 56)
 
 [sub_resource type="Resource" id="house_6"]
 script = ExtResource("2_house")
 title = ""
 kind = 0
-pos = Vector2(232, 206)
+pos = Vector2(238, 140)
 size = Vector2(84, 66)
 
 [sub_resource type="Resource" id="house_7"]
 script = ExtResource("2_house")
 title = ""
 kind = 0
-pos = Vector2(500, 204)
+pos = Vector2(537, 126)
 size = Vector2(86, 66)
 
 [sub_resource type="Resource" id="house_8"]
 script = ExtResource("2_house")
 title = ""
 kind = 5
-pos = Vector2(690, 218)
+pos = Vector2(630, 412)
 size = Vector2(72, 56)
 
 [sub_resource type="Resource" id="job_water"]

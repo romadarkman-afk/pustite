@@ -14,6 +14,7 @@ const SKY_SHARE := 0.50                   ## горизонт не уходит 
 const BUBBLE_HEADROOM := 210.0             ## место над верхним жителем для пузыря на планшетах
 const SAFE_X := Vector2(84, 624)          ## куда можно ставить жителей: слева половина имени, справа колонка отметок
 static var _shadow_outline_cache: Dictionary = {}
+static var _water_cache: Dictionary = {}   ## земля -> Image маски воды или null
 
 signal night_changed(value: float)
 
@@ -591,8 +592,6 @@ func _draw() -> void:
 	# кто стоит за домом, того дом закрывает. Здесь только то, что лежит на земле.
 	_draw_traces(n)
 	_draw_hatches(n, k)
-	_draw_fish(n, k)
-	_draw_fences(n, k)
 	draw_usec_total += Time.get_ticks_usec() - t0
 
 
@@ -640,6 +639,9 @@ func _build_props() -> void:
 		var pw := float(pr.get("w", 60.0))
 		var fl := bool(pr.get("flip", false))
 		_add_prop(at, func(ci: CanvasItem) -> void: _decor_prop(ci, id, at, pw, fl, _nq()))
+	for row: Vector2 in def.fences:
+		var fence_row := row
+		_add_prop(fence_row, func(ci: CanvasItem) -> void: _paint_fence(ci, fence_row))
 	for j: JobDef in def.jobs:
 		var jp := j.pos
 		match j.kind:
@@ -734,7 +736,7 @@ const GROUND_FILES: PackedStringArray = ["ground_day", "ground_night"]
 const GROUND_RECT := Rect2(-88.8, 31.6, 816.0, 609.3)   ## деревня; у другой карты — VillageDef.ground_rect
 const ART_FILES: PackedStringArray = ["house_day", "house_night", "barn_day", "barn_night", "church_day", "church_night",
 	"cellar_day", "cellar_night", "garage_day", "garage_night", "shed_day", "shed_night", "lamp_day", "lamp_night",
-	"well", "woodpile", "barrel", "talisman", "talisman_cracked", "talisman_broken", "boards"]
+	"well", "woodpile", "barrel", "talisman", "talisman_cracked", "talisman_broken", "boards", "hatch"]
 ## Небо, дальний лес, ветки, туман и дым — общие для всех карт и стран.
 const MAP_FILES: PackedStringArray = ["sky_day.jpg", "sky_dusk.jpg", "sky_night.jpg", "treeline_day.png", "treeline_night.png",
 	"branches.png", "fog.png", "smoke.png", "puddles.png", "footprints.png", "blood_mud.png"]
@@ -818,6 +820,49 @@ func ground_image() -> Image:
 	return t.get_image()
 
 
+## Вода на земле: белое в маске assets/village/<земля>.png с приставкой water_. Нет файла: воды нет.
+## Дома и дела на воду не ставим, самотест это проверяет.
+func water_image() -> Image:
+	if def == null:
+		return null
+	if not _water_cache.has(def.ground):
+		var path := ART_DIR + "water_" + def.ground + ".png"
+		var img: Image = null
+		if ResourceLoader.exists(path):
+			var t := load(path) as Texture2D
+			img = t.get_image() if t != null else null
+		_water_cache[def.ground] = img
+	return _water_cache[def.ground]
+
+
+func water_at(p: Vector2) -> bool:
+	var img := water_image()
+	if img == null:
+		return false
+	var gr := def.ground_rect
+	var u := int((p.x - gr.position.x) / gr.size.x * img.get_width())
+	var v := int((p.y - gr.position.y) / gr.size.y * img.get_height())
+	if u < 0 or v < 0 or u >= img.get_width() or v >= img.get_height():
+		return false
+	return img.get_pixel(u, v).r > 0.5
+
+
+## Какая доля прямоугольника стоит на воде.
+func water_share(r: Rect2) -> float:
+	var hit := 0
+	var total := 0
+	var y := r.position.y
+	while y <= r.end.y:
+		var x := r.position.x
+		while x <= r.end.x:
+			total += 1
+			if water_at(Vector2(x, y)):
+				hit += 1
+			x += 6.0
+		y += 6.0
+	return float(hit) / maxf(total, 1)
+
+
 func house_rect(h: HouseDef) -> Rect2:
 	var a := _art(h)
 	var tex: Texture2D = _tex[a[0] + "_day"]
@@ -860,6 +905,7 @@ func _decor_prop(ci: CanvasItem, id: String, p: Vector2, w: float, flip: bool, n
 		return
 	var h := w * tex.get_height() / tex.get_width()
 	_draw_contact_shadow(ci, p + Vector2(0, -3), w * 0.72, 18.0, 0.18)
+	_cast_shadow(ci, tex, Rect2(p.x - w * 0.5, p.y - h, w, h), flip, p, n)
 	_blit(ci, tex, Rect2(p.x - w * 0.5, p.y - h, w, h), flip, _night_mod(n).darkened(0.06))
 
 
@@ -868,7 +914,43 @@ func _prop(ci: CanvasItem, tex: Texture2D, p: Vector2, w: float, n: float, baked
 	var h := w * tex.get_height() / tex.get_width()
 	if not baked_shadow:
 		_draw_contact_shadow(ci, p + Vector2(0, -3), w * 0.72, 18.0, 0.18)
+		_cast_shadow(ci, tex, Rect2(p.x - w * 0.5, p.y - h, w, h), false, p, n)
 	_blit(ci, tex, Rect2(p.x - w * 0.5, p.y - h, w, h), false, _night_mod(n))
+
+
+const SHADOW_KX := 0.4                    ## на сколько вправо уходит точка предмета на единицу её высоты
+const SHADOW_KY := 0.17                   ## и вниз: тень ложится на землю косо и плоско
+
+
+## Сила тени: днём заметная, ночью слабая лунная, под облаками и в тумане мягче. На упрощённой графике тени нет.
+func shadow_alpha(n: float) -> float:
+	if simplified_graphics:
+		return 0.0
+	var a := lerpf(0.3, 0.08, clampf(n, 0.0, 1.0))
+	if bool(weather_state.get("active", false)):
+		var gloom := float(weather_state.get("power", 0.0)) * 0.6 + float(weather_state.get("fog", 0.0)) * 0.5
+		a *= 1.0 - 0.6 * clampf(gloom, 0.0, 0.85)
+	return a
+
+
+## Падающая тень: та же картинка, перевёрнутая вокруг линии основания и сдвинутая вправо и вниз,
+## чёрная с прозрачностью. Три копии с разным наклоном дают мягкий край. Рисует движок, без полигонов.
+## base — точка на земле у основания предмета, reach — длина тени относительно обычной.
+func _cast_shadow(ci: CanvasItem, tex: Texture2D, r: Rect2, flip: bool, base: Vector2, n: float, reach: float = 1.0) -> void:
+	var alpha := shadow_alpha(n)
+	if alpha <= 0.01 or tex == null:
+		return
+	var off := Vector2.ZERO if ci == self else -(ci as Node2D).position
+	var local := Transform2D(Vector2(-1.0 if flip else 1.0, 0.0), Vector2(0.0, 1.0),
+		Vector2(r.end.x if flip else r.position.x, r.position.y))
+	var to_base := Transform2D(Vector2.RIGHT, Vector2.DOWN, base)
+	var from_base := Transform2D(Vector2.RIGHT, Vector2.DOWN, -base)
+	var shift := Transform2D(Vector2.RIGHT, Vector2.DOWN, off)
+	for spread: float in [0.86, 1.0, 1.16]:
+		var proj := Transform2D(Vector2(1.0, 0.0), Vector2(-SHADOW_KX * reach * spread, -SHADOW_KY * reach), Vector2.ZERO)
+		ci.draw_set_transform_matrix(shift * to_base * proj * from_base * local)
+		ci.draw_texture_rect(tex, Rect2(Vector2.ZERO, r.size), false, Color(0.02, 0.02, 0.03, alpha * 0.4))
+	ci.draw_set_transform(off)
 
 
 func _draw_contact_shadow(ci: CanvasItem, p: Vector2, w: float, h: float, alpha: float) -> void:
@@ -896,6 +978,7 @@ func _draw_house(ci: CanvasItem, h: HouseDef, state: int, n: float, lit: float, 
 	if night_tex == null and state != 2:
 		# у картинки нет ночной пары: жилой дом ночью теплеет, будто внутри горит свет
 		mod = mod.lerp(Color(1.0, 0.82, 0.6), 0.42 * lit)
+	_cast_shadow(ci, _tex[a[0] + "_day"], r, flip, h.pos, n)
 	_blit(ci, _tex[a[0] + "_day"], r, flip, mod)
 	if state != 2 and lit > 0.0 and night_tex != null:
 		_blit(ci, night_tex, r, flip, Color(1, 1, 1, lit * (1.0 if state == 1 else 0.85)))
@@ -1021,37 +1104,17 @@ func _draw_traces(n: float) -> void:
 
 ## Реквизит дел: поленница и мостки с ведром у реки. Остальные дела — у колодца,
 ## фонаря и оберега, которые и так стоят на карте.
-func _draw_hatches(n: float, k: Color) -> void:
+func _draw_hatches(n: float, _k: Color) -> void:
+	var tex: Texture2D = _tex.get("hatch")
+	if tex == null:
+		return
 	for i: int in [tunnel.x, tunnel.y]:
 		if i < 0 or i >= open_count or i >= def.shelters.size():
 			continue
 		var c := hatch_pos(i)
-		var wood := Art.dn(Color("8a5a3a"), n)
-		draw_colored_polygon(Art.ellipse(c + Vector2(0, 3), Vector2(17, 6)), Color(0, 0, 0, 0.25))
-		var pts := PackedVector2Array([c + Vector2(-15, -6), c + Vector2(15, -6), c + Vector2(17, 5), c + Vector2(-17, 5)])
-		Art.shape(self, pts, wood, k, 2.2)
-		for x: float in [-6.0, 4.0]:
-			draw_line(c + Vector2(x, -6), c + Vector2(x * 1.15, 5), Color(k, 0.5), 1.4)
-		draw_arc(c + Vector2(9, -1), 3.2, 0, TAU, 10, Art.dn(Color("c8c8d0"), n), 1.6, true)
-
-
-## Мостки и ведро у реки — плоские, их никто не заслоняет; поленница и бочка — предметы (VillageProp).
-func _draw_fish(n: float, k: Color) -> void:
-	for j: JobDef in def.jobs:
-		match j.kind:
-			JobDef.Kind.FISH:
-				var b2 := j.pos + Vector2(-30, 6)
-				if def.fish_planks:
-					var plank := Art.dn(Color("c8925e"), n)
-					Art.shape(self, Art.rrect(Rect2(b2.x - 40, b2.y - 8, 52, 12), 4), plank, k, 2.2)
-					for px in [-34.0, 2.0]:
-						draw_line(b2 + Vector2(px, 4), b2 + Vector2(px, 16), k, 4.0, true)
-				# ведро с рыбой
-				var bk := j.pos + Vector2(22, 0)
-				Art.shape(self, PackedVector2Array([bk + Vector2(-9, -16), bk + Vector2(9, -16), bk + Vector2(7, 0), bk + Vector2(-7, 0)]), Art.dn(Color("9aa6b2"), n), k, 2.2)
-				draw_arc(bk + Vector2(0, -16), 9, PI, TAU, 10, k, 1.6, true)
-			_:
-				pass
+		var w := 62.0
+		var h := w * tex.get_height() / tex.get_width()
+		_blit(self, tex, Rect2(c.x - w * 0.5, c.y - h * 0.5, w, h), false, _night_mod(n))
 
 
 func _draw_well(ci: CanvasItem, n: float) -> void:
@@ -1069,28 +1132,33 @@ func _draw_lamp_post(ci: CanvasItem, p: Vector2, n: float, on: float = -1.0) -> 
 	var w: float = LAMP_H * _tex.lamp_day.get_width() / _tex.lamp_day.get_height()
 	var r := Rect2(p.x - LAMP_BASE_X * w, p.y - LAMP_H * 0.98, w, LAMP_H)
 	_draw_contact_shadow(ci, p + Vector2(0, 1), 24.0, 12.0, 0.22)
+	_cast_shadow(ci, _tex.lamp_day, r, true, p, n, 0.7)
 	_blit(ci, _tex.lamp_day, r, true, _night_mod(n))
 	if on > 0.0:
 		_blit(ci, _tex.lamp_night, r, true, Color(1, 1, 1, on))
 
 
-func _draw_fences(n: float, k: Color) -> void:
+const FENCE_W := 112.0                    ## ширина секции забора, единиц посёлка
+
+
+## Где забор на поле: секция стоит у края и смотрит внутрь посёлка.
+func fence_rect(row: Vector2) -> Rect2:
 	var tex: Texture2D = _tex.get("fence")
-	if tex != null:
-		var w := 150.0
-		var h := w * tex.get_height() / tex.get_width()
-		for row: Vector2 in def.fences:
-			var x := row.x - 8.0 if row.x < def.square_center.x else row.x - w + 8.0
-			_blit(self, tex, Rect2(x, row.y - h, w, h), row.x >= def.square_center.x, _night_mod(n))
+	var h := FENCE_W * (float(tex.get_height()) / float(tex.get_width()) if tex != null else 0.667)
+	var x := row.x - 8.0 if row.x < def.square_center.x else row.x - FENCE_W + 8.0
+	return Rect2(x, row.y - h, FENCE_W, h)
+
+
+## Забор стоит в слое предметов: кто дальше от зрителя, тот за ним, а дом позади не «прорастает» сквозь доски.
+func _paint_fence(ci: CanvasItem, row: Vector2) -> void:
+	var tex: Texture2D = _tex.get("fence")
+	if tex == null:
 		return
-	var wood := Art.dn(Color("6e5a47"), n)
-	for row: Vector2 in def.fences:
-		for i in range(5):
-			var px := row.x + i * 21.0
-			Art.shape(self, Art.rrect(Rect2(px, row.y - 34, 9, 36), 3), wood, k.darkened(0.25), 2.0)
-		for rail_y: float in [row.y - 24.0, row.y - 12.0]:
-			draw_line(Vector2(row.x - 2, rail_y), Vector2(row.x + 88, rail_y), wood.darkened(0.25), 5.0, true)
-			draw_line(Vector2(row.x - 2, rail_y - 1.5), Vector2(row.x + 88, rail_y - 1.5), wood.lightened(0.12), 1.3, true)
+	var r := fence_rect(row)
+	var n := _nq()
+	var flip := row.x >= def.square_center.x
+	_cast_shadow(ci, tex, r, flip, Vector2(row.x, row.y - r.size.y * 0.1), n, 0.8)
+	_blit(ci, tex, r, flip, _night_mod(n))
 
 
 ## Окна загораются по одному: у каждого дома свой порог «ночи». Убежища — раньше.
