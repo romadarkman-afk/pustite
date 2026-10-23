@@ -1,7 +1,7 @@
 extends Control
 ## Точка входа. Логотип ровно 1 секунду → меню. Тап — пропустить.
 ## Фон логотипа — картинка заставки (assets/splash.png): Android показывает её, пока грузится движок.
-## Для сборки здесь же запускаются самотесты: --sim, --flow, --layout, --lifecycle, --field, --crowd, --bubbles, --marks, --input, --hints, --difficulty, --howto, --night, --eyes, --lights, --checkpoint, --sound, --village, --talisman, --bell, --events, --mimic, --sabotage, --box, --roles, --meeting, --tunnel, --diary, --recap, --folk, --loc, --access, --daily, --cosmetics, --adapt, --display, --gestures, --storage.
+## Самотесты запускаются вручную флагами ниже. Текущий android.yml выполняет короткий smoke-запуск, не полный набор тестов.
 ## --lang=en рядом с любым самотестом гоняет его на другом языке, --text=2 — с самым крупным текстом.
 
 const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--eyes", "--lights", "--checkpoint", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk", "--loc", "--access", "--daily", "--cosmetics", "--adapt", "--display", "--gestures", "--storage", "--save"]

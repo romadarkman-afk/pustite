@@ -1,7 +1,7 @@
 class_name SelfTest
 extends RefCounted
-## Проверки, которые CI гоняет перед сборкой APK.
-## Падение любой из них = красная сборка, битый APK не выходит.
+## Ручные самотесты, запускаемые через флаги в `scripts/boot.gd`.
+## Текущий android.yml проверяет импорт, короткий запуск Godot и APK, не полный набор тестов.
 
 const DeviceDB = preload("res://scripts/autoload/device_display_db.gd")
 
