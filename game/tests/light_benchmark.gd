@@ -150,7 +150,7 @@ class BenchmarkVillage extends Node2D:
 		for i in range(28):
 			var x := float((i * 83) % SIZE.x)
 			var y := 425.0 + float((i * 47) % 155)
-			draw_ellipse(Vector2(x, y), Vector2(11, 4), Color("373737"))
+			draw_flat_ellipse(Vector2(x, y), Vector2(11, 4), Color("373737"))
 
 	func _draw_house(pos: Vector2, width: float, height: float) -> void:
 		var body_y := pos.y + height * 0.3
@@ -160,7 +160,7 @@ class BenchmarkVillage extends Node2D:
 		draw_rect(Rect2(pos.x + width - 42, body_y + 21, 20, 30), Color("e8a34b"))
 		draw_rect(Rect2(pos.x + width * 0.43, body_y + height * 0.34, 20, height * 0.34), Color("241f20"))
 
-	func draw_ellipse(center: Vector2, radius: Vector2, tint: Color) -> void:
+	func draw_flat_ellipse(center: Vector2, radius: Vector2, tint: Color) -> void:
 		var points := PackedVector2Array()
 		for i in range(16):
 			var a := TAU * float(i) / 16.0

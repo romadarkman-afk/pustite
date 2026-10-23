@@ -361,34 +361,19 @@ func _chrome() -> void:
 		field_spacer = Control.new()
 		field_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		col.add_child(field_spacer)
-		resized.connect(_update_field_layout)
+		resized.connect(func() -> void: field_spacer.custom_minimum_size.y = floorf(field_height(size.y)))
 
 	scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	col.add_child(scroll)
 
-	var lower_content := W.vbox(12)
-	lower_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lower_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.add_child(lower_content)
-
 	body = W.vbox(18)
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	lower_content.add_child(body)
+	scroll.add_child(body)
 
 	footer = W.vbox(10)
-	footer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lower_content.add_child(footer)
-	footer.child_order_changed.connect(_update_field_layout)
-	call_deferred("_update_field_layout")
-
-
-func _update_field_layout() -> void:
-	if not is_instance_valid(field_spacer) or size.y <= 0.0:
-		return
-	field_spacer.custom_minimum_size.y = floorf(field_height(size.y))
+	col.add_child(footer)
 
 
 ## Ряд плашек с жителями. on_tap: вызывается с Villager, если плашку можно нажать.
