@@ -134,7 +134,7 @@ jobs:
             echo "::error title=Не хватает файлов в game::Не загрузились: $(echo $missing). Загрузите папку game заново целиком."
           fi
           [ -z "$extra" ] && [ -z "$missing" ] || exit 1
-          for flag in sim flow layout lifecycle field crowd bubbles marks input hints difficulty howto night eyes lights checkpoint sound village talisman bell events mimic sabotage box roles meeting tunnel diary recap folk loc access daily cosmetics adapt display gestures storage save; do
+          for flag in sim flow layout lifecycle field crowd bubbles marks input hints difficulty howto night eyes lights checkpoint sound village talisman bell events mimic sabotage box roles meeting tunnel diary recap folk loc access daily cosmetics adapt display gestures storage save weather; do
             grep -q -- "\"--$flag\"" scripts/boot.gd || { echo "::error::В scripts/boot.gd нет режима --$flag."; exit 1; }
           done
           echo "Комплект совпадает с описью: $(wc -l < /tmp/expected.txt) файлов"

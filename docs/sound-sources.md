@@ -25,5 +25,6 @@
 | `sfx/growl.ogg`, `breath.ogg` | [80 CC0 creature SFX](https://opengameart.org/content/80-cc0-creature-sfx) | rubberduck |
 | `sfx/cry_far.ogg` | [Male Grunt/Yelling sounds](https://opengameart.org/content/male-gruntyelling-sounds) | HaelDB |
 | `sfx/scare.ogg` | [Dark Ambiences](https://opengameart.org/content/dark-ambiences) | Ogrebane |
+| `sfx/amb_wind.ogg`, `amb_rain.ogg`, `amb_blizzard.ogg`, `life_murmur.ogg`, `life_dog.ogg`, `life_hens.ogg`, `mill_wheel.ogg` | Синтез скриптом `game/tools/make_weather_sfx.py` (шум, полосовые фильтры, формантные слоги) | Созданы для проекта, внешних записей нет |
 
 Некоторые короткие служебные эффекты пока остались из прежнего набора. Звуки тревоги и финальные темы обновлены.

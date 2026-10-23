@@ -501,6 +501,7 @@ func data() -> Dictionary:
 		"settings.resolution": "窗口大小",
 		"settings.mobile_display": "手机上游戏使用系统全屏模式。",
 		"settings.simplified_graphics": "简化画面",
+		"perf.auto_simplified": "游戏运行较慢，已开启简化画面。可在设置中关闭。",
 		"settings.input_help": "键盘和手柄：用方向键或 WASD 选择，Enter 确认，Esc 或 B 返回。手机上请点击屏幕按钮。",
 		"settings.music": "音乐",
 		"settings.sfx": "音效",

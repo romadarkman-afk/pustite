@@ -139,6 +139,12 @@ func _build_host() -> void:
 			portrait.draw_rect(Rect2(Vector2.ZERO, portrait.size), Color("171f27"))
 			portrait.draw_rect(Rect2(101, 0, 31, portrait.size.y), Color("433c32"))
 			portrait.draw_line(Vector2(100, 0), Vector2(100, portrait.size.y), Color("93704c"), 1.4))
+		# за дверью идёт погода главы: снег зимой, дождь осенью (TASK-068)
+		var outside := WeatherOverlay.new()
+		outside.position = Vector2.ZERO
+		outside.size = Vector2(100, 178)
+		outside.apply(Weather.for_match(m, Match.Phase.DOOR), 1.0)
+		portrait.add_child(outside)
 		var figure := VillagerFigure.new()
 		var looks := L.looks()
 		var look := looks.for_name(g.name, false).duplicate() as LookDef

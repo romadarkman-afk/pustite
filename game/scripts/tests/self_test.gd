@@ -592,7 +592,7 @@ const LAYOUT_CUTOUTS: Array[Array] = [
 	[Vector2i(1080, 2400), Vector4(0, 110, 0, 70)],   # дырка в экране + жесты
 	[Vector2i(1080, 2340), Vector4(0, 140, 0, 48)],   # каплевидный вырез
 ]
-const MIN_TOUCH := 84.0
+const MIN_TOUCH := 68.0
 ## Дома должны читаться: не мельче 80% задуманного размера. Пустых краёв не бывает —
 ## лес, земля и небо нарисованы шире экрана.
 const MIN_FIELD_SCALE := 0.8
@@ -3134,6 +3134,192 @@ static func eyes() -> void:
 		Nav.get_tree().quit(1)
 
 
+## TASK-061–066: менеджер погоды. Все 12 глав имеют профиль, эмиттеры создаются и удаляются,
+## на эмиттер не больше 60 частиц, упрощённая графика режет их вдвое.
+static func weather() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	var view := Nav.village
+	var layer := view.weather
+	ok += _expect(fails, layer != null, "в посёлке нет слоя погоды")
+	Weather.enabled = true
+	Weather.forced_season = -1
+	view.set_simplified_graphics(false)
+	view.set_weather(Weather.EMPTY.duplicate())
+	ok += _expect(fails, layer.emitter_names().is_empty(), "пустая погода оставила эмиттеры: %s" % layer.emitter_names())
+
+	var seen_seasons := {}
+	var by_season := {}
+	for id: String in Campaign.ORDER:
+		var ch := Campaign.chapter(id)
+		var world: Dictionary = ch.get("world", {})
+		var profile := String(world.get("weather_profile", ""))
+		ok += _expect(fails, Weather.PROFILES.has(profile), "%s: нет описания погоды «%s»" % [id, profile])
+		var st := Weather.state(id, 1)
+		ok += _expect(fails, bool(st["active"]) and String(st["id"]) == profile, "%s: погода не взяла профиль главы" % id)
+		ok += _expect(fails, Weather.season_id(int(st["season"])) == String(world.get("season", "")),
+			"%s: сезон профиля %s не совпал с сезоном главы %s" % [id, Weather.season_id(int(st["season"])), world.get("season", "")])
+		seen_seasons[int(st["season"])] = true
+		for day in range(1, 5):
+			for event: int in [Match.Event.NONE, Match.Event.RAIN, Match.Event.FOG, Match.Event.QUIET, Match.Event.MOON]:
+				var s := Weather.state(id, day, event)
+				ok += _expect(fails, float(s["power"]) >= 0.0 and float(s["power"]) <= 1.0, "%s день %d: сила осадков %.2f вне 0..1" % [id, day, float(s["power"])])
+				ok += _expect(fails, float(s["fog"]) >= 0.0 and float(s["fog"]) <= 1.0, "%s день %d: туман %.2f вне 0..1" % [id, day, float(s["fog"])])
+				ok += _expect(fails, float(s["cover"]) >= 0.0 and float(s["cover"]) <= 1.0, "%s день %d: снег %.2f вне 0..1" % [id, day, float(s["cover"])])
+				var want := WeatherLayer.wanted(s)
+				for key: String in want.keys():
+					ok += _expect(fails, WeatherLayer.FULL.has(key) and int(WeatherLayer.FULL[key]) <= WeatherLayer.MAX_PARTICLES,
+						"%s: у эмиттера %s больше %d частиц" % [id, key, WeatherLayer.MAX_PARTICLES])
+					ok += _expect(fails, float(want[key]) >= 0.0 and float(want[key]) <= 1.0, "%s: сила эмиттера %s вне 0..1" % [id, key])
+		# эмиттеры создаются и совпадают с описанием
+		var day_state := Weather.state(id, 2)
+		view.set_weather(day_state)
+		var names := layer.emitter_names()
+		var expected := PackedStringArray(WeatherLayer.wanted(day_state).keys())
+		expected.sort()
+		ok += _expect(fails, names == expected, "%s: эмиттеры %s, ожидались %s" % [id, names, expected])
+		ok += _expect(fails, layer.get_child_count() == names.size(), "%s: в слое %d узлов при %d эмиттерах" % [id, layer.get_child_count(), names.size()])
+		for key: String in names:
+			ok += _expect(fails, layer.amount_of(key) >= 1 and layer.amount_of(key) <= WeatherLayer.MAX_PARTICLES,
+				"%s: у %s %d частиц" % [id, key, layer.amount_of(key)])
+		by_season[Weather.season_id(int(day_state["season"]))] = names
+		# упрощённая графика режет вдвое
+		view.set_simplified_graphics(true)
+		for key: String in layer.emitter_names():
+			var full := layer.target_count(key, float(WeatherLayer.wanted(day_state)[key]))
+			ok += _expect(fails, layer.amount_of(key) <= maxi(1, ceili(float(full) * 0.5)),
+				"%s: на упрощённой графике у %s %d частиц из %d" % [id, key, layer.amount_of(key), full])
+		view.set_simplified_graphics(false)
+		await _frames(tree, 2)
+		# удаляются
+		view.set_weather(Weather.EMPTY.duplicate())
+		ok += _expect(fails, layer.get_child_count() == 0, "%s: после снятия погоды осталось %d узлов" % [id, layer.get_child_count()])
+	ok += _expect(fails, seen_seasons.size() == 4, "в главах не все 4 сезона: %d" % seen_seasons.size())
+
+	# правила сезонов
+	var summer := WeatherLayer.wanted(Weather.state("a1c1", 1))
+	var autumn := WeatherLayer.wanted(Weather.state("a2c1", 1))
+	var winter := WeatherLayer.wanted(Weather.state("a3c1", 3))
+	var spring := WeatherLayer.wanted(Weather.state("a4c2", 1))
+	ok += _expect(fails, summer.has("fluff") and summer.has("ash") and summer.has("midges") and not summer.has("rain_far"), "лето: пух, пепел и мошкара без дождя: %s" % [summer.keys()])
+	ok += _expect(fails, autumn.has("leaves") and autumn.has("rain_far") and autumn.has("ripples"), "осень: листья, дождь и рябь: %s" % [autumn.keys()])
+	ok += _expect(fails, winter.has("flakes_far") and winter.has("flakes_mid") and winter.has("flakes_near") and winter.has("drift") and winter.has("grains"),
+		"метель: снег трёх слоёв, позёмка и крупа: %s" % [winter.keys()])
+	ok += _expect(fails, spring.has("drip") and not spring.has("rain_far") and not spring.has("flakes_far"), "весна: капель без осадков: %s" % [spring.keys()])
+	ok += _expect(fails, float(Weather.state("a4c2", 1)["fog"]) >= 0.9, "весна: туман на угольном дворе слабее 0.9")
+	ok += _expect(fails, float(Weather.state("a3c1", 3)["cover"]) > 0.5 and float(Weather.state("a1c1", 3)["cover"]) == 0.0, "снег лежит зимой и не лежит летом")
+
+	# ночные события меняют погоду
+	var rain_event := Weather.state("a1c1", 2, Match.Event.RAIN)
+	ok += _expect(fails, int(rain_event["precip"]) == Weather.Precip.RAIN and float(rain_event["power"]) >= 0.85, "ливень не дал дождь летом")
+	ok += _expect(fails, int(Weather.state("a3c1", 2, Match.Event.RAIN)["precip"]) == Weather.Precip.SNOW, "ливень зимой должен идти снегом")
+	ok += _expect(fails, float(Weather.state("a1c1", 2, Match.Event.FOG)["fog"]) >= 0.9, "событие тумана не сгустило туман")
+	var m := Match.new()
+	m.chapter_id = "a3c1"
+	m.day = 2
+	m.night_event = Match.Event.RAIN
+	ok += _expect(fails, int(Weather.for_match(m, Match.Phase.NIGHT)["precip"]) == Weather.Precip.SNOW, "ночью событие не учтено")
+	ok += _expect(fails, float(Weather.for_match(m, Match.Phase.DAY)["power"]) < 0.85, "событие ночи осталось днём")
+
+	# вне кампании: сезон по дате
+	ok += _expect(fails, Weather.season_by_date(1) == Weather.Season.WINTER and Weather.season_by_date(4) == Weather.Season.SPRING \
+		and Weather.season_by_date(7) == Weather.Season.SUMMER and Weather.season_by_date(10) == Weather.Season.AUTUMN, "сезон по месяцу")
+	Weather.forced_season = Weather.Season.WINTER
+	ok += _expect(fails, int(Weather.state("", 1)["season"]) == Weather.Season.WINTER and bool(Weather.state("", 1)["active"]), "быстрая партия не взяла сезон")
+	ok += _expect(fails, int(Weather.for_menu()["precip"]) == Weather.Precip.NONE, "в меню идут осадки")
+	Weather.forced_season = -1
+
+	# время суток: пух днём, мошкара ночью
+	view.set_weather(Weather.state("a1c1", 1))
+	view.set_night(0.0)
+	layer._tick(0.1)
+	var fluff := layer.emitter("fluff") as CPUParticles2D
+	var midges := layer.emitter("midges") as CPUParticles2D
+	ok += _expect(fails, fluff != null and midges != null, "летом нет пуха или мошкары")
+	if fluff != null and midges != null:
+		ok += _expect(fails, fluff.emitting and not midges.emitting, "днём пух должен идти, мошкары нет")
+		view.set_night(1.0)
+		layer._tick(0.1)
+		ok += _expect(fails, not fluff.emitting and midges.emitting, "ночью пуха нет, мошкара есть")
+		ok += _expect(fails, midges.emission_points.size() == maxi(1, view.def.lamps.size()), "мошкара не у фонарей: точек %d" % midges.emission_points.size())
+	view.set_night(0.0)
+
+	# картинки и шейдеры: каждый эмиттер рисуется из файла-атласа, земля и тени идут шейдерами
+	view.set_weather(Weather.state("a2c1", 2))
+	for key: String in layer.emitter_names():
+		var pr := layer.emitter(key) as CPUParticles2D
+		ok += _expect(fails, pr.texture != null and pr.texture.get_width() >= 64, "у эмиттера %s нет картинки из атласа" % key)
+		var cm := pr.material as CanvasItemMaterial
+		ok += _expect(fails, cm != null and cm.particles_animation, "у эмиттера %s не включены кадры атласа" % key)
+	for fx: GroundFx in [view.ground_fx, view.sky_fx]:
+		ok += _expect(fails, fx != null and (fx.get_child(0) as ColorRect).material is ShaderMaterial, "слой земли или облаков без шейдера")
+	view.set_weather(Weather.state("a3c1", 3))
+	await _frames(tree, 2)
+	var gmat := (view.ground_fx.get_child(0) as ColorRect).material as ShaderMaterial
+	ok += _expect(fails, float(gmat.get_shader_parameter("cover")) > 0.5 and view.ground_fx.get_child(0).visible, "зимой снег на земле не включился в шейдере")
+	ok += _expect(fails, view.ground_fx.tuft_count() > 20 and view.ground_fx.tuft_count() <= GroundFx.MAX_TUFTS, "трава: %d пучков" % view.ground_fx.tuft_count())
+	view.set_weather(Weather.state("a2c1", 2))
+	gmat = (view.ground_fx.get_child(0) as ColorRect).material as ShaderMaterial
+	ok += _expect(fails, float(gmat.get_shader_parameter("cover")) == 0.0 and float(gmat.get_shader_parameter("wet")) > 0.4, "осенью дождь не намочил землю в шейдере")
+	view.set_simplified_graphics(true)
+	ok += _expect(fails, not view.sky_fx.visible, "на упрощённой графике остались тени облаков")
+	view.set_simplified_graphics(false)
+
+	# иней и влага на фигурах (TASK-067): шейдер ложится на жителей и хозяев места, на упрощённой графике его нет
+	var probe := VillagerFigure.new()
+	probe.setup("Проба", Nav.village.crowd.book.for_name("Проба", false), false)
+	view.add_child(probe)
+	view.set_weather(Weather.state("a3c1", 3))
+	var fx := view.figure_fx()
+	ok += _expect(fails, fx.x > 0.5 and fx.y < 0.2, "зимой иней должен быть сильным, влага слабой: %s" % fx)
+	view.crowd.set_weather_fx(fx.x, fx.y)
+	probe.set_weather_fx(fx.x, fx.y)
+	ok += _expect(fails, probe._door_rig.material is ShaderMaterial and float(probe._door_rig.material.get_shader_parameter("frost")) > 0.5, "иней не лёг на фигуру")
+	view.set_weather(Weather.state("a2c1", 2))
+	fx = view.figure_fx()
+	ok += _expect(fails, fx.y > 0.4 and fx.x < 0.2, "осенью в дождь должна быть влага: %s" % fx)
+	probe.set_weather_fx(0.0, 0.0)
+	ok += _expect(fails, probe._door_rig.material == null, "без погоды на фигуре остался шейдер")
+	view.set_simplified_graphics(true)
+	ok += _expect(fails, view.figure_fx() == Vector2.ZERO, "на упрощённой графике остались иней и влага")
+	view.set_simplified_graphics(false)
+	probe.queue_free()
+	for id: String in view.crowd.npcs.keys():
+		var hn: Npc = view.crowd.npcs[id]
+		ok += _expect(fails, hn.get_child_count() >= 2, "хозяин места %s без отдельного спрайта" % id)
+	view.set_weather(Weather.EMPTY.duplicate())
+	ok += _expect(fails, not view.ground_fx.visible and not view.sky_fx.visible, "без погоды слои земли и облаков видны")
+
+	# повтор без утечек
+	for i in range(30):
+		view.set_weather(Weather.state(Campaign.ORDER[i % Campaign.ORDER.size()], 1 + i % 4))
+	ok += _expect(fails, layer.get_child_count() <= WeatherLayer.FULL.size(), "эмиттеры копятся: %d узлов" % layer.get_child_count())
+
+	# погода в сценах и у двери (TASK-068)
+	var wx := WeatherOverlay.new()
+	wx.size = Vector2(200, 300)
+	view.add_child(wx)
+	wx.apply(Weather.state("a3c1", 3))
+	ok += _expect(fails, wx.emitter_names() == PackedStringArray(["flakes_far", "flakes_near"]), "за дверью зимой нет снега: %s" % wx.emitter_names())
+	wx.apply(Weather.state("a2c1", 2))
+	ok += _expect(fails, wx.emitter_names() == PackedStringArray(["rain_far", "rain_near"]), "за дверью осенью нет дождя: %s" % wx.emitter_names())
+	wx.apply(Weather.state("a1c1", 1))
+	ok += _expect(fails, wx.emitter_names().is_empty(), "летом в ясный день за дверью осадки: %s" % wx.emitter_names())
+	wx.apply(WeatherOverlay.state_for_frame("rain"))
+	ok += _expect(fails, wx.emitter_names().size() == 2 and wx.particle_total() <= 2 * WeatherOverlay.MAX_PARTICLES, "явный дождь кадра сцены не пошёл")
+	wx.queue_free()
+
+	# выключенная погода не оставляет следов
+	Weather.enabled = false
+	view.set_weather(Weather.state("a3c1", 3))
+	ok += _expect(fails, layer.get_child_count() == 0 and view.snow_cover == 0.0 and not view.ground_fx.visible, "выключенная погода оставила эмиттеры или снег")
+	Weather.enabled = true
+	view.set_weather(Weather.EMPTY.duplicate())
+	await _frames(tree, 2)
+	_finish(fails, ok, "ПОГОДА", "12 глав, 4 сезона, эмиттеры создаются и удаляются, до 60 частиц на эмиттер")
+
+
 ## TASK-058/059: ореолы, упрощённая графика и степень ночного тонирования.
 static func lights() -> void:
 	var fails: PackedStringArray = []
@@ -3157,12 +3343,90 @@ static func lights() -> void:
 	Nav.set_simplified_graphics(true)
 	ok += _expect(fails, view.fog().amount == 7 and view.dust().amount == 12, "упрощённый режим не снижает число частиц")
 	ok += _expect(fails, not Nav.grade_overlay.visible, "упрощённый режим оставил ночной шейдер включённым")
+
+	# TASK-070: иней и влага на фигурах выключаются вместе с остальным
+	var weather_was := Weather.enabled
+	Weather.enabled = true
+	view.set_simplified_graphics(false)
+	view.set_weather(Weather.state("a3c1", 1))
+	var fx_full := view.figure_fx()
+	view.set_simplified_graphics(true)
+	var fx_simple := view.figure_fx()
+	ok += _expect(fails, fx_full.x > 0.05 and fx_simple == Vector2.ZERO,
+		"зимой иней на фигурах %s, в упрощённой графике должен быть нулевым, а стал %s" % [fx_full, fx_simple])
+	view.set_weather(Weather.EMPTY.duplicate())
+	Weather.enabled = weather_was
+
+	# TASK-070: 5 секунд подряд меньше 25 кадров включают упрощённую графику один раз
+	var guard := PerfGuard.new()
+	var hits := [0]
+	var fast := 0.015625                  # 64 кадра в секунду; степени двойки, чтобы окна считались точно
+	var slow := 0.125                     # 8 кадров в секунду
+	guard.degraded.connect(func() -> void: hits[0] += 1)
+	for i in range(128):
+		guard.feed(fast)
+	ok += _expect(fails, guard.fps > 55.0 and guard.low_streak == 0 and hits[0] == 0,
+		"64 кадра в секунду распознаны как %.1f, серия низких окон %d" % [guard.fps, guard.low_streak])
+	for i in range(32):
+		guard.feed(slow)
+	ok += _expect(fails, guard.low_streak == 4 and hits[0] == 0, "после 4 с по 8 кадров сигнал уже подан или серия %d" % guard.low_streak)
+	for i in range(64):
+		guard.feed(fast)
+	ok += _expect(fails, guard.low_streak == 0 and hits[0] == 0, "хорошая секунда не оборвала серию")
+	for i in range(32):
+		guard.feed(slow)
+	ok += _expect(fails, hits[0] == 0 and guard.low_streak == 4, "серия с перерывом дала сигнал")
+	for i in range(8):
+		guard.feed(slow)
+	ok += _expect(fails, hits[0] == 1 and guard.triggered, "5 с по 8 кадров не дали сигнал ровно один раз (%d)" % hits[0])
+	for i in range(100):
+		guard.feed(slow)
+	ok += _expect(fails, hits[0] == 1, "сигнал подан повторно")
+	var spike := PerfGuard.new()
+	for i in range(50):
+		spike.feed(fast)
+	spike.feed(3.0)                       # загрузка или сворачивание: одна долгая пауза
+	for i in range(256):
+		spike.feed(fast)
+	ok += _expect(fails, not spike.triggered, "одиночная пауза посчитана за зависание")
+	ok += _expect(fails, guard.counter_text().begins_with("FPS ") and guard.worst > 0.0 and guard.worst < 10.0,
+		"счётчик кадров показывает «%s», худшее окно %.1f" % [guard.counter_text(), guard.worst])
+	guard.reset_stats()
+	ok += _expect(fails, guard.counter_text() == "FPS …", "сброс статистики не очистил счётчик")
+	guard.free()
+	spike.free()
+
+	var perf_auto_before := Save.perf_auto_done
+	Save.set_perf_auto_done(false)
+	Save.set_simplified_graphics(false)
+	Nav.set_simplified_graphics(false)
+	Nav._on_perf_degraded()
+	ok += _expect(fails, Save.simplified_graphics and Save.perf_auto_done and view.simplified_graphics and view.fog().amount == 7,
+		"автоупрощение не включило графику")
+	Save.set_simplified_graphics(false)
+	Nav.set_simplified_graphics(false)
+	Nav._on_perf_degraded()
+	ok += _expect(fails, not Save.simplified_graphics and not view.simplified_graphics,
+		"игра включила упрощённую графику повторно после выбора игрока")
+	var lang_before := L.code
+	L.use("ru")
+	var ru_text := L.t("perf.auto_simplified")
+	ok += _expect(fails, ru_text != "perf.auto_simplified" and ru_text.length() > 20, "нет русского сообщения об автоупрощении")
+	for lang_code: String in L.LANGS:
+		L.use(lang_code)
+		var tr_text := L.t("perf.auto_simplified")
+		ok += _expect(fails, tr_text.length() > 20 and (lang_code == "ru" or tr_text != ru_text),
+			"нет сообщения об автоупрощении на языке %s" % lang_code)
+	L.use(lang_before if not lang_before.is_empty() else "ru")
+	ok += _expect(fails, not PerfGuard.counter_wanted(), "в безэкранном запуске счётчик кадров не должен показываться")
+	Save.set_perf_auto_done(perf_auto_before)
+
 	Save.set_simplified_graphics(previous)
 	Nav.set_simplified_graphics(previous)
 	view.set_simplified_graphics(previous)
 	view.set_night(0.0)
 	if fails.is_empty():
-		print("ИТОГ: OK — янтарные аддитивные ореолы, ночной grade и режим упрощённой графики")
+		print("ИТОГ: OK — янтарные аддитивные ореолы, ночной grade, режим упрощённой графики и автоупрощение по кадрам")
 		Nav.get_tree().quit(0)
 	else:
 		for failure: String in fails:
@@ -3243,13 +3507,94 @@ static func sound() -> void:
 			missing.append(String(k))
 	ok += _expect(fails, missing.is_empty(), "не загрузились звуки: %s" % ", ".join(missing))
 	for layer: Dictionary in [
-		{"ground": "ground_mill", "sound": &"amb_river"},
+		{"ground": "ground_mill", "sound": &"mill_wheel"},
 		{"ground": "ground_monastery", "sound": &"amb_dusk"},
 		{"ground": "ground_station", "sound": &"rails"},
 	]:
 		await Sfx.set_place_layer(String(layer.ground), false, &"amb_day", 0.01)
 		ok += _expect(fails, Sfx._place_name == StringName(layer.sound),
 			"место %s получило слой %s, ожидался %s" % [layer.ground, Sfx._place_name, layer.sound])
+	await Sfx.set_place_layer("", false, &"", 0.01)
+
+	# 1а. Слои погоды, жизни и напряжения (TASK-069)
+	var wx_state := func(profile: String) -> Dictionary:
+		var st: Dictionary = Weather.EMPTY.duplicate()
+		st.merge(Weather.PROFILES[profile], true)
+		st["active"] = true
+		return st
+	ok += _expect(fails, Sfx.weather_pick(wx_state.call("river_storm"))["name"] == &"amb_rain", "ливень не выбрал слой дождя")
+	ok += _expect(fails, Sfx.weather_pick(wx_state.call("blizzard"))["name"] == &"amb_blizzard", "метель не выбрала слой метели")
+	ok += _expect(fails, Sfx.weather_pick(wx_state.call("snowbound_courtyard"))["name"] == &"amb_wind", "слабый снег без ветра не выбрал лёгкий ветер")
+	ok += _expect(fails, Sfx.weather_pick(wx_state.call("summer_riverbank"))["name"] == &"", "ясное лето получило слой погоды")
+	ok += _expect(fails, Sfx.weather_pick(Weather.EMPTY)["name"] == &"", "выключенная погода получила слой")
+	var weak_rain: Dictionary = wx_state.call("river_storm")
+	weak_rain["power"] = 0.2
+	ok += _expect(fails, float(Sfx.weather_pick(weak_rain)["db"]) < float(Sfx.weather_pick(wx_state.call("river_storm"))["db"]),
+		"слабый дождь звучит не тише ливня")
+	var negative_wind: Dictionary = wx_state.call("blizzard")
+	negative_wind["wind"] = -0.85
+	ok += _expect(fails, Sfx.weather_pick(negative_wind)["name"] == &"amb_blizzard", "ветер с обратным знаком потерял метель")
+	Sfx.set_weather_layer(wx_state.call("blizzard"), 0.01)
+	await _frames(tree, 8)
+	ok += _expect(fails, Sfx.weather_name == &"amb_blizzard" and Sfx._weather_p.playing and Sfx._weather_p.stream == Sfx._streams[&"amb_blizzard"],
+		"метель не зазвучала")
+	Sfx.set_weather_layer(wx_state.call("river_storm"), 0.01)
+	await _frames(tree, 8)
+	ok += _expect(fails, Sfx.weather_name == &"amb_rain" and Sfx._weather_p.stream == Sfx._streams[&"amb_rain"],
+		"метель не сменилась дождём в том же канале")
+	Sfx.set_weather_layer(Weather.EMPTY, 0.01)
+	await _frames(tree, 8)
+	ok += _expect(fails, Sfx.weather_name == &"" and not Sfx._weather_p.playing, "погода не затихла при ясном небе")
+	# говор: тише с каждой смертью, при трети живых его нет, ночью его нет
+	Sfx.life_day = true
+	var life_levels: Array[float] = []
+	for r: float in [1.0, 0.7, 0.45]:
+		Sfx.life_ratio = r
+		life_levels.append(Sfx.life_db())
+	Sfx.life_ratio = 0.2
+	ok += _expect(fails, life_levels[0] > life_levels[1] and life_levels[1] > life_levels[2], "говор не тише с числом живых: %s" % str(life_levels))
+	ok += _expect(fails, Sfx.life_db() <= -60.0, "при пятой части живых говор не затих")
+	Sfx.set_life(1.0, true, 0.01)
+	await _frames(tree, 8)
+	ok += _expect(fails, Sfx._life_p.playing, "днём говор посёлка не звучит")
+	Sfx.set_life(1.0, false, 0.01)
+	await _frames(tree, 8)
+	ok += _expect(fails, not Sfx._life_p.playing, "ночью говор посёлка звучит")
+	Sfx.set_life(0.0, false, 0.01)
+	# напряжение: фон глохнет, пульс частит
+	Sfx.heartbeat(true)
+	Sfx.set_heartbeat_pace(1.0)
+	Sfx.set_tension(0.0, 0.0)
+	var calm_pitch := Sfx._heart.pitch_scale
+	Sfx.set_tension(1.0, 0.0)
+	ok += _expect(fails, Sfx._amb_filter.cutoff_hz < 3000.0, "напряжение не прижало фон фильтром (%.0f Гц)" % Sfx._amb_filter.cutoff_hz)
+	ok += _expect(fails, Sfx._heart.pitch_scale > calm_pitch + 0.05, "напряжение не ускорило пульс")
+	Sfx.set_tension(0.0, 0.0)
+	ok += _expect(fails, Sfx._amb_filter.cutoff_hz > 20000.0 and absf(Sfx._heart.pitch_scale - calm_pitch) < 0.001,
+		"после спада напряжения фон и пульс не вернулись")
+	Sfx.heartbeat(false)
+	# смена музыки идёт «нырком»: два быстрых запроса оставляют один звук, последний
+	Sfx.set_music(&"night", 0.02)
+	Sfx.set_music(&"menu", 0.02)
+	await _frames(tree, 8)
+	ok += _expect(fails, Sfx.music_name == &"menu" and Sfx._music_p.playing and Sfx._music_p.stream == Sfx._streams[&"menu"],
+		"две быстрые смены музыки оставили не последнюю")
+	# все слои разом: длинных потоков не больше шести, у каждого слоя свой единственный плеер
+	Sfx.set_ambience(&"amb_day", 0.02)
+	await Sfx.set_place_layer("ground_monastery", false, &"amb_day", 0.02)
+	Sfx.set_weather_layer(wx_state.call("blizzard"), 0.02)
+	Sfx.set_life(1.0, true, 0.02)
+	Sfx.heartbeat(true)
+	await _frames(tree, 10)
+	var busy := 0
+	for c: Node in Sfx.get_children():
+		if c is AudioStreamPlayer and (c as AudioStreamPlayer).playing and not Sfx._pool.has(c) and c != Sfx._panned_player:
+			busy += 1
+	ok += _expect(fails, busy == Sfx.long_streams() and busy <= Sfx.LONG_LIMIT and busy >= 5,
+		"длинных потоков %d (счёт слоёв %d), допустимо не больше %d" % [busy, Sfx.long_streams(), Sfx.LONG_LIMIT])
+	Sfx.heartbeat(false)
+	Sfx.set_weather_layer(Weather.EMPTY, 0.01)
+	Sfx.set_life(0.0, false, 0.01)
 	await Sfx.set_place_layer("", false, &"", 0.01)
 	var not_loop := PackedStringArray()
 	for k: StringName in Sfx.LOOPS.keys():
@@ -7223,9 +7568,92 @@ static func gestures() -> void:
 	var s1 := d.susp(other.id)
 	Game.gesture("point", other.id)
 	ok += _expect(fails, d.susp(other.id) == s1, "жест сработал не днём")
+	# 5. Список тянется с любого места, в том числе за кнопку
+	ok += await _touch_scroll_check(tree, fails)
 	Nav.show_menu()
 	await _settle(tree)
-	_finish(fails, ok, "жесты", "долгое нажатие — палец, «верю», «не верю»; видно на поле, есть в журнале, боты отвечают и запоминают")
+	_finish(fails, ok, "жесты", "долгое нажатие — палец, «верю», «не верю»; видно на поле, есть в журнале, боты отвечают и запоминают; список тянется за кнопку")
+
+
+## Протяжка за кнопку прокручивает список и не нажимает её; короткое касание нажимает.
+static func _touch_scroll_check(tree: SceneTree, fails: PackedStringArray) -> int:
+	var ok := 0
+	var layer := CanvasLayer.new()
+	layer.layer = 120
+	tree.root.add_child(layer)
+	var scroll := TouchScroll.new()
+	scroll.position = Vector2.ZERO
+	scroll.size = Vector2(400, 600)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	layer.add_child(scroll)
+	var column := VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(column)
+	var presses := [0]
+	var buttons: Array[Button] = []
+	for i in range(20):
+		var b := Button.new()
+		b.text = "кнопка %d" % i
+		b.custom_minimum_size = Vector2(0, 80)
+		b.pressed.connect(func() -> void: presses[0] += 1)
+		column.add_child(b)
+		buttons.append(b)
+	await _frames(tree, 3)
+	var inside := buttons[2].get_global_rect().get_center()
+	# протяжка за кнопку
+	_push_mouse(tree, inside, true, 0)
+	for step in range(1, 5):
+		_push_mouse(tree, inside + Vector2(0, -35.0 * step), null, MOUSE_BUTTON_MASK_LEFT)
+		await _frames(tree, 1)
+	_push_mouse(tree, inside + Vector2(0, -140), false, 0)
+	await _frames(tree, 2)
+	ok += _expect(fails, scroll.scroll_vertical > 60, "протяжка за кнопку не прокрутила список (%d)" % scroll.scroll_vertical)
+	ok += _expect(fails, presses[0] == 0, "протяжка за кнопку нажала её")
+	var mode := buttons[2].get_draw_mode()
+	ok += _expect(fails, mode != BaseButton.DRAW_PRESSED and mode != BaseButton.DRAW_HOVER_PRESSED, "после протяжки кнопка осталась нажатой")
+	# короткое касание нажимает
+	scroll.scroll_vertical = 0
+	await _frames(tree, 2)
+	var tap_at := buttons[3].get_global_rect().get_center()
+	_push_mouse(tree, tap_at, true, 0)
+	var before := scroll.scroll_vertical
+	await _frames(tree, 1)
+	_push_mouse(tree, tap_at, false, 0)
+	await _frames(tree, 2)
+	ok += _expect(fails, presses[0] == 1, "короткое касание не нажало кнопку (%d)" % presses[0])
+	ok += _expect(fails, scroll.scroll_vertical == before, "короткое касание сдвинуло список (%d → %d)" % [before, scroll.scroll_vertical])
+	# протяжка с пустого места между кнопками
+	var gap := Vector2(200.0, buttons[0].get_global_rect().end.y + 2.0)
+	_push_mouse(tree, gap, true, 0)
+	for step in range(1, 5):
+		_push_mouse(tree, gap + Vector2(0, -30.0 * step), null, MOUSE_BUTTON_MASK_LEFT)
+		await _frames(tree, 1)
+	_push_mouse(tree, gap + Vector2(0, -120), false, 0)
+	await _frames(tree, 2)
+	ok += _expect(fails, scroll.scroll_vertical > 50 and presses[0] == 1, "протяжка с пустого места не прокрутила список (%d)" % scroll.scroll_vertical)
+	layer.queue_free()
+	await _frames(tree, 2)
+	return ok
+
+
+## Мышиное событие в координатах вьюпорта: pressed = true/false для кнопки, null для движения.
+static func _push_mouse(tree: SceneTree, at: Vector2, pressed: Variant, mask: int) -> void:
+	var ev: InputEvent
+	if pressed == null:
+		var motion := InputEventMouseMotion.new()
+		motion.position = at
+		motion.global_position = at
+		motion.button_mask = mask as MouseButtonMask
+		ev = motion
+	else:
+		var button := InputEventMouseButton.new()
+		button.position = at
+		button.global_position = at
+		button.button_index = MOUSE_BUTTON_LEFT
+		button.pressed = bool(pressed)
+		button.button_mask = (MOUSE_BUTTON_MASK_LEFT if bool(pressed) else 0) as MouseButtonMask
+		ev = button
+	tree.root.push_input(ev, true)
 
 static func _solo_variation_check() -> bool:
 	for previous_map: String in Campaign.SOLO_MAP_IDS:

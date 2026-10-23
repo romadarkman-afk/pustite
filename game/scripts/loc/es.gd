@@ -493,6 +493,7 @@ func data() -> Dictionary:
 		"settings.resolution": "Tamaño de ventana",
 		"settings.mobile_display": "En móviles, el juego usa el modo de pantalla completa del sistema.",
 		"settings.simplified_graphics": "Gráficos simplificados",
+		"perf.auto_simplified": "El juego iba lento y se activaron los gráficos simplificados. Puedes desactivarlos en Ajustes.",
 		"settings.input_help": "Teclado y mando: flechas o WASD para elegir, Enter para confirmar, Esc o B para volver. En móviles, toca los botones de pantalla.",
 		"settings.music": "Música",
 		"settings.sfx": "Efectos",

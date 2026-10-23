@@ -158,6 +158,7 @@ func set_identity_color(id: int) -> void:
 	identity_color = IDENTITY_COLORS[identity_id]
 	if _door_rig != null:
 		_door_rig.material = null
+		_refresh_fx()
 	if body != null:
 		body.queue_redraw()
 	if tag != null:
@@ -331,31 +332,55 @@ static func lantern_rect(tex: Texture2D) -> Rect2:
 	return r
 
 
-const LANTERN_TINT := preload("res://shaders/lantern_tint.gdshader")
+const FIGURE_FX := preload("res://shaders/figure_weather.gdshader")
+var fx_frost := 0.0                 ## иней на плечах и шапке, 0..1 (TASK-067)
+var fx_wet := 0.0                   ## влажный блеск, 0..1
+var _lantern_tex: Texture2D
 
 
-## Цвет фонаря героя — шейдером по его стеклу; у обычного фонаря картинка как есть.
-func _apply_lantern_tint(tex: Texture2D) -> void:
+## Погода на фигуре: один шейдер даёт иней, влагу и цвет фонаря. Без погоды и с обычным фонарём материала нет.
+func set_weather_fx(frost: float, wet: float) -> void:
+	fx_frost = clampf(frost, 0.0, 1.0)
+	fx_wet = clampf(wet, 0.0, 1.0)
+	_refresh_fx()
+
+
+func _refresh_fx() -> void:
 	if _door_rig == null:
 		return
-	if lantern_id == "classic":
+	var tinted := is_player and lantern_id != "classic" and _lantern_tex != null
+	if fx_frost <= 0.01 and fx_wet <= 0.01 and not tinted:
 		if _door_rig.material != null:
 			_door_rig.material = null
 		return
 	var mat := _door_rig.material as ShaderMaterial
-	if mat == null or mat.shader != LANTERN_TINT:
+	if mat == null or mat.shader != FIGURE_FX:
 		mat = ShaderMaterial.new()
-		mat.shader = LANTERN_TINT
+		mat.shader = FIGURE_FX
 		_door_rig.material = mat
-	var r := lantern_rect(tex)
-	mat.set_shader_parameter("lantern_rect", Vector4(r.position.x, r.position.y, r.size.x, r.size.y))
-	mat.set_shader_parameter("glass", Cosmetics.lantern(lantern_id).glass)
-	mat.set_shader_parameter("strength", 0.85 if r.size.x > 0.0 else 0.0)
+	if tinted:
+		var r := lantern_rect(_lantern_tex)
+		mat.set_shader_parameter("lantern_rect", Vector4(r.position.x, r.position.y, r.size.x, r.size.y))
+		mat.set_shader_parameter("glass", Cosmetics.lantern(lantern_id).glass)
+		mat.set_shader_parameter("strength", 0.85 if r.size.x > 0.0 else 0.0)
+	else:
+		mat.set_shader_parameter("strength", 0.0)
+	mat.set_shader_parameter("frost", fx_frost)
+	mat.set_shader_parameter("wet", fx_wet)
+	mat.set_shader_parameter("night", night)
+
+
+## Цвет фонаря героя: стекло перекрашивает тот же шейдер. У обычного фонаря картинка как есть.
+func _apply_lantern_tint(tex: Texture2D) -> void:
+	_lantern_tex = tex
+	_refresh_fx()
 
 
 ## Ночью фонарь игрока светит, днём погашен; ночью у всех встревоженные лица.
 func set_night(n: float) -> void:
 	night = n
+	if _door_rig != null and _door_rig.material is ShaderMaterial:
+		(_door_rig.material as ShaderMaterial).set_shader_parameter("night", n)
 	if lantern_light != null:
 		lantern_light.visible = n > 0.05
 		lantern_light.energy = 0.62 * n

@@ -42,10 +42,10 @@ func music() -> StringName:
 
 func build() -> void:
 	_install_menu_art()
-	body.add_theme_constant_override("separation", 10)
+	body.add_theme_constant_override("separation", 8)
 
 	var t := W.label(L.t("game.title"), &"Title")
-	t.add_theme_font_size_override("font_size", 56)
+	t.add_theme_font_size_override("font_size", ThemeFactory.fs(44))
 	body.add_child(t)
 	var case_file := W.label(L.t("menu.case_file"), &"Speaker")
 	case_file.add_theme_font_size_override("font_size", ThemeFactory.fs(15))
@@ -71,10 +71,8 @@ func build() -> void:
 		"Campaign", &"Primary", Intent.OPEN_CAMPAIGN))
 	modes.add_child(_mode_tile(L.t("menu.mode_solo"), L.t("menu.mode_solo_desc"), L.t("menu.play"),
 		"Start", &"RowOn", Intent.START_SOLO))
-	modes.add_child(_mode_tile(L.t("menu.mode_online"), L.t("menu.mode_online_desc"), L.t("menu.mode_online"),
-		"OnlineSoon", &"Row", &"", true))
-	modes.add_child(_mode_tile(L.t("settings.title"), L.t("menu.settings_desc"), L.t("settings.title"),
-		"Settings", &"Row", Intent.OPEN_SETTINGS))
+	modes.add_child(_mode_button(L.t("menu.mode_online"), "OnlineSoon", &"", true))
+	modes.add_child(_mode_button(L.t("settings.title"), "Settings", Intent.OPEN_SETTINGS))
 	body.add_child(modes)
 
 	var dbs: Array[Button] = []
@@ -141,9 +139,9 @@ func build() -> void:
 func _mode_tile(heading: String, description: String, action_text: String, node_name: String,
 		variation: StringName, action: StringName, disabled: bool = false) -> PanelContainer:
 	var card := W.panel(&"Card")
-	card.custom_minimum_size = Vector2(140, ThemeFactory.TOUCH * 1.75)
+	card.custom_minimum_size = Vector2(140, 0)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var box := W.vbox(6)
+	var box := W.vbox(4)
 	card.add_child(box)
 	box.add_child(W.label(heading, &"Speaker"))
 	var detail := W.label(description, &"Small")
@@ -157,6 +155,17 @@ func _mode_tile(heading: String, description: String, action_text: String, node_
 		button.pressed.connect(func() -> void: emit_intent(action))
 	box.add_child(button)
 	return card
+
+
+## Пункт без описания: короткая кнопка в сетке рядом с карточками режимов.
+func _mode_button(text: String, node_name: String, action: StringName, disabled: bool = false) -> Button:
+	var button := W.wrap(W.button(text, &"Row"))
+	button.name = node_name
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.disabled = disabled
+	if not disabled:
+		button.pressed.connect(func() -> void: emit_intent(action))
+	return button
 
 
 func _install_menu_art() -> void:

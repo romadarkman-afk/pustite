@@ -497,6 +497,7 @@ func data() -> Dictionary:
 		"settings.resolution": "Window size",
 		"settings.mobile_display": "On phones, the game uses the system full-screen mode.",
 		"settings.simplified_graphics": "Simplified graphics",
+		"perf.auto_simplified": "The game was running slowly, so simplified graphics are on. You can turn them off in Settings.",
 		"settings.input_help": "Keyboard and gamepad: arrows or WASD to move, Enter to choose, Esc or B to go back. On phones, tap the on-screen buttons.",
 		"settings.music": "Music",
 		"settings.sfx": "Effects",

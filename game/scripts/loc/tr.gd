@@ -535,6 +535,7 @@ func data() -> Dictionary:
 		"settings.resolution": "Pencere boyutu",
 		"settings.mobile_display": "Telefonlarda oyun, sistemin tam ekran modunu kullanır.",
 		"settings.simplified_graphics": "Basitleştirilmiş grafikler",
+		"perf.auto_simplified": "Oyun yavaş çalıştı, basitleştirilmiş grafikler açıldı. Ayarlar'dan kapatabilirsin.",
 		"settings.input_help": "Klavye ve kumanda: seçim için oklar veya WASD, onay için Enter, geri dönmek için Esc veya B. Telefonda ekrandaki düğmelere dokunun.",
 		"settings.music": "Müzik",
 		"settings.sfx": "Efektler",

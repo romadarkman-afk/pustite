@@ -498,6 +498,7 @@ func data() -> Dictionary:
 		"settings.resolution": "Fenstergröße",
 		"settings.mobile_display": "Auf dem Smartphone verwendet das Spiel den Vollbildmodus des Systems.",
 		"settings.simplified_graphics": "Vereinfachte Grafik",
+		"perf.auto_simplified": "Das Spiel lief langsam, die vereinfachte Grafik ist jetzt an. Abschalten kannst du sie in den Einstellungen.",
 		"settings.input_help": "Tastatur und Controller: Pfeile oder WASD zur Auswahl, Enter zum Bestätigen, Esc oder B zurück. Auf dem Smartphone die Bildschirmtasten antippen.",
 		"settings.music": "Musik",
 		"settings.sfx": "Effekte",
