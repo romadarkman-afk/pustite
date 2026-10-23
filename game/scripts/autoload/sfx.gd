@@ -39,6 +39,8 @@ const SOUNDS := {
 	&"weep": "res://assets/sfx/weep.ogg",
 	# сцены (TASK-012–014, tools/make_scene_sfx.py)
 	&"breath": "res://assets/sfx/breath.ogg",
+	&"breath_2": "res://assets/sfx/breath_2.ogg",        # прерывистое дыхание за дверью (tools/make_dread.py)
+	&"breath_3": "res://assets/sfx/breath_3.ogg",        # тяжёлое, со свистом
 	&"cup_break": "res://assets/sfx/cup_break.ogg",
 	&"hammer": "res://assets/sfx/hammer.ogg",
 	&"latch": "res://assets/sfx/latch.ogg",
@@ -71,7 +73,10 @@ const LOOPS := {
 	&"mill_wheel": "res://assets/sfx/mill_wheel.ogg",
 }
 ## Звук с вариантами: каждый раз случайный из списка, в журнал пишется общее имя.
-const VARIANTS := {&"reveal": [&"reveal", &"reveal_2", &"reveal_3"]}
+const VARIANTS := {
+	&"reveal": [&"reveal", &"reveal_2", &"reveal_3"],
+	&"breath": [&"breath", &"breath_2", &"breath_3"],   # за дверью дышат по-разному (TASK-081)
+}
 const BUSES := [&"Music", &"Sfx", &"Ambience"]
 const HORROR_LEFT := &"NightHorrorLeft"
 const HORROR_RIGHT := &"NightHorrorRight"

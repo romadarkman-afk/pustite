@@ -3778,6 +3778,20 @@ static func sound() -> void:
 		if not Sfx.SOUNDS.has(k) or not Sfx.has_sound(k):
 			dread_missing.append(String(k))
 	ok += _expect(fails, dread_missing.is_empty() and Dread.SOUNDS.size() >= 10, "нет звуков страха: %s" % ", ".join(dread_missing))
+	# TASK-081: весь набор страха есть, дыхание за дверью в трёх вариантах и не короче 0,6 с
+	var fear_set: Array[StringName] = [&"breath", &"weep", &"cry_far", &"scratch", &"cup_break", &"latch", &"heartbeat"]
+	var fear_missing := PackedStringArray()
+	for fk: StringName in fear_set:
+		if not Sfx.has_sound(fk):
+			fear_missing.append(String(fk))
+	ok += _expect(fails, fear_missing.is_empty(), "нет звуков из набора страха: %s" % ", ".join(fear_missing))
+	var breaths: Array = Sfx.VARIANTS.get(&"breath", [])
+	var breath_bad := PackedStringArray()
+	for bk: StringName in breaths:
+		var bs: AudioStream = Sfx._streams.get(bk)
+		if bs == null or bs.get_length() < 0.6:
+			breath_bad.append(String(bk))
+	ok += _expect(fails, breaths.size() == 3 and breath_bad.is_empty(), "дыхание за дверью: вариантов %d (ждём 3), плохие: %s" % [breaths.size(), ", ".join(breath_bad)])
 	Dread.reset()
 	Sfx.played.clear()
 	var first_night := Dread.scare(1)

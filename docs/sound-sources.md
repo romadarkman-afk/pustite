@@ -25,6 +25,12 @@
 | `sfx/growl.ogg`, `breath.ogg` | [80 CC0 creature SFX](https://opengameart.org/content/80-cc0-creature-sfx) | rubberduck |
 | `sfx/cry_far.ogg` | [Male Grunt/Yelling sounds](https://opengameart.org/content/male-gruntyelling-sounds) | HaelDB |
 | `sfx/scare.ogg` | [Dark Ambiences](https://opengameart.org/content/dark-ambiences) | Ogrebane |
+| `sfx/breath_2.ogg`, `breath_3.ogg` | Синтез скриптом `game/tools/make_dread.py` (шум через полосовой фильтр, огибающая вдоха и выдоха, срез верха под «через доску»). Третий вариант дыхания за дверью, `breath.ogg`, записан (rubberduck, см. выше) | Созданы для проекта |
 | `sfx/amb_wind.ogg`, `amb_rain.ogg`, `amb_blizzard.ogg`, `life_murmur.ogg`, `life_dog.ogg`, `life_hens.ogg`, `mill_wheel.ogg` | Синтез скриптом `game/tools/make_weather_sfx.py` (шум, полосовые фильтры, формантные слоги) | Созданы для проекта, внешних записей нет |
 
 Некоторые короткие служебные эффекты пока остались из прежнего набора. Звуки тревоги и финальные темы обновлены.
+
+## Что синтезировано и звучит хуже записи (TASK-081)
+
+`weep.ogg` (сдавленный плач), `whisper.ogg`, `gasp.ogg`, `growl.ogg`, `call_far.ogg` делает `tools/make_dread.py` формулами. Голос формулами выходит искусственным. Заменить записями CC0 нужно вручную: у среды, где работает Claude, нет доступа к opengameart.org и freesound.org. Кладёшь файл `.ogg` с тем же именем в `game/assets/sfx/`, код не меняется. Длина `weep.ogg` 2–3 с, `call_far.ogg` 2 с, громкость пика не выше −3 дБ. Перед добавлением записи проверь лицензию на странице автора и впиши её в таблицу выше.
+

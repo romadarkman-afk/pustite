@@ -1,5 +1,5 @@
 """Звуки страха «Пустите» (v0.37): царапанье, шёпот, шаги по крыше, скрип, далёкий крик,
-рык, хрип, зов из леса, резкий удар и плач у двери.
+рык, хрип, зов из леса, резкий удар, плач у двери и два варианта дыхания за дверью (третий, `breath.ogg`, запись).
 Запуск из папки game: python3 tools/make_dread.py .  → assets/sfx/<имя>.ogg
 Остальные звуки этот скрипт не трогает. Любой файл можно заменить записью с тем же именем.
 """
@@ -192,9 +192,51 @@ def weep():
     return S.norm(room(S.lp(out, 3000), mix=0.35), 0.5)
 
 
+def _breath_cycle(n, inhale, hiss, rasp=0.0, whistle=0.0):
+    """Один вдох и выдох шумом: вдох нарастает, выдох тише и дольше. rasp — хрип, whistle — свист на выдохе."""
+    t = np.arange(n) / SR
+    d_in = inhale
+    e = np.where(t < d_in, (t / d_in) ** 1.4, np.clip(1 - (t - d_in) / max(1e-3, n / SR - d_in), 0, 1) ** 1.6 * 0.8)
+    v = S.bp(rng.standard_normal(n), 220, 2600) * hiss
+    if rasp:
+        v *= 1 + rasp * np.sign(np.sin(2 * np.pi * 34 * t + rng.uniform(0, 6)))
+    if whistle:
+        f = 1300 + 260 * np.sin(2 * np.pi * 1.1 * t)
+        w = np.sin(2 * np.pi * np.cumsum(f) / SR)
+        v += whistle * S.bp(w, 900, 1900) * np.where(t > d_in, 1.0, 0.0)
+    return v * e
+
+
+def _breath_door(cycles, sec, rasp=0.0, whistle=0.0, jitter=0.0):
+    """Дыхание за дверью: звук идёт через доски, поэтому верх срезан и добавлено глухое «гудение» груди."""
+    out = np.zeros(int(SR * sec))
+    at = 0.12
+    for dur, inhale in cycles:
+        dur *= 1 + rng.uniform(-jitter, jitter)
+        n = int(SR * dur)
+        gain = 1 + rng.uniform(-jitter, jitter)
+        place(out, _breath_cycle(n, inhale * dur, 0.9 * gain, rasp, whistle), at)
+        at += dur * 0.97
+    chest = S.bp(rng.standard_normal(len(out)), 70, 190) * 0.22
+    out = S.lp(out + chest * (np.abs(out) > 0.02), 1900, 2)
+    return S.norm(room(out, mix=0.3), 0.55)
+
+
+def breath_2():
+    """Прерывистое: четыре коротких вдоха подряд, будто человек сдерживает страх."""
+    return _breath_door([(0.6, 0.38)] * 4, 2.8, rasp=0.25, jitter=0.18)
+
+
+def breath_3():
+    """Тяжёлое со свистом на выдохе: два долгих вдоха."""
+    return _breath_door([(1.5, 0.55), (1.6, 0.55)], 3.3, whistle=0.35, jitter=0.08)
+
+
 JOBS = {
     'scratch': scratch, 'whisper': whisper, 'roof_steps': roof_steps, 'creak': creak, 'cry_far': cry_far,
     'growl': growl, 'gasp': gasp, 'call_far': call_far, 'scare': scare, 'weep': weep,
+    # дыхание в конце: ряд случайных чисел старых звуков не сдвигается
+    'breath_2': breath_2, 'breath_3': breath_3,
 }
 
 
