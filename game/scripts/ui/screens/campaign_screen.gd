@@ -4,6 +4,10 @@ extends Screen
 ## Закрытые акты видны с названием: что будет дальше.
 
 
+const COVER_PATH := "res://assets/ui/campaign_cover.png"
+var _act_heads: Dictionary = {}     ## номер акта -> заголовок в списке глав
+
+
 func screen_id() -> String:
 	return "campaign"
 
@@ -24,20 +28,17 @@ func build() -> void:
 	W.clear(body)
 	W.clear(footer)
 	body.add_child(W.label(L.t("camp.title"), &"Title"))
-	body.add_child(W.label(L.t("camp.intro"), &"Tale"))
-	var chapter := Campaign.current()
-	var cover := TextureRect.new()
-	cover.name = "CampaignCover"
-	cover.texture = Campaign.art(chapter)
-	cover.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	cover.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	cover.custom_minimum_size = Vector2(0, 184)
-	cover.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	body.add_child(cover)
+	body.add_child(_book_header())
+	var map := CampaignMap.new()
+	map.build()
+	map.act_picked.connect(_scroll_to_act)
+	body.add_child(map)
+	_act_heads.clear()
 	for act: Dictionary in Campaign.ACTS:
 		var aid := int(act.id)
 		var head := W.label(L.t("camp.act%d" % aid), &"Speaker")
+		head.name = "ActHead_%d" % aid
+		_act_heads[aid] = head
 		body.add_child(head)
 		var chapters: Array = act.chapters
 		if chapters.is_empty():
@@ -73,6 +74,38 @@ func build() -> void:
 	var back := W.button(L.t("ui.back"), &"Ghost")
 	back.pressed.connect(func() -> void: emit_intent(Intent.BACK))
 	footer.add_child(back)
+
+
+## Обложка книги и вступление. В начале кампании обложка крупнее.
+func _book_header() -> Control:
+	var row := W.hbox(14)
+	row.name = "BookHeader"
+	var px := 150.0 if Campaign.is_new() else 88.0
+	var cover := TextureRect.new()
+	cover.name = "BookCover"
+	cover.texture = load(COVER_PATH) as Texture2D if ResourceLoader.exists(COVER_PATH) else null
+	cover.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	cover.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	cover.custom_minimum_size = Vector2(px, px * 1.5)
+	cover.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(cover)
+	var intro := W.label(L.t("camp.intro"), &"Tale")
+	intro.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(intro)
+	return row
+
+
+## Нажали на место на карте: список прокручивается к заголовку акта.
+func _scroll_to_act(act: int) -> void:
+	var head: Control = _act_heads.get(act)
+	if head == null or scroll == null or not is_instance_valid(head):
+		return
+	var y := int(head.global_position.y - scroll.global_position.y) + scroll.scroll_vertical - 8
+	if Juice.instant:
+		scroll.scroll_vertical = maxi(y, 0)
+	else:
+		Juice.tween().tween_property(scroll, "scroll_vertical", maxi(y, 0), 0.35)
 
 
 func _chapter_row(id: String, n: int) -> Control:

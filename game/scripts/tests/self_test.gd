@@ -1122,18 +1122,18 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 	var b1 := cs.find_child("Chapter_a1c1", true, false) as Button
 	var b3 := cs.find_child("Chapter_a1c3", true, false) as Button
 	ok += _expect(fails, b1 != null and not b1.disabled and b3 != null and b3.disabled and cs.find_child("Soon_4", true, false) == null and cs.find_child("Chapter_a4c3", true, false) != null and cs.find_child("Chapter_a2c1", true, false) != null
-		and cs.find_child("Fallen", true, false) != null and cs.find_child("CampaignCover", true, false) != null
-		and cs.find_child("CampaignMap", true, false) == null and cs.find_child("ChapterArt_a1c1", true, false) != null,
-		"экран глав: не видно истории глав или есть лишняя карта")
+		and cs.find_child("Fallen", true, false) != null and cs.find_child("BookCover", true, false) != null
+		and cs.find_child("CampaignMap", true, false) != null and cs.find_child("ChapterArt_a1c1", true, false) != null,
+		"экран глав: не видно истории глав, обложки или карты")
 	var chapter_art_ok := true
 	for chapter_id: String in Campaign.ORDER:
 		var chapter_image := cs.find_child("ChapterArt_" + chapter_id, true, false) as TextureRect
 		var expected_image: Texture2D = Campaign.art(chapter_id)
 		chapter_art_ok = chapter_art_ok and chapter_image != null and expected_image != null and chapter_image.texture == expected_image
-	var campaign_cover := cs.find_child("CampaignCover", true, false) as TextureRect
-	var expected_cover: Texture2D = Campaign.art(Campaign.current())
-	chapter_art_ok = chapter_art_ok and campaign_cover != null and expected_cover != null and campaign_cover.texture == expected_cover
-	ok += _expect(fails, chapter_art_ok, "экран кампании: обложка или одна из 12 глав без своего изображения")
+	var book_cover := cs.find_child("BookCover", true, false) as TextureRect
+	var map_art := cs.find_child("MapArt", true, false) as TextureRect
+	chapter_art_ok = chapter_art_ok and book_cover != null and book_cover.texture != null and map_art != null and map_art.texture != null
+	ok += _expect(fails, chapter_art_ok, "экран кампании: обложка, карта или одна из 12 глав без своего изображения")
 	var none_lost: Array[int] = []
 	Save.record_chapter("a1c2", 3, none_lost)
 	Save.record_chapter("a1c3", 1, none_lost)
@@ -9104,3 +9104,103 @@ static func actscenes() -> void:
 	Game.chapter_result = keep_result
 	Game.scenes_done = keep_done
 	_finish(fails, ok, "Сцены актов II–IV и финала", "пролог, конец акта, фары, обе концовки: состав, звук, картинки, 10 языков, места запуска")
+
+
+## TASK-087: карта кампании. Состояния актов, пины на местах, подписи не вылезают и не лезут друг на друга на всех языках и размерах текста.
+static func campmap() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	var keep_stars := Save.campaign_stars.duplicate()
+	var keep_lang := L.code
+	var keep_size := Save.text_size
+	# 1. состояния актов
+	Save.campaign_stars.clear()
+	var s0 := [Campaign.act_state(1), Campaign.act_state(2), Campaign.act_state(3), Campaign.act_state(4)]
+	ok += _expect(fails, s0[0].state == "current" and s0[1].state == "locked" and s0[2].state == "locked" and s0[3].state == "locked", "в начале кампании состояния актов: %s" % str(s0.map(func(x: Dictionary) -> String: return x.state)))
+	ok += _expect(fails, [s0[0].season, s0[1].season, s0[2].season, s0[3].season] == ["summer", "autumn", "winter", "spring"], "сезоны актов: %s" % str(s0.map(func(x: Dictionary) -> String: return x.season)))
+	for id: String in ["a1c1", "a1c2", "a1c3", "a2c1"]:
+		Save.campaign_stars[id] = 2
+	var s1 := [Campaign.act_state(1), Campaign.act_state(2), Campaign.act_state(3)]
+	ok += _expect(fails, s1[0].state == "done" and s1[0].done == 3 and s1[1].state == "current" and s1[1].done == 1 and s1[2].state == "locked", "середина кампании: %s" % str(s1))
+	for id2: String in Campaign.ORDER:
+		Save.campaign_stars[id2] = 3
+	var s2 := Campaign.act_state(4)
+	ok += _expect(fails, s2.state == "done" and s2.done == 3 and s2.total == 3, "конец кампании: %s" % str(s2))
+	ok += _expect(fails, Campaign.act_state(9).state == "locked" and int(Campaign.act_state(9).total) == 0, "несуществующий акт не закрыт")
+	# 2. экран: каждый язык и размер текста, три состояния кампании
+	var steps: Array = [[], ["a1c1", "a1c2", "a1c3", "a2c1"], Campaign.ORDER]
+	var bad := PackedStringArray()
+	var checked := 0
+	for code: String in L.LANGS:
+		L.use(code)
+		for size_i in range(3):
+			Save.text_size = size_i
+			ThemeFactory.text_scale = ThemeFactory.TEXT_SCALES[size_i]
+			for st: Array in steps:
+				Save.campaign_stars.clear()
+				for id3: String in st:
+					Save.campaign_stars[id3] = 3
+				Nav.show_campaign()
+				await _settle(tree)
+				await tree.process_frame
+				var cs := Nav.host.current
+				var map := cs.find_child("CampaignMap", true, false) as CampaignMap
+				var tag := "%s/%d/%d" % [code, size_i, st.size()]
+				if map == null or map.size.x < 100.0:
+					bad.append("%s: карты нет или она без ширины" % tag)
+					continue
+				var rect := Rect2(Vector2.ZERO, Vector2(map.size.x, map.map_height()))
+				var tags: Array[Rect2] = []
+				for act in range(1, 5):
+					var it := map.item(act)
+					if it.is_empty():
+						bad.append("%s: нет места %d" % [tag, act])
+						continue
+					var tg: Control = it.tag
+					var pin: Control = it.pin
+					var tr := Rect2(tg.position, tg.size)
+					if not rect.encloses(tr):
+						bad.append("%s: подпись %d вылезает за карту %s" % [tag, act, str(tr)])
+					if not rect.encloses(Rect2(pin.position, pin.size)):
+						bad.append("%s: пин %d вылезает за карту" % [tag, act])
+					var hit := tg.find_child("Pick_%d" % act, true, false) as Button
+					if hit == null or hit.size.y < MIN_TOUCH - 0.5:
+						bad.append("%s: у места %d нет кнопки или она ниже %d" % [tag, act, int(MIN_TOUCH)])
+					var want := Vector2((it.at as Vector2).x * map.size.x, (it.at as Vector2).y * map.map_height())
+					if pin.position.distance_to(want - pin.size * 0.5) > 1.5:
+						bad.append("%s: пин %d не на месте картинки" % [tag, act])
+					for prev: Rect2 in tags:
+						if prev.intersects(tr):
+							bad.append("%s: подписи накладываются %s и %s" % [tag, str(prev), str(tr)])
+					tags.append(tr)
+					checked += 1
+				var texts := _all_text(map)
+				if texts.contains("{") or texts.contains("camp.place") or texts.contains("camp.season"):
+					bad.append("%s: в подписях метка или ключ: %s" % [tag, texts.substr(0, 60)])
+	ok += checked
+	ok += _expect(fails, bad.is_empty(), "карта кампании: %d нарушений, например %s" % [bad.size(), "; ".join(bad.slice(0, 6))])
+	# 3. нажатие на место прокручивает список к заголовку акта
+	L.use("ru")
+	Save.text_size = 0
+	ThemeFactory.text_scale = ThemeFactory.TEXT_SCALES[0]
+	Save.campaign_stars.clear()
+	Nav.show_campaign()
+	await _settle(tree)
+	await tree.process_frame
+	var cs2 := Nav.host.current as CampaignScreen
+	var map2 := cs2.find_child("CampaignMap", true, false) as CampaignMap
+	cs2.scroll.scroll_vertical = 0
+	var picked := [0]
+	map2.act_picked.connect(func(a: int) -> void: picked[0] = a)
+	(map2.find_child("Pick_3", true, false) as Button).pressed.emit()
+	await tree.process_frame
+	ok += _expect(fails, picked[0] == 3, "нажатие на место не сообщило акт")
+	var head3 := cs2.find_child("ActHead_3", true, false) as Control
+	ok += _expect(fails, head3 != null and cs2.scroll.scroll_vertical > 0 and absf(head3.global_position.y - cs2.scroll.global_position.y) < 40.0,
+		"список не прокрутился к акту III: scroll %d" % cs2.scroll.scroll_vertical)
+	Save.campaign_stars = keep_stars
+	Save.text_size = keep_size
+	ThemeFactory.text_scale = ThemeFactory.TEXT_SCALES[keep_size]
+	L.use(keep_lang)
+	_finish(fails, ok, "Карта кампании", "четыре места на карте, состояния актов, сезоны, подписи внутри карты и не накладываются на 10 языках и трёх размерах текста, нажатие прокручивает к акту")

@@ -291,6 +291,31 @@ static func current() -> String:
 	return ORDER[ORDER.size() - 1]
 
 
+## Акт на карте кампании (TASK-087): done (все главы пройдены), current (в нём следующая глава),
+## open (открыт, главы можно переиграть), locked. Сезон акта берётся из его первой главы.
+static func act_state(act: int) -> Dictionary:
+	var chapters: Array = []
+	for a: Dictionary in ACTS:
+		if int(a.id) == act:
+			chapters = a.chapters
+	var done := 0
+	for id: String in chapters:
+		if Save.campaign_stars.has(id):
+			done += 1
+	var state := "locked"
+	if not chapters.is_empty():
+		if done == chapters.size():
+			state = "done"
+		elif int(chapter(current()).get("act", 0)) == act:
+			state = "current"
+		elif unlocked(String(chapters[0])):
+			state = "open"
+	var season := "summer"
+	if not chapters.is_empty():
+		season = String((chapter(String(chapters[0])).get("world", {}) as Dictionary).get("season", "summer"))
+	return {"state": state, "done": done, "total": chapters.size(), "season": season}
+
+
 static func next_of(id: String) -> String:
 	var i := ORDER.find(id)
 	return ORDER[i + 1] if i >= 0 and i + 1 < ORDER.size() else ""
