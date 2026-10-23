@@ -243,6 +243,9 @@ func _final_night(box: Control, btn: Button) -> void:
 	var choice: String = await ScenePlayer.play(self, Scenes.final_door(), m)
 	if not is_instance_valid(box):
 		return
+	await ScenePlayer.play(self, Scenes.final_shore() if choice == "open" else Scenes.final_train(), m)
+	if not is_instance_valid(box):
+		return
 	box.add_child(final_card(m, choice))
 
 
@@ -488,6 +491,23 @@ func close_slides() -> void:
 	var tw := Juice.tween()
 	tw.tween_property(s, "modulate:a", 0.0, 0.6)
 	tw.tween_callback(s.queue_free)
+	if _act_end_due():
+		_play_act_end.call_deferred()
+
+
+## После слайдов итога главы, которой кончается акт II или III, идёт сцена конца акта. Раз за партию.
+func _act_end_due() -> bool:
+	if Game.chapter.is_empty() or Game.chapter_result.is_empty() or not bool(Game.chapter_result.get("passed", false)):
+		return false
+	var act := int(Game.chapter.get("act", 0))
+	return (act == 2 or act == 3) and Campaign.last_of_act(String(Game.chapter.id)) and not Game.scenes_done.has("act_end")
+
+
+func _play_act_end() -> void:
+	if not is_inside_tree():
+		return
+	Game.scenes_done["act_end"] = true
+	await ScenePlayer.play(self, Scenes.act_end(int(Game.chapter.get("act", 0)), m), m)
 
 
 func music() -> StringName:

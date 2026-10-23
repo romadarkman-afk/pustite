@@ -40,6 +40,14 @@ static func snd_play(id: String, at: float = 0.0, vol: float = -4.0, pitch: floa
 	return {"at": at, "do": "play", "id": id, "vol": vol, "pitch": pitch}
 
 
+## Кадрам без звуковой карты дописывает «без изменений»: тишина и продолжение фона записаны явно (TASK-084–086).
+static func sealed(scene: Dictionary) -> Dictionary:
+	for f: Dictionary in scene.get("frames", []):
+		if (f.get("sound", []) as Array).is_empty():
+			f["sound"] = [snd_keep()]
+	return scene
+
+
 ## Что не так в звуковых картах сцены. strict: у каждого кадра должен быть непустой список (глава «Стук»).
 static func sound_problems(scene: Dictionary, strict: bool) -> PackedStringArray:
 	var out := PackedStringArray()
@@ -90,6 +98,10 @@ static func art(name: String) -> String:
 	}
 	if missing_art.has(name):
 		return String(missing_art[name])
+	# final_shore.png/.jpg ещё не нарисована: пока вместо неё дверь финала (docs/art-needs-pack-3.md)
+	if name == "final_shore":
+		var png := "res://assets/scenes/final_shore.png"
+		return png if ResourceLoader.exists(png) else art("final_door")
 	if name.begins_with("grief_"):
 		return "res://assets/scenes/end_people.jpg"
 	return exact
@@ -208,10 +220,90 @@ static func board(m: Match) -> Dictionary:
 		lines.append({"text": L.t("sc.board.alone")})
 		frames.append({"art": art("a1c3"), "light": "dawn", "lines": lines})
 		frames.append({"art": art("a1c3"), "light": "dawn", "lines": [{"text": carved}], "sound": [{"at": 0.4, "do": "play", "id": "creak", "vol": -6.0}]})
-	return {"id": "a1c3_board", "teller": teller.id if teller != null else -1, "frames": frames,
+	return sealed({"id": "a1c3_board", "teller": teller.id if teller != null else -1, "frames": frames,
 		"choice": {"prompt": L.t("sc.board.ask"), "options": [
 			{"id": "confess", "text": L.t("sc.board.c_confess")}, {"id": "deny", "text": L.t("sc.board.c_deny")},
-			{"id": "silent", "text": L.t("sc.board.c_silent")}]}}
+			{"id": "silent", "text": L.t("sc.board.c_silent")}]}})
+
+
+## Пролог акта II–IV (TASK-084–086): три кадра, когда деревня приходит на новое место. Погоду и сезон даёт глава.
+## Акты I и V прологом не нуждаются: акт I открывает сцена у реки.
+const ACT_FIRST_CHAPTER := {2: "a2c1", 3: "a3c1", 4: "a4c1"}
+
+
+static func act_prologue(act: int, m: Match) -> Dictionary:
+	var a := art("a%dc1" % act)
+	match act:
+		2:
+			return {"id": "act2_prologue", "restore_sound": true, "frames": [
+				{"art": a, "zoom": [1.0, 1.08], "light": "dusk", "lines": [{"text": L.t("sc.act2.1")}],
+				 "sound": [snd_silence(0.0, 0.4), snd_start("amb", "amb_rain", 0.2, 1.2)]},
+				{"art": a, "zoom": [1.06, 1.14], "light": "dusk", "lines": [{"text": L.t("sc.act2.2")}],
+				 "sound": [snd_start("amb", "mill_wheel", 0.0, 1.5)]},
+				{"art": a, "zoom": [1.12, 1.2], "light": "night", "lines": [{"text": L.t("sc.act2.3")}],
+				 "sound": [snd_play("creak", 1.0, -14.0)]}]}
+		3:
+			return {"id": "act3_prologue", "restore_sound": true, "frames": [
+				{"art": a, "zoom": [1.0, 1.08], "light": "dusk", "lines": [{"text": L.t("sc.act3.1")}],
+				 "sound": [snd_silence(0.0, 0.4), snd_start("amb", "amb_wind", 0.3, 1.5)]},
+				{"art": a, "zoom": [1.06, 1.14], "light": "night", "lines": [{"text": L.t("sc.act3.2")}],
+				 "sound": [snd_play("latch", 1.0, -10.0)]},
+				{"art": a, "zoom": [1.12, 1.2], "light": "night", "lines": [{"text": L.t("sc.act3.3")}],
+				 "sound": [snd_stop("amb", 0.0, 2.5)]}]}
+		4:
+			return {"id": "act4_prologue", "restore_sound": true, "frames": [
+				{"art": a, "zoom": [1.0, 1.08], "light": "dawn", "lines": [{"text": L.t("sc.act4.1")}],
+				 "sound": [snd_silence(0.0, 0.4), snd_start("amb", "amb_dusk", 0.3, 1.5)]},
+				{"art": a, "zoom": [1.06, 1.14], "light": "dawn", "weather": "fog", "lines": [{"text": L.t("sc.act4.2")}],
+				 "sound": [snd_play("whistle", 0.8, -24.0)]},
+				{"art": a, "zoom": [1.12, 1.2], "light": "dawn", "weather": "fog", "lines": [{"text": L.t("sc.act4.3")}],
+				 "sound": [snd_keep()]}]}
+	return {}
+
+
+## Конец акта II и III: колесо останавливается, книга закрывается, затем общий итог акта по тому, сколько людей осталось.
+static func act_end(act: int, m: Match) -> Dictionary:
+	if act != 2 and act != 3:
+		return {}
+	var a := art("a%dc3" % act)
+	var frames: Array = [
+		{"art": a, "zoom": [1.0, 1.06], "light": "dawn", "lines": [{"text": L.t("sc.act%d.end" % act)}],
+		 "sound": [snd_silence(0.0, 1.0), snd_play("latch" if act == 3 else "creak", 0.5, -10.0)]}]
+	var ending := Campaign.act_ending(act)
+	if not ending.is_empty():
+		frames.append({"art": a, "zoom": [1.04, 1.1], "light": "dawn", "lines": [{"text": ending}],
+			"sound": [snd_start("amb", "amb_river" if act == 2 else "amb_wind", 0.4, 2.0)]})
+	return {"id": "act%d_end" % act, "restore_sound": true, "frames": frames}
+
+
+## Фары на станции (TASK-086): первое утро главы «Тропа к вагону».
+static func headlights(m: Match) -> Dictionary:
+	var a := art("a4c2")
+	return {"id": "a4c2_lights", "frames": [
+		{"art": a, "zoom": [1.0, 1.08], "light": "dawn", "weather": "fog", "lines": [{"text": L.t("sc.lights.1")}],
+		 "sound": [snd_silence(0.0, 0.6), snd_start("amb", "amb_dusk", 0.3, 1.5)]},
+		{"art": a, "zoom": [1.06, 1.14], "light": "dawn", "weather": "fog", "lines": [{"text": L.t("sc.lights.2")}],
+		 "sound": [snd_keep()]},
+		{"art": a, "zoom": [1.12, 1.2], "light": "dawn", "weather": "fog", "lines": [{"text": L.t("sc.lights.3")}],
+		 "sound": [snd_stop("amb", 0.0, 3.0)]}]}
+
+
+## Финал, если игрок остался ждать поезд: сцена перед карточкой концовки.
+static func final_train() -> Dictionary:
+	return {"id": "final_train", "restore_sound": false, "frames": [
+		{"art": art("final_door"), "zoom": [1.0, 1.06], "light": "night", "lines": [{"text": L.t("sc.train.1")}],
+		 "sound": [snd_silence(0.0, 1.0)]},
+		{"art": art("final_train"), "zoom": [1.0, 1.08], "light": "dawn", "lines": [{"text": L.t("sc.train.2")}],
+		 "sound": [snd_play("train", 0.2, -8.0), snd_play("door_open", 2.0, -6.0)]}]}
+
+
+## Финал, если игрок открыл дверь тому, кто звал с того берега.
+static func final_shore() -> Dictionary:
+	return {"id": "final_shore", "restore_sound": false, "frames": [
+		{"art": art("final_shore"), "zoom": [1.0, 1.06], "light": "night", "lines": [{"text": L.t("sc.shore.1")}],
+		 "sound": [snd_silence(0.0, 0.6), snd_play("latch", 0.6, -4.0)]},
+		{"art": art("final_shore"), "zoom": [1.0, 1.08], "light": "dawn", "weather": "fog", "lines": [{"text": L.t("sc.shore.2")}],
+		 "sound": [snd_play("door_open", 0.3, -6.0), snd_start("amb", "amb_river", 0.5, 2.5)]}]}
 
 
 ## Хозяин места в сцене: портрет-картинка вместо жителя.
@@ -240,11 +332,11 @@ static func grave(m: Match) -> Dictionary:
 	if finder != null:
 		frames.append({"portrait": finder, "light": "dawn", "weather": "rain",
 			"lines": [{"who": finder.name, "text": L.t(first, {"me": finder})}],
-			"sound": [{"at": 0.0, "do": "silence"}, {"at": 0.5, "do": "play", "id": "hammer", "vol": -10.0}]})
+			"sound": [snd_silence(0.0, 0.4), snd_start("amb", "amb_rain", 0.2, 1.2), snd_play("hammer", 0.5, -10.0)]})
 	var found := L.t("sc.grave.knife", {"who": hunter}) if hunter != null and hunter.alive else L.t("sc.grave.stranger")
 	frames.append({"art": art("a2c2"), "light": "dawn", "weather": "rain", "lines": [{"text": found}]})
-	return {"id": "a2c2_grave", "finder": finder.id if finder != null else -1,
-		"hunter": hunter.id if hunter != null and hunter.alive else -1, "frames": frames}
+	return sealed({"id": "a2c2_grave", "finder": finder.id if finder != null else -1,
+		"hunter": hunter.id if hunter != null and hunter.alive else -1, "frames": frames})
 
 
 ## «Половодье» (TASK-024): утро после первой ночи. Мельник: вода к вечеру будет у порога, лодка одна.
@@ -253,11 +345,11 @@ static func flood(m: Match) -> Dictionary:
 	var opts: Array = []
 	for h: int in m.low_houses():
 		opts.append({"id": "h%d" % h, "text": L.t("sc.flood.c_house", {"house": m.house_name(h)})})
-	return {"id": "a2c3_flood", "frames": [
+	return sealed({"id": "a2c3_flood", "frames": [
 		{"art": art("a2c3"), "light": "dawn", "weather": "rain", "lines": [{"text": L.t("sc.flood.1")}],
-		 "sound": [{"at": 0.0, "do": "amb", "id": "amb_river"}]},
+		 "sound": [snd_silence(0.0, 0.4), snd_start("amb", "amb_river", 0.2, 1.2)]},
 		npc_frame("miller", L.t("sc.flood.2"))],
-		"choice": {"prompt": L.t("sc.flood.ask"), "options": opts}}
+		"choice": {"prompt": L.t("sc.flood.ask"), "options": opts}})
 
 
 ## Тайна мельника (TASK-022): глава «Половодье», утро после второй ночи. Нашёл достаточно — спрашиваешь сам,
@@ -266,12 +358,12 @@ static func miller_secret(m: Match) -> Dictionary:
 	var known := Campaign.miller_clues() + Campaign.miller_records(m).size() >= Campaign.MILLER_KNOWN
 	var frames: Array = [
 		{"art": art("a2c3"), "light": "night", "lines": [{"text": L.t("sc.miller.1_known" if known else "sc.miller.1")}],
-		 "sound": [{"at": 0.0, "do": "silence"}, {"at": 0.6, "do": "play", "id": "latch", "vol": -6.0}]},
+		 "sound": [snd_silence(0.0, 0.4), snd_start("amb", "mill_wheel", 0.2, 1.5), snd_play("latch", 0.6, -6.0)]},
 		npc_frame("miller", L.t("sc.miller.2"), "night"),
 		npc_frame("miller", L.t("sc.miller.3"), "night"),
 	]
-	return {"id": "a2c3_miller", "frames": frames, "choice": {"prompt": L.t("sc.miller.ask"), "options": [
-		{"id": "tell", "text": L.t("sc.miller.c_tell")}, {"id": "keep", "text": L.t("sc.miller.c_keep")}]}}
+	return sealed({"id": "a2c3_miller", "frames": frames, "choice": {"prompt": L.t("sc.miller.ask"), "options": [
+		{"id": "tell", "text": L.t("sc.miller.c_tell")}, {"id": "keep", "text": L.t("sc.miller.c_keep")}]}})
 
 
 ## «Колокол» (TASK-028): утро после первой ночи. Анфиса показывает вторую книгу — зачёркнутые имена.
@@ -282,7 +374,7 @@ static func crossed_book(m: Match) -> Dictionary:
 	var frames: Array = [
 		npc_frame("anfisa", L.t("sc.crossed.1"), "night"),
 		{"art": art("a3c2"), "light": "night", "lines": [{"text": L.t("sc.crossed.2", {"name": name}) if not name.is_empty() else L.t("sc.crossed.2_noname")}],
-		 "sound": [{"at": 0.0, "do": "silence"}, {"at": 0.5, "do": "play", "id": "creak", "vol": -8.0}]},
+		 "sound": [snd_silence(0.0, 0.4), snd_play("creak", 0.5, -8.0)]},
 		npc_frame("anfisa", L.t("sc.crossed.3"), "night"),
 	]
 	var told: Array = []
@@ -294,18 +386,19 @@ static func crossed_book(m: Match) -> Dictionary:
 		told.append({"who": Npc.display_name("anfisa"), "text": L.t("sc.crossed.board")})
 	if not told.is_empty():
 		frames.append({"portrait": Npc.sprite_path("anfisa"), "light": "night", "lines": told})
-	return {"id": "a3c2_crossed", "told": told.size(), "frames": frames}
+	frames[0]["sound"] = [snd_silence(0.0, 0.4), snd_start("amb", "amb_wind", 0.3, 1.5)]
+	return sealed({"id": "a3c2_crossed", "told": told.size(), "frames": frames})
 
 
 ## «Крипта» (TASK-029): утро после первой ночи. Ответ на главный вопрос: упыри приходят к тем,
 ## кто их помнит и оплакивает, и просятся их голосом. Игрока звали с того берега — его тоже оплакивали.
 static func crypt(m: Match) -> Dictionary:
-	return {"id": "a3c3_crypt", "frames": [
+	return sealed({"id": "a3c3_crypt", "frames": [
 		{"art": art("a3c3"), "light": "night", "lines": [{"text": L.t("sc.crypt.1"), "hold": 1.2}],
-		 "sound": [{"at": 0.0, "do": "silence", "fade": 0.6}, {"at": 0.8, "do": "play", "id": "breath", "vol": -12.0}]},
+		 "sound": [snd_silence(0.0, 0.6), snd_play("breath", 0.8, -12.0)]},
 		{"art": art("a3c3"), "light": "night", "lines": [{"text": L.t("sc.crypt.2")}, {"text": L.t("sc.crypt.3")}]},
 		npc_frame("ignat", L.t("sc.crypt.ignat"), "night"),
-	]}
+	]})
 
 
 ## Суд Игната (TASK-029): утро после второй ночи. Исход только по журналу кампании и главы:
@@ -315,7 +408,9 @@ const TRIAL_SHOWN := 2
 
 static func trial(m: Match) -> Dictionary:
 	var t := Campaign.trial(m)
-	var frames: Array = [npc_frame("ignat", L.t("sc.trial.open"), "warm")]
+	var open := npc_frame("ignat", L.t("sc.trial.open"), "warm")
+	open["sound"] = [snd_silence(0.0, 0.5), snd_play("bell", 0.4, -16.0)]
+	var frames: Array = [open]
 	for side: String in ["def", "acc"]:
 		var shown := 0
 		for rec: Dictionary in t[side]:
@@ -331,8 +426,10 @@ static func trial(m: Match) -> Dictionary:
 			shown += 1
 	if t.def.is_empty() and t.acc.is_empty():
 		frames.append({"light": "warm", "lines": [{"text": L.t("sc.trial.nobody")}]})
-	frames.append(npc_frame("ignat", L.t("sc.trial.acquit" if bool(t.acquit) else "sc.trial.convict"), "warm"))
-	return {"id": "a3c3_trial", "acquit": bool(t.acquit), "defenders": t.def.size(), "accusers": t.acc.size(), "frames": frames}
+	var verdict := npc_frame("ignat", L.t("sc.trial.acquit" if bool(t.acquit) else "sc.trial.convict"), "warm")
+	verdict["sound"] = [snd_play("door_open" if bool(t.acquit) else "latch", 0.8, -10.0)]
+	frames.append(verdict)
+	return sealed({"id": "a3c3_trial", "acquit": bool(t.acquit), "defenders": t.def.size(), "accusers": t.acc.size(), "frames": frames})
 
 
 ## «Последний поезд» (TASK-034): утро после второй ночи. Смотритель показывает список: одна подпись — рука союзника.
@@ -340,14 +437,14 @@ static func trial(m: Match) -> Dictionary:
 static func betrayal(m: Match, ally: Villager) -> Dictionary:
 	var frames: Array = [
 		{"art": art("a4c3"), "light": "dawn", "weather": "fog", "lines": [{"text": L.t("sc.betray.1")}],
-		 "sound": [{"at": 0.0, "do": "silence"}, {"at": 0.4, "do": "play", "id": "typewriter", "vol": -8.0}]},
+		 "sound": [snd_silence(0.0, 0.4), snd_start("amb", "amb_dusk", 0.2, 1.5), snd_play("typewriter", 0.4, -8.0)]},
 		npc_frame("keeper", L.t("sc.betray.2", {"who": ally}), "dawn"),
 	]
 	var key := "sc.betray.upyr" if ally.is_upyr else ("sc.betray.clerk" if ally.guest_id == "clerk" else "sc.betray.human")
 	frames.append({"portrait": ally, "light": "dawn", "weather": "fog", "lines": [{"who": ally.name, "text": L.t(key, {"me": ally})}],
-		"sound": [{"at": 1.0, "do": "play", "id": "whistle", "vol": -14.0}]})
-	return {"id": "a4c3_betray", "ally": ally.id, "frames": frames, "choice": {"prompt": L.t("sc.betray.ask", {"who": ally}),
-		"options": [{"id": "expose", "text": L.t("sc.betray.c_expose")}, {"id": "cover", "text": L.t("sc.betray.c_cover")}]}}
+		"sound": [snd_play("whistle", 1.0, -14.0)]})
+	return sealed({"id": "a4c3_betray", "ally": ally.id, "frames": frames, "choice": {"prompt": L.t("sc.betray.ask", {"who": ally}),
+		"options": [{"id": "expose", "text": L.t("sc.betray.c_expose")}, {"id": "cover", "text": L.t("sc.betray.c_cover")}]}})
 
 
 ## Финал кампании (TASK-035): последняя ночь. Зовут с того берега голосом того, кого игрок потерял раньше всех.
@@ -356,14 +453,14 @@ static func final_door() -> Dictionary:
 	var lost := Campaign.first_lost()
 	var voice := Revelations._person(lost, null).name if lost >= 0 else ""
 	var call := L.t("sc.final.voice", {"who": Revelations._person(lost, null), "me": Revelations._person(lost, null)}) if lost >= 0 else L.t("sc.final.voice_self")
-	return {"id": "final_door", "voice": voice, "frames": [
+	return sealed({"id": "final_door", "voice": voice, "frames": [
 		{"art": art("final_door"), "light": "night", "weather": "fog", "lines": [{"text": L.t("sc.final.1")}],
 		 "sound": [{"at": 0.0, "do": "silence", "fade": 1.0}, {"at": 1.5, "do": "play", "id": "knock", "vol": -4.0}]},
 		{"art": art("final_door"), "light": "night", "lines": [{"who": voice if not voice.is_empty() else L.t("sc.river.voice"), "text": call}]},
 		{"art": art("final_train"), "light": "dawn", "lines": [{"text": L.t("sc.final.2")}],
 		 "sound": [{"at": 0.2, "do": "play", "id": "train", "vol": -8.0}]},
 	], "choice": {"prompt": L.t("sc.final.ask"), "options": [
-		{"id": "open", "text": L.t("sc.final.c_open")}, {"id": "train", "text": L.t("sc.final.c_train")}]}, "restore_sound": false}
+		{"id": "open", "text": L.t("sc.final.c_open")}, {"id": "train", "text": L.t("sc.final.c_train")}]}, "restore_sound": false})
 
 
 ## Утро после утраты (TASK-014): кадры по предмету из истории того, кто остался, затем реплика реакции днём.
@@ -379,7 +476,7 @@ static func grief(kin: Villager, lost: Villager) -> Dictionary:
 		else:
 			f["sound"] = [{"at": 0.8, "do": "play", "id": String(g.sound), "vol": -4.0}]
 		out.append(f)
-	return {"id": "grief_%d" % kin.story_id, "frames": out}
+	return sealed({"id": "grief_%d" % kin.story_id, "frames": out})
 
 
 static func _anchor(m: Match, idx: int) -> Villager:

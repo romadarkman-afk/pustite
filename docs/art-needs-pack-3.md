@@ -46,3 +46,16 @@ A dark soft silhouette of a person walking past a window at night, side profile,
 ```
 A wooden plank house door ajar by about a third, seen from a high three-quarter angle, dark empty interior visible through the gap, weathered grey boards, iron hinge, slight shadow on the leaf. Isolated on a transparent background, no wall, no steps, no ground, no text. Photorealistic, gritty, desaturated, 1890s rural Russia.
 ```
+
+## TASK-086. Финал «открыть дверь»
+
+Сцена `final_shore` показывается, когда игрок открывает дверь тому, кто звал с того берега. Пока файла нет, под текстом идёт картинка двери из `final_door.png`.
+
+- Файл: `game/assets/scenes/final_shore.jpg` (или `.png`), вертикальный кадр как у остальных сцен, ориентир 1080×1920. Код возьмёт файл сам.
+- За открытой дверью светлее, чем в доме: рассветный туман над водой, дальний берег, на пороге лежит полоса света. Людей и лиц нет.
+
+Промпт:
+
+```
+View from inside a dark wooden peasant house through an open door onto a misty river shore at first light, pale warm glow beyond the threshold, calm water, far bank barely visible, a band of light falling across the plank floor. Vertical composition, no people, no text. Photorealistic, gritty, desaturated, cold natural light, 1890s rural Russia, cinematic still.
+```

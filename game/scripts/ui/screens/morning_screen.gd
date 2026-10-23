@@ -119,6 +119,10 @@ static func morning_scene(mm: Match, r: NightReport) -> Dictionary:
 	if ch == "a3c3" and not Game.scenes_done.has("crypt"):
 		Game.scenes_done["crypt"] = true
 		return Scenes.crypt(mm)
+	# акт IV (TASK-086): первое утро второй главы: в тумане два огня
+	if ch == "a4c2" and not Game.scenes_done.has("lights") and mm.day == 1:
+		Game.scenes_done["lights"] = true
+		return Scenes.headlights(mm)
 	# акт IV (TASK-034): союзник на перроне
 	if ch == "a4c3" and not Game.scenes_done.has("betray") and mm.day >= 2 and Game.director != null:
 		var ally := mm.get_villager(Game.director.ally_id)

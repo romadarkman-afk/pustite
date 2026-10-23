@@ -8997,3 +8997,110 @@ static func soundmaps() -> void:
 	Sfx.set_ambience(&"", 0.0)
 	Sfx.set_music(&"", 0.0)
 	_finish(fails, ok, "Звуковые карты сцен", "кадры главы «Стук» с явной тишиной, звуки всех сцен существуют, плеер исполняет все действия")
+
+
+## TASK-084–086: сцены актов II–IV и финала. Состав, звуковые карты, картинки, тексты на всех языках, места запуска.
+static func actscenes() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	Save.set_difficulty("normal")
+	Nav.start_match()
+	await _settle(tree)
+	var m := Game.m
+	var keep_chapter := Game.chapter
+	var keep_done := Game.scenes_done.duplicate()
+	var keep_result := Game.chapter_result
+	# 1. состав сцен
+	var want: Dictionary = {"act2_prologue": 3, "act3_prologue": 3, "act4_prologue": 3, "act2_end": 2, "act3_end": 2,
+		"a4c2_lights": 3, "final_train": 2, "final_shore": 2}
+	var built: Array[Dictionary] = [Scenes.act_prologue(2, m), Scenes.act_prologue(3, m), Scenes.act_prologue(4, m),
+		Scenes.act_end(2, m), Scenes.act_end(3, m), Scenes.headlights(m), Scenes.final_train(), Scenes.final_shore()]
+	for sc: Dictionary in built:
+		var sid := String(sc.get("id", "?"))
+		var frames: Array = sc.get("frames", [])
+		ok += _expect(fails, frames.size() == int(want.get(sid, -1)), "%s: %d кадров, ждали %s" % [sid, frames.size(), str(want.get(sid))])
+		var problems := Scenes.sound_problems(sc, true)
+		ok += _expect(fails, problems.is_empty(), "%s: %s" % [sid, "; ".join(problems)])
+		for fi in range(frames.size()):
+			var f: Dictionary = frames[fi]
+			var path := String(f.get("art", ""))
+			ok += _expect(fails, path.is_empty() or ResourceLoader.exists(path), "%s, кадр %d: нет картинки %s" % [sid, fi + 1, path])
+			var lines: Array = f.get("lines", [])
+			ok += _expect(fails, not lines.is_empty(), "%s, кадр %d: нет текста" % [sid, fi + 1])
+			for ln: Dictionary in lines:
+				var txt := String(ln.get("text", ""))
+				ok += _expect(fails, not txt.is_empty() and not txt.begins_with("sc.") and not txt.begins_with("camp."), "%s, кадр %d: текст «%s» не переведён" % [sid, fi + 1, txt])
+		ok += _expect(fails, not sc.has("choice"), "%s: выбор здесь не нужен" % sid)
+	ok += _expect(fails, Scenes.act_end(1, m).is_empty() and Scenes.act_end(4, m).is_empty() and Scenes.act_prologue(1, m).is_empty(), "акты I и IV без конца и пролога I должны быть пустыми")
+	# все прежние сцены актов тоже прошли строгую проверку звука (пустого списка нет)
+	var old: Array[Dictionary] = [Scenes.board(m), Scenes.grave(m), Scenes.flood(m), Scenes.miller_secret(m), Scenes.crossed_book(m),
+		Scenes.crypt(m), Scenes.trial(m), Scenes.final_door()]
+	var bots := m.alive_bots()
+	if bots.size() >= 2:
+		old.append(Scenes.betrayal(m, bots[0]))
+		old.append(Scenes.grief(bots[0], bots[1]))
+	for sc2: Dictionary in old:
+		var p2 := Scenes.sound_problems(sc2, true)
+		ok += _expect(fails, p2.is_empty(), "сцена %s: %s" % [sc2.get("id", "?"), "; ".join(p2)])
+	# 2. ключи на всех языках
+	var keys: PackedStringArray = ["sc.act2.1", "sc.act2.2", "sc.act2.3", "sc.act2.end", "sc.act3.1", "sc.act3.2", "sc.act3.3", "sc.act3.end",
+		"sc.act4.1", "sc.act4.2", "sc.act4.3", "sc.lights.1", "sc.lights.2", "sc.lights.3", "sc.train.1", "sc.train.2", "sc.shore.1", "sc.shore.2"]
+	var ru_d := (L._load("ru")).d()
+	for code: String in L.LANGS:
+		var d := (L._load(code)).d()
+		var lost := PackedStringArray()
+		var same := PackedStringArray()
+		for key: String in keys:
+			if not d.has(key) or String(d[key]).is_empty():
+				lost.append(key)
+			elif code != "ru" and d[key] == ru_d.get(key, ""):
+				same.append(key)
+		ok += _expect(fails, lost.is_empty(), "%s: нет ключей %s" % [code, ", ".join(lost)])
+		ok += _expect(fails, same.is_empty(), "%s: текст совпадает с русским: %s" % [code, ", ".join(same)])
+	# 3. места запуска
+	var ps := PrologueScreen.new()
+	Game.scenes_done.clear()
+	var due: Dictionary = {}
+	for cid: String in ["a1c1", "a1c3", "a2c1", "a2c2", "a3c1", "a3c3", "a4c1", "a4c3"]:
+		Game.chapter = Campaign.chapter(cid)
+		due[cid] = ps._act_prologue_due()
+	ok += _expect(fails, due.a2c1 and due.a3c1 and due.a4c1 and not due.a1c1 and not due.a1c3 and not due.a2c2 and not due.a3c3 and not due.a4c3,
+		"пролог акта запускается не в первых главах II–IV: %s" % str(due))
+	Game.chapter = Campaign.chapter("a3c1")
+	Game.scenes_done["act_prologue"] = true
+	ok += _expect(fails, not ps._act_prologue_due(), "пролог акта повторяется в той же партии")
+	ps.free()
+	var es := EndScreen.new()
+	Game.scenes_done.clear()
+	var ends: Dictionary = {}
+	for cid2: String in ["a1c3", "a2c2", "a2c3", "a3c2", "a3c3", "a4c3"]:
+		Game.chapter = Campaign.chapter(cid2)
+		Game.chapter_result = {"passed": true}
+		ends[cid2] = es._act_end_due()
+	ok += _expect(fails, ends.a2c3 and ends.a3c3 and not ends.a1c3 and not ends.a2c2 and not ends.a3c2 and not ends.a4c3,
+		"конец акта запускается не в последних главах II и III: %s" % str(ends))
+	Game.chapter = Campaign.chapter("a2c3")
+	Game.chapter_result = {"passed": false}
+	ok += _expect(fails, not es._act_end_due(), "конец акта показан после проваленной главы")
+	Game.chapter_result = {"passed": true}
+	Game.scenes_done["act_end"] = true
+	ok += _expect(fails, not es._act_end_due(), "конец акта повторяется в той же партии")
+	es.free()
+	# фары: первое утро a4c2, один раз; в других главах и днях их нет
+	Game.scenes_done.clear()
+	var r0 := NightReport.new()
+	var keep_day := m.day
+	Game.chapter = Campaign.chapter("a4c2")
+	m.day = 1
+	var l1 := MorningScreen.morning_scene(m, r0)
+	var l2 := MorningScreen.morning_scene(m, r0)
+	ok += _expect(fails, String(l1.get("id", "")) == "a4c2_lights" and String(l2.get("id", "")) != "a4c2_lights", "фары: первое утро главы или повтор (%s, %s)" % [l1.get("id", "-"), l2.get("id", "-")])
+	Game.scenes_done.clear()
+	m.day = 2
+	ok += _expect(fails, String(MorningScreen.morning_scene(m, r0).get("id", "")) != "a4c2_lights", "фары показаны не в первое утро")
+	m.day = keep_day
+	Game.chapter = keep_chapter
+	Game.chapter_result = keep_result
+	Game.scenes_done = keep_done
+	_finish(fails, ok, "Сцены актов II–IV и финала", "пролог, конец акта, фары, обе концовки: состав, звук, картинки, 10 языков, места запуска")

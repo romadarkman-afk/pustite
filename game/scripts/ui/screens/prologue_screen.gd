@@ -132,6 +132,22 @@ func build() -> void:
 	_go.pressed.connect(_advance)
 	footer.add_child(_go)
 	_reveal_nodes = [role, story, role_l, case_card, facts]
+	if _act_prologue_due():
+		_play_act_prologue.call_deferred()
+
+
+## Первая глава акта II–IV открывается сценой: место, погода, первый звук (TASK-084–086). Раз за партию.
+func _act_prologue_due() -> bool:
+	var ch := String(Game.chapter.get("id", ""))
+	return not Game.chapter.is_empty() and Scenes.ACT_FIRST_CHAPTER.get(int(Game.chapter.get("act", 0)), "") == ch \
+		and not Game.scenes_done.has("act_prologue")
+
+
+func _play_act_prologue() -> void:
+	if not is_inside_tree():
+		return
+	Game.scenes_done["act_prologue"] = true
+	await ScenePlayer.play(self, Scenes.act_prologue(int(Game.chapter.get("act", 0)), m), m)
 
 
 func _show_beat() -> void:
