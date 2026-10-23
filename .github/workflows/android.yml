@@ -156,16 +156,22 @@ jobs:
             shift
             local log="/tmp/pustite-${label}.log"
             local status=0
-            timeout 600 godot --headless --path game --log-file "/tmp/pustite-${label}-engine.log" -- "$@" > "$log" 2>&1 || status=$?
+            local started=$SECONDS
+            local profile="/tmp/pustite-${label}"
+            mkdir -p "$profile/data" "$profile/config" "$profile/cache"
+            printf 'START %s\n' "$label"
+            XDG_DATA_HOME="$profile/data" XDG_CONFIG_HOME="$profile/config" XDG_CACHE_HOME="$profile/cache" timeout 180 godot --headless --path game --log-file "/tmp/pustite-${label}-engine.log" -- "$@" > "$log" 2>&1 || status=$?
             if [ "$status" -ne 0 ] || grep -q "SCRIPT ERROR" "$log"; then
+              printf 'FAIL %s (%ss, exit %s)\n' "$label" "$((SECONDS - started))" "$status"
               printf '%s\n' "$label" >> /tmp/pustite-test-failures
               return 1
             fi
+            printf 'PASS %s (%ss)\n' "$label" "$((SECONDS - started))"
           }
           schedule_case() {
             run_case "$@" &
             running=$((running + 1))
-            if [ "$running" -ge 4 ]; then
+            if [ "$running" -ge 2 ]; then
               if wait -n; then :; else failed=1; fi
               running=$((running - 1))
             fi
@@ -218,3 +224,4 @@ jobs:
             --title "v$VER · $TAG" \
             --notes "Отладочная сборка. Коммит ${GITHUB_SHA::7}. Скачайте pustite.apk и установите на телефон." \
             --latest
+
