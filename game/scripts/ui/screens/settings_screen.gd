@@ -8,6 +8,9 @@ var reset_hints: bool = false
 var difficulty: String = "custom"
 var _chips: Dictionary = {}
 var _tab := "sound"
+var _about_open := false
+## Авторы записей звука и музыки с OpenGameArt.org (docs/sound-sources.md). Имена не переводятся.
+const AUDIO_AUTHORS := "rubberduck, Robin Lamb, PolygonDan, SkyleTheFrench, Kistol, isaiah658, Ted Kerr, SketchMan3, RandomMind, AuraVoice, Nocturnal_Vanguard, HaelDB, marcelofg55, GboxMikeFozzy, Ogrebane."
 var _taps := DebugScreen.TapCounter.new()
 
 
@@ -42,6 +45,7 @@ func build() -> void:
 		"controls": _build_controls_tab()
 		_: _build_game_tab()
 
+	body.add_child(_about_block())
 	body.add_child(_version_row())
 	var go := W.button(L.t("settings.start"))
 	go.pressed.connect(func() -> void: emit_intent(Intent.START, {"cfg": cfg, "haptics": haptics, "reset_hints": reset_hints, "difficulty": difficulty}))
@@ -49,6 +53,23 @@ func build() -> void:
 	var back := W.button(L.t("ui.back"), &"Ghost")
 	back.pressed.connect(func() -> void: emit_intent(Intent.BACK, {"cfg": cfg, "haptics": haptics, "reset_hints": reset_hints, "difficulty": difficulty}))
 	footer.add_child(back)
+
+
+## «Об игре»: авторы записей звука и шрифтов раскрываются по нажатию (аудит F-17).
+func _about_block() -> Control:
+	var box := VBoxContainer.new()
+	box.name = "About"
+	var toggle := W.button(L.t("about.title"), &"RowOn" if _about_open else &"Row")
+	toggle.name = "AboutToggle"
+	toggle.pressed.connect(func() -> void:
+		_about_open = not _about_open
+		build())
+	box.add_child(toggle)
+	if _about_open:
+		var text := W.label("%s %s\n%s\n%s" % [L.t("about.audio"), AUDIO_AUTHORS, L.t("about.own"), L.t("about.fonts")], &"Small")
+		text.name = "AboutText"
+		box.add_child(text)
+	return box
 
 
 ## Строка версии внизу. Пять быстрых тапов в отладочной сборке открывают скрытое меню (TASK-096).

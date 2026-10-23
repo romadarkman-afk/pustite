@@ -94,8 +94,9 @@ def check_game_facts() -> None:
 
 
 def check_images() -> None:
-    if not (SCREENS / "ru").is_dir():
-        err("нет папки скриншотов языка по умолчанию docs/store/screens/ru")
+    for lang in LANGS:
+        if not (SCREENS / lang).is_dir():
+            err(f"нет папки скриншотов docs/store/screens/{lang} (tools/make_store_screens.py {lang})")
     for folder in sorted(p for p in SCREENS.iterdir() if p.is_dir()):
         if folder.name not in LANGS:
             err(f"папка скриншотов {folder.name}: такого языка нет в списке")

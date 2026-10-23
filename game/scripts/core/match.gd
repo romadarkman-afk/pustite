@@ -2081,11 +2081,6 @@ func _log(when: String, key: String, args: Dictionary = {}) -> void:
 	chron.append({"title": title, "text": text})
 
 
-func _names(list: Array[Villager]) -> PackedStringArray:
-	var out: PackedStringArray = []
-	for v: Villager in list:
-		out.append(v.name)
-	return out
 
 
 func _shuffle(a: Array) -> void:

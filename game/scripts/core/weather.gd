@@ -51,9 +51,6 @@ static func season_id(season: int) -> String:
 	return SEASON_IDS[clampi(season, 0, SEASON_IDS.size() - 1)]
 
 
-static func season_from_id(id: String) -> int:
-	var i := SEASON_IDS.find(id)
-	return i if i >= 0 else Season.SUMMER
 
 
 static func tint(season: int) -> Color:

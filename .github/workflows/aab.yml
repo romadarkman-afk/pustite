@@ -176,6 +176,43 @@ jobs:
           case "$perms" in
             *INTERNET*|*ACCESS_NETWORK_STATE*) echo "::error title=Лишние разрешения::В пакете есть доступ в сеть: $perms"; exit 1 ;;
           esac
+          # Android 16 игнорирует запрет поворота на экранах от 600 dp, но не у игр с флагом категории (аудит F-20)
+          category=$(grep -oP 'appCategory[^"]*"\K[^"]+' build/manifest.txt | head -1)
+          echo "категория приложения в манифесте: ${category:-нет}"
+          case "${category:-}" in
+            game|2) ;;
+            *) echo "::warning title=Нет категории «игра»::В манифесте нет android:appCategory=game: на планшетах Android 16 может игнорировать портретную ориентацию." ;;
+          esac
+
+      # Google Play с 1 ноября 2025 требует от приложений с API 35 и выше работы на страницах памяти 16 КБ:
+      # сегменты LOAD в 64-битных библиотеках должны быть выровнены на 0x4000 и больше (аудит F-21).
+      - name: Выравнивание библиотек под страницы 16 КБ
+        run: |
+          rm -rf build/aab_x && mkdir -p build/aab_x
+          unzip -q build/pustite.aab 'base/lib/*' -d build/aab_x
+          bad=0
+          checked=0
+          while IFS= read -r so; do
+            abi=$(basename "$(dirname "$so")")
+            aligns=$(readelf -lW "$so" | awk '$1=="LOAD" {print $NF}' | sort -u | tr '\n' ' ')
+            echo "$abi/$(basename "$so"): выравнивание LOAD $aligns"
+            case "$abi" in
+              arm64-v8a|x86_64)
+                checked=$((checked + 1))
+                for a in $aligns; do
+                  if [ $((a)) -lt 16384 ]; then
+                    bad=1
+                    echo "::error title=Нет выравнивания 16 КБ::$abi/$(basename "$so"): $a"
+                  fi
+                done ;;
+            esac
+          done < <(find build/aab_x -name '*.so' | sort)
+          if [ "$checked" -eq 0 ]; then
+            echo "::error title=Нет 64-битных библиотек::В пакете не нашлось .so для arm64-v8a или x86_64."
+            exit 1
+          fi
+          [ "$bad" -eq 0 ] || exit 1
+          echo "::notice title=Страницы 16 КБ::проверено библиотек: $checked, выравнивание не меньше 0x4000"
 
       - name: Положить AAB в артефакты
         uses: actions/upload-artifact@v5

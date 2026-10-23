@@ -6,7 +6,6 @@
 | --- | --- | --- |
 | `music/menu_theme.wav` | Оригинальная процедурная тема, `game/tools/make_menu_theme.py` | Создана для проекта, внешних сэмплов нет |
 | `music/river_theme.wav` | Оригинальная процедурная тема, `game/tools/make_river_theme.py` | Создана для проекта, внешних сэмплов нет |
-| `music/menu.ogg` | [Ambient Horror Track 01](https://opengameart.org/content/ambient-horror-track-01) | Cleyton Kauffman; файл оставлен в каталоге, текущий код его не использует |
 | `music/day.ogg` | [CC0 - Mystery](https://opengameart.org/content/cc0-mystery) | PolygonDan |
 | `music/night.ogg` | [Dark Place (loop)](https://opengameart.org/content/dark-place-loop) | SkyleTheFrench |
 | `music/end_dawn.ogg` | [Forget Me Not](https://opengameart.org/content/forget-me-not) | Kistol |
@@ -18,7 +17,6 @@
 | `sfx/knock.ogg`, `door_open.ogg`, `door_shut.ogg`, `creak.ogg` | [100 CC0 metal and wood SFX](https://opengameart.org/content/100-cc0-metal-and-wood-sfx) | rubberduck |
 | `sfx/tap.ogg`, `bell.ogg` | [UI Sound Effects](https://opengameart.org/content/ui-sound-effects-button-clicks-user-feedback-notifications) | Robin Lamb |
 | `sfx/human_cry_f.ogg` | [Female Scream 1](https://opengameart.org/content/female-scream-1) | AuraVoice / Nocturnal_Vanguard |
-| `sfx/human_cry.wav` | [Male Grunt/Yelling sounds](https://opengameart.org/content/male-gruntyelling-sounds) | HaelDB |
 | `sfx/upyr_cry.wav` | [Monster SFX](https://opengameart.org/content/monster-sfx) | marcelofg55 |
 | `sfx/floorboard.ogg`, `hammer.ogg`, `latch.ogg` | [100 CC0 metal and wood SFX](https://opengameart.org/content/100-cc0-metal-and-wood-sfx) | rubberduck |
 | `sfx/roof_steps.ogg` | [Footsteps](https://opengameart.org/content/footsteps-0) | GboxMikeFozzy |
@@ -28,7 +26,19 @@
 | `sfx/breath_2.ogg`, `breath_3.ogg` | Синтез скриптом `game/tools/make_dread.py` (шум через полосовой фильтр, огибающая вдоха и выдоха, срез верха под «через доску»). Третий вариант дыхания за дверью, `breath.ogg`, записан (rubberduck, см. выше) | Созданы для проекта |
 | `sfx/amb_wind.ogg`, `amb_rain.ogg`, `amb_blizzard.ogg`, `life_murmur.ogg`, `life_dog.ogg`, `life_hens.ogg`, `mill_wheel.ogg` | Синтез скриптом `game/tools/make_weather_sfx.py` (шум, полосовые фильтры, формантные слоги) | Созданы для проекта, внешних записей нет |
 
-Некоторые короткие служебные эффекты пока остались из прежнего набора. Звуки тревоги и финальные темы обновлены.
+| `sfx/blip.ogg`, `dawn.ogg`, `death.ogg`, `exile.ogg`, `heartbeat.ogg`, `job_done.ogg`, `job_fail.ogg`, `lose.ogg`, `tick.ogg`, `win.ogg`, `reveal.ogg` | Синтез скриптом `game/tools/make_sfx.py` | Созданы для проекта, внешних записей нет |
+| `sfx/reveal_2.ogg`, `reveal_3.ogg` | Синтез скриптом `game/tools/make_prologue_sfx.py` | Созданы для проекта |
+| `sfx/cup_break.ogg` | Синтез скриптом `game/tools/make_scene_sfx.py` | Создан для проекта |
+| `sfx/rails.ogg`, `train.ogg`, `typewriter.ogg`, `whistle.ogg` | Синтез скриптом `game/tools/make_station_sfx.py` | Созданы для проекта |
+| `sfx/scratch.ogg`, `weep.ogg`, `whisper.ogg`, `gasp.ogg`, `call_far.ogg` | Синтез скриптом `game/tools/make_dread.py` | Созданы для проекта |
+| `sfx/human_cry_m.ogg` | Скрипт не найден; рядом лежит `human_cry_f.ogg` (AuraVoice) | Происхождение не установлено |
+
+## Что в таблице не сходится (аудит F-17, TASK-100)
+
+- `sfx/hammer.ogg`, `floorboard.ogg`, `latch.ogg` указаны выше как записи rubberduck, но `game/tools/make_scene_sfx.py` создаёт файлы с теми же именами. В репозитории лежит одна версия (5 КБ каждый, один коммит «Add files via upload»), какая именно, по коммитам не определить. Оба варианта допустимы: скрипт проекта или запись CC0. Чтобы закрыть вопрос, послушай файлы и сравни с `make_scene_sfx.py`.
+- `sfx/human_cry_m.ogg`: источник не записан.
+- Лицензии страниц OpenGameArt в этой среде проверить нельзя (доступ к сайту закрыт). В таблице указана лицензия из исходного аудиопакета. Если на странице автора стоит CC-BY, требуется упоминание автора: в игре оно уже есть, настройки, «Об игре» (все имена из таблицы), но нужен ещё текст лицензии и ссылка в описании магазина.
+- Файлы `music/menu.ogg` (Cleyton Kauffman) и `sfx/human_cry.wav` (HaelDB) удалены из репозитория как неиспользуемые; в их источнике запись осталась только в истории git.
 
 ## Что синтезировано и звучит хуже записи (TASK-081)
 

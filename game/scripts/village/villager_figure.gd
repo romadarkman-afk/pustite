@@ -649,6 +649,11 @@ func body_rect_global() -> Rect2:
 	return _global_rect(body_rect_local())
 
 
+## Самый высокий рост среди внешностей (config/looks*.tres); проверяется тестом --crowd.
+const LOOK_HEIGHT_MAX := 1.07
+
+
+
 # =============================================================
 # Состояния
 # =============================================================
@@ -1157,17 +1162,6 @@ static func _oval(c: Vector2, r: Vector2) -> PackedVector2Array:
 	return pts
 
 
-## Палитра из внешности: цвета насыщеннее прежних приглушённых, шапка по типу головы.
-func _pal() -> Dictionary:
-	var coat := _bright(look.coat)
-	var tops := {LookDef.Head.BARE: "hair", LookDef.Head.CAP: "cap", LookDef.Head.SCARF: "kerchief", LookDef.Head.HAT: "hat", LookDef.Head.HOOD: "beanie"}
-	var hat := Color("3b3b58")
-	match look.head:
-		LookDef.Head.CAP: hat = coat.darkened(0.4)
-		LookDef.Head.SCARF: hat = _bright(look.accent)
-		LookDef.Head.HOOD: hat = _bright(look.accent).darkened(0.1)
-	return {"coat": coat, "coat_d": coat.darkened(0.2), "skin": look.skin.lightened(0.08), "skin_d": look.skin.darkened(0.08),
-		"hair": look.hair, "scarf": _bright(look.accent), "hat": hat, "top": tops.get(look.head, "hair")}
 
 
 func _bright(c: Color) -> Color:
@@ -1487,9 +1481,3 @@ func _ellipse(c: Vector2, r: Vector2, seg: int = 18) -> PackedVector2Array:
 	return pts
 
 
-func _arc(c: Vector2, r: float) -> PackedVector2Array:
-	var pts := PackedVector2Array()
-	for i in range(13):
-		var a := PI + PI * i / 12.0
-		pts.append(c + Vector2(cos(a) * r, sin(a) * r))
-	return pts

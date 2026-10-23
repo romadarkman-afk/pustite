@@ -23,7 +23,7 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
-    # Набор с пометкой known показывает проблему, но не краснит всю проверку.
+    # Набор с пометкой known: true показывал бы проблему, не краснив всю проверку (сейчас таких нет).
     continue-on-error: ${{ matrix.known == true }}
     strategy:
       # Упавший набор не отменяет остальные: видно сразу все поломки.
@@ -37,14 +37,11 @@ jobs:
           - name: Раскладка ru en
             cases: "layout_ru=--layout,--lang=ru layout_ru_t2=--layout,--lang=ru,--text=2 layout_en=--layout,--lang=en layout_en_t2=--layout,--lang=en,--text=2 crowd_ru=--crowd,--lang=ru crowd_en=--crowd,--lang=en"
           - name: Раскладка de fr
-            cases: "layout_de=--layout,--lang=de layout_de_t2=--layout,--lang=de,--text=2 layout_fr=--layout,--lang=fr layout_fr_t2=--layout,--lang=fr,--text=2 crowd_de=--crowd,--lang=de"
+            cases: "layout_de=--layout,--lang=de layout_de_t2=--layout,--lang=de,--text=2 layout_fr=--layout,--lang=fr layout_fr_t2=--layout,--lang=fr,--text=2 crowd_de=--crowd,--lang=de crowd_fr=--crowd,--lang=fr"
           - name: Раскладка es pt
-            cases: "layout_es=--layout,--lang=es layout_es_t2=--layout,--lang=es,--text=2 layout_pt=--layout,--lang=pt layout_pt_t2=--layout,--lang=pt,--text=2 crowd_pt=--crowd,--lang=pt"
+            cases: "layout_es=--layout,--lang=es layout_es_t2=--layout,--lang=es,--text=2 layout_pt=--layout,--lang=pt layout_pt_t2=--layout,--lang=pt,--text=2 crowd_pt=--crowd,--lang=pt crowd_es=--crowd,--lang=es"
           - name: Раскладка tr hi
             cases: "layout_tr=--layout,--lang=tr layout_tr_t2=--layout,--lang=tr,--text=2 layout_hi=--layout,--lang=hi layout_hi_t2=--layout,--lang=hi,--text=2 crowd_tr=--crowd,--lang=tr crowd_hi=--crowd,--lang=hi"
-          - name: Известная проблема, не блокирует
-            known: true
-            cases: "crowd_es=--crowd,--lang=es crowd_fr=--crowd,--lang=fr"
           - name: Раскладка vi zh
             cases: "layout_vi=--layout,--lang=vi layout_vi_t2=--layout,--lang=vi,--text=2 layout_zh=--layout,--lang=zh layout_zh_t2=--layout,--lang=zh,--text=2 crowd_vi=--crowd,--lang=vi crowd_zh=--crowd,--lang=zh"
 
@@ -88,3 +85,54 @@ jobs:
 
       - name: Проверка страницы магазина
         run: python3 tools/check_store.py
+
+  # Отрисовка (аудит F-07): самотесты идут без видеодрайвера и не видят ошибок шейдеров, текстур и пустых экранов.
+  # Здесь меню, день, ночь у двери и карта кампании снимаются в Xvfb на программном OpenGL, как на странице магазина.
+  render:
+    name: Отрисовка
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Забрать код
+        uses: actions/checkout@v5
+
+      - name: Godot ${{ env.GODOT_VERSION }}
+        run: |
+          BASE="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -sfL -o godot.zip "$BASE/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+          godot --version
+
+      - name: Видеодрайвер и зависимости
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1 libgl1-mesa-dri libglx-mesa0 libxcursor1 libxi6 libxrandr2 libxinerama1 libxkbcommon0 libasound2t64
+          pip install pillow
+
+      - name: Импорт ресурсов
+        run: |
+          godot --headless --path game --import
+          godot --headless --path game --import
+
+      - name: Съёмка кадров
+        run: |
+          mkdir -p build/shots
+          RES=720x1280 SHOT_TIMEOUT=900 GODOT=godot bash tools/store_shots.sh build/shots ru \
+            r1_menu:menu r2_day:day:a1c3 r3_door:door:a3c1 r4_camp:camp 2>&1 | tee build/shots.log
+
+      - name: Проверка кадров
+        run: |
+          python3 tools/check_render.py --self-test
+          python3 tools/check_render.py build/shots build/shots.log 720 1280 r1_menu r2_day r3_door r4_camp
+
+      - name: Кадры в артефакты
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: render-shots
+          path: |
+            build/shots/*.png
+            build/shots.log
+          retention-days: 7

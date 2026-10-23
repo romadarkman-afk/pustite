@@ -72,9 +72,8 @@ func build() -> void:
 		"Campaign", &"Primary", Intent.OPEN_CAMPAIGN))
 	modes.add_child(_mode_tile(L.t("menu.mode_solo"), L.t("menu.mode_solo_desc"), L.t("menu.play"),
 		"Start", &"RowOn", Intent.START_SOLO))
-	modes.add_child(_mode_button(L.t("menu.mode_online"), "OnlineSoon", &"", true))
-	modes.add_child(_mode_button(L.t("settings.title"), "Settings", Intent.OPEN_SETTINGS))
 	body.add_child(modes)
+	body.add_child(_mode_button(L.t("settings.title"), "Settings", Intent.OPEN_SETTINGS))
 
 	var dbs: Array[Button] = []
 	var custom_b: Button = null

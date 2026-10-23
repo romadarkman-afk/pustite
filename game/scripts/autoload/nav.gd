@@ -161,6 +161,9 @@ func start() -> void:
 		show(crash_screen)
 	else:
 		show_menu()
+	if not Save.load_notice.is_empty():
+		toast(L.t("save." + Save.load_notice), 5.0)    # файл прогресса не читался: восстановлен или начат заново
+		Save.load_notice = ""
 
 
 func set_simplified_graphics(on: bool) -> void:
@@ -1163,9 +1166,9 @@ func relocalize() -> void:
 	ui.theme = ThemeFactory.build()
 
 
-func toast(text: String) -> void:
+func toast(text: String, hold: float = 1.4) -> void:
 	_toast.text = text
 	var t := Juice.tween()
 	t.tween_property(_toast, "modulate:a", 1.0, 0.2)
-	t.tween_interval(1.4)
+	t.tween_interval(hold)
 	t.tween_property(_toast, "modulate:a", 0.0, 0.4)

@@ -1400,7 +1400,12 @@ static func lifecycle() -> void:
 
 	# 1. Свернули посреди дня — таймер стоит, вернулись — идёт
 	var before := Game.clock.time_left()
+	var kept_name := Save.player_name
+	Save.player_name = "pause_probe"
 	root.propagate_notification(Node.NOTIFICATION_APPLICATION_PAUSED)
+	passed += _expect(fails, _read_name(Save.SETTINGS_PATH) == "pause_probe",
+		"сворачивание не записало файл прогресса (в файле «%s»)" % _read_name(Save.SETTINGS_PATH))
+	Save.player_name = kept_name
 	await tree.create_timer(1.2).timeout
 	var during := Game.clock.time_left()
 	passed += _expect(fails, absf(before - during) < 0.05,
@@ -2010,11 +2015,142 @@ static func save() -> void:
 			and int(stored52.get_value("stats", "wins", 0)) == 15
 			and String(stored52.get_value("campaign", "dead_guests", "")) == "guest_soldier",
 			"мигрированная версия v0.52 не сохранилась на диск")
+	ok += _save_durability(fails)
 	var passed := fails.is_empty()
-	print("ИТОГ: %s: миграции v0.46 и v0.52, резервные копии и данные кампании" % ("OK" if passed else "ОШИБКА"))
+	print("ИТОГ: %s: миграции v0.46 и v0.52, резервные копии, данные кампании, оборванная и повреждённая запись" % ("OK" if passed else "ОШИБКА"))
 	for failure: String in fails:
 		print("  ✗ " + failure)
 	tree.quit(0 if passed else 1)
+
+
+# Оборванная запись, нечитаемый файл, нехватка места (TASK-100, находка F-03 аудита).
+# Файл прогресса пишется через .tmp с проверкой, прежний основной файл остаётся как .prev,
+# нечитаемый основной файл заменяется копией, а сам копируется в .lost и не стирается.
+const _SAVE_SUFFIXES: PackedStringArray = ["", ".tmp", ".prev", ".lost"]
+
+
+static func _save_durability(fails: PackedStringArray) -> int:
+	var ok := 0
+	var main := Save.SETTINGS_PATH
+	_wipe_save_files()
+
+	# 1. Каждая запись оставляет предыдущую в .prev и не оставляет .tmp
+	ok += _expect(fails, _install_save_fixture("res://tests/fixtures/save_v052.cfg"), "не удалось открыть фикстуру v0.52")
+	Save.load_all()
+	Save.player_name = "alpha"
+	Save.flush()
+	Save.player_name = "beta"
+	Save.flush()
+	ok += _expect(fails, _read_name(main) == "beta" and _read_name(main + ".prev") == "alpha",
+		"запись не оставила предыдущий файл как .prev (основной «%s», копия «%s»)" % [_read_name(main), _read_name(main + ".prev")])
+	ok += _expect(fails, not FileAccess.file_exists(main + ".tmp"), "после записи остался временный файл")
+	var marker := ConfigFile.new()
+	ok += _expect(fails, marker.load(main) == OK and marker.has_section_key("meta", "complete"),
+		"в записанном файле нет метки конца записи")
+
+	# 2. Обрезанный посреди значения основной файл: берётся .prev, нечитаемый файл остаётся в .lost
+	var good_text := FileAccess.get_file_as_string(main)
+	var cut := good_text.find("name=\"") + 8
+	var broken_text := good_text.substr(0, cut)
+	_write_text(main, broken_text)
+	var probe := ConfigFile.new()
+	ok += _expect(fails, probe.load(main) != OK, "тест не воспроизвёл обрезанный файл: он читается")
+	Save.player_name = ""
+	Save.load_all()
+	ok += _expect(fails, Save.player_name == "alpha" and Save.load_notice == "restored" and Save.loaded_schema == Save.SCHEMA,
+		"обрезанный файл не заменён копией (имя «%s», сообщение «%s»)" % [Save.player_name, Save.load_notice])
+	ok += _expect(fails, FileAccess.get_file_as_string(main + ".lost") == broken_text,
+		"нечитаемый файл не сохранён в .lost")
+	Save.player_name = "gamma"
+	Save.flush()
+	ok += _expect(fails, _read_name(main) == "gamma" and _read_name(main + ".prev") == "alpha",
+		"после восстановления нечитаемый файл попал в .prev и затёр хорошую копию")
+
+	# 3. Основного файла нет, дописанный .tmp новее .prev: берётся .tmp
+	_write_text(main + ".tmp", FileAccess.get_file_as_string(main))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(main))
+	Save.player_name = ""
+	Save.load_all()
+	ok += _expect(fails, Save.player_name == "gamma" and Save.load_notice == "",
+		"запись оборвалась между переименованиями: данные из .tmp не прочитаны (имя «%s»)" % Save.player_name)
+
+	# 4. .tmp без метки конца записи не годится, берётся .prev
+	var partial := FileAccess.get_file_as_string(main + ".tmp").replace("complete=1\n", "")
+	_write_text(main + ".tmp", partial)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(main))
+	Save.player_name = ""
+	Save.load_all()
+	ok += _expect(fails, Save.player_name == "alpha", "недописанный .tmp прочитан как настоящий (имя «%s»)" % Save.player_name)
+
+	# 5. Пустой файл и нет копий: новая игра, сообщение игроку, ничего не падает
+	_wipe_save_files()
+	_write_text(main, "")
+	Save.player_name = "stale"
+	Save.load_all()
+	ok += _expect(fails, Save.load_notice == "reset" and Save.player_name == "" and Save.loaded_schema == 0,
+		"пустой файл: ожидалась новая игра с сообщением (сообщение «%s»)" % Save.load_notice)
+	Save.flush()
+	ok += _expect(fails, _read_name(main) == "" and FileAccess.file_exists(main), "после новой игры файл не записан")
+
+	# 6. Нечитаемый файл без копий: новая игра, а старые байты лежат в .lost
+	_wipe_save_files()
+	_write_text(main, broken_text)
+	Save.load_all()
+	ok += _expect(fails, Save.load_notice == "reset" and FileAccess.get_file_as_string(main + ".lost") == broken_text,
+		"нечитаемый файл без копий потерян")
+	Save.flush()
+	ok += _expect(fails, FileAccess.get_file_as_string(main + ".lost") == broken_text,
+		"запись новой игры затёрла старый файл в .lost")
+
+	# 7. Ошибка записи (на месте .tmp каталог): основной файл цел, игра не падает
+	_wipe_save_files()
+	Save.load_all()
+	Save.player_name = "delta"
+	Save.flush()
+	var before := FileAccess.get_file_as_bytes(main)
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(main + ".tmp"))
+	Save.player_name = "epsilon"
+	Save.flush()
+	ok += _expect(fails, FileAccess.get_file_as_bytes(main) == before and _read_name(main) == "delta",
+		"неудачная запись испортила прежний файл")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(main + ".tmp"))
+
+	# 8. Файл новее поддерживаемой версии: запись отключена, файл не тронут
+	var newer := FileAccess.get_file_as_string(main).replace("schema=%d" % Save.SCHEMA, "schema=%d" % (Save.SCHEMA + 5))
+	_write_text(main, newer)
+	Save.load_all()
+	Save.player_name = "zeta"
+	Save.flush()
+	ok += _expect(fails, not Save.save_writable and FileAccess.get_file_as_string(main) == newer,
+		"файл новой версии игры был перезаписан")
+
+	_wipe_save_files()
+	Save.load_all()
+	return ok
+
+
+static func _wipe_save_files() -> void:
+	for suffix: String in _SAVE_SUFFIXES:
+		var path := ProjectSettings.globalize_path(Save.SETTINGS_PATH + suffix)
+		if DirAccess.dir_exists_absolute(path):
+			DirAccess.remove_absolute(path)
+		elif FileAccess.file_exists(path):
+			DirAccess.remove_absolute(path)
+
+
+static func _write_text(path: String, text: String) -> void:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(path).get_base_dir())
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f != null:
+		f.store_string(text)
+		f.close()
+
+
+static func _read_name(path: String) -> String:
+	var cf := ConfigFile.new()
+	if cf.load(path) != OK:
+		return "<не читается>"
+	return String(cf.get_value("profile", "name", ""))
 
 
 static func _install_save_fixture(path: String) -> bool:
@@ -2040,6 +2176,14 @@ static func crowd() -> void:
 	var tree := Nav.get_tree()
 	var problems: PackedStringArray = []
 	var checks := 0
+	# раскладка рассчитана на рост VillagerFigure.LOOK_HEIGHT_MAX: ни одна внешность не должна быть выше
+	var config_dir := DirAccess.open("res://config")
+	for file_name: String in config_dir.get_files() if config_dir != null else PackedStringArray():
+		if file_name.begins_with("looks") and file_name.ends_with(".tres"):
+			var book := load("res://config/" + file_name) as LookBook
+			for look: LookDef in book.looks if book != null else ([] as Array[LookDef]):
+				if look.height > VillagerFigure.LOOK_HEIGHT_MAX + 0.0001:
+					problems.append("%s: %s выше расчётного роста %.2f (%.2f), раскладка не оставит места" % [file_name, look.who, VillagerFigure.LOOK_HEIGHT_MAX, look.height])
 	var keep := Save.config.duplicate() as GameConfig
 	var profiles: Array[Array] = []
 	for sz: Vector2i in LAYOUT_SIZES:
@@ -2151,7 +2295,7 @@ static func _check_crowd(tag: String, out: PackedStringArray) -> int:
 			if j > i and la.intersects(b.label_rect_global().grow(-1.0)):
 				out.append("%s: имена «%s» и «%s» налезают друг на друга (%s %s / %s %s)" % [tag, a.who, b.who, a.position, a.label_rect_global(), b.position, b.label_rect_global()])
 			if b.position.y > a.position.y + 0.5 and la.intersects(b.body_rect_global().grow(-2.0)):
-				out.append("%s: имя «%s» закрыто фигурой %s" % [tag, a.who, b.who])
+				out.append("%s: имя «%s» закрыто фигурой %s (имя %s в точке %s, тело %s в точке %s, рост %.2f, отметки %s)" % [tag, a.who, b.who, la, a.position, b.body_rect_global(), b.position, b.look.height if b.look != null else 1.0, b.has_marks()])
 	return 1
 
 
@@ -3661,12 +3805,12 @@ static func sound() -> void:
 	ok += _expect(fails, _all_text(Nav.host.current).contains(L.t("menu.case_file")), "в меню нет отметки о деле 1894 года")
 	ok += _expect(fails, main_menu != null and main_menu.find_child("Campaign", true, false) != null
 		and main_menu.find_child("Start", true, false) != null
-		and main_menu.find_child("OnlineSoon", true, false) != null
-		and main_menu.find_child("Settings", true, false) != null,
-		"в главном меню отсутствует один из четырёх основных пунктов")
+		and main_menu.find_child("Settings", true, false) != null
+		and main_menu.find_child("OnlineSoon", true, false) == null,
+		"в главном меню нет кампании, одиночной игры или настроек, либо осталась кнопка «Онлайн · скоро»")
 	var mode_cards := main_menu.find_child("ModeCards", true, false) as GridContainer if main_menu != null else null
-	ok += _expect(fails, mode_cards != null and mode_cards.columns == 2 and mode_cards.get_child_count() == 4,
-		"кампания, одиночная игра, онлайн и настройки не показаны четырьмя карточками")
+	ok += _expect(fails, mode_cards != null and mode_cards.columns == 2 and mode_cards.get_child_count() == 2,
+		"кампания и одиночная игра не показаны двумя карточками")
 	ok += _expect(fails, main_menu != null and main_menu.field_ratio() == 0.0
 		and main_menu._menu_art_nodes.size() == 2 and is_instance_valid(main_menu._menu_backdrop)
 		and Nav.ui.find_child("MenuBackdropShade", true, false) != null,

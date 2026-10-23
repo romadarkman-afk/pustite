@@ -1403,8 +1403,6 @@ func _house_shadow_outline(art_id: String, tex: Texture2D) -> PackedVector2Array
 	return result
 
 
-func lamp_lights() -> Array[PointLight2D]:
-	return _lamp_lights
 
 
 func _lit(h: HouseDef, n: float) -> float:
@@ -1589,10 +1587,6 @@ func dust() -> CPUParticles2D:
 	return _dust
 
 
-# =============================================================
-func _vgrad(r: Rect2, top: Color, bottom: Color) -> void:
-	draw_polygon(PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]),
-		PackedColorArray([top, top, bottom, bottom]))
 
 
 func _ellipse(c: Vector2, r: Vector2, seg: int = 40) -> PackedVector2Array:
@@ -1603,12 +1597,6 @@ func _ellipse(c: Vector2, r: Vector2, seg: int = 40) -> PackedVector2Array:
 	return pts
 
 
-func _half_ellipse(base: Vector2, r: Vector2, seg: int = 24) -> PackedVector2Array:
-	var pts := PackedVector2Array()
-	for i in range(seg + 1):
-		var a := PI * i / seg
-		pts.append(base + Vector2(cos(a) * r.x, -sin(a) * r.y))
-	return pts
 
 
 

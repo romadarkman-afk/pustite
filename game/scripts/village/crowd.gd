@@ -15,6 +15,7 @@ var _whisper_in := 4.0
 var _fidget_clock := 2.0
 var _life_rng := RandomNumberGenerator.new()
 var place_grade := Color.WHITE
+var _layout_heights: Array[float] = []    ## рост жителей текущей расстановки (имя закрыто телом того, кто стоит ближе)
 var whispers := 0               ## для самотеста
 var flinched := 0               ## сколько жителей вздрогнули на последний колокол
 var npc: Npc = null              ## хозяин места вне голосования (TASK-021): мельник, Игнат, начальник станции
@@ -75,7 +76,10 @@ func populate(m: Match) -> void:
 	var widths: Array[float] = []
 	for f: VillagerFigure in figs:
 		widths.append(f.label_rect_local().size.x)        # ширина имени вместе с капсулой
-	var spots := layout_day(widths)
+	var heights: Array[float] = []
+	for f: VillagerFigure in figs:
+		heights.append(f.look.height if f.look != null else 1.0)
+	var spots := layout_day(widths, heights)
 	for i in range(figs.size()):
 		figs[i].position = spots[i]
 		ring[m.villagers[i].id] = spots[i]
@@ -183,9 +187,14 @@ static func _label_box(p: Vector2, w: float) -> Rect2:
 	return Rect2(p.x - w * 0.5, p.y + 6.0, w, 21.0)
 
 
-static func _body_box(p: Vector2, tall: bool) -> Rect2:
-	var top := VillagerFigure.FIG_TOP * 1.04 + (26.0 if tall else 0.0)
+static func _body_box(p: Vector2, tall: bool, h: float = VillagerFigure.LOOK_HEIGHT_MAX) -> Rect2:
+	var top := VillagerFigure.FIG_TOP * h + (26.0 if tall else 0.0)
 	return Rect2(p.x - 23.0, p.y - top, 46.0, top + 2.0)
+
+
+## Рост жителя номер k в текущей расстановке; не заданный считаем самым высоким.
+func _h(k: int) -> float:
+	return _layout_heights[k] if k < _layout_heights.size() else VillagerFigure.LOOK_HEIGHT_MAX
 
 
 ## Сколько уже стоящих мешают жителю в точке p: имена налезают друг на друга или имя дальнего
@@ -193,13 +202,13 @@ static func _body_box(p: Vector2, tall: bool) -> Rect2:
 func _conflicts(p: Vector2, w: float, out: Array[Vector2], widths: Array[float], i: int) -> int:
 	var n := 0
 	var lp := _label_box(p, w).grow(2.0)
-	var bp := _body_box(p, false)
+	var bp := _body_box(p, false, _h(i))
 	for k in range(i):
 		var q := out[k]
 		var lq := _label_box(q, widths[k]).grow(2.0)
 		if lp.intersects(lq):
 			n += 1
-		elif q.y > p.y + 0.5 and lp.intersects(_body_box(q, k == 0)):
+		elif q.y > p.y + 0.5 and lp.intersects(_body_box(q, k == 0, _h(k))):
 			n += 1
 		elif p.y > q.y + 0.5 and lq.intersects(bp):
 			n += 1
@@ -253,17 +262,12 @@ func _spot_ok(p: Vector2, w: float, obs: Array[Rect2], walls: Array[Rect2]) -> b
 	return _free(fig_rect(p, w), obs) and not _hidden(p, true) and not _point_in_walls(p, walls)
 
 
-## Совместимость: места по числу жителей (без учёта ширины имён).
-func spots_for(n: int) -> Array[Vector2]:
-	var widths: Array[float] = []
-	for i in range(n):
-		widths.append(48.0)
-	return layout_day(widths)
 
 
 ## Дневная расстановка в два захода: сначала строго на площади; если все не поместились
 ## в два ряда (11–12 человек с длинными именами), ряды расширяются до краёв кадра.
-func layout_day(widths: Array[float]) -> Array[Vector2]:
+func layout_day(widths: Array[float], heights: Array[float] = []) -> Array[Vector2]:
+	_layout_heights = heights
 	var walls := _walk_walls()
 	var strict := _layout_day(widths, false, walls)
 	var back_y := view.def.square_center.y + ROW_BACK
@@ -357,7 +361,8 @@ func _layout_day(widths: Array[float], wide: bool, walls: Array[Rect2]) -> Array
 					for cx: float in xs3:
 						if cx - w * 0.5 < VillageView.SAFE_X.x or cx + w * 0.5 > VillageView.SAFE_X.y:
 							continue
-						if _spot_ok(Vector2(cx, y3 + dy), w - GAP, obs + c_used, walls):
+						if _spot_ok(Vector2(cx, y3 + dy), w - GAP, obs + c_used, walls) \
+								and _conflicts(Vector2(cx, y3 + dy), w - GAP, out, widths, i) == 0:
 							best = Vector2(cx, y3 + dy)
 							break
 					if best != Vector2.INF:

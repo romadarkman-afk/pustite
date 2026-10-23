@@ -34,7 +34,7 @@
 
 ## Изменения
 
-Если в игре появятся функции, которым нужны данные (например, онлайн-режим, он показан в меню как «скоро»), эта политика будет обновлена до выхода обновления, а в описании обновления в Google Play будет об этом сказано.
+Если в игре появятся функции, которым нужны данные (например, онлайн-режим), эта политика будет обновлена до выхода обновления, а в описании обновления в Google Play будет об этом сказано.
 
 ## Связь
 
@@ -78,7 +78,7 @@ The game sends nothing, so there is nothing to share. Google Play keeps its own 
 
 ## Changes
 
-If the game ever adds features that need data (for example the online mode, shown in the menu as "soon"), this policy will be updated before that release and the Google Play update notes will say so.
+If the game ever adds features that need data (for example an online mode), this policy will be updated before that release and the Google Play update notes will say so.
 
 ## Contact
 

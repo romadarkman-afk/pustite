@@ -301,13 +301,6 @@ func _capsule(inner: Control) -> Control:
 	return p
 
 
-func scroll_to_end() -> void:
-	if not is_inside_tree():
-		await ready
-	await get_tree().process_frame
-	await get_tree().process_frame
-	if is_instance_valid(scroll):
-		scroll.scroll_vertical = int(scroll.get_v_scroll_bar().max_value)
 
 
 func _chrome() -> void:
