@@ -122,6 +122,7 @@ scripts/village/crowd.gd
 scripts/village/folk.gd
 scripts/village/folk_beast.gd
 scripts/village/folk_wear.gd
+scripts/village/ground_fx.gd
 scripts/village/house_def.gd
 scripts/village/light_halo.gd
 scripts/village/job_def.gd
@@ -135,6 +136,9 @@ scripts/village/village_view.gd
 scripts/village/villager_figure.gd
 scripts/village/weather_layer.gd
 shaders/atmos.gdshader
+shaders/cloud_shadow.gdshader
+shaders/grass_sway.gdshader
+shaders/ground_weather.gdshader
 shaders/lantern_tint.gdshader
 shaders/night_grade.gdshader
 scripts/ui/widgets/door_candle.gd

@@ -71,6 +71,8 @@ var _unease := 0.0
 var _contact_shadow_texture: Texture2D
 var simplified_graphics := false
 var weather: WeatherLayer                  ## осадки и сезонные частицы (TASK-061)
+var ground_fx: GroundFx                    ## снег, лужи и трава на земле: шейдеры и MultiMesh
+var sky_fx: GroundFx                       ## тени облаков поверх толпы
 var weather_state: Dictionary = Weather.EMPTY.duplicate()
 var snow_cover := 0.0                      ## 0..1: сколько снега лежит на земле
 
@@ -84,6 +86,9 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	_backdrop.view = self
 	add_child(_backdrop)
 	_backdrop.visible = not _ground_is_composite
+	ground_fx = GroundFx.new()
+	add_child(ground_fx)
+	ground_fx.setup(self, "ground")
 	_build_fog_bands()
 	_build_particles()
 	_build_thresholds()
@@ -96,6 +101,9 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	add_child(crowd)
 	crowd.set_color_grade(def.color_grade)
 	_build_props()
+	sky_fx = GroundFx.new()
+	add_child(sky_fx)
+	sky_fx.setup(self, "sky")
 	_smoke = Node2D.new()
 	_smoke.name = "Smoke"
 	add_child(_smoke)
@@ -548,9 +556,6 @@ func _draw() -> void:
 	draw_texture_rect(_tex.ground_day, gr, false, place_grade)
 	if n > 0.0:
 		draw_texture_rect(_tex.ground_night, gr, false, Color(place_grade, n))
-	if snow_cover > 0.02:
-		var snow := Color.WHITE.lerp(Art.NIGHT_TINT, n)
-		draw_texture_rect(WeatherLayer.snow_texture(), gr, false, Color(snow, snow_cover))
 	if not _tex.has("real_sky_day"):
 		Art.vgrad(self, Rect2(gr.position.x, gr.position.y, gr.size.x, 40.0), Color(forest, 0.75), Color(forest, 0.0))
 	# На реалистичных фонах стык закрывает лёгкая приземная дымка.
@@ -777,6 +782,18 @@ func _art(h: HouseDef) -> Array:
 
 
 ## Где на поле картинка дома (в координатах посёлка).
+func ground_texture() -> Texture2D:
+	return _tex.get("ground_day")
+
+
+## Картинка земли для поиска травянистых мест. Пустая, если текстуры нет.
+func ground_image() -> Image:
+	var t: Texture2D = _tex.get("ground_day")
+	if t == null:
+		return null
+	return t.get_image()
+
+
 func house_rect(h: HouseDef) -> Rect2:
 	var a := _art(h)
 	var tex: Texture2D = _tex[a[0] + "_day"]

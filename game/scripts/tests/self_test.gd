@@ -3187,7 +3187,7 @@ static func weather() -> void:
 		# упрощённая графика режет вдвое
 		view.set_simplified_graphics(true)
 		for key: String in layer.emitter_names():
-			var full := roundi(float(WeatherLayer.FULL[key]) * float(WeatherLayer.wanted(day_state)[key]))
+			var full := layer.target_count(key, float(WeatherLayer.wanted(day_state)[key]))
 			ok += _expect(fails, layer.amount_of(key) <= maxi(1, ceili(float(full) * 0.5)),
 				"%s: на упрощённой графике у %s %d частиц из %d" % [id, key, layer.amount_of(key), full])
 		view.set_simplified_graphics(false)
@@ -3235,14 +3235,38 @@ static func weather() -> void:
 	view.set_night(0.0)
 	layer._tick(0.1)
 	var fluff := layer.emitter("fluff") as CPUParticles2D
-	var midges := layer.emitter("midges") as CanvasItem
+	var midges := layer.emitter("midges") as CPUParticles2D
 	ok += _expect(fails, fluff != null and midges != null, "летом нет пуха или мошкары")
 	if fluff != null and midges != null:
-		ok += _expect(fails, fluff.emitting and not midges.visible, "днём пух должен идти, мошкары нет")
+		ok += _expect(fails, fluff.emitting and not midges.emitting, "днём пух должен идти, мошкары нет")
 		view.set_night(1.0)
 		layer._tick(0.1)
-		ok += _expect(fails, not fluff.emitting and midges.visible, "ночью пуха нет, мошкара есть")
+		ok += _expect(fails, not fluff.emitting and midges.emitting, "ночью пуха нет, мошкара есть")
+		ok += _expect(fails, midges.emission_points.size() == maxi(1, view.def.lamps.size()), "мошкара не у фонарей: точек %d" % midges.emission_points.size())
 	view.set_night(0.0)
+
+	# картинки и шейдеры: каждый эмиттер рисуется из файла-атласа, земля и тени идут шейдерами
+	view.set_weather(Weather.state("a2c1", 2))
+	for key: String in layer.emitter_names():
+		var pr := layer.emitter(key) as CPUParticles2D
+		ok += _expect(fails, pr.texture != null and pr.texture.get_width() >= 64, "у эмиттера %s нет картинки из атласа" % key)
+		var cm := pr.material as CanvasItemMaterial
+		ok += _expect(fails, cm != null and cm.particles_animation, "у эмиттера %s не включены кадры атласа" % key)
+	for fx: GroundFx in [view.ground_fx, view.sky_fx]:
+		ok += _expect(fails, fx != null and (fx.get_child(0) as ColorRect).material is ShaderMaterial, "слой земли или облаков без шейдера")
+	view.set_weather(Weather.state("a3c1", 3))
+	await _frames(tree, 2)
+	var gmat := (view.ground_fx.get_child(0) as ColorRect).material as ShaderMaterial
+	ok += _expect(fails, float(gmat.get_shader_parameter("cover")) > 0.5 and view.ground_fx.get_child(0).visible, "зимой снег на земле не включился в шейдере")
+	ok += _expect(fails, view.ground_fx.tuft_count() > 20 and view.ground_fx.tuft_count() <= GroundFx.MAX_TUFTS, "трава: %d пучков" % view.ground_fx.tuft_count())
+	view.set_weather(Weather.state("a2c1", 2))
+	gmat = (view.ground_fx.get_child(0) as ColorRect).material as ShaderMaterial
+	ok += _expect(fails, float(gmat.get_shader_parameter("cover")) == 0.0 and float(gmat.get_shader_parameter("wet")) > 0.4, "осенью дождь не намочил землю в шейдере")
+	view.set_simplified_graphics(true)
+	ok += _expect(fails, not view.sky_fx.visible, "на упрощённой графике остались тени облаков")
+	view.set_simplified_graphics(false)
+	view.set_weather(Weather.EMPTY.duplicate())
+	ok += _expect(fails, not view.ground_fx.visible and not view.sky_fx.visible, "без погоды слои земли и облаков видны")
 
 	# повтор без утечек
 	for i in range(30):
@@ -3252,7 +3276,7 @@ static func weather() -> void:
 	# выключенная погода не оставляет следов
 	Weather.enabled = false
 	view.set_weather(Weather.state("a3c1", 3))
-	ok += _expect(fails, layer.get_child_count() == 0 and view.snow_cover == 0.0, "выключенная погода оставила эмиттеры или снег")
+	ok += _expect(fails, layer.get_child_count() == 0 and view.snow_cover == 0.0 and not view.ground_fx.visible, "выключенная погода оставила эмиттеры или снег")
 	Weather.enabled = true
 	view.set_weather(Weather.EMPTY.duplicate())
 	await _frames(tree, 2)
