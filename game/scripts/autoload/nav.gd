@@ -359,6 +359,7 @@ func _frame_field(s: Screen) -> void:
 		var is_day := s is DayScreen and me_fig != null
 		var follow_player := is_day and Game.m.player().alive
 		village.follow = me_fig if follow_player else null
+		village.parallax = is_day                      # сдвиг слоёв только на дневном экране, ночью и в меню они стоят
 		var zoom := s.field_zoom() if not is_day or follow_player else 1.0
 		village.frame_to(r, ui.size.x, dur, zoom, me_fig.position.x if follow_player else -1.0, is_day)
 		village.jobs_layer.m = Game.m
@@ -371,6 +372,7 @@ func _frame_field(s: Screen) -> void:
 		_tween_to(scrim, "strength", 1.0, dur)
 	else:
 		village.follow = null
+		village.parallax = false
 		village.jobs_layer.visible = false
 		_tween_to(village, "modulate:a", 0.0, dur * 0.6)
 		_tween_to(scrim, "strength", 0.0, dur * 0.6)

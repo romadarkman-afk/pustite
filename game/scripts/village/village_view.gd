@@ -45,7 +45,20 @@ var _ground_is_composite := false          ## старые картинки зе
 var _props: Array[VillageProp] = []        ## дома, колодец, фонари и реквизит — в слое толпы
 var _labels: Node2D                        ## таблички убежищ — над толпой
 var _occluders: Array[LightOccluder2D] = []
-var _backdrop: Backdrop                    ## небо и лес за посёлком: сдвигаются медленнее камеры
+var _backdrop: Backdrop                    ## небо за посёлком: сдвигается медленнее камеры
+var _forest: Backdrop                      ## дальний лес перед небом
+## Скорости слоёв относительно камеры (TASK-089): дом и земля 1,0. Лес чуть отстаёт, туман и ветки чуть обгоняют.
+const SPEED_SKY := 0.65
+const SPEED_FOREST := 0.9
+const SPEED_FOG := 1.05
+const SPEED_BRANCHES := 1.15
+const FOG_X := 360.0                       ## где стоят полосы тумана без сдвига камеры
+## false на ночном экране и вне дня: слои стоят на местах, как без камеры
+var parallax := true:
+	set(v):
+		if v != parallax:
+			parallax = v
+			_apply_parallax()
 var _branches: Branches                    ## ветки по верхним углам поля — поверх посёлка
 var _fog_bands: Array[Sprite2D] = []       ## полосы тумана над землёй, ползут вбок
 var _smoke: Node2D                         ## дым из труб
@@ -89,8 +102,17 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	_load_art()
 	_backdrop = Backdrop.new()
 	_backdrop.view = self
+	_backdrop.part = "sky"
+	_backdrop.speed = SPEED_SKY
 	add_child(_backdrop)
 	_backdrop.visible = not _ground_is_composite
+	_forest = Backdrop.new()
+	_forest.view = self
+	_forest.part = "forest"
+	_forest.speed = SPEED_FOREST
+	_forest.name = "Forest"
+	add_child(_forest)
+	_forest.visible = not _ground_is_composite
 	ground_fx = GroundFx.new()
 	add_child(ground_fx)
 	ground_fx.setup(self, "ground")
@@ -329,7 +351,7 @@ func frame_to(rect: Rect2, vp_w: float, dur: float, zoom: float = 1.0, focus_x: 
 	elif zoom <= 1.0:
 		cam_x = LOGICAL.x * 0.5
 	cam_x = _clamp_cam(cam_x, s)
-	_backdrop.position.x = (cam_x - LOGICAL.x * 0.5) * Backdrop.PARALLAX
+	_apply_parallax()
 	# Полоса с домами остаётся в поле, лишняя высота делится между небом и передним планом.
 	var extra := maxf(0.0, rect.size.y - BAND.size.y * s)
 	var target := Vector2(vp_w * 0.5 - cam_x * s, rect.position.y + extra * sky_share - BAND.position.y * s)
@@ -345,6 +367,21 @@ func frame_to(rect: Rect2, vp_w: float, dur: float, zoom: float = 1.0, focus_x: 
 	_tw_frame.tween_property(self, "position", target, dur)
 	_tw_frame.tween_property(self, "scale", Vector2(s, s), dur)
 	_tw_frame.chain().tween_callback(func() -> void: _framing = false)
+
+
+## Слои стоят там, куда их двигает камера: слой со скоростью k смещается относительно посёлка на (1 - k) от ухода камеры.
+## Ветки экранные: по экрану они уезжают не дальше, чем выступают за край поля, поэтому щель не открывается.
+func _apply_parallax() -> void:
+	var d := (cam_x - LOGICAL.x * 0.5) if parallax else 0.0
+	if _backdrop != null:
+		_backdrop.position.x = d * (1.0 - SPEED_SKY)
+	if _forest != null:
+		_forest.position.x = d * (1.0 - SPEED_FOREST)
+	for b: Sprite2D in _fog_bands:
+		b.position.x = FOG_X + d * (1.0 - SPEED_FOG)
+	if _branches != null:
+		var hang := _branches.hang()
+		_branches.position.x = clampf(-(SPEED_BRANCHES - 1.0) * d * scale.x, -hang, hang)
 
 
 ## Центр кадра не уводит камеру за края посёлка.
@@ -366,7 +403,7 @@ func _follow_step(delta: float) -> void:
 		return
 	cam_x = want if Juice.instant else lerpf(cam_x, want, 1.0 - exp(-5.0 * delta))
 	position.x = _vp_w * 0.5 - cam_x * scale.x
-	_backdrop.position.x = (cam_x - LOGICAL.x * 0.5) * Backdrop.PARALLAX
+	_apply_parallax()
 
 
 var tunnel: Vector2i = Vector2i(-1, -1)   ## туннель между двумя убежищами: у обоих домов люк
@@ -656,6 +693,8 @@ func _refresh() -> void:
 	queue_redraw()
 	if _backdrop != null:
 		_backdrop.queue_redraw()
+	if _forest != null:
+		_forest.queue_redraw()
 	for p: VillageProp in _props:
 		p.queue_redraw()
 	if _labels != null:
@@ -829,6 +868,8 @@ func _load_art() -> void:
 		_tex[g] = load(ground_path) as Texture2D
 	if is_instance_valid(_backdrop):
 		_backdrop.visible = not _ground_is_composite
+	if is_instance_valid(_forest):
+		_forest.visible = not _ground_is_composite
 	for f: String in MAP_FILES:
 		var map_key := f.get_basename()
 		var chapter_path := String(chapter_visuals.get(map_key, ""))
@@ -1424,7 +1465,7 @@ func _build_fog_bands() -> void:
 		var sc := 0.42 if i == 0 else 0.6
 		b.scale = Vector2(sc, sc)
 		b.region_rect = Rect2(i * 700.0, i * half, 3600.0 / sc, half)
-		b.position = Vector2(360, 196.0 if i == 0 else 470.0)
+		b.position = Vector2(FOG_X, 196.0 if i == 0 else 470.0)
 		add_child(b)
 		_fog_bands.append(b)
 
@@ -1655,15 +1696,18 @@ class Eyes extends Node2D:
 
 ## Небо и дальний лес за посёлком: три неба (день, сумерки, ночь) и две полосы леса.
 ## Каждая текстура заполняет видимую ширину одним кадром, без повторных картинок по краям.
-## Сдвигается за камерой с долей PARALLAX — так лес выглядит дальше домов.
+## Два слоя: part "sky" (три неба) и part "forest" (две полосы леса). У каждого своя скорость относительно камеры,
+## так лес и небо выглядят дальше домов. Полоса всегда шире кадра на запас, чтобы край не открылся при самом дальнем уходе камеры.
 class Backdrop extends Node2D:
-	const PARALLAX := 0.35
+	const ZOOM_LIMIT := 2.5
 	const SKY_W := 1150.0
 	const TREE_W := 780.0
 	const SKY_TOP := {"sky_day": Color8(84, 95, 90), "sky_dusk": Color8(53, 60, 83), "sky_night": Color8(16, 23, 41)}
 	const FOREST_DAY := Color8(14, 17, 25)
 	const FOREST_NIGHT := Color8(10, 12, 23)
 	var view: VillageView
+	var part := "sky"
+	var speed := 0.65
 
 	func _ready() -> void:
 		show_behind_parent = true
@@ -1677,6 +1721,8 @@ class Backdrop extends Node2D:
 		# сумерки: день → сумерки к середине, сумерки → ночь ко второй половине
 		var realistic := view._tex.has("real_sky_day") and view._tex.has("real_sky_dusk") and view._tex.has("real_sky_night")
 		if realistic:
+			if part != "sky":
+				return
 			var realistic_layers := [["real_sky_day", 1.0], ["real_sky_dusk", clampf(n * 2.2, 0.0, 1.0)], ["real_sky_night", clampf((n - 0.5) * 2.2, 0.0, 1.0)]]
 			for l: Array in realistic_layers:
 				var a: float = l[1]
@@ -1685,7 +1731,7 @@ class Backdrop extends Node2D:
 				var tex: Texture2D = view._tex[l[0]]
 				var h := SKY_W * tex.get_height() / tex.get_width()
 				_strip(tex, bottom - h, SKY_W, h, Color(1, 1, 1, a))
-		else:
+		elif part == "sky":
 			var layers := [["sky_day", 1.0], ["sky_dusk", clampf(n * 2.2, 0.0, 1.0)], ["sky_night", clampf((n - 0.5) * 2.2, 0.0, 1.0)]]
 			for l: Array in layers:
 				var a: float = l[1]
@@ -1695,6 +1741,7 @@ class Backdrop extends Node2D:
 				var h := SKY_W * tex.get_height() / tex.get_width()
 				draw_rect(Rect2(-3000, bottom - h - 3000, 6720, 3002), Color(SKY_TOP[l[0]], a))
 				_strip(tex, bottom - h, SKY_W, h, Color(1, 1, 1, a))
+		else:
 			# Дальний лес ниже в кадре, чтобы над верхушками оставалось чистое небо.
 			for i in range(2):
 				var a := clampf(1.0 - (n - 0.3) * 1.6, 0.0, 1.0) if i == 0 else clampf(n * 1.6, 0.0, 1.0)
@@ -1706,10 +1753,17 @@ class Backdrop extends Node2D:
 			var forest := FOREST_DAY.lerp(FOREST_NIGHT, n)
 			draw_rect(Rect2(-3000, gy + 50.0, 6720, 60.0), forest)
 
+	## Ширина полосы: кадр плюс запас на самый дальний уход камеры от центра, считанный для сильного приближения,
+	## чтобы край не открылся, пока посёлок приближают и полоса ещё не перерисована.
+	func strip_width(w: float) -> float:
+		var half := view._vp_w / maxf(view.scale.x, 0.5) * 0.5
+		var half_zoomed := view._vp_w / (2.0 * ZOOM_LIMIT)
+		var d_max := maxf(0.0, VillageView.LOGICAL.x * 0.5 + 20.0 - minf(half, half_zoomed))
+		return maxf(w, 2.0 * half + maxf(320.0, 2.0 * speed * d_max + 40.0))
+
 	## Полоса картинки по всей ширине, копии через одну отражены — шов не виден.
 	func _strip(tex: Texture2D, y: float, w: float, h: float, mod: Color) -> void:
-		var viewport_world_w := view._vp_w / maxf(view.scale.x, 0.5)
-		var target_w := maxf(w, viewport_world_w + 320.0)
+		var target_w := strip_width(w)
 		var target_h := h * target_w / w
 		var bottom := y + h
 		var r := Rect2(VillageView.LOGICAL.x * 0.5 - target_w * 0.5, bottom - target_h, target_w, target_h)
@@ -1724,6 +1778,12 @@ class Branches extends Node2D:
 	func _ready() -> void:
 		top_level = true
 		z_index = 1
+
+	## Насколько картинка выступает за край поля: на столько ветки можно сдвигать по экрану, не открывая щель.
+	func hang() -> float:
+		if view == null or view._field.size.x <= 0.0:
+			return 0.0
+		return clampf(view._field.size.x * 0.24, 90.0, 260.0) * 0.08
 
 	func _draw() -> void:
 		if view == null or view._field.size.x <= 0.0:

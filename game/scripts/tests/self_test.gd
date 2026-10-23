@@ -9245,3 +9245,87 @@ static func achicons() -> void:
 	page.free()
 	Save.achievements = keep_ach
 	_finish(fails, ok, "Достижения и страницы книги", "у каждого достижения значок и тексты, книга показывает все 19, стиль страницы тёплый")
+
+
+## TASK-089: параллакс. Скорости слоёв, края не открываются при самом дальнем уходе камеры на всех картах, ночью слои стоят.
+static func parallax() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+	Save.set_difficulty("normal")
+	var v := Nav.village
+	# 1. скорости слоёв по порядку: небо дальше леса, лес дальше домов, туман и ветки ближе
+	ok += _expect(fails, VillageView.SPEED_SKY < VillageView.SPEED_FOREST and VillageView.SPEED_FOREST == 0.9 and VillageView.SPEED_FOG == 1.05
+		and VillageView.SPEED_BRANCHES == 1.15, "скорости слоёв не по плану: лес 0,9, туман 1,05, ветки 1,15")
+	# 2. по всем картам, ширинам экрана, приближениям и положениям камеры
+	var bad := PackedStringArray()
+	var checked := 0
+	var home_def := v.def
+	for map_id: String in Campaign.SOLO_MAP_IDS:
+		var vd := load(Campaign.MAPS[map_id]) as VillageDef
+		v.set_village(vd, vd.shelters.size(), PackedStringArray())
+		for vp_w: float in [360.0, 540.0, 720.0, 1080.0]:
+			for zoom: float in [1.0, 1.3, 2.0, 2.5]:
+				for focus: float in [0.0, 120.0, 360.0, 600.0, 720.0]:
+					v.parallax = true
+					v.frame_to(Rect2(0, 200, vp_w, vp_w * 0.8), vp_w, 0.0, zoom, focus, true)
+					var half := vp_w / (2.0 * v.scale.x)
+					var vis_l := v.cam_x - half
+					var vis_r := v.cam_x + half
+					var tag := "%s/%d/%.1f/%d" % [map_id, int(vp_w), zoom, int(focus)]
+					for layer: Array in [[v._backdrop, VillageView.Backdrop.SKY_W, "небо"], [v._forest, VillageView.Backdrop.TREE_W, "лес"]]:
+						var bd: VillageView.Backdrop = layer[0]
+						var t: float = bd.strip_width(float(layer[1]))
+						var cx := VillageView.LOGICAL.x * 0.5 + bd.position.x
+						if cx - t * 0.5 > vis_l + 0.5 or cx + t * 0.5 < vis_r - 0.5:
+							bad.append("%s: %s не закрывает кадр (%.0f…%.0f, кадр %.0f…%.0f)" % [tag, layer[2], cx - t * 0.5, cx + t * 0.5, vis_l, vis_r])
+					for fb: Sprite2D in v._fog_bands:
+						var fw := fb.region_rect.size.x * fb.scale.x
+						if fb.position.x - fw * 0.5 > vis_l or fb.position.x + fw * 0.5 < vis_r:
+							bad.append("%s: туман не закрывает кадр" % tag)
+					if v._branches != null and absf(v._branches.position.x) > v._branches.hang() + 0.01:
+						bad.append("%s: ветки уехали дальше, чем выступают за край" % tag)
+					checked += 1
+	ok += checked
+	ok += _expect(fails, bad.is_empty(), "параллакс: %d нарушений, например %s" % [bad.size(), "; ".join(bad.slice(0, 5))])
+	# 3. скорости на экране: сдвиг камеры на dx сдвигает землю на dx*s, лес на 0,9 от этого, туман на 1,05
+	var vd2 := load(Campaign.MAPS["default"]) as VillageDef
+	v.set_village(vd2, vd2.shelters.size(), PackedStringArray())
+	v.parallax = true
+	v.frame_to(Rect2(0, 200, 720, 576), 720.0, 0.0, 2.0, 300.0, true)
+	var s := v.scale.x
+	var ground_a := v.position.x
+	var forest_a := v.position.x + (VillageView.LOGICAL.x * 0.5 + v._forest.position.x) * s
+	var sky_a := v.position.x + (VillageView.LOGICAL.x * 0.5 + v._backdrop.position.x) * s
+	var fog_a := v.position.x + v._fog_bands[0].position.x * s
+	var branch_a := v._branches.position.x
+	v.frame_to(Rect2(0, 200, 720, 576), 720.0, 0.0, 2.0, 400.0, true)
+	var dg := v.position.x - ground_a
+	var df := v.position.x + (VillageView.LOGICAL.x * 0.5 + v._forest.position.x) * s - forest_a
+	var ds := v.position.x + (VillageView.LOGICAL.x * 0.5 + v._backdrop.position.x) * s - sky_a
+	var dfog := v.position.x + v._fog_bands[0].position.x * s - fog_a
+	var db := v._branches.position.x - branch_a
+	ok += _expect(fails, absf(dg) > 20.0, "камера не сдвинула землю (%.1f)" % dg)
+	ok += _expect(fails, absf(df / dg - 0.9) < 0.01 and absf(ds / dg - 0.65) < 0.01 and absf(dfog / dg - 1.05) < 0.01,
+		"скорости на экране: лес %.3f (0,9), небо %.3f (0,65), туман %.3f (1,05)" % [df / dg, ds / dg, dfog / dg])
+	ok += _expect(fails, db * dg > 0.0 and absf(db) <= 2.0 * v._branches.hang() + 0.01, "ветки сдвинулись %.2f против земли %.2f (должны идти в ту же сторону, но недалеко)" % [db, dg])
+	# 4. без параллакса слои на местах при любой камере
+	v.parallax = false
+	ok += _expect(fails, v._forest.position.x == 0.0 and v._backdrop.position.x == 0.0 and v._fog_bands[0].position.x == VillageView.FOG_X
+		and v._branches.position.x == 0.0, "при выключенном параллаксе слои не на местах")
+	v.parallax = true
+	# 5. экраны: днём параллакс есть, на ночном экране и в меню нет
+	v.set_village(home_def, home_def.shelters.size(), PackedStringArray())
+	Nav.start_match()
+	await _settle(tree)
+	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
+	Game._feed_gen += 1
+	await _settle(tree)
+	ok += _expect(fails, Nav.host.current is DayScreen and Nav.village.parallax, "на дневном экране параллакса нет")
+	Nav.show_menu()
+	await _settle(tree)
+	ok += _expect(fails, not Nav.village.parallax and Nav.village._forest.position.x == 0.0, "в меню слои сдвинуты или параллакс включён")
+	_finish(fails, ok, "Параллакс", "лес 0,9, туман 1,05, ветки 1,15, края не открываются на 4 картах, 4 ширинах, 4 приближениях и 5 положениях камеры, в меню слои на местах")
