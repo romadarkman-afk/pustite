@@ -1102,8 +1102,11 @@ func _lamp_on(i: int, n: float) -> float:
 
 func _soft_texture() -> GradientTexture2D:
 	var g := Gradient.new()
+	# PointLight2D reads grayscale RGB as brightness; transparent white edges still create a square light.
 	g.set_color(0, Color(1, 1, 1, 1))
-	g.set_color(1, Color(1, 1, 1, 0))
+	g.add_point(0.28, Color(0.76, 0.76, 0.76, 1))
+	g.add_point(0.62, Color(0.26, 0.26, 0.26, 1))
+	g.set_color(1, Color(0, 0, 0, 1))
 	var t := GradientTexture2D.new()
 	t.gradient = g
 	t.fill = GradientTexture2D.FILL_RADIAL

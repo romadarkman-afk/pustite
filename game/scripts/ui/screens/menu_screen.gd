@@ -50,7 +50,6 @@ func build() -> void:
 	var case_file := W.label(L.t("menu.case_file"), &"Speaker")
 	case_file.add_theme_font_size_override("font_size", ThemeFactory.fs(15))
 	body.add_child(case_file)
-	body.add_child(W.label(L.t("menu.tale"), &"Tale"))
 	var hint := W.label(L.t("menu.hint"), &"Hint")
 	hint.add_theme_font_size_override("font_size", ThemeFactory.fs(16))
 	body.add_child(hint)
@@ -108,10 +107,11 @@ func build() -> void:
 	book.name = "Book"
 	book.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	book.pressed.connect(func() -> void: emit_intent(Intent.OPEN_BOOK))
+	body.add_child(W.fit_row(dbs))
+	body.add_child(daily_button())
 	body.add_child(W.fit_row([how, lb, custom_b, wardrobe, book]))
+	body.add_child(W.label(L.t("menu.tale"), &"Tale"))
 
-	footer.add_child(daily_button())
-	footer.add_child(W.fit_row(dbs))
 	var footer_actions: Array[Button] = []
 	if not Campaign.is_new():
 		var chapter := Campaign.current()

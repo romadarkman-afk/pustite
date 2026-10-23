@@ -34,9 +34,15 @@ func mood() -> Vector2:
 func build() -> void:
 	_beat = 0
 	_beat_card = W.panel(&"Sheet")
+	_beat_card.custom_minimum_size.x = 0.0
+	_beat_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var beat_box := W.vbox(16)
+	beat_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_beat_title = W.label("", &"Title")
+	_beat_title.add_theme_font_size_override("font_size", ThemeFactory.fs(40))
+	_beat_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_beat_text = W.label("", &"Tale")
+	_beat_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	beat_box.add_child(_beat_title)
 	beat_box.add_child(_beat_text)
 	_beat_card.add_child(beat_box)
@@ -122,6 +128,7 @@ func build() -> void:
 		_cast.add_child(card)
 
 	_go = W.button((String((StoryLoc.get_v("misc") as Array)[2]) if StoryLoc.has("misc") else ("Дальше" if L.code == "ru" else "Continue")))
+	_go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_go.pressed.connect(_advance)
 	footer.add_child(_go)
 	_reveal_nodes = [role, story, role_l, case_card, facts]

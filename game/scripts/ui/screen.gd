@@ -14,6 +14,7 @@ var field_spacer: Control
 var _title_label: Label
 var hint: Hint
 var _clock: Label
+var _clock_capsule: Control
 var _locked := false
 
 
@@ -271,6 +272,8 @@ func is_locked() -> bool:
 func set_clock(seconds: int) -> void:
 	if _clock == null:
 		return
+	if _clock_capsule != null:
+		_clock_capsule.visible = true
 	_clock.text = "%d:%02d" % [seconds / 60, seconds % 60]
 	_clock.add_theme_color_override("font_color",
 		ThemeFactory.BLOOD if seconds <= 10 else ThemeFactory.FROST)
@@ -315,11 +318,15 @@ func _chrome() -> void:
 	if title() != "":
 		# над полем шапка лежит на небе — днём оно светлое, поэтому заголовок и часы в тёмных капсулах
 		var over_sky := field_ratio() > 0.0
-		var bar := W.hbox(14)
+		var bar := W.hbox(10)
+		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var left := W.hbox(12)
+		left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var t := W.label(title(), &"Body")
 		_title_label = t
 		t.autowrap_mode = TextServer.AUTOWRAP_OFF
+		t.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		left.add_child(t)
 		if m != null and m.config != null:
 			var marks := W.hbox(7)
@@ -330,16 +337,16 @@ func _chrome() -> void:
 				dot.color = ThemeFactory.LAMP_D if i + 1 < m.day else (ThemeFactory.LAMP if i + 1 == m.day else Color(1, 1, 1, 0.3))
 				marks.add_child(dot)
 			left.add_child(marks)
-		bar.add_child(_capsule(left) if over_sky else left)
-		var gap := Control.new()
-		gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		bar.add_child(gap)
+		var left_capsule: Control = _capsule(left) if over_sky else left
+		left_capsule.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bar.add_child(left_capsule)
 		_clock = W.label("", &"Clock")
 		_clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		_clock.autowrap_mode = TextServer.AUTOWRAP_OFF
 		_clock.custom_minimum_size = Vector2(62, 0)
-		bar.add_child(_capsule(_clock) if over_sky else _clock)
+		_clock_capsule = _capsule(_clock) if over_sky else _clock
+		_clock_capsule.visible = false
+		bar.add_child(_clock_capsule)
 		if screen_id() != "menu":
 			var menu := W.button(L.t("ui.menu"), &"Quick")
 			menu.name = "BackToMenu"
