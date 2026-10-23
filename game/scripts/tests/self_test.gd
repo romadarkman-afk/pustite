@@ -9329,3 +9329,75 @@ static func parallax() -> void:
 	await _settle(tree)
 	ok += _expect(fails, not Nav.village.parallax and Nav.village._forest.position.x == 0.0, "в меню слои сдвинуты или параллакс включён")
 	_finish(fails, ok, "Параллакс", "лес 0,9, туман 1,05, ветки 1,15, края не открываются на 4 картах, 4 ширинах, 4 приближениях и 5 положениях камеры, в меню слои на местах")
+
+
+## TASK-090: следы событий на земле. Берутся из журнала, живут до конца главы, не больше шести, не называют виновного.
+static func traces() -> void:
+	var tree := Nav.get_tree()
+	var fails: PackedStringArray = []
+	var ok := 0
+	# 1. чистая логика на выдуманном журнале
+	var log := WorldLog.new()
+	for d in range(1, 6):
+		log.add(WorldLog.Kind.DIED, d, -1, 10 + d, d - 1, [], true, {"cause": "killed_inside"})
+	log.add(WorldLog.Kind.DIED, 5, -1, 20, -1, [], true, {"cause": "killed_street"})
+	log.add(WorldLog.Kind.ADMIT, 5, 3, 7, 6, [4], false)                         # игрок не видел
+	log.add(WorldLog.Kind.REFUSE, 4, 0, 7, 7, [], false, {"full": false})        # игрок сам хозяин двери
+	log.add(WorldLog.Kind.ADMIT, 3, 3, 8, 8, [0, 3], false)                      # игрок свидетель
+	var size_before := log.events.size()
+	var tr := log.ground_traces(0)
+	ok += _expect(fails, tr.size() == WorldLog.TRACE_LIMIT, "следов %d, ждали ровно %d (из журнала больше)" % [tr.size(), WorldLog.TRACE_LIMIT])
+	ok += _expect(fails, log.events.size() == size_before and log.ground_traces(0) == tr, "ground_traces меняет журнал или даёт разный ответ")
+	var days_ok := true
+	for i in range(1, tr.size()):
+		days_ok = days_ok and int(tr[i - 1].day) >= int(tr[i].day)
+	ok += _expect(fails, days_ok and int(tr[0].day) == 5 and String(tr[0].kind) == "blood", "свежие дни не впереди или кровь не раньше следов: %s" % str(tr))
+	var keys_ok := true
+	for t: Dictionary in tr:
+		keys_ok = keys_ok and t.keys().size() == 4 and not t.has("actor") and not t.has("cause")
+	ok += _expect(fails, keys_ok, "в следе есть лишнее: по нему видно виновного")
+	var all := log.ground_traces(0, 99)
+	var houses_steps := PackedInt32Array()
+	for t2: Dictionary in all:
+		if t2.kind == "steps":
+			houses_steps.append(int(t2.house))
+	ok += _expect(fails, houses_steps.has(7) and houses_steps.has(8) and not houses_steps.has(6),
+		"следы у дверей: игрок знает о домах 7 и 8, о доме 6 не знает: %s" % str(houses_steps))
+	var per_house := {}
+	var dup := false
+	for t3: Dictionary in all:
+		var k := "%s%d" % [t3.kind, int(t3.house) if int(t3.house) >= 0 else 1000 + int(t3.who)]
+		dup = dup or per_house.has(k)
+		per_house[k] = true
+	ok += _expect(fails, not dup, "два следа на одном месте")
+	ok += _expect(fails, log.ground_traces(0, 2).size() == 2 and log.ground_traces(0, 0).is_empty() and WorldLog.new().ground_traces(0).is_empty(), "limit или пустой журнал работают неверно")
+	# смерть, о которой игрок не знает (не публичная и нет в known), следа не даёт
+	var log2 := WorldLog.new()
+	log2.add(WorldLog.Kind.DIED, 2, -1, 11, 3, [4], false)
+	ok += _expect(fails, log2.ground_traces(0).is_empty() and log2.ground_traces(4).size() == 2, "тайная смерть показана тому, кто о ней не знает")
+	# 2. на экране
+	Save.set_difficulty("normal")
+	Nav.start_match()
+	await _settle(tree)
+	var m := Game.m
+	var v := Nav.village
+	m.world.clear()
+	var shelters := v.def.shelters.size()
+	for d2 in range(1, 4):
+		m.world.add(WorldLog.Kind.DIED, d2, -1, d2, d2 % shelters, [], true, {"cause": "killed_inside"})
+	Nav._sync_traces(Match.Phase.NIGHT)
+	ok += _expect(fails, v.blood_spots.size() == 3 and v.trail_doors.size() == 3, "ночью следы прошлых ночей не лежат: кровь %d, следы %d" % [v.blood_spots.size(), v.trail_doors.size()])
+	Nav._sync_traces(Match.Phase.DAY)
+	ok += _expect(fails, v.blood_spots.size() == 3, "днём следы пропали")
+	for d3 in range(4, 12):
+		m.world.add(WorldLog.Kind.DIED, d3, -1, 20 + d3, d3 % shelters, [], true, {"cause": "killed_inside"})
+		m.world.add(WorldLog.Kind.DIED, d3, -1, 40 + d3, -1, [], true, {"cause": "killed_street"})
+	Nav._sync_traces(Match.Phase.MORNING)
+	ok += _expect(fails, v.blood_spots.size() + v.trail_doors.size() <= WorldLog.TRACE_LIMIT and v.blood_spots.size() > 0,
+		"на карте %d пятен и %d следов, больше %d нельзя" % [v.blood_spots.size(), v.trail_doors.size(), WorldLog.TRACE_LIMIT])
+	Nav._sync_traces(Match.Phase.PROLOGUE)
+	ok += _expect(fails, v.blood_spots.is_empty() and v.trail_doors.is_empty(), "в прологе на земле следы")
+	m.world.clear()
+	Nav._sync_traces(Match.Phase.DAY)
+	ok += _expect(fails, v.blood_spots.is_empty() and v.trail_doors.is_empty(), "в новой главе остались следы старой")
+	_finish(fails, ok, "Следы событий на земле", "из журнала, до конца главы, не больше шести, виновного не называют, тайное не показано")

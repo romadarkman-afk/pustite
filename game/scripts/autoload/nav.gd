@@ -385,15 +385,18 @@ func _sync_traces(phase: Match.Phase) -> void:
 	var blood := PackedVector2Array()
 	var trails := PackedVector2Array()
 	var after_night := phase == Match.Phase.MORNING or phase == Match.Phase.DAY or phase == Match.Phase.VOTE or phase == Match.Phase.OVER
-	if after_night and Game.m.report != null:
-		for e: NightReport.Entry in Game.m.report.deaths():
-			if e.house >= 0 and e.house < village.def.shelters.size():
-				var d := village.door_point(e.house)
-				blood.append(d + Vector2(0, 4))
-				if not trails.has(d):
-					trails.append(d)
-			elif e.who != null:
-				blood.append(village.street_point(e.who.id))
+	# TASK-090: следы идут из журнала и держатся до конца главы, не больше TRACE_LIMIT на карте
+	if phase != Match.Phase.PROLOGUE and phase != Match.Phase.IDLE:
+		for t: Dictionary in Game.m.world.ground_traces(0):
+			var h := int(t.house)
+			var on_house := h >= 0 and h < village.def.shelters.size()
+			if t.kind == "blood":
+				if on_house:
+					blood.append(village.door_point(h) + Vector2(0, 4))
+				elif h < 0:
+					blood.append(village.street_point(int(t.who)))
+			elif on_house:
+				trails.append(village.door_point(h))
 	village.set_traces(blood, trails)
 	var losses := {}
 	if after_night:
