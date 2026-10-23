@@ -43,6 +43,9 @@ const SOUNDS := {
 	&"hammer": "res://assets/sfx/hammer.ogg",
 	&"latch": "res://assets/sfx/latch.ogg",
 	&"floorboard": "res://assets/sfx/floorboard.ogg",
+	# жизнь посёлка (TASK-069, tools/make_weather_sfx.py)
+	&"life_dog": "res://assets/sfx/life_dog.ogg",
+	&"life_hens": "res://assets/sfx/life_hens.ogg",
 }
 const LOOPS := {
 	&"amb_day": "res://assets/sfx/amb_day.ogg",
@@ -60,6 +63,12 @@ const LOOPS := {
 	&"end_dawn": "res://assets/music/end_dawn.ogg",     # итог: люди дожили (tools/make_end_music.py)
 	&"end_dark": "res://assets/music/end_dark.ogg",     # итог: посёлок пал
 	&"river_theme": "res://assets/music/river_theme.ogg",
+	# слои погоды, жизни и места (TASK-069, tools/make_weather_sfx.py)
+	&"amb_wind": "res://assets/sfx/amb_wind.ogg",
+	&"amb_rain": "res://assets/sfx/amb_rain.ogg",
+	&"amb_blizzard": "res://assets/sfx/amb_blizzard.ogg",
+	&"life_murmur": "res://assets/sfx/life_murmur.ogg",
+	&"mill_wheel": "res://assets/sfx/mill_wheel.ogg",
 }
 ## Звук с вариантами: каждый раз случайный из списка, в журнал пишется общее имя.
 const VARIANTS := {&"reveal": [&"reveal", &"reveal_2", &"reveal_3"]}
@@ -78,13 +87,29 @@ var heart_on := false
 var _streams: Dictionary = {}
 var _pool: Array[AudioStreamPlayer] = []
 var _next := 0
-var _music: Array[AudioStreamPlayer] = []
-var _music_i := 0
-var _amb: Array[AudioStreamPlayer] = []
-var _amb_i := 0
+## Длинных потоков не больше шести: музыка, фон, место, погода, жизнь, сердцебиение — по одному.
+## Смена идёт «нырком»: старый звук затихает, потом входит новый. Двух потоков одного слоя нет.
+const LONG_LIMIT := 6
+var weather_name: StringName = &""                ## какой слой погоды звучит
+var weather_db := -80.0                           ## его громкость
+var life_ratio := 1.0                             ## доля живых: с каждой смертью посёлок тише
+var life_day := false
+var tension := 0.0                                ## 0..1: давит на фон фильтром, ускоряет пульс
+var _music_p: AudioStreamPlayer
+var _music_gen := 0
+var _amb_p: AudioStreamPlayer
+var _amb_gen := 0
+var _weather_p: AudioStreamPlayer
+var _weather_gen := 0
+var _life_p: AudioStreamPlayer
+var _life_clock := 20.0
+var _bell_clock := 50.0
 var _place: AudioStreamPlayer
 var _place_name: StringName = &""
+var _place_ground := ""
 var _place_generation := 0
+var _amb_filter: AudioEffectLowPassFilter
+var _pace := 1.0
 var _heart: AudioStreamPlayer
 var _panned_player: AudioStreamPlayer
 var _muted_by_os := false
@@ -115,9 +140,14 @@ func _ready() -> void:
 		p.bus = &"Sfx"
 		add_child(p)
 		_pool.append(p)
-	_music = [_player(&"Music"), _player(&"Music")]
-	_amb = [_player(&"Ambience"), _player(&"Ambience")]
+	_music_p = _player(&"Music")
+	_amb_p = _player(&"Ambience")
 	_place = _player(&"Ambience")
+	_weather_p = _player(&"Ambience")
+	_life_p = _player(&"Ambience")
+	_amb_filter = AudioEffectLowPassFilter.new()
+	_amb_filter.cutoff_hz = 20500.0
+	AudioServer.add_bus_effect(AudioServer.get_bus_index(&"Ambience"), _amb_filter)
 	_heart = _player(&"Sfx")
 	_panned_player = _player(HORROR_LEFT)
 	_heart.stream = _streams[&"heartbeat"]
@@ -216,16 +246,34 @@ func set_ambience(n: StringName, fade: float = 2.8) -> void:
 		return
 	ambience_name = n
 	_note(StringName("фон:" + String(n)))
-	var old := _amb[_amb_i]
-	_amb_i = 1 - _amb_i
-	var cur := _amb[_amb_i]
-	_fade(old, -80.0, fade, true)
-	if n != &"" and has_sound(n):
-		cur.stop()
-		cur.stream = _streams[n]
-		cur.volume_db = -80.0
-		cur.play()
-		_fade(cur, -4.0, fade, false)
+	_amb_gen += 1
+	_dip(_amb_p, n, -4.0, fade, _amb_gen, &"amb")
+
+
+## Смена звука одного слоя «нырком»: старый затихает за половину времени, потом входит новый.
+## Если за это время слой попросили сменить снова, устаревшая смена бросается.
+func _dip(p: AudioStreamPlayer, n: StringName, level_db: float, fade: float, gen: int, which: StringName) -> void:
+	var half := fade * 0.5
+	if p.playing:
+		_fade(p, -80.0, half, true)
+		await get_tree().create_timer(0.001 if Juice.instant else half).timeout
+		if gen != _gen_of(which):
+			return
+	if n == &"" or not has_sound(n):
+		return
+	p.stop()
+	p.stream = _streams[n]
+	p.volume_db = -80.0
+	p.play()
+	_fade(p, level_db, half, false)
+
+
+func _gen_of(which: StringName) -> int:
+	match which:
+		&"amb": return _amb_gen
+		&"music": return _music_gen
+		&"weather": return _weather_gen
+	return _place_generation
 
 
 ## Второй тихий слой по месту действия. Вместе с двумя каналами музыки и фона
@@ -238,8 +286,8 @@ func set_place_layer(ground: String, river: bool, primary: StringName, fade: flo
 			n = &"rails"
 			level = -24.0
 		elif ground == "ground_mill":
-			n = &"amb_river" # вода под мельничным колесом
-			level = -22.0
+			n = &"mill_wheel" # вода, скрип оси и глухой стук жернова
+			level = -20.0
 		elif river:
 			n = &"amb_river"
 			level = -18.0
@@ -248,6 +296,7 @@ func set_place_layer(ground: String, river: bool, primary: StringName, fade: flo
 			level = -23.0
 	if n == primary:
 		n = &""
+	_place_ground = ground if primary != &"" else ""
 	if n == _place_name:
 		return
 	_place_name = n
@@ -267,23 +316,111 @@ func set_place_layer(ground: String, river: bool, primary: StringName, fade: flo
 	_fade(_place, level, fade * 0.5, false)
 
 
+## Какой слой погоды и с какой громкостью звучит при таком состоянии погоды.
+static func weather_pick(s: Dictionary) -> Dictionary:
+	var none := {"name": &"", "db": -80.0}
+	if not bool(s.get("active", false)):
+		return none
+	var power := float(s.get("power", 0.0))
+	var wind := absf(float(s.get("wind", 0.0)))
+	match int(s.get("precip", Weather.Precip.NONE)):
+		Weather.Precip.RAIN:
+			if power > 0.05:
+				return {"name": &"amb_rain", "db": -30.0 + 14.0 * power}
+		Weather.Precip.SNOW:
+			if power > 0.05:
+				if wind >= 0.6 or power >= 0.8:
+					return {"name": &"amb_blizzard", "db": -28.0 + 12.0 * power}
+				return {"name": &"amb_wind", "db": -34.0 + 10.0 * power + 8.0 * wind}
+	if wind >= 0.3:
+		return {"name": &"amb_wind", "db": -36.0 + 14.0 * wind}
+	return none
+
+
+## Слой погоды: ветер, дождь или метель по состоянию погоды. Тот же слой только меняет громкость.
+func set_weather_layer(s: Dictionary, fade: float = 3.0) -> void:
+	var pick := weather_pick(s)
+	var n: StringName = pick["name"]
+	weather_db = float(pick["db"])
+	if n == weather_name:
+		if n != &"" and _weather_p.playing:
+			_fade(_weather_p, weather_db, fade * 0.5, false)
+		return
+	weather_name = n
+	_note(StringName("погода:" + String(n)))
+	_weather_gen += 1
+	_dip(_weather_p, n, weather_db, fade, _weather_gen, &"weather")
+
+
+## Жизнь посёлка: днём говор и редкие собака с курами. Чем меньше живых, тем тише; при трети живых говор гаснет.
+func set_life(alive_ratio: float, day: bool, fade: float = 3.0) -> void:
+	life_ratio = clampf(alive_ratio, 0.0, 1.0)
+	life_day = day
+	var target := life_db()
+	if target <= -60.0 or not has_sound(&"life_murmur"):
+		if _life_p.playing:
+			_fade(_life_p, -80.0, fade * 0.5, true)
+		return
+	if not _life_p.playing:
+		_life_p.stream = _streams[&"life_murmur"]
+		_life_p.volume_db = -80.0
+		_life_p.play()
+	_fade(_life_p, target, fade * 0.5, false)
+
+
+## Громкость говора по доле живых; ночью и при малом числе живых его нет.
+func life_db() -> float:
+	if not life_day or life_ratio < 0.34:
+		return -80.0
+	return lerpf(-46.0, -27.0, (life_ratio - 0.34) / 0.66)
+
+
+## Напряжение 0..1: глушит фон фильтром (слух сжимается) и ускоряет пульс.
+func set_tension(t: float, fade: float = 1.5) -> void:
+	tension = clampf(t, 0.0, 1.0)
+	var cutoff := lerpf(20500.0, 2600.0, tension)
+	if _amb_filter != null:
+		if Juice.instant or fade <= 0.0:
+			_amb_filter.cutoff_hz = cutoff
+		else:
+			create_tween().tween_property(_amb_filter, "cutoff_hz", cutoff, fade)
+	_apply_pace()
+
+
+## Сколько длинных потоков звучит сейчас. Не больше LONG_LIMIT.
+func long_streams() -> int:
+	var n := 0
+	for p: AudioStreamPlayer in [_music_p, _amb_p, _place, _weather_p, _life_p, _heart]:
+		if p != null and p.playing:
+			n += 1
+	return n
+
+
+func _process(delta: float) -> void:
+	if not life_day and _place_ground != "ground_monastery":
+		return
+	_life_clock -= delta
+	_bell_clock -= delta
+	if _life_clock <= 0.0:
+		_life_clock = randf_range(14.0, 30.0) / (0.5 + life_ratio)
+		if life_day and life_ratio >= 0.34:
+			play(&"life_hens" if randf() < 0.6 else &"life_dog", randf_range(0.92, 1.08), -22.0 + 8.0 * life_ratio)
+	if _bell_clock <= 0.0:
+		_bell_clock = randf_range(45.0, 80.0)
+		if _place_ground == "ground_monastery":
+			for k in range(3):
+				await get_tree().create_timer(0.001 if Juice.instant else 2.4 * float(k)).timeout
+				play(&"bell", 0.55, -26.0)
+
+
 ## Музыка: «menu», «day», «night» или "" (тишина).
 func set_music(n: StringName, fade: float = 2.8) -> void:
 	if n == music_name:
 		return
 	music_name = n
 	_note(StringName("музыка:" + String(n)))
-	var old := _music[_music_i]
-	_music_i = 1 - _music_i
-	var cur := _music[_music_i]
-	_fade(old, -80.0, fade, true)
-	if n == &"" or not has_sound(n):
-		return
-	cur.stop()
-	cur.stream = _streams[n]
-	cur.volume_db = -80.0
-	cur.play()
-	_fade(cur, _music_target_db(), fade, false)
+	_music_gen += 1
+	_dip(_music_p, n, _music_target_db(), fade, _music_gen, &"music")
 
 
 ## Сердцебиение: у двери и в последние секунды.
@@ -299,21 +436,25 @@ func heartbeat(on: bool) -> void:
 			_heart.volume_db = -80.0
 			_heart.play()
 		_fade(_heart, -3.0, 0.8, false)
-		for p: AudioStreamPlayer in _music:
-			if p.playing:
-				_fade(p, _music_target_db(), 0.8, false)
+		if _music_p.playing:
+			_fade(_music_p, _music_target_db(), 0.8, false)
 	else:
 		_fade(_heart, -80.0, 0.8, true)
 		set_heartbeat_pace(1.0)
-		for p: AudioStreamPlayer in _music:
-			if p.playing:
-				_fade(p, _music_target_db(), 0.8, false)
+		if _music_p.playing:
+			_fade(_music_p, _music_target_db(), 0.8, false)
 
 
 ## Несколько ударов подряд немного ускоряют пульс; скорость не зависит от того, кого стучит.
 func set_heartbeat_pace(pace: float) -> void:
+	_pace = pace
+	_apply_pace()
+
+
+## Пульс = темп двери (число стучащих) плюс до 10 % от напряжения.
+func _apply_pace() -> void:
 	if _heart != null:
-		_heart.pitch_scale = clampf(pace, 0.85, 1.2)
+		_heart.pitch_scale = clampf(_pace * (1.0 + 0.1 * tension), 0.85, 1.2)
 
 
 func _music_target_db() -> float:

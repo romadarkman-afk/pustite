@@ -3429,13 +3429,94 @@ static func sound() -> void:
 			missing.append(String(k))
 	ok += _expect(fails, missing.is_empty(), "не загрузились звуки: %s" % ", ".join(missing))
 	for layer: Dictionary in [
-		{"ground": "ground_mill", "sound": &"amb_river"},
+		{"ground": "ground_mill", "sound": &"mill_wheel"},
 		{"ground": "ground_monastery", "sound": &"amb_dusk"},
 		{"ground": "ground_station", "sound": &"rails"},
 	]:
 		await Sfx.set_place_layer(String(layer.ground), false, &"amb_day", 0.01)
 		ok += _expect(fails, Sfx._place_name == StringName(layer.sound),
 			"место %s получило слой %s, ожидался %s" % [layer.ground, Sfx._place_name, layer.sound])
+	await Sfx.set_place_layer("", false, &"", 0.01)
+
+	# 1а. Слои погоды, жизни и напряжения (TASK-069)
+	var wx_state := func(profile: String) -> Dictionary:
+		var st: Dictionary = Weather.EMPTY.duplicate()
+		st.merge(Weather.PROFILES[profile], true)
+		st["active"] = true
+		return st
+	ok += _expect(fails, Sfx.weather_pick(wx_state.call("river_storm"))["name"] == &"amb_rain", "ливень не выбрал слой дождя")
+	ok += _expect(fails, Sfx.weather_pick(wx_state.call("blizzard"))["name"] == &"amb_blizzard", "метель не выбрала слой метели")
+	ok += _expect(fails, Sfx.weather_pick(wx_state.call("snowbound_courtyard"))["name"] == &"amb_wind", "слабый снег без ветра не выбрал лёгкий ветер")
+	ok += _expect(fails, Sfx.weather_pick(wx_state.call("summer_riverbank"))["name"] == &"", "ясное лето получило слой погоды")
+	ok += _expect(fails, Sfx.weather_pick(Weather.EMPTY)["name"] == &"", "выключенная погода получила слой")
+	var weak_rain: Dictionary = wx_state.call("river_storm")
+	weak_rain["power"] = 0.2
+	ok += _expect(fails, float(Sfx.weather_pick(weak_rain)["db"]) < float(Sfx.weather_pick(wx_state.call("river_storm"))["db"]),
+		"слабый дождь звучит не тише ливня")
+	var negative_wind: Dictionary = wx_state.call("blizzard")
+	negative_wind["wind"] = -0.85
+	ok += _expect(fails, Sfx.weather_pick(negative_wind)["name"] == &"amb_blizzard", "ветер с обратным знаком потерял метель")
+	Sfx.set_weather_layer(wx_state.call("blizzard"), 0.01)
+	await _frames(tree, 8)
+	ok += _expect(fails, Sfx.weather_name == &"amb_blizzard" and Sfx._weather_p.playing and Sfx._weather_p.stream == Sfx._streams[&"amb_blizzard"],
+		"метель не зазвучала")
+	Sfx.set_weather_layer(wx_state.call("river_storm"), 0.01)
+	await _frames(tree, 8)
+	ok += _expect(fails, Sfx.weather_name == &"amb_rain" and Sfx._weather_p.stream == Sfx._streams[&"amb_rain"],
+		"метель не сменилась дождём в том же канале")
+	Sfx.set_weather_layer(Weather.EMPTY, 0.01)
+	await _frames(tree, 8)
+	ok += _expect(fails, Sfx.weather_name == &"" and not Sfx._weather_p.playing, "погода не затихла при ясном небе")
+	# говор: тише с каждой смертью, при трети живых его нет, ночью его нет
+	Sfx.life_day = true
+	var life_levels: Array[float] = []
+	for r: float in [1.0, 0.7, 0.45]:
+		Sfx.life_ratio = r
+		life_levels.append(Sfx.life_db())
+	Sfx.life_ratio = 0.2
+	ok += _expect(fails, life_levels[0] > life_levels[1] and life_levels[1] > life_levels[2], "говор не тише с числом живых: %s" % str(life_levels))
+	ok += _expect(fails, Sfx.life_db() <= -60.0, "при пятой части живых говор не затих")
+	Sfx.set_life(1.0, true, 0.01)
+	await _frames(tree, 8)
+	ok += _expect(fails, Sfx._life_p.playing, "днём говор посёлка не звучит")
+	Sfx.set_life(1.0, false, 0.01)
+	await _frames(tree, 8)
+	ok += _expect(fails, not Sfx._life_p.playing, "ночью говор посёлка звучит")
+	Sfx.set_life(0.0, false, 0.01)
+	# напряжение: фон глохнет, пульс частит
+	Sfx.heartbeat(true)
+	Sfx.set_heartbeat_pace(1.0)
+	Sfx.set_tension(0.0, 0.0)
+	var calm_pitch := Sfx._heart.pitch_scale
+	Sfx.set_tension(1.0, 0.0)
+	ok += _expect(fails, Sfx._amb_filter.cutoff_hz < 3000.0, "напряжение не прижало фон фильтром (%.0f Гц)" % Sfx._amb_filter.cutoff_hz)
+	ok += _expect(fails, Sfx._heart.pitch_scale > calm_pitch + 0.05, "напряжение не ускорило пульс")
+	Sfx.set_tension(0.0, 0.0)
+	ok += _expect(fails, Sfx._amb_filter.cutoff_hz > 20000.0 and absf(Sfx._heart.pitch_scale - calm_pitch) < 0.001,
+		"после спада напряжения фон и пульс не вернулись")
+	Sfx.heartbeat(false)
+	# смена музыки идёт «нырком»: два быстрых запроса оставляют один звук, последний
+	Sfx.set_music(&"night", 0.02)
+	Sfx.set_music(&"menu", 0.02)
+	await _frames(tree, 8)
+	ok += _expect(fails, Sfx.music_name == &"menu" and Sfx._music_p.playing and Sfx._music_p.stream == Sfx._streams[&"menu"],
+		"две быстрые смены музыки оставили не последнюю")
+	# все слои разом: длинных потоков не больше шести, у каждого слоя свой единственный плеер
+	Sfx.set_ambience(&"amb_day", 0.02)
+	await Sfx.set_place_layer("ground_monastery", false, &"amb_day", 0.02)
+	Sfx.set_weather_layer(wx_state.call("blizzard"), 0.02)
+	Sfx.set_life(1.0, true, 0.02)
+	Sfx.heartbeat(true)
+	await _frames(tree, 10)
+	var busy := 0
+	for c: Node in Sfx.get_children():
+		if c is AudioStreamPlayer and (c as AudioStreamPlayer).playing and not Sfx._pool.has(c) and c != Sfx._panned_player:
+			busy += 1
+	ok += _expect(fails, busy == Sfx.long_streams() and busy <= Sfx.LONG_LIMIT and busy >= 5,
+		"длинных потоков %d (счёт слоёв %d), допустимо не больше %d" % [busy, Sfx.long_streams(), Sfx.LONG_LIMIT])
+	Sfx.heartbeat(false)
+	Sfx.set_weather_layer(Weather.EMPTY, 0.01)
+	Sfx.set_life(0.0, false, 0.01)
 	await Sfx.set_place_layer("", false, &"", 0.01)
 	var not_loop := PackedStringArray()
 	for k: StringName in Sfx.LOOPS.keys():
