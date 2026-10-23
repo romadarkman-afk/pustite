@@ -139,9 +139,9 @@ func setup(name: String, l: LookDef, player: bool) -> void:
 	sprite_id = hero_for(l) if player else sprite_pref(l)[0]
 	if player:
 		lantern_light = PointLight2D.new()
-		lantern_light.texture = _soft()
+		lantern_light.texture = LightHalo.point_light_texture()
 		lantern_light.position = _hero_lantern_pos()
-		lantern_light.texture_scale = 2.6
+		lantern_light.texture_scale = 1.45
 		lantern_light.color = Color(1.0, 0.8, 0.5)
 		lantern_light.energy = 0.0
 		lantern_light.visible = false
@@ -358,7 +358,7 @@ func set_night(n: float) -> void:
 	night = n
 	if lantern_light != null:
 		lantern_light.visible = n > 0.05
-		lantern_light.energy = 0.85 * n
+		lantern_light.energy = 0.62 * n
 
 
 ## Эмоция на время: обвинили — shocked, обвиняет — angry (и показывает пальцем в сторону point_dir).
@@ -1420,20 +1420,3 @@ func _arc(c: Vector2, r: float) -> PackedVector2Array:
 		var a := PI + PI * i / 12.0
 		pts.append(c + Vector2(cos(a) * r, sin(a) * r))
 	return pts
-
-
-func _soft() -> GradientTexture2D:
-	var g := Gradient.new()
-	# PointLight2D reads grayscale RGB as brightness; transparent white edges still create a square light.
-	g.set_color(0, Color(1, 1, 1, 1))
-	g.add_point(0.28, Color(0.76, 0.76, 0.76, 1))
-	g.add_point(0.62, Color(0.26, 0.26, 0.26, 1))
-	g.set_color(1, Color(0, 0, 0, 1))
-	var t := GradientTexture2D.new()
-	t.gradient = g
-	t.fill = GradientTexture2D.FILL_RADIAL
-	t.fill_from = Vector2(0.5, 0.5)
-	t.fill_to = Vector2(0.5, 0.0)
-	t.width = 128
-	t.height = 128
-	return t

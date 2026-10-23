@@ -20,7 +20,7 @@ const RADIUS := 24
 static var _fonts: Dictionary = {}
 
 ## Размер текста из настроек: обычный, крупный, самый крупный.
-const TEXT_SCALES: Array[float] = [1.0, 1.15, 1.3]
+const TEXT_SCALES: Array[float] = [1.0, 1.08, 1.16]
 static var text_scale := 1.0
 
 
@@ -75,7 +75,7 @@ static func build() -> Theme:
 	var ui_font := font(650)
 	var bold := font(850)
 	t.default_font = ui_font
-	t.default_font_size = fs(23)
+	t.default_font_size = fs(20)
 
 	var serif_regular := font(600)
 	var serif_strong := font(900)
@@ -83,25 +83,25 @@ static func build() -> Theme:
 	t.set_color("font_color", "Label", BONE)
 	t.set_constant("line_spacing", "Label", 6)
 
-	_label(t, "Title", serif_strong, 50, BONE, 8)
-	_label(t, "Tale", serif_regular, 26, BONE, 9)
-	_label(t, "Body", ui_font, 23, BONE, 7)
-	_label(t, "Small", ui_font, 20, FROST, 6)
-	_label(t, "Speaker", bold, 19, LAMP_D, 2)
-	_label(t, "Hint", bold, 19, LAMP_D, 5)
-	_label(t, "Clock", ui_font, 23, FROST, 0)
-	_label(t, "Danger", ui_font, 22, BLOOD, 6)
+	_label(t, "Title", serif_strong, 42, BONE, 6)
+	_label(t, "Tale", serif_regular, 22, BONE, 6)
+	_label(t, "Body", ui_font, 20, BONE, 5)
+	_label(t, "Small", ui_font, 17, FROST, 4)
+	_label(t, "Speaker", bold, 17, LAMP_D, 1)
+	_label(t, "Hint", bold, 17, LAMP_D, 4)
+	_label(t, "Clock", ui_font, 20, FROST, 0)
+	_label(t, "Danger", ui_font, 19, BLOOD, 5)
 
-	_button(t, "Primary", LAMP, Color("2a1606"), Color("ffe1a0"), 25)
-	_button(t, "Ghost", Color(1, 1, 1, 0.05), BONE, Color(1, 1, 1, 0.3), 23)
-	_button(t, "Danger", Color(BLOOD, 0.12), BLOOD, BLOOD, 23)
-	_button(t, "Row", PANEL, BONE, EDGE, 23)
-	_button(t, "RowOn", Color("3a2f22"), BONE, LAMP, 23)
-	_button(t, "Chip", Color(1, 1, 1, 0.05), FROST, EDGE, 19, 12)
-	_button(t, "ChipYou", Color(LAMP, 0.12), LAMP, LAMP_D, 19, 12)
-	_button(t, "ChipDead", CLEAR, Color("6a5a68"), Color(1, 1, 1, 0.08), 19, 12)
-	_button(t, "ChipUpyr", Color(BLOOD, 0.12), BLOOD, BLOOD, 19, 12)
-	_button(t, "Quick", PANEL, LAMP, EDGE, 20, 14)
+	_button(t, "Primary", LAMP, Color("2a1606"), Color("ffe1a0"), 22)
+	_button(t, "Ghost", Color(1, 1, 1, 0.05), BONE, Color(1, 1, 1, 0.3), 20)
+	_button(t, "Danger", Color(BLOOD, 0.12), BLOOD, BLOOD, 20)
+	_button(t, "Row", PANEL, BONE, EDGE, 20)
+	_button(t, "RowOn", Color("3a2f22"), BONE, LAMP, 20)
+	_button(t, "Chip", Color(1, 1, 1, 0.05), FROST, EDGE, 17, 12)
+	_button(t, "ChipYou", Color(LAMP, 0.12), LAMP, LAMP_D, 17, 12)
+	_button(t, "ChipDead", CLEAR, Color("6a5a68"), Color(1, 1, 1, 0.08), 17, 12)
+	_button(t, "ChipUpyr", Color(BLOOD, 0.12), BLOOD, BLOOD, 17, 12)
+	_button(t, "Quick", PANEL, LAMP, EDGE, 18, 12)
 	for bn: StringName in [&"Primary", &"Ghost", &"Danger", &"Row", &"RowOn", &"Chip", &"ChipYou", &"ChipDead", &"ChipUpyr", &"Quick"]:
 		t.set_font("font", bn, bold)
 

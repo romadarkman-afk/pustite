@@ -81,7 +81,7 @@ func _process(delta: float) -> void:
 	if _lantern_halo != null:
 		_lantern_halo.position = _lantern_position()
 		var night := Nav.village.night if Nav.village != null else 0.0
-		_lantern_halo.set_intensity(night * (0.48 + _glow * 0.2))
+		_lantern_halo.set_intensity(night * (0.3 + _glow * 0.12))
 	queue_redraw()
 
 

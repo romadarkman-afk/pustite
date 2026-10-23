@@ -454,7 +454,7 @@ func _process(delta: float) -> void:
 	for i in range(_lamp_lights.size()):
 		var on_l := _lamp_on(i, night) * _lamp_fuel(i)
 		_lamp_lights[i].visible = on_l > 0.01
-		_lamp_lights[i].energy = 0.58 * on_l
+		_lamp_lights[i].energy = 0.46 * on_l
 	for i in range(_lamp_glows.size()):
 		var on := _lamp_on(i, night) * _lamp_fuel(i)
 		if on > 0.0 and on < 1.0 and randf() < 0.35:
@@ -1020,12 +1020,12 @@ func _build_thresholds() -> void:
 ## Днём источники выключены и ничего не стоят. Работает, потому что посёлок
 ## живёт в своём слое и свет не задевает интерфейс.
 func _build_lights() -> void:
-	var tex := _soft_texture()
+	var tex := LightHalo.point_light_texture()
 	for i in range(def.lamps.size()):
 		var l := PointLight2D.new()
 		l.texture = tex
 		l.position = def.lamps[i] + Vector2(12, -61)
-		l.texture_scale = 1.7
+		l.texture_scale = 1.2
 		l.color = def.lamp_color
 		l.energy = 0.0
 		l.visible = false
@@ -1102,11 +1102,11 @@ func _lamp_on(i: int, n: float) -> float:
 
 func _soft_texture() -> GradientTexture2D:
 	var g := Gradient.new()
-	# PointLight2D reads grayscale RGB as brightness; transparent white edges still create a square light.
-	g.set_color(0, Color(1, 1, 1, 1))
-	g.add_point(0.28, Color(0.76, 0.76, 0.76, 1))
-	g.add_point(0.62, Color(0.26, 0.26, 0.26, 1))
-	g.set_color(1, Color(0, 0, 0, 1))
+	# Мягкая альфа-маска остаётся для теней и частиц; PointLight2D использует отдельную серую текстуру.
+	g.set_color(0, Color(1, 1, 1, 0.24))
+	g.add_point(0.3, Color(1, 1, 1, 0.15))
+	g.add_point(0.65, Color(1, 1, 1, 0.04))
+	g.set_color(1, Color(1, 1, 1, 0.0))
 	var t := GradientTexture2D.new()
 	t.gradient = g
 	t.fill = GradientTexture2D.FILL_RADIAL

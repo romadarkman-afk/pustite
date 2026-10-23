@@ -20,7 +20,7 @@ func is_busy() -> bool:
 
 
 func field_ratio() -> float:
-	return 0.34
+	return 0.26
 
 
 func title() -> String:
@@ -39,7 +39,7 @@ func build() -> void:
 	var beat_box := W.vbox(16)
 	beat_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_beat_title = W.label("", &"Title")
-	_beat_title.add_theme_font_size_override("font_size", ThemeFactory.fs(40))
+	_beat_title.add_theme_font_size_override("font_size", ThemeFactory.fs(34))
 	_beat_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_beat_text = W.label("", &"Tale")
 	_beat_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL

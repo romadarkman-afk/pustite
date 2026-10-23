@@ -138,14 +138,14 @@ static func fit_row(buttons: Array, sep: int = 8) -> Container:
 	return box
 
 
-const _BTN_SIZE := {&"Primary": 25, &"Quick": 20, &"Chip": 19, &"ChipYou": 19, &"ChipDead": 19, &"ChipUpyr": 19}
-const _BTN_PAD := {&"Quick": 14, &"Chip": 12, &"ChipYou": 12, &"ChipDead": 12, &"ChipUpyr": 12}
+const _BTN_SIZE := {&"Primary": 22, &"Quick": 18, &"Ghost": 20, &"Danger": 20, &"Row": 20, &"RowOn": 20, &"Chip": 17, &"ChipYou": 17, &"ChipDead": 17, &"ChipUpyr": 17}
+const _BTN_PAD := {&"Quick": 12, &"Chip": 12, &"ChipYou": 12, &"ChipDead": 12, &"ChipUpyr": 12}
 
 
 ## Ширина кнопки по надписи — ещё до того, как она попала в дерево и получила тему.
 static func button_need(b: Button) -> float:
 	var v := b.theme_type_variation
-	var fsz := ThemeFactory.fs(_BTN_SIZE.get(v, 23))
+	var fsz := ThemeFactory.fs(_BTN_SIZE.get(v, 20))
 	if b.has_theme_font_size_override("font_size"):
 		fsz = b.get_theme_font_size("font_size")
 	var pad: int = _BTN_PAD.get(v, 20)

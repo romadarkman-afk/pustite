@@ -51,18 +51,28 @@ func _sync_sprite() -> void:
 		_sprite.scale = Vector2.ONE * (radius * 2.0 / 128.0)
 
 
-static func _soft_texture() -> GradientTexture2D:
+static func _soft_texture() -> ImageTexture:
 	if _soft_texture_cache == null:
-		var gradient := Gradient.new()
-		gradient.set_color(0, Color(1, 1, 1, 0.25))
-		gradient.add_point(0.3, Color(1, 1, 1, 0.16))
-		gradient.add_point(0.65, Color(1, 1, 1, 0.045))
-		gradient.add_point(1.0, Color(1, 1, 1, 0.0))
-		_soft_texture_cache = GradientTexture2D.new()
-		_soft_texture_cache.gradient = gradient
-		_soft_texture_cache.fill = GradientTexture2D.FILL_RADIAL
-		_soft_texture_cache.fill_from = Vector2(0.5, 0.5)
-		_soft_texture_cache.fill_to = Vector2(0.5, 0.0)
-		_soft_texture_cache.width = 128
-		_soft_texture_cache.height = 128
+		var image := Image.create(192, 192, false, Image.FORMAT_RGBA8)
+		var center := Vector2(95.5, 95.5)
+		for y in range(192):
+			for x in range(192):
+				var distance := Vector2(x, y).distance_to(center) / 95.5
+				var falloff := pow(1.0 - smoothstep(0.0, 1.0, distance), 1.35)
+				image.set_pixel(x, y, Color(1.0, 1.0, 1.0, 0.5 * falloff))
+		_soft_texture_cache = ImageTexture.create_from_image(image)
 	return _soft_texture_cache
+
+
+## PointLight2D читает яркость из серого RGB, поэтому маска задаётся отдельно от альфа-ореола.
+static func point_light_texture() -> ImageTexture:
+	if _point_texture_cache == null:
+		var image := Image.create(192, 192, false, Image.FORMAT_RGBA8)
+		var center := Vector2(95.5, 95.5)
+		for y in range(192):
+			for x in range(192):
+				var distance := Vector2(x, y).distance_to(center) / 95.5
+				var falloff := pow(1.0 - smoothstep(0.0, 1.0, distance), 1.7)
+				image.set_pixel(x, y, Color(falloff, falloff, falloff, falloff))
+		_point_texture_cache = ImageTexture.create_from_image(image)
+	return _point_texture_cache

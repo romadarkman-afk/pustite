@@ -104,7 +104,7 @@ func _build_game_tab() -> void:
 	for i in range(ThemeFactory.TEXT_SCALES.size()):
 		var tb := W.button("A" + "+".repeat(i), &"RowOn" if i == Save.text_size else &"Row")
 		tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tb.add_theme_font_size_override("font_size", roundi(23 * ThemeFactory.TEXT_SCALES[i]))
+		tb.add_theme_font_size_override("font_size", roundi(20 * ThemeFactory.TEXT_SCALES[i]))
 		var idx := i
 		tb.pressed.connect(func() -> void: emit_intent(Intent.SET_TEXT, {"size": idx}))
 		sizes.add_child(tb)
