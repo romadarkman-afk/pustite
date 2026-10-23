@@ -19,10 +19,7 @@ func _ready() -> void:
 	_sprite = Sprite2D.new()
 	_sprite.texture = _soft_texture()
 	_sprite.centered = true
-	var additive := CanvasItemMaterial.new()
-	additive.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-	_sprite.material = additive
-	add_child(_sprite)
+		add_child(_sprite)
 	_sync_sprite()
 	_sync_alpha()
 
@@ -44,7 +41,7 @@ func _sync_alpha() -> void:
 		return
 	_sprite.visible = intensity > 0.005
 	var wave := 1.0 - flicker * 0.5 + flicker * 0.5 * sin(_phase)
-	_sprite.modulate = Color(color, intensity * wave)
+	_sprite.modulate = Color(color, minf(0.72, intensity * wave * 0.72))
 
 
 func _sync_sprite() -> void:
