@@ -73,6 +73,7 @@ scripts/loc/vi.gd
 scripts/loc/voices.gd
 scripts/loc/zh.gd
 scripts/tests/plan_tests.gd
+scripts/tests/release_tests.gd
 scripts/tests/self_test.gd
 scripts/tests/debug_tests.gd
 scripts/tests/loc_audit.gd

@@ -1,0 +1,186 @@
+name: Сборка AAB
+
+# Сборка пакета для Google Play (TASK-097). Запускается руками: вкладка Actions, «Сборка AAB», Run workflow.
+# Также идёт на ветках claude/aab-* (проверка конвейера) и на тегах v* и rc* (кандидаты в релиз).
+# С секретами ANDROID_UPLOAD_* подписывает ключом загрузки. Без них подписывает одноразовым тестовым
+# ключом: такой пакет Google Play не примет, но конвейер проверен. Инструкция: docs/closed-test.md.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["claude/aab-*"]
+    tags: ["v*", "rc*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aab-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.6"
+  BUNDLETOOL_VERSION: "1.18.1"
+
+jobs:
+  aab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Забрать код
+        uses: actions/checkout@v5
+
+      - name: Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Godot ${{ env.GODOT_VERSION }} и шаблоны экспорта
+        run: |
+          BASE="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -sfL -o godot.zip "$BASE/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -sfL -o tpl.tpz   "$BASE/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q godot.zip
+          sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+          unzip -q tpl.tpz
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mv templates/* "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/"
+          godot --version
+          ls -la "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/" | head -30
+
+      # То же, что делает пункт редактора «Проект, Установить шаблон сборки Android»:
+      # исходник Gradle-проекта распаковывается в game/android/build, версия записывается в .build_version.
+      - name: Шаблон сборки Android (Gradle)
+        run: |
+          TPL="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/android_source.zip"
+          test -f "$TPL" || { echo "::error title=Нет android_source.zip::В шаблонах экспорта нет исходника Gradle."; exit 1; }
+          mkdir -p game/android/build
+          unzip -q "$TPL" -d game/android/build
+          echo "${GODOT_VERSION}.stable" > game/android/.build_version
+          : > game/android/.gdignore
+          chmod +x game/android/build/gradlew
+          echo "--- config.gradle ---"
+          cat game/android/build/config.gradle
+
+      - name: Android SDK под версии шаблона
+        run: |
+          CFG=game/android/build/config.gradle
+          COMPILE=$(grep -oP "compileSdk\s*:\s*\K[0-9]+" "$CFG" | head -1)
+          TOOLS=$(grep -oP "buildTools\s*:\s*'\K[^']+" "$CFG" | head -1)
+          echo "compileSdk=$COMPILE buildTools=$TOOLS"
+          test -n "$COMPILE" && test -n "$TOOLS" || { echo "::error title=config.gradle::Не нашёл compileSdk или buildTools."; exit 1; }
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          if [ -z "$SDK" ] || [ ! -d "$SDK" ]; then
+            SDK="$HOME/android-sdk"; mkdir -p "$SDK"
+          fi
+          SDKM=""
+          for c in "$SDK"/cmdline-tools/latest/bin/sdkmanager "$SDK"/cmdline-tools/*/bin/sdkmanager; do
+            if [ -x "$c" ]; then SDKM="$c"; break; fi
+          done
+          if [ -z "$SDKM" ]; then
+            curl -sL -o cmdtools.zip "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
+            mkdir -p "$SDK/cmdline-tools"
+            unzip -q cmdtools.zip -d "$SDK/cmdline-tools"
+            mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+            SDKM="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          SUDO=""
+          if [ ! -w "$SDK" ]; then SUDO="sudo -E"; fi
+          yes | $SUDO "$SDKM" --sdk_root="$SDK" --licenses > /dev/null || true
+          $SUDO "$SDKM" --sdk_root="$SDK" --install "platform-tools" "platforms;android-$COMPILE" "build-tools;$TOOLS" > /dev/null
+          ls "$SDK/platforms" "$SDK/build-tools"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+
+      - name: Настройки редактора Godot
+        run: |
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-${GODOT_VERSION}.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "${ANDROID_SDK_ROOT}"
+          export/android/java_sdk_path = "${JAVA_HOME}"
+          EOF
+
+      - name: Ключ подписи
+        id: key
+        env:
+          KS_B64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+        run: |
+          if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ] && [ -n "$KS_ALIAS" ]; then
+            echo "$KS_B64" | base64 -d > "$HOME/upload.keystore"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$HOME/upload.keystore" >> "$GITHUB_ENV"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=$KS_ALIAS" >> "$GITHUB_ENV"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$KS_PASS" >> "$GITHUB_ENV"
+            echo "mode=upload" >> "$GITHUB_OUTPUT"
+            echo "Подпись ключом загрузки."
+          else
+            keytool -keyalg RSA -genkeypair -alias pustite-test \
+              -keypass testpass -keystore "$HOME/test.keystore" -storepass testpass \
+              -dname "CN=Pustite Test,O=Test,C=US" -validity 30 -deststoretype pkcs12 -noprompt
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$HOME/test.keystore" >> "$GITHUB_ENV"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=pustite-test" >> "$GITHUB_ENV"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=testpass" >> "$GITHUB_ENV"
+            echo "mode=test" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Тестовый ключ::Секретов ANDROID_UPLOAD_* нет. Пакет подписан одноразовым ключом, Google Play его не примет."
+          fi
+
+      - name: Номер версии для Google Play
+        run: |
+          # Play требует растущий номер при каждой загрузке: берём 1000 плюс номер запуска.
+          CODE=$((1000 + GITHUB_RUN_NUMBER))
+          python3 - "$CODE" <<'PY'
+          import re, sys
+          code = sys.argv[1]
+          p = "game/export_presets.cfg"
+          s = open(p, encoding="utf8", newline="").read()
+          head, sep, tail = s.partition("[preset.1.options]")
+          tail = re.sub(r"version/code=\d+", "version/code=" + code, tail, count=1)
+          open(p, "w", encoding="utf8", newline="").write(head + sep + tail)
+          PY
+          grep -n "version/code\|version/name\|target_sdk" game/export_presets.cfg
+          echo "VERSION_CODE=$CODE" >> "$GITHUB_ENV"
+
+      - name: Импорт ресурсов
+        run: godot --headless --path game --import
+
+      - name: Экспорт AAB
+        run: |
+          mkdir -p build
+          godot --headless --path game --export-release "Android AAB" "$PWD/build/pustite.aab" 2>&1 | tee build/export.log
+          ls -la build/
+          test -s build/pustite.aab || { echo "::error title=AAB не создан::См. вывод экспорта выше."; exit 1; }
+
+      - name: Проверка пакета (bundletool)
+        run: |
+          curl -sfL -o bundletool.jar "https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar"
+          java -jar bundletool.jar dump manifest --bundle=build/pustite.aab | tee build/manifest.txt
+          size=$(stat -c %s build/pustite.aab)
+          echo "AAB: $size байт, $(awk -v s="$size" 'BEGIN{printf "%.1f", s/1048576}') МиБ"
+          target=$(grep -oP 'targetSdkVersion[^0-9]*\K[0-9]+' build/manifest.txt | head -1)
+          [ -n "$target" ] || target=$(grep -oP 'android:targetSdkVersion="\K[0-9]+' build/manifest.txt | head -1)
+          code=$(grep -oP 'versionCode="\K[0-9]+' build/manifest.txt | head -1)
+          perms=$(grep -oP 'uses-permission[^>]*android:name="\K[^"]+' build/manifest.txt | tr '\n' ' ')
+          echo "::notice title=Пакет AAB::$(awk -v s="$size" 'BEGIN{printf "%.1f", s/1048576}') МиБ, версия $code, целевой API $target, разрешения: $perms"
+          if [ -z "$target" ] || [ "$target" -lt 36 ]; then
+            echo "::error title=Целевой API ниже 36::Google Play с 31.08.2026 принимает новые приложения и обновления только с API 36. В пакете: ${target:-?}."
+            exit 1
+          fi
+          case "$perms" in
+            *INTERNET*|*ACCESS_NETWORK_STATE*) echo "::error title=Лишние разрешения::В пакете есть доступ в сеть: $perms"; exit 1 ;;
+          esac
+
+      - name: Положить AAB в артефакты
+        uses: actions/upload-artifact@v5
+        with:
+          name: ${{ steps.key.outputs.mode == 'upload' && 'pustite-aab' || 'pustite-aab-test-key' }}
+          path: |
+            build/pustite.aab
+            build/manifest.txt
+          retention-days: 30
