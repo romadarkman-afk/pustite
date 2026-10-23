@@ -73,3 +73,18 @@ jobs:
         run: |
           # shellcheck disable=SC2086
           bash tools/ci_run_cases.sh $CASES
+
+  # Страница магазина (TASK-098): длины текстов, размеры картинок, сверка чисел с игрой, политика.
+  store:
+    name: Страница магазина
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Забрать код
+        uses: actions/checkout@v5
+
+      - name: Зависимости
+        run: pip install pillow markdown
+
+      - name: Проверка страницы магазина
+        run: python3 tools/check_store.py

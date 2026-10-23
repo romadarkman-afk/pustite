@@ -166,8 +166,9 @@ jobs:
           target=$(grep -oP 'targetSdkVersion[^0-9]*\K[0-9]+' build/manifest.txt | head -1)
           [ -n "$target" ] || target=$(grep -oP 'android:targetSdkVersion="\K[0-9]+' build/manifest.txt | head -1)
           code=$(grep -oP 'versionCode="\K[0-9]+' build/manifest.txt | head -1)
+          minsdk=$(grep -oP 'minSdkVersion[^0-9]*\K[0-9]+' build/manifest.txt | head -1)
           perms=$(grep -oP 'uses-permission[^>]*android:name="\K[^"]+' build/manifest.txt | tr '\n' ' ')
-          echo "::notice title=Пакет AAB::$(awk -v s="$size" 'BEGIN{printf "%.1f", s/1048576}') МиБ, версия $code, целевой API $target, разрешения: $perms"
+          echo "::notice title=Пакет AAB::$(awk -v s="$size" 'BEGIN{printf "%.1f", s/1048576}') МиБ, версия $code, минимальный API ${minsdk:-?}, целевой API $target, разрешения: $perms"
           if [ -z "$target" ] || [ "$target" -lt 36 ]; then
             echo "::error title=Целевой API ниже 36::Google Play с 31.08.2026 принимает новые приложения и обновления только с API 36. В пакете: ${target:-?}."
             exit 1
