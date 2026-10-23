@@ -23,6 +23,8 @@ var _inspected: Dictionary[int, bool] = {}
 var _inspection_left := 2
 var _portrait_used: Dictionary = {}
 var _go: Button
+var _bolt: BoltSwipe
+var _peep_origin: Dictionary = {}     ## id стучащего -> где началось касание портрета
 var _box: VBoxContainer       ## содержимое двери на тёмной подложке
 var _seats: HBoxContainer     ## свободные места значками: занятые светятся
 var _asked := false            ## вопрос «Кто там?» — один за ночь (TASK-013)
@@ -134,11 +136,16 @@ func _build_host() -> void:
 		portrait.name = "Portrait_%d" % g.id
 		portrait.custom_minimum_size = Vector2(132, 178)
 		portrait.clip_contents = true
-		portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		portrait.mouse_filter = Control.MOUSE_FILTER_STOP     # глазок: тап по портрету осматривает (TASK-072)
+		var peep_id := g.id
+		portrait.gui_input.connect(func(event: InputEvent) -> void: _on_peep_input(event, peep_id))
 		portrait.draw.connect(func() -> void:
 			portrait.draw_rect(Rect2(Vector2.ZERO, portrait.size), Color("171f27"))
 			portrait.draw_rect(Rect2(101, 0, 31, portrait.size.y), Color("433c32"))
-			portrait.draw_line(Vector2(100, 0), Vector2(100, portrait.size.y), Color("93704c"), 1.4))
+			portrait.draw_line(Vector2(100, 0), Vector2(100, portrait.size.y), Color("93704c"), 1.4)
+			# глазок в двери: латунное кольцо с тёмной серединой
+			portrait.draw_circle(Vector2(116, 60), 9.0, Color("120f0b"))
+			portrait.draw_arc(Vector2(116, 60), 9.0, 0.0, TAU, 20, Color("c9a15a"), 2.4))
 		# за дверью идёт погода главы: снег зимой, дождь осенью (TASK-068)
 		var outside := WeatherOverlay.new()
 		outside.position = Vector2.ZERO
@@ -171,6 +178,7 @@ func _build_host() -> void:
 		figure.set_cold(true)
 		portrait.add_child(figure)
 		_visitor_figures[g.id] = figure
+		portrait.add_child(_peep_vignette())
 		row.add_child(portrait)
 		var texts := W.vbox(4)
 		texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -225,6 +233,11 @@ func _build_host() -> void:
 	_go.disabled = true
 	_go.pressed.connect(func() -> void: _finish_host(_selected))
 	footer.add_child(_go)
+	# засов (TASK-071): тот же результат жестом; тап по кнопке работает как раньше
+	_bolt = BoltSwipe.new()
+	_bolt.name = "Bolt"
+	_bolt.target = _go
+	_go.add_child(_bolt)
 	var refuse := W.button(L.t("door.refuse"), &"Danger")
 	refuse.pressed.connect(func() -> void: _finish_host([]))
 	footer.add_child(refuse)
@@ -406,6 +419,74 @@ func _inspect(gid: int) -> void:
 	emit_intent(Intent.DOOR_INSPECT, {"id": gid})
 
 
+## Глазок (TASK-072): тап по портрету стучащего — это осмотр. Тратит ту же попытку и показывает ту же
+## примету, что кнопка «осмотреть»; обе дороги идут через _inspect и пишут одну запись.
+func _on_peep_input(event: InputEvent, gid: int) -> void:
+	if not (event is InputEventMouseButton) or (event as InputEventMouseButton).button_index != MOUSE_BUTTON_LEFT:
+		return
+	var b := event as InputEventMouseButton
+	if b.pressed:
+		_peep_origin[gid] = b.position
+		return
+	if not _peep_origin.has(gid):
+		return
+	var moved := b.position.distance_to(_peep_origin[gid]) > 14.0
+	_peep_origin.erase(gid)
+	if moved or _inspected.has(gid):
+		return
+	if _inspection_left <= 0:
+		Juice.haptic(Juice.Haptic.REFUSE)
+		return
+	_inspect(gid)
+
+
+## Тёмные края круглого окошка: радиальный градиент рисует движок. Узел занимает только область
+## фигуры и обрезает лишнее, поэтому не выходит за портрет.
+func _peep_vignette() -> Control:
+	var grad := Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 0.34, 0.55, 1.0])
+	grad.colors = PackedColorArray([Color(0, 0, 0, 0), Color(0, 0, 0, 0), Color(0, 0, 0, 0.9), Color(0, 0, 0, 0.9)])
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	tex.width = 128
+	tex.height = 128
+	var vg := Control.new()
+	vg.name = "Vignette"
+	vg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vg.clip_contents = true
+	vg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vg.offset_right = -32.0                 # дверная полоса справа остаётся светлой
+	vg.modulate.a = 0.0
+	# квадрат, чтобы окошко было круглым; центр на лице, всё за кругом темнеет
+	vg.draw.connect(func() -> void: vg.draw_texture_rect(tex, Rect2(Vector2(50.0 - 210.0, 62.0 - 210.0), Vector2(420, 420)), false))
+	return vg
+
+
+## Приближение лица и виньетка после осмотра: смотришь через глазок.
+func _peep_fx(gid: int) -> void:
+	var figure: VillagerFigure = _visitor_figures.get(gid)
+	var portrait: Control = _portraits.get(gid)
+	if not is_instance_valid(figure) or not is_instance_valid(portrait):
+		return
+	var zoom := figure.scale * 1.22
+	var lowered := figure.position + Vector2(0, 30)
+	var vg := portrait.get_node_or_null("Vignette") as Control
+	if Juice.instant:
+		figure.scale = zoom
+		figure.position = lowered
+		if vg != null:
+			vg.modulate.a = 1.0
+		return
+	var tw := Juice.tween().set_parallel(true)
+	tw.tween_property(figure, "scale", zoom, 0.35)
+	tw.tween_property(figure, "position", lowered, 0.35)
+	if vg != null:
+		tw.tween_property(vg, "modulate:a", 1.0, 0.35)
+
+
 func show_inspection(gid: int, tell: StringName) -> void:
 	if _inspected.has(gid):
 		return
@@ -458,6 +539,7 @@ func show_inspection(gid: int, tell: StringName) -> void:
 	var figure: VillagerFigure = _visitor_figures.get(gid)
 	if is_instance_valid(figure):
 		figure.knock()
+	_peep_fx(gid)
 	var button: Button = _inspect_rows.get(gid)
 	if is_instance_valid(button):
 		button.text = SocialContent.door_ui("done")
