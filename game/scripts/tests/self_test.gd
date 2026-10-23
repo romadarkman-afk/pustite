@@ -3343,12 +3343,90 @@ static func lights() -> void:
 	Nav.set_simplified_graphics(true)
 	ok += _expect(fails, view.fog().amount == 7 and view.dust().amount == 12, "упрощённый режим не снижает число частиц")
 	ok += _expect(fails, not Nav.grade_overlay.visible, "упрощённый режим оставил ночной шейдер включённым")
+
+	# TASK-070: иней и влага на фигурах выключаются вместе с остальным
+	var weather_was := Weather.enabled
+	Weather.enabled = true
+	view.set_simplified_graphics(false)
+	view.set_weather(Weather.state("a3c1", 1))
+	var fx_full := view.figure_fx()
+	view.set_simplified_graphics(true)
+	var fx_simple := view.figure_fx()
+	ok += _expect(fails, fx_full.x > 0.05 and fx_simple == Vector2.ZERO,
+		"зимой иней на фигурах %s, в упрощённой графике должен быть нулевым, а стал %s" % [fx_full, fx_simple])
+	view.set_weather(Weather.EMPTY.duplicate())
+	Weather.enabled = weather_was
+
+	# TASK-070: 5 секунд подряд меньше 25 кадров включают упрощённую графику один раз
+	var guard := PerfGuard.new()
+	var hits := [0]
+	var fast := 0.015625                  # 64 кадра в секунду; степени двойки, чтобы окна считались точно
+	var slow := 0.125                     # 8 кадров в секунду
+	guard.degraded.connect(func() -> void: hits[0] += 1)
+	for i in range(128):
+		guard.feed(fast)
+	ok += _expect(fails, guard.fps > 55.0 and guard.low_streak == 0 and hits[0] == 0,
+		"64 кадра в секунду распознаны как %.1f, серия низких окон %d" % [guard.fps, guard.low_streak])
+	for i in range(32):
+		guard.feed(slow)
+	ok += _expect(fails, guard.low_streak == 4 and hits[0] == 0, "после 4 с по 8 кадров сигнал уже подан или серия %d" % guard.low_streak)
+	for i in range(64):
+		guard.feed(fast)
+	ok += _expect(fails, guard.low_streak == 0 and hits[0] == 0, "хорошая секунда не оборвала серию")
+	for i in range(32):
+		guard.feed(slow)
+	ok += _expect(fails, hits[0] == 0 and guard.low_streak == 4, "серия с перерывом дала сигнал")
+	for i in range(8):
+		guard.feed(slow)
+	ok += _expect(fails, hits[0] == 1 and guard.triggered, "5 с по 8 кадров не дали сигнал ровно один раз (%d)" % hits[0])
+	for i in range(100):
+		guard.feed(slow)
+	ok += _expect(fails, hits[0] == 1, "сигнал подан повторно")
+	var spike := PerfGuard.new()
+	for i in range(50):
+		spike.feed(fast)
+	spike.feed(3.0)                       # загрузка или сворачивание: одна долгая пауза
+	for i in range(256):
+		spike.feed(fast)
+	ok += _expect(fails, not spike.triggered, "одиночная пауза посчитана за зависание")
+	ok += _expect(fails, guard.counter_text().begins_with("FPS ") and guard.worst > 0.0 and guard.worst < 10.0,
+		"счётчик кадров показывает «%s», худшее окно %.1f" % [guard.counter_text(), guard.worst])
+	guard.reset_stats()
+	ok += _expect(fails, guard.counter_text() == "FPS …", "сброс статистики не очистил счётчик")
+	guard.free()
+	spike.free()
+
+	var perf_auto_before := Save.perf_auto_done
+	Save.set_perf_auto_done(false)
+	Save.set_simplified_graphics(false)
+	Nav.set_simplified_graphics(false)
+	Nav._on_perf_degraded()
+	ok += _expect(fails, Save.simplified_graphics and Save.perf_auto_done and view.simplified_graphics and view.fog().amount == 7,
+		"автоупрощение не включило графику")
+	Save.set_simplified_graphics(false)
+	Nav.set_simplified_graphics(false)
+	Nav._on_perf_degraded()
+	ok += _expect(fails, not Save.simplified_graphics and not view.simplified_graphics,
+		"игра включила упрощённую графику повторно после выбора игрока")
+	var lang_before := L.code
+	L.use("ru")
+	var ru_text := L.t("perf.auto_simplified")
+	ok += _expect(fails, ru_text != "perf.auto_simplified" and ru_text.length() > 20, "нет русского сообщения об автоупрощении")
+	for lang_code: String in L.LANGS:
+		L.use(lang_code)
+		var tr_text := L.t("perf.auto_simplified")
+		ok += _expect(fails, tr_text.length() > 20 and (lang_code == "ru" or tr_text != ru_text),
+			"нет сообщения об автоупрощении на языке %s" % lang_code)
+	L.use(lang_before if not lang_before.is_empty() else "ru")
+	ok += _expect(fails, not PerfGuard.counter_wanted(), "в безэкранном запуске счётчик кадров не должен показываться")
+	Save.set_perf_auto_done(perf_auto_before)
+
 	Save.set_simplified_graphics(previous)
 	Nav.set_simplified_graphics(previous)
 	view.set_simplified_graphics(previous)
 	view.set_night(0.0)
 	if fails.is_empty():
-		print("ИТОГ: OK — янтарные аддитивные ореолы, ночной grade и режим упрощённой графики")
+		print("ИТОГ: OK — янтарные аддитивные ореолы, ночной grade, режим упрощённой графики и автоупрощение по кадрам")
 		Nav.get_tree().quit(0)
 	else:
 		for failure: String in fails:

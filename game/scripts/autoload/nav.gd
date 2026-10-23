@@ -25,6 +25,7 @@ var _started := false
 var _frame_pending := false
 var _menu_preview: Match
 var _menu_horror: Node
+var perf: PerfGuard               ## кадры: автоупрощение графики и счётчик в отладке (TASK-070)
 var _walk_gen := 0                 ## каждая новая прогулка игрока отменяет прежнюю цель
 var _spoiled_ji := -1              ## у этого дела только что испортили сделанное: всплывашка уже показана
 var _solo_after_howto := false
@@ -77,6 +78,11 @@ func _ready() -> void:
 	_menu_horror = MENU_HORROR_AUDIO.new()
 	_menu_horror.name = "MenuNightAudio"
 	add_child(_menu_horror)
+	perf = PerfGuard.new()
+	perf.name = "PerfGuard"
+	perf.simplified = Save.simplified_graphics
+	add_child(perf)
+	perf.degraded.connect(_on_perf_degraded)
 
 	layer = CanvasLayer.new()
 	layer.layer = 1
@@ -158,10 +164,24 @@ func start() -> void:
 
 
 func set_simplified_graphics(on: bool) -> void:
+	if perf != null:
+		perf.simplified = on
 	if village == null:
 		return
 	village.set_simplified_graphics(on)
 	_update_night_grade(village.night)
+
+
+## 5 секунд подряд меньше 25 кадров: упрощённая графика включается сама, один раз за установку.
+## Если игрок потом выключит её руками, игра не включит её снова.
+func _on_perf_degraded() -> void:
+	Diag.step("кадры: %.0f fps, упрощённая графика включена" % perf.fps)
+	if Save.simplified_graphics or Save.perf_auto_done:
+		return
+	Save.set_perf_auto_done(true)
+	Save.set_simplified_graphics(true)
+	set_simplified_graphics(true)
+	toast(L.t("perf.auto_simplified"))
 
 
 func _update_night_grade(amount: float) -> void:
@@ -248,6 +268,8 @@ func show_howto(then_play: bool) -> void:
 
 func show(s: Screen) -> void:
 	Diag.step("экран: %s" % s.screen_id())
+	if perf != null:
+		perf.reset_stats()
 	_menu_horror.call("set_menu_active", s is MenuScreen)
 	Sfx.set_ambience(s.ambience())
 	Sfx.set_place_layer(Game.m.village.ground if Game.m != null else "",

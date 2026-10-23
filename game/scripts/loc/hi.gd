@@ -492,6 +492,7 @@ func data() -> Dictionary:
 		"settings.resolution": "विंडो का आकार",
 		"settings.mobile_display": "फ़ोन पर गेम सिस्टम के फ़ुल-स्क्रीन मोड का उपयोग करता है।",
 		"settings.simplified_graphics": "सरल ग्राफ़िक्स",
+		"perf.auto_simplified": "गेम धीमा चल रहा था, इसलिए सरल ग्राफ़िक्स चालू किए गए। इन्हें सेटिंग्स में बंद कर सकते हैं।",
 		"settings.input_help": "कीबोर्ड और गेमपैड: चुनने के लिए तीर या WASD, पुष्टि के लिए Enter, वापस जाने के लिए Esc या B। फ़ोन पर स्क्रीन बटन दबाएँ।",
 		"settings.music": "संगीत",
 		"settings.sfx": "इफ़ेक्ट",

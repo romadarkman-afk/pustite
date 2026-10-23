@@ -491,6 +491,7 @@ func data() -> Dictionary:
 		"settings.resolution": "Tamanho da janela",
 		"settings.mobile_display": "No celular, o jogo usa o modo de tela cheia do sistema.",
 		"settings.simplified_graphics": "Gráficos simplificados",
+		"perf.auto_simplified": "O jogo estava lento e os gráficos simplificados foram ativados. Você pode desativá-los em Configurações.",
 		"settings.input_help": "Teclado e controle: setas ou WASD para escolher, Enter para confirmar, Esc ou B para voltar. No celular, toque nos botões da tela.",
 		"settings.music": "Música",
 		"settings.sfx": "Efeitos",
