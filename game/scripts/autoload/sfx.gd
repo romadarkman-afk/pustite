@@ -39,10 +39,15 @@ const SOUNDS := {
 	&"weep": "res://assets/sfx/weep.ogg",
 	# сцены (TASK-012–014, tools/make_scene_sfx.py)
 	&"breath": "res://assets/sfx/breath.ogg",
+	&"breath_2": "res://assets/sfx/breath_2.ogg",        # прерывистое дыхание за дверью (tools/make_dread.py)
+	&"breath_3": "res://assets/sfx/breath_3.ogg",        # тяжёлое, со свистом
 	&"cup_break": "res://assets/sfx/cup_break.ogg",
 	&"hammer": "res://assets/sfx/hammer.ogg",
 	&"latch": "res://assets/sfx/latch.ogg",
 	&"floorboard": "res://assets/sfx/floorboard.ogg",
+	# жизнь посёлка (TASK-069, tools/make_weather_sfx.py)
+	&"life_dog": "res://assets/sfx/life_dog.ogg",
+	&"life_hens": "res://assets/sfx/life_hens.ogg",
 }
 const LOOPS := {
 	&"amb_day": "res://assets/sfx/amb_day.ogg",
@@ -60,9 +65,57 @@ const LOOPS := {
 	&"end_dawn": "res://assets/music/end_dawn.ogg",     # итог: люди дожили (tools/make_end_music.py)
 	&"end_dark": "res://assets/music/end_dark.ogg",     # итог: посёлок пал
 	&"river_theme": "res://assets/music/river_theme.ogg",
+	# слои погоды, жизни и места (TASK-069, tools/make_weather_sfx.py)
+	&"amb_wind": "res://assets/sfx/amb_wind.ogg",
+	&"amb_rain": "res://assets/sfx/amb_rain.ogg",
+	&"amb_blizzard": "res://assets/sfx/amb_blizzard.ogg",
+	&"life_murmur": "res://assets/sfx/life_murmur.ogg",
+	&"mill_wheel": "res://assets/sfx/mill_wheel.ogg",
 }
+## Темы акта, пары и кульминации (TASK-082). Файлов может не быть: тогда тема молчит, и экран играет то, что играл раньше.
+## Файлы кладутся в assets/music/ под этими именами; 60–90 с, цикл, −16 LUFS (проверка tools/check_music.py).
+const THEMES := {
+	&"theme_act1": "res://assets/music/theme_act1.ogg",
+	&"theme_act2": "res://assets/music/theme_act2.ogg",
+	&"theme_act3": "res://assets/music/theme_act3.ogg",
+	&"theme_act4": "res://assets/music/theme_act4.ogg",
+	&"theme_pair": "res://assets/music/theme_pair.ogg",       # утром: тот, кто потерял пару
+	&"theme_climax": "res://assets/music/theme_climax.ogg",   # у двери в последнюю ночь главы
+}
+## Темы комиксов (TASK-123, tools/make_comic_themes.py): играют в SlidePlayer по звуковой карте кадра. Нет файла: Slides.MUSIC_FALLBACK.
+const COMIC_THEMES := {
+	&"theme_sad": "res://assets/music/theme_sad.ogg",
+	&"theme_hope": "res://assets/music/theme_hope.ogg",
+	&"theme_tense": "res://assets/music/theme_tense.ogg",
+	&"theme_grief": "res://assets/music/theme_grief.ogg",
+}
+## Песни (как в Alan Wake: песня в меню и в конце эпизода). Делаются в Lyria по промптам из «Пульта» (tools/pult), кладутся в assets/music/.
+## Нет файла: играет прежняя музыка. Песня идёт петлёй, пока играет экран.
+const SONGS := {
+	&"song_pustite": "res://assets/music/song_pustite.ogg",    # меню и концовка «упырь»
+	&"song_lullaby": "res://assets/music/song_lullaby.ogg",    # итог акта I
+	&"song_mill": "res://assets/music/song_mill.ogg",          # итог акта II
+	&"song_bell": "res://assets/music/song_bell.ogg",          # итог акта III
+	&"song_train": "res://assets/music/song_train.ogg",        # концовки «многие» и «немногие»
+	&"song_shore": "res://assets/music/song_shore.ogg",        # концовка «тот берег»
+}
+## Озвучка: assets/voice/<колода>/<NN>_<строка>.ogg для кадров комикса и assets/voice/bark/<тип>_<настроение>_<k>.ogg для чата.
+const VOICE_DIR := "res://assets/voice/"
+## Настроение жителя -> набор возгласов. Остальное: calm.
+const BARK_MOOD := {"grief": "grief", "despair": "grief", "guilt": "grief", "exhaustion": "grief", "fear": "fear", "rage": "rage"}
+const BARKS_PER_SET := 8
+## Музыка в момент озвучки тише на столько дБ.
+const DUCK_DB := 5.0
+## Музыка по главам (TASK-123): day_a1c2 … night_a4c3. У главы a1c1 и у быстрой партии на карте «посёлок» играют прежние day и night.
+## Файлов может не быть: тогда играет общая дорожка. Их делает tools/make_stage_music.py.
+const STAGE_KEYS: PackedStringArray = ["a1c2", "a1c3", "a2c1", "a2c2", "a2c3", "a3c1", "a3c2", "a3c3", "a4c1", "a4c2", "a4c3"]
+## Быстрая партия: карта -> дорожки первой главы этой карты.
+const STAGE_BY_GROUND := {"ground_mill": "a2c1", "ground_monastery": "a3c1", "ground_station": "a4c1"}
 ## Звук с вариантами: каждый раз случайный из списка, в журнал пишется общее имя.
-const VARIANTS := {&"reveal": [&"reveal", &"reveal_2", &"reveal_3"]}
+const VARIANTS := {
+	&"reveal": [&"reveal", &"reveal_2", &"reveal_3"],
+	&"breath": [&"breath", &"breath_2", &"breath_3"],   # за дверью дышат по-разному (TASK-081)
+}
 const BUSES := [&"Music", &"Sfx", &"Ambience"]
 const HORROR_LEFT := &"NightHorrorLeft"
 const HORROR_RIGHT := &"NightHorrorRight"
@@ -78,15 +131,35 @@ var heart_on := false
 var _streams: Dictionary = {}
 var _pool: Array[AudioStreamPlayer] = []
 var _next := 0
-var _music: Array[AudioStreamPlayer] = []
-var _music_i := 0
-var _amb: Array[AudioStreamPlayer] = []
-var _amb_i := 0
+## Длинных потоков не больше шести: музыка, фон, место, погода, жизнь, сердцебиение — по одному.
+## Смена идёт «нырком»: старый звук затихает, потом входит новый. Двух потоков одного слоя нет.
+const LONG_LIMIT := 6
+var weather_name: StringName = &""                ## какой слой погоды звучит
+var weather_db := -80.0                           ## его громкость
+var life_ratio := 1.0                             ## доля живых: с каждой смертью посёлок тише
+var life_day := false
+var tension := 0.0                                ## 0..1: давит на фон фильтром, ускоряет пульс
+var _music_p: AudioStreamPlayer
+var _music_gen := 0
+var _amb_p: AudioStreamPlayer
+var _amb_gen := 0
+var _weather_p: AudioStreamPlayer
+var _weather_gen := 0
+var _life_p: AudioStreamPlayer
+var _life_clock := 20.0
+var _bell_clock := 50.0
 var _place: AudioStreamPlayer
 var _place_name: StringName = &""
+var _place_ground := ""
 var _place_generation := 0
+var _amb_filter: AudioEffectLowPassFilter
+var _pace := 1.0
 var _heart: AudioStreamPlayer
 var _panned_player: AudioStreamPlayer
+var _vo_p: AudioStreamPlayer          ## озвучка кадров комикса
+var _vo_gen := 0
+var _bark_cache: Dictionary = {}      ## "f_old_calm" -> Array[AudioStream]; пустой массив: файлов нет
+var _bark_last: Dictionary = {}       ## id говорящего -> номер последнего возгласа
 var _muted_by_os := false
 var _tw: Dictionary = {}
 
@@ -110,15 +183,47 @@ func _ready() -> void:
 		elif s is AudioStreamWAV:
 			(s as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_FORWARD
 		_streams[k] = s
+	for k: StringName in THEMES:
+		if ResourceLoader.exists(THEMES[k]):
+			var theme_stream := load(THEMES[k]) as AudioStream
+			if theme_stream is AudioStreamOggVorbis:
+				(theme_stream as AudioStreamOggVorbis).loop = true
+			_streams[k] = theme_stream
+	for k: StringName in COMIC_THEMES:
+		if ResourceLoader.exists(COMIC_THEMES[k]):
+			var comic_stream := load(COMIC_THEMES[k]) as AudioStream
+			if comic_stream is AudioStreamOggVorbis:
+				(comic_stream as AudioStreamOggVorbis).loop = true
+			_streams[k] = comic_stream
+	for k: StringName in SONGS:
+		if ResourceLoader.exists(SONGS[k]):
+			var song_stream := load(SONGS[k]) as AudioStream
+			if song_stream is AudioStreamOggVorbis:
+				(song_stream as AudioStreamOggVorbis).loop = true
+			_streams[k] = song_stream
+	for kind: String in ["day", "night"]:
+		for key: String in STAGE_KEYS:
+			var stage_path := "res://assets/music/%s_%s.ogg" % [kind, key]
+			if ResourceLoader.exists(stage_path):
+				var stage_stream := load(stage_path) as AudioStream
+				if stage_stream is AudioStreamOggVorbis:
+					(stage_stream as AudioStreamOggVorbis).loop = true
+				_streams[StringName("%s_%s" % [kind, key])] = stage_stream
 	for i in range(POOL):
 		var p := AudioStreamPlayer.new()
 		p.bus = &"Sfx"
 		add_child(p)
 		_pool.append(p)
-	_music = [_player(&"Music"), _player(&"Music")]
-	_amb = [_player(&"Ambience"), _player(&"Ambience")]
+	_music_p = _player(&"Music")
+	_amb_p = _player(&"Ambience")
 	_place = _player(&"Ambience")
+	_weather_p = _player(&"Ambience")
+	_life_p = _player(&"Ambience")
+	_amb_filter = AudioEffectLowPassFilter.new()
+	_amb_filter.cutoff_hz = 20500.0
+	AudioServer.add_bus_effect(AudioServer.get_bus_index(&"Ambience"), _amb_filter)
 	_heart = _player(&"Sfx")
+	_vo_p = _player(&"Sfx")
 	_panned_player = _player(HORROR_LEFT)
 	_heart.stream = _streams[&"heartbeat"]
 
@@ -147,6 +252,25 @@ func has_sound(n: StringName) -> bool:
 	return _streams.has(n) and _streams[n] != null
 
 
+func has_theme(n: StringName) -> bool:
+	return THEMES.has(n) and has_sound(n)
+
+
+## Тема акта (1–4) для пролога и итога; пусто, если акта нет или файла темы нет.
+func act_theme(act: int) -> StringName:
+	var n := StringName("theme_act%d" % act)
+	return n if has_theme(n) else &""
+
+
+## Дорожка дня или ночи для этой главы или карты. Нет файла: общая day или night.
+func stage_music(kind: StringName) -> StringName:
+	var key := String(Game.chapter.get("id", ""))
+	if key.is_empty() and Game.m != null and Game.m.village != null:
+		key = String(STAGE_BY_GROUND.get(Game.m.village.ground, ""))
+	var n := StringName("%s_%s" % [kind, key])
+	return n if not key.is_empty() and has_sound(n) else kind
+
+
 ## Одиночный звук. pitch — высота (голоса жителей), vol_db — громкость относительно канала.
 func play(n: StringName, pitch: float = 1.0, vol_db: float = 0.0) -> void:
 	if not has_sound(n):
@@ -159,10 +283,32 @@ func play(n: StringName, pitch: float = 1.0, vol_db: float = 0.0) -> void:
 		stream_name = opts[randi() % opts.size()]
 	var p := _pool[_next]
 	_next = (_next + 1) % POOL
-	p.stream = _streams.get(stream_name, _streams[n])
+	p.stream = _one_shot(stream_name, n)
 	p.pitch_scale = clampf(pitch, 0.25, 4.0)
 	p.volume_db = vol_db
 	p.play()
+
+
+var _one_shots: Dictionary = {}
+
+
+## Разовый звук из набора петель (гудок, поезд, лязг) играет один раз, а не по кругу:
+## у петель включён loop, поэтому для разового проигрывания берётся копия без него.
+func _one_shot(stream_name: StringName, fallback: StringName) -> AudioStream:
+	var s: AudioStream = _streams.get(stream_name, _streams[fallback])
+	if s is AudioStreamOggVorbis and (s as AudioStreamOggVorbis).loop:
+		if not _one_shots.has(stream_name):
+			var c := (s as AudioStreamOggVorbis).duplicate() as AudioStreamOggVorbis
+			c.loop = false
+			_one_shots[stream_name] = c
+		return _one_shots[stream_name]
+	if s is AudioStreamWAV and (s as AudioStreamWAV).loop_mode != AudioStreamWAV.LOOP_DISABLED:
+		if not _one_shots.has(stream_name):
+			var w := (s as AudioStreamWAV).duplicate() as AudioStreamWAV
+			w.loop_mode = AudioStreamWAV.LOOP_DISABLED
+			_one_shots[stream_name] = w
+		return _one_shots[stream_name]
+	return s
 
 
 ## Разовый звук по краю стереополя. Канал проходит через Sfx, поэтому его громкость
@@ -177,7 +323,7 @@ func play_panned(n: StringName, side: int, pitch: float = 1.0, vol_db: float = -
 		stream_name = opts[randi() % opts.size()]
 	_panned_player.stop()
 	_panned_player.bus = HORROR_LEFT if side < 0 else HORROR_RIGHT
-	_panned_player.stream = _streams.get(stream_name, _streams[n])
+	_panned_player.stream = _one_shot(stream_name, n)
 	_panned_player.pitch_scale = clampf(pitch, 0.25, 4.0)
 	_panned_player.volume_db = vol_db
 	_panned_player.play()
@@ -190,7 +336,9 @@ func stop_panned(fade: float = 0.12) -> void:
 
 ## Голос жителя: 2–4 слога-писка с высотой, своей у каждого. Слышно, кто говорит.
 ## mood — состояние говорящего (TASK-009): в горе ниже и медленнее, в страхе выше и чаще.
-func voice(speaker_id: int, female: bool, text_len: int, mood: String = "") -> void:
+func voice(speaker_id: int, female: bool, text_len: int, mood: String = "", age: int = 34) -> void:
+	if bark(speaker_id, female, age, mood):
+		return
 	var base := (1.35 if female else 0.95) + 0.06 * float((speaker_id * 37) % 7)
 	var gap := 0.085
 	match mood:
@@ -210,22 +358,143 @@ func voice(speaker_id: int, female: bool, text_len: int, mood: String = "") -> v
 		play(&"blip", base * (1.0 + 0.09 * sin(float(i) * 2.3 + speaker_id)), -15.0)
 
 
+## Тип голоса по полу и возрасту: f_old, f_mid, f_young, m_old, m_mid, m_young, boy. Совпадает с именами файлов в assets/voice/bark.
+static func voice_type(female: bool, age: int) -> String:
+	if age < 15:
+		return "boy"
+	var band := "old" if age >= 58 else ("mid" if age >= 30 else "young")
+	return "%s_%s" % ["f" if female else "m", band]
+
+
+func _barks(vtype: String, mood: String) -> Array:
+	var key := "%s_%s" % [vtype, mood]
+	if _bark_cache.has(key):
+		return _bark_cache[key]
+	var arr: Array = []
+	for k in range(BARKS_PER_SET):
+		var path := "%sbark/%s_%d.ogg" % [VOICE_DIR, key, k]
+		if ResourceLoader.exists(path):
+			var st := load(path) as AudioStream
+			if st != null:
+				arr.append(st)
+	_bark_cache[key] = arr
+	return arr
+
+
+## Записанный возглас жителя: набор по полу, возрасту и настроению, не повторяет предыдущий. false: файлов нет, играют писки.
+func bark(speaker_id: int, female: bool, age: int, mood: String = "") -> bool:
+	var vtype := voice_type(female, age)
+	var m := String(BARK_MOOD.get(mood, "calm"))
+	var set := _barks(vtype, m)
+	if set.is_empty() and m != "calm":
+		m = "calm"
+		set = _barks(vtype, m)
+	if set.is_empty():
+		return false
+	var i := randi() % set.size()
+	if set.size() > 1 and i == int(_bark_last.get(speaker_id, -1)):
+		i = (i + 1) % set.size()
+	_bark_last[speaker_id] = i
+	_note(StringName("голос:%s_%s" % [vtype, m]))
+	var p := _pool[_next]
+	_next = (_next + 1) % POOL
+	p.stream = set[i]
+	p.pitch_scale = 0.95 + 0.012 * float((speaker_id * 37) % 9)
+	p.volume_db = -3.0
+	p.play()
+	return true
+
+
+## Озвучка кадра комикса. Возвращает длину в секундах или -1.0, если файла нет. Музыка на это время тише.
+func play_voice_line(path: String, vol_db: float = 0.0) -> float:
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return -1.0
+	return play_voice_stream(load(path) as AudioStream, vol_db)
+
+
+func play_voice_stream(stream: AudioStream, vol_db: float = 0.0) -> float:
+	if stream == null or _vo_p == null:
+		return -1.0
+	_vo_gen += 1
+	var gen := _vo_gen
+	_vo_p.stream = stream
+	_vo_p.volume_db = vol_db
+	_vo_p.pitch_scale = 1.0
+	_vo_p.play()
+	_note(&"озвучка")
+	var len_s := stream.get_length()
+	if _music_p != null and _music_p.playing and music_name != &"":
+		_fade(_music_p, _music_target_db() - DUCK_DB, 0.3, false)
+		if not Juice.instant:
+			get_tree().create_timer(len_s + 0.2).timeout.connect(func() -> void:
+				if gen == _vo_gen and _music_p != null and _music_p.playing and music_name != &"":
+					_fade(_music_p, _music_target_db(), 0.9, false))
+	return len_s
+
+
+func stop_voice_line() -> void:
+	_vo_gen += 1
+	if _vo_p != null and _vo_p.playing:
+		_vo_p.stop()
+		if _music_p != null and _music_p.playing and music_name != &"":
+			_fade(_music_p, _music_target_db(), 0.4, false)
+
+
+func voice_line_playing() -> bool:
+	return _vo_p != null and _vo_p.playing
+
+
+## Сколько секунд озвучки осталось.
+func voice_line_left() -> float:
+	if _vo_p == null or not _vo_p.playing or _vo_p.stream == null:
+		return 0.0
+	return maxf(0.0, _vo_p.stream.get_length() - _vo_p.get_playback_position())
+
+
+func pause_voice_line(on: bool) -> void:
+	if _vo_p != null:
+		_vo_p.stream_paused = on
+
+
+## Музыка меню: главная песня, если файл есть.
+func menu_music() -> StringName:
+	return &"song_pustite" if has_sound(&"song_pustite") else &"menu"
+
+
 ## Фон: «amb_day», «amb_night» или "" (тишина). Плавная смена за fade секунд.
 func set_ambience(n: StringName, fade: float = 2.8) -> void:
 	if n == ambience_name:
 		return
 	ambience_name = n
 	_note(StringName("фон:" + String(n)))
-	var old := _amb[_amb_i]
-	_amb_i = 1 - _amb_i
-	var cur := _amb[_amb_i]
-	_fade(old, -80.0, fade, true)
-	if n != &"" and has_sound(n):
-		cur.stop()
-		cur.stream = _streams[n]
-		cur.volume_db = -80.0
-		cur.play()
-		_fade(cur, -4.0, fade, false)
+	_amb_gen += 1
+	_dip(_amb_p, n, -4.0, fade, _amb_gen, &"amb")
+
+
+## Смена звука одного слоя «нырком»: старый затихает за половину времени, потом входит новый.
+## Если за это время слой попросили сменить снова, устаревшая смена бросается.
+func _dip(p: AudioStreamPlayer, n: StringName, level_db: float, fade: float, gen: int, which: StringName) -> void:
+	var half := fade * 0.5
+	if p.playing:
+		_fade(p, -80.0, half, true)
+		await get_tree().create_timer(0.001 if Juice.instant else half).timeout
+		if gen != _gen_of(which):
+			return
+	if n == &"" or not has_sound(n):
+		return
+	p.stop()
+	p.stream = _streams[n]
+	p.volume_db = -80.0
+	p.play()
+	_fade(p, level_db, half, false)
+
+
+func _gen_of(which: StringName) -> int:
+	match which:
+		&"amb": return _amb_gen
+		&"music": return _music_gen
+		&"weather": return _weather_gen
+	return _place_generation
 
 
 ## Второй тихий слой по месту действия. Вместе с двумя каналами музыки и фона
@@ -238,8 +507,8 @@ func set_place_layer(ground: String, river: bool, primary: StringName, fade: flo
 			n = &"rails"
 			level = -24.0
 		elif ground == "ground_mill":
-			n = &"amb_river" # вода под мельничным колесом
-			level = -22.0
+			n = &"mill_wheel" # вода, скрип оси и глухой стук жернова
+			level = -20.0
 		elif river:
 			n = &"amb_river"
 			level = -18.0
@@ -248,6 +517,7 @@ func set_place_layer(ground: String, river: bool, primary: StringName, fade: flo
 			level = -23.0
 	if n == primary:
 		n = &""
+	_place_ground = ground if primary != &"" else ""
 	if n == _place_name:
 		return
 	_place_name = n
@@ -267,23 +537,111 @@ func set_place_layer(ground: String, river: bool, primary: StringName, fade: flo
 	_fade(_place, level, fade * 0.5, false)
 
 
+## Какой слой погоды и с какой громкостью звучит при таком состоянии погоды.
+static func weather_pick(s: Dictionary) -> Dictionary:
+	var none := {"name": &"", "db": -80.0}
+	if not bool(s.get("active", false)):
+		return none
+	var power := float(s.get("power", 0.0))
+	var wind := absf(float(s.get("wind", 0.0)))
+	match int(s.get("precip", Weather.Precip.NONE)):
+		Weather.Precip.RAIN:
+			if power > 0.05:
+				return {"name": &"amb_rain", "db": -30.0 + 14.0 * power}
+		Weather.Precip.SNOW:
+			if power > 0.05:
+				if wind >= 0.6 or power >= 0.8:
+					return {"name": &"amb_blizzard", "db": -28.0 + 12.0 * power}
+				return {"name": &"amb_wind", "db": -34.0 + 10.0 * power + 8.0 * wind}
+	if wind >= 0.3:
+		return {"name": &"amb_wind", "db": -36.0 + 14.0 * wind}
+	return none
+
+
+## Слой погоды: ветер, дождь или метель по состоянию погоды. Тот же слой только меняет громкость.
+func set_weather_layer(s: Dictionary, fade: float = 3.0) -> void:
+	var pick := weather_pick(s)
+	var n: StringName = pick["name"]
+	weather_db = float(pick["db"])
+	if n == weather_name:
+		if n != &"" and _weather_p.playing:
+			_fade(_weather_p, weather_db, fade * 0.5, false)
+		return
+	weather_name = n
+	_note(StringName("погода:" + String(n)))
+	_weather_gen += 1
+	_dip(_weather_p, n, weather_db, fade, _weather_gen, &"weather")
+
+
+## Жизнь посёлка: днём говор и редкие собака с курами. Чем меньше живых, тем тише; при трети живых говор гаснет.
+func set_life(alive_ratio: float, day: bool, fade: float = 3.0) -> void:
+	life_ratio = clampf(alive_ratio, 0.0, 1.0)
+	life_day = day
+	var target := life_db()
+	if target <= -60.0 or not has_sound(&"life_murmur"):
+		if _life_p.playing:
+			_fade(_life_p, -80.0, fade * 0.5, true)
+		return
+	if not _life_p.playing:
+		_life_p.stream = _streams[&"life_murmur"]
+		_life_p.volume_db = -80.0
+		_life_p.play()
+	_fade(_life_p, target, fade * 0.5, false)
+
+
+## Громкость говора по доле живых; ночью и при малом числе живых его нет.
+func life_db() -> float:
+	if not life_day or life_ratio < 0.34:
+		return -80.0
+	return lerpf(-46.0, -27.0, (life_ratio - 0.34) / 0.66)
+
+
+## Напряжение 0..1: глушит фон фильтром (слух сжимается) и ускоряет пульс.
+func set_tension(t: float, fade: float = 1.5) -> void:
+	tension = clampf(t, 0.0, 1.0)
+	var cutoff := lerpf(20500.0, 2600.0, tension)
+	if _amb_filter != null:
+		if Juice.instant or fade <= 0.0:
+			_amb_filter.cutoff_hz = cutoff
+		else:
+			create_tween().tween_property(_amb_filter, "cutoff_hz", cutoff, fade)
+	_apply_pace()
+
+
+## Сколько длинных потоков звучит сейчас. Не больше LONG_LIMIT.
+func long_streams() -> int:
+	var n := 0
+	for p: AudioStreamPlayer in [_music_p, _amb_p, _place, _weather_p, _life_p, _heart]:
+		if p != null and p.playing:
+			n += 1
+	return n
+
+
+func _process(delta: float) -> void:
+	if not life_day and _place_ground != "ground_monastery":
+		return
+	_life_clock -= delta
+	_bell_clock -= delta
+	if _life_clock <= 0.0:
+		_life_clock = randf_range(14.0, 30.0) / (0.5 + life_ratio)
+		if life_day and life_ratio >= 0.34:
+			play(&"life_hens" if randf() < 0.6 else &"life_dog", randf_range(0.92, 1.08), -22.0 + 8.0 * life_ratio)
+	if _bell_clock <= 0.0:
+		_bell_clock = randf_range(45.0, 80.0)
+		if _place_ground == "ground_monastery":
+			for k in range(3):
+				await get_tree().create_timer(0.001 if Juice.instant else 2.4 * float(k)).timeout
+				play(&"bell", 0.55, -26.0)
+
+
 ## Музыка: «menu», «day», «night» или "" (тишина).
 func set_music(n: StringName, fade: float = 2.8) -> void:
 	if n == music_name:
 		return
 	music_name = n
 	_note(StringName("музыка:" + String(n)))
-	var old := _music[_music_i]
-	_music_i = 1 - _music_i
-	var cur := _music[_music_i]
-	_fade(old, -80.0, fade, true)
-	if n == &"" or not has_sound(n):
-		return
-	cur.stop()
-	cur.stream = _streams[n]
-	cur.volume_db = -80.0
-	cur.play()
-	_fade(cur, _music_target_db(), fade, false)
+	_music_gen += 1
+	_dip(_music_p, n, _music_target_db(), fade, _music_gen, &"music")
 
 
 ## Сердцебиение: у двери и в последние секунды.
@@ -299,25 +657,34 @@ func heartbeat(on: bool) -> void:
 			_heart.volume_db = -80.0
 			_heart.play()
 		_fade(_heart, -3.0, 0.8, false)
-		for p: AudioStreamPlayer in _music:
-			if p.playing:
-				_fade(p, _music_target_db(), 0.8, false)
+		if _music_p.playing:
+			_fade(_music_p, _music_target_db(), 0.8, false)
 	else:
 		_fade(_heart, -80.0, 0.8, true)
 		set_heartbeat_pace(1.0)
-		for p: AudioStreamPlayer in _music:
-			if p.playing:
-				_fade(p, _music_target_db(), 0.8, false)
+		if _music_p.playing:
+			_fade(_music_p, _music_target_db(), 0.8, false)
 
 
 ## Несколько ударов подряд немного ускоряют пульс; скорость не зависит от того, кого стучит.
 func set_heartbeat_pace(pace: float) -> void:
+	_pace = pace
+	_apply_pace()
+
+
+## Пульс = темп двери (число стучащих) плюс до 10 % от напряжения.
+func _apply_pace() -> void:
 	if _heart != null:
-		_heart.pitch_scale = clampf(pace, 0.85, 1.2)
+		_heart.pitch_scale = clampf(_pace * (1.0 + 0.1 * tension), 0.85, 1.2)
+
+
+## Уровень каждой темы относительно канала: днём музыка тише, чтобы не перекрывать реплики и фон.
+const MUSIC_LEVEL := {&"day": -11.0, &"night": -9.0}
 
 
 func _music_target_db() -> float:
-	return -13.0 if heart_on else -8.0
+	var base: float = MUSIC_LEVEL.get(music_name, MUSIC_LEVEL.get(StringName(String(music_name).get_slice("_", 0)), -8.0))
+	return base - 5.0 if heart_on else base
 
 
 ## Громкость канала, 0..1. 0 — канал заглушён полностью.

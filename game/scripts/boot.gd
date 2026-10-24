@@ -4,8 +4,10 @@ extends Control
 ## Самотесты запускаются вручную флагами ниже. Текущий android.yml выполняет короткий smoke-запуск, не полный набор тестов.
 ## --lang=en рядом с любым самотестом гоняет его на другом языке, --text=2 — с самым крупным текстом.
 
-const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--eyes", "--lights", "--checkpoint", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk", "--loc", "--access", "--daily", "--cosmetics", "--adapt", "--display", "--gestures", "--storage", "--save"]
+const TEST_FLAGS: PackedStringArray = ["--sim", "--simchapters", "--chapters", "--story", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--eyes", "--lights", "--checkpoint", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk", "--loc", "--access", "--daily", "--cosmetics", "--adapt", "--display", "--gestures", "--doors", "--emptying", "--pairs", "--themes", "--soundmaps", "--actscenes", "--campmap", "--achicons", "--parallax", "--traces", "--tension", "--portraits", "--haptics", "--candle", "--storage", "--save", "--weather", "--perf", "--debugmenu", "--release", "--slides"]
 const TEST_TIMEOUT_SEC := 240.0
+const LONG_TEST_TIMEOUT_SEC := 3600.0      ## полная таблица баланса глав
+const LAYOUT_TEST_TIMEOUT_SEC := 720.0     ## раскладка: 23 типа экранов и 11 устройств из списка проекта
 const LOGO_SEC := 2.2
 const SPLASH: Texture2D = preload("res://assets/splash.png")
 const MENU_PRELOAD: Array[String] = [
@@ -29,11 +31,16 @@ func _ready() -> void:
 			ThemeFactory.text_scale = ThemeFactory.TEXT_SCALES[Save.text_size]
 			Nav.ui.theme = ThemeFactory.build()
 			continue
+		if a.begins_with("--csf="):
+			SelfTest.csf = clampf(float(a.substr(6)), 0.5, 3.0)    # масштаб интерфейса по плотности экрана: как на телефоне
+			continue
 		if a.begins_with("--lang="):
 			Save.lang = a.substr(7)
 			L.use(Save.lang)
 			Nav.relocalize()
 			continue
+		if a.begins_with("--runs=") or a.begins_with("--only=") or a.begins_with("--out=") or a.begins_with("--add=") or a.begins_with("--tune=") or a.begins_with("--diff=") or a == "--grid" or a == "--checks" or a == "--campaign" or a.begins_with("--report="):
+			continue                                   # параметры --simchapters
 		if a.begins_with("--") and not TEST_FLAGS.has(a):
 			print("ИТОГ: неизвестный режим %s. Есть: %s" % [a, ", ".join(TEST_FLAGS)])
 			get_tree().quit(1)
@@ -46,15 +53,27 @@ func _ready() -> void:
 
 
 func _run_test(flag: String) -> void:
-	get_tree().create_timer(TEST_TIMEOUT_SEC, true, false, true).timeout.connect(func() -> void:
-		print("ИТОГ: ТАЙМАУТ — самотест %s не закончился за %d с" % [flag, int(TEST_TIMEOUT_SEC)])
+	var limit := TEST_TIMEOUT_SEC
+	if flag == "--simchapters":
+		limit = LONG_TEST_TIMEOUT_SEC
+	elif flag == "--layout":
+		limit = LAYOUT_TEST_TIMEOUT_SEC
+	get_tree().create_timer(limit, true, false, true).timeout.connect(func() -> void:
+		print("ИТОГ: ТАЙМАУТ — самотест %s не закончился за %d с" % [flag, int(limit)])
 		get_tree().quit(2))
 	visible = false
 	Save.hints_seen.clear()   # самотесты всегда видят подсказки — и проверяют их раскладку
 	Save.howto_seen = true    # «Играть» в самотестах сразу начинает партию; --howto проверяет это отдельно
+	Weather.enabled = false   # сезон по дате менял бы кадры от дня к дню; --weather включает погоду сам
 	match flag:
 		"--sim":
 			SelfTest.cli_balance()
+		"--simchapters":
+			SimChapters.cli()
+		"--chapters":
+			SimChapters.selftest()
+		"--story":
+			StoryTests.run()
 		"--loc":
 			Juice.instant = true
 			Nav.start()
@@ -197,10 +216,84 @@ func _run_test(flag: String) -> void:
 			Juice.instant = true
 			Nav.start()
 			await SelfTest.gestures()
+		"--doors":
+			Juice.instant = true
+			Nav.start()
+			await SelfTest.door_styles()
+		"--emptying":
+			Juice.instant = true
+			Nav.start()
+			await SelfTest.emptying()
+		"--pairs":
+			Juice.instant = true
+			Nav.start()
+			await SelfTest.pairs()
+		"--themes":
+			Juice.instant = true
+			Nav.start()
+			await SelfTest.themes()
+		"--slides":
+			Juice.instant = true
+			Nav.start()
+			await SlideTests.run()
+		"--soundmaps":
+			Juice.instant = true
+			Nav.start()
+			await SelfTest.soundmaps()
+		"--actscenes":
+			Juice.instant = true
+			Nav.start()
+			await SelfTest.actscenes()
+		"--campmap":
+			Juice.instant = true
+			Nav.start()
+			await SelfTest.campmap()
+		"--achicons":
+			Juice.instant = true
+			Nav.start()
+			await SelfTest.achicons()
+		"--parallax":
+			Juice.instant = true
+			Nav.start()
+			await SelfTest.parallax()
+		"--traces":
+			Juice.instant = true
+			Nav.start()
+			await SelfTest.traces()
+		"--tension":
+			Juice.instant = true
+			Nav.start()
+			await SelfTest.tension()
+		"--portraits":
+			Juice.instant = true
+			Nav.start()
+			await SelfTest.portraits()
+		"--haptics":
+			Juice.instant = true
+			Nav.start()
+			await SelfTest.haptics()
+		"--candle":
+			Juice.instant = true
+			Nav.start()
+			await SelfTest.candle()
 		"--storage":
 			SelfTest.storage()
 		"--save":
 			SelfTest.save()
+		"--weather":
+			Juice.instant = true
+			Nav.start()
+			await SelfTest.weather()
+		"--perf":
+			Juice.instant = true
+			Nav.start()
+			await PerfTests.run()
+		"--debugmenu":
+			Juice.instant = true
+			Nav.start()
+			await DebugTests.run()
+		"--release":
+			ReleaseTests.run()
 
 
 # ---------------------------------------------------------------

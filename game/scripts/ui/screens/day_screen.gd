@@ -24,11 +24,16 @@ func min_content_ratio() -> float:
 	return 0.04
 
 
-## Поле ограничено половиной экрана, чтобы оставить место под журнал и действия.
+## Поле занимает до 68% экрана, но не меньше 44%, пока под него хватает места. Подвал с кнопками и строка
+## журнала обязаны остаться на экране, поэтому на низком экране поле сжимается (до 30%), а не выталкивает кнопки.
 func field_height(h: float) -> float:
-	var sep := float(get_theme_constant("separation", "VBoxContainer")) if has_theme_constant("separation", "VBoxContainer") else 18.0
-	var reserved := 46.0 * ThemeFactory.text_scale + footer.get_combined_minimum_size().y + ThemeFactory.TOUCH + 4.0 * sep + 24.0
-	return maxf(h * 0.44, minf(h * 0.68, h - reserved))
+	var sep := float(chrome.get_theme_constant("separation")) if chrome != null else 18.0
+	var bar := 0.0
+	if chrome != null and chrome.get_child_count() > 0 and title() != "":
+		bar = (chrome.get_child(0) as Control).get_combined_minimum_size().y
+	# шапка, строка журнала (одна кнопка), подвал и три промежутка колонки
+	var reserved := bar + footer.get_combined_minimum_size().y + float(ThemeFactory.TOUCH) + 3.0 * sep + 8.0
+	return maxf(h * 0.30, minf(h * 0.68, h - reserved))
 
 
 func title() -> String:
@@ -411,8 +416,9 @@ func ambience() -> StringName:
 	return &"amb_day"
 
 
+## Днём играет светлая тема; на голосовании тишина, ночью тревожная.
 func music() -> StringName:
-	return &""
+	return Sfx.stage_music(&"day")
 
 
 ## Что значат значки над жителями. Сверху — что посёлок знает про тебя самого.

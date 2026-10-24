@@ -29,7 +29,7 @@ var _art: TextureRect
 var _portrait_box: CenterContainer
 var _dim: ColorRect
 var _fog: ColorRect
-var _rain: Control
+var _wx: WeatherOverlay             ## осадки и туман главы: те же атласы, что на поле
 var _who: Label
 var _text: Label
 var _sub: PanelContainer
@@ -86,11 +86,9 @@ func _build() -> void:
 	_fog.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_cover(_fog)
 	add_child(_fog)
-	_rain = Control.new()
-	_rain.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_rain.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_rain.draw.connect(_draw_rain)
-	add_child(_rain)
+	_wx = WeatherOverlay.new()
+	_wx.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_wx)
 	var vignette := TextureRect.new()
 	var grad := Gradient.new()
 	grad.set_color(0, Color(0, 0, 0, 0))
@@ -193,7 +191,10 @@ func _next_frame() -> void:
 		tr.custom_minimum_size = Vector2(150, 270)
 		_portrait_box.add_child(tr)
 	_fog.color.a = 0.22 if String(f.get("weather", "")) == "fog" else 0.0
-	_rain.visible = String(f.get("weather", "")) == "rain"
+	var kind := String(f.get("weather", ""))
+	var light := String(f.get("light", "night"))
+	# явная погода кадра важнее; иначе идёт погода главы (снег зимой, дождь осенью)
+	_wx.apply(WeatherOverlay.state_for_frame(kind) if kind == "rain" else chapter_weather(), _night_of(light))
 	if not Juice.instant:
 		modulate.a = 0.0 if frame_i == 0 else modulate.a
 		create_tween().tween_property(self, "modulate:a", 1.0, 0.35)
@@ -318,37 +319,58 @@ func _process(delta: float) -> void:
 	_line_t -= delta
 	if _line_t <= 0.0:
 		_next_line()
-	if _rain.visible:
-		_rain.queue_redraw()
 
 
-## Звуковая карта кадра: [{"at": секунда, "do": play | amb | music | silence, "id", "vol"}].
+## Звуковая карта кадра (описание событий в Scenes): start и stop на слоях amb и music, play, silence, keep.
 func _run_sound() -> void:
 	var events: Array = current_frame().get("sound", [])
 	while _sound_i < events.size() and _t >= float((events[_sound_i] as Dictionary).get("at", 0.0)):
 		var ev: Dictionary = events[_sound_i]
 		_sound_i += 1
-		var id := StringName(ev.get("id", ""))
-		match String(ev.get("do", "play")):
-			"play":
-				if Sfx.has_sound(id):
-					Sfx.play(id, float(ev.get("pitch", 1.0)), float(ev.get("vol", -4.0)))
-			"amb":
-				Sfx.set_ambience(id, float(ev.get("fade", 1.2)))
-			"music":
-				Sfx.set_music(id, float(ev.get("fade", 1.2)))
-			"silence":
-				Sfx.set_ambience(&"", float(ev.get("fade", 0.8)))
-				Sfx.set_music(&"", float(ev.get("fade", 0.8)))
+		run_sound_event(ev)
 
 
-func _draw_rain() -> void:
-	var sz := _rain.size
-	var k := Time.get_ticks_msec() / 1000.0
-	for i in range(60):
-		var x := fmod(float(i) * 97.3 + k * 40.0, sz.x)
-		var y := fmod(float(i) * 53.1 + k * 900.0, sz.y + 40.0) - 40.0
-		_rain.draw_line(Vector2(x, y), Vector2(x - 6, y + 28), Color(0.75, 0.8, 0.9, 0.25), 1.5)
+## Одно событие звуковой карты. Открыта для самотеста.
+func run_sound_event(ev: Dictionary) -> void:
+	var id := StringName(ev.get("id", ""))
+	var op := String(ev.get("do", "play"))
+	var layer := String(ev.get("layer", "amb" if op == "amb" else ("music" if op == "music" else "")))
+	var fade := float(ev.get("fade", 1.2))
+	match op:
+		"play":
+			if Sfx.has_sound(id):
+				Sfx.play(id, float(ev.get("pitch", 1.0)), float(ev.get("vol", -4.0)))
+		"start", "amb", "music":
+			if layer == "music":
+				Sfx.set_music(id, fade)
+			else:
+				Sfx.set_ambience(id, fade)
+		"stop":
+			if layer == "music":
+				Sfx.set_music(&"", fade)
+			else:
+				Sfx.set_ambience(&"", fade)
+		"silence":
+			var f := float(ev.get("fade", 0.8))
+			Sfx.set_ambience(&"", f)
+			Sfx.set_music(&"", f)
+		"keep":
+			pass
+
+
+## Погода главы для сцены. Без партии или при выключенной погоде осадков нет.
+func chapter_weather() -> Dictionary:
+	if m == null:
+		return Weather.EMPTY.duplicate()
+	return Weather.for_match(m, m.phase)
+
+
+static func _night_of(light: String) -> float:
+	match light:
+		"day": return 0.0
+		"warm": return 0.2
+		"dusk", "dawn": return 0.5
+	return 1.0
 
 
 func _notification(what: int) -> void:

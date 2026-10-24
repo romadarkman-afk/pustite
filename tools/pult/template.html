@@ -1,0 +1,309 @@
+<title>Пульт «Пустите»</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=PT+Mono&family=PT+Sans:wght@400;700&family=Ruslan+Display&display=swap">
+<style>
+/* Раскладка: узкая колонка рабочего стола. Сверху липкая шапка с прогрессом, под ней вкладки по этапам производства, ниже карточки задач. Тёмная тема выбрана сознательно: пульт живёт рядом с игрой, где ночь. */
+:root {
+  --ink: #0d1013;
+  --panel: #151a1f;
+  --panel-2: #1b2127;
+  --line: #2b343c;
+  --text: #e9e5db;
+  --dim: #98a3a9;
+  --lantern: #ebaa55;
+  --lantern-ink: #1c1206;
+  --steel: #7fa6bd;
+  --ok: #86b56f;
+  --font-display: "Ruslan Display", "PT Serif", Georgia, serif;
+  --font-body: "PT Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "PT Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--ink);
+  color: var(--text);
+  font: 16px/1.5 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 56px;
+}
+.wrap { max-width: 860px; margin: 0 auto; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 20; background: var(--ink); }
+.head { padding: 16px 0 12px; }
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10;
+  background: var(--ink); padding: 8px 0 4px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.top-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+h1 { font: 400 28px/1.1 var(--font-display); margin: 0; letter-spacing: 0.01em; text-wrap: balance; }
+.sub { color: var(--dim); font-size: 14px; margin: 2px 0 0; }
+.bar { height: 6px; background: var(--panel-2); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+.bar > i { display: block; height: 100%; width: 0; background: var(--lantern); transition: width .3s; }
+.stat { font-family: var(--font-mono); font-size: 12px; color: var(--dim); display: flex; gap: 6px 14px; flex-wrap: wrap; min-width: 0; }
+.stat b { color: var(--text); font-weight: 400; }
+
+button { font: inherit; cursor: pointer; border-radius: 6px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); padding: 8px 12px; min-height: 38px; }
+#next { flex: none; white-space: nowrap; }
+button:hover { border-color: var(--steel); }
+button:focus-visible, input:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--lantern); outline-offset: 2px; }
+button.primary { background: var(--lantern); border-color: var(--lantern); color: var(--lantern-ink); font-weight: 700; }
+button.primary:hover { filter: brightness(1.08); }
+button.ghost { background: transparent; }
+
+.tabs { display: flex; gap: 6px; overflow-x: auto; padding: 10px 0 4px; scrollbar-width: thin; }
+.tab { white-space: nowrap; background: transparent; border-color: transparent; color: var(--dim); padding: 8px 12px; }
+.tab[aria-selected="true"] { background: var(--panel-2); border-color: var(--line); color: var(--text); }
+.tab small { font-family: var(--font-mono); margin-left: 6px; color: var(--dim); }
+.tab[aria-selected="true"] small { color: var(--lantern); }
+
+.tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 14px 0; }
+.tools input[type="search"] { flex: 1 1 200px; min-width: 0; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 9px 12px; font: inherit; min-height: 40px; }
+.tools label { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 14px; }
+
+details.guide { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; margin: 16px 0 0; }
+details.guide > summary { cursor: pointer; padding: 12px 16px; font-weight: 700; list-style: none; }
+details.guide > summary::-webkit-details-marker { display: none; }
+details.guide > summary::after { content: "показать"; float: right; color: var(--dim); font-weight: 400; font-size: 14px; }
+details.guide[open] > summary::after { content: "скрыть"; }
+.guide-body { padding: 0 16px 16px; }
+.guide-body ol { margin: 0 0 12px; padding-left: 22px; display: grid; gap: 8px; }
+.guide-body p { margin: 8px 0; color: var(--dim); max-width: 65ch; }
+.guide-body code, .attach code, .save code { font-family: var(--font-mono); font-size: 13px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
+.style-box { margin-top: 10px; }
+
+.deck { margin: 26px 0 8px; padding-top: 6px; }
+.deck h2 { font: 400 20px/1.2 var(--font-display); margin: 0; color: var(--lantern); }
+.deck p { margin: 2px 0 0; color: var(--dim); font-size: 14px; }
+
+.card { scroll-margin-top: 150px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin: 10px 0; display: grid; gap: 10px; min-width: 0; }
+.card.done { opacity: .55; }
+.card.done .primary { background: var(--panel-2); border-color: var(--line); color: var(--text); font-weight: 400; }
+.card-head { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: start; }
+.card h3 { margin: 0; font-size: 17px; font-weight: 700; min-width: 0; text-wrap: balance; }
+.check { display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--dim); font-size: 14px; min-height: 40px; }
+.check input { width: 20px; height: 20px; accent-color: var(--ok); }
+.meta { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 13px; color: var(--dim); }
+.chip { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; background: var(--panel-2); }
+.chip.tool-img { color: var(--steel); }
+.chip.tool-music { color: var(--lantern); }
+.chip.tool-tts { color: var(--ok); }
+pre.prompt { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.5 var(--font-mono); background: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; max-height: 9.2em; overflow: hidden; position: relative; }
+pre.prompt.open { max-height: none; }
+pre.prompt:not(.open)::after { content: ""; position: absolute; inset: auto 0 0 0; height: 2.4em; background: linear-gradient(transparent, var(--ink)); pointer-events: none; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.attach, .save, .note, .sound { margin: 0; font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
+.attach, .save { color: var(--dim); }
+.note { color: var(--text); }
+.note b, .sound b { color: var(--dim); font-weight: 400; }
+.sound { color: var(--dim); }
+.lyrics { white-space: pre-wrap; font: 14px/1.55 var(--font-body); background: var(--panel-2); border-radius: 6px; padding: 10px 14px; margin: 0; color: var(--text); }
+
+.empty { color: var(--dim); padding: 24px 0; }
+#list { scroll-margin-top: 120px; }
+#toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--text); color: var(--ink); padding: 10px 18px; border-radius: 999px; font-weight: 700; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 30; }
+#toast.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .bar > i, #toast { transition: none; } }
+@media (max-width: 520px) { h1 { font-size: 24px; } .card { padding: 12px; } }
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <h1>Пульт «Пустите»</h1>
+    <p class="sub">Картинки, песни и музыка по промптам: что скопировать, куда вставить, как назвать файл</p>
+  </header>
+  <div class="top">
+    <div class="top-row">
+      <div class="stat" id="stat"></div>
+      <button class="primary" id="next" type="button">Что дальше</button>
+    </div>
+    <div class="bar" aria-hidden="true"><i id="bar"></i></div>
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Этапы"></nav>
+  </div>
+
+  <details class="guide" id="guide">
+    <summary>Как работать с пультом</summary>
+    <div class="guide-body">
+      <p>У каждой карточки есть метка: она говорит, куда нести промпт.</p>
+      <ol>
+        <li><b>Метка «ChatGPT или Nano Banana»</b> (вкладки Герои, Портреты, Образы, Места, Кадры). Открой chatgpt.com, новый чат (лучше в проекте «Пустите комикс», в его инструкции вставь блок «Стиль» кнопкой ниже). Нажми «Копировать промпт», вставь в чат, приложи файлы, которые перечислены в карточке под промптом. Вместо ChatGPT можно gemini.google.com с включённым созданием изображений (Nano Banana). Скачай картинку.</li>
+        <li><b>Метка «Gemini · Lyria»</b> (вкладки Песни и Музыка). Открой gemini.google.com и включи создание музыки в меню инструментов (название пункта может отличаться). Вставь промпт целиком, слова песни уже внутри. Если приложение даёт только 30 секунд, сделай два-три куска и назови их <code>имя_1</code>, <code>имя_2</code>, я склею.</li>
+        <li><b>Метка «AI Studio · Gemini TTS»</b> (вкладка Озвучка). Открой aistudio.google.com, раздел генерации речи. Голос выбери тот, что указан в карточке. В поле со стилем вставь текст кнопкой «Копировать стиль», в поле с текстом вставь текст кнопкой «Копировать текст». Паузы между фразами уже стоят в тексте, не убирай их. Скачай звук.</li>
+        <li>Сохрани файл под именем из строки «Сохранить как» (расширение любое) и отметь «Готово». Пульт запоминает отметки в этом браузере.</li>
+        <li>Лицо поплыло: напиши в том же чате <code>Keep the face exactly identical to the attached reference sheet</code>. Появился текст в картинке: <code>Redo without any text or letters</code>.</li>
+        <li>Готовые файлы пачками до 20 штук кидай мне в чат. Я сожму, разложу по папкам игры, подключу и выложу релиз.</li>
+      </ol>
+      <p>Первые шаги, которые дают больше всего: листы героев гостей и сюжетных лиц, главная песня «Пустите», кадры волны 1.</p>
+      <div class="style-box">
+        <button type="button" class="primary" id="copy-style">Копировать блок «Стиль»</button>
+      </div>
+    </div>
+  </details>
+
+  <div class="tools">
+    <input type="search" id="q" placeholder="Найти по названию или имени файла" aria-label="Поиск">
+    <label><input type="checkbox" id="hide-done"> Скрыть готовое</label>
+  </div>
+
+  <main id="list"></main>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const DATA = __DATA__;
+const GROUPS = [
+  { key: "heroes",   name: "Герои",        hint: "Новые лица героев в фотореализме. Лист каждого героя потом прикладывается к кадрам." },
+  { key: "looks",    name: "Образы",       hint: "Герой игрока со спины, упырь, дверь и фонарь. Чтобы они везде выглядели одинаково." },
+  { key: "places",   name: "Места",        hint: "Один широкий кадр на главу. Прикладывается к кадрам этой главы." },
+  { key: "songs",    name: "Песни",        hint: "Шесть песен с вокалом. Gemini, музыка (Lyria). Текст и стиль уже в промпте." },
+  { key: "music",    name: "Музыка",       hint: "Инструментальные дорожки без вокала: день и ночь каждой главы, темы актов и комиксов." },
+  { key: "frames1",  name: "Кадры 1",      hint: "Волна 1: ядро каждой колоды. С ними игра уже выглядит цельно." },
+  { key: "portraits",name: "Портреты",     hint: "Крупные портреты жителей для карточек, двери и Книги посёлка. Прикладывается лист героя." },
+  { key: "frames2",  name: "Кадры 2",      hint: "Волна 2: остальные кадры колод." },
+  { key: "voice",    name: "Озвучка",      hint: "Бесплатная Gemini TTS в Google AI Studio (раздел Generate speech). Выбери голос, вставь стиль и текст, скачай файл. Голоса рассказчика и жителей, а также возгласы для чата." },
+];
+const TOOL = { img: "ChatGPT или Nano Banana", music: "Gemini · Lyria", tts: "AI Studio · Gemini TTS" };
+
+let done = {};
+try { done = JSON.parse(localStorage.getItem("pult.done.v1") || "{}") || {}; } catch (e) { done = {}; }
+function saveDone() { try { localStorage.setItem("pult.done.v1", JSON.stringify(done)); } catch (e) {} }
+
+const byGroup = {};
+GROUPS.forEach(g => byGroup[g.key] = []);
+DATA.tasks.forEach(t => byGroup[t.g].push(t));
+
+let current = (location.hash || "").replace("#", "");
+if (!byGroup[current]) current = "heroes";
+
+const $ = s => document.querySelector(s);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+function toast(msg) {
+  const t = $("#toast"); t.textContent = msg; t.classList.add("on");
+  clearTimeout(toast._h); toast._h = setTimeout(() => t.classList.remove("on"), 1600);
+}
+function copy(text, okMsg) {
+  const fallback = () => {
+    const ta = el("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+    ta.remove(); toast(ok ? okMsg : "Не удалось скопировать: выдели текст вручную");
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => toast(okMsg)).catch(fallback);
+  else fallback();
+}
+
+function counts() {
+  const total = DATA.tasks.length;
+  const n = DATA.tasks.filter(t => done[t.id]).length;
+  return { total, n };
+}
+
+function renderTabs() {
+  const box = $("#tabs"); box.textContent = "";
+  GROUPS.forEach(g => {
+    const list = byGroup[g.key];
+    const n = list.filter(t => done[t.id]).length;
+    const b = el("button", "tab"); b.type = "button"; b.setAttribute("role", "tab");
+    b.setAttribute("aria-selected", g.key === current ? "true" : "false");
+    b.append(g.name); const s = el("small", null, n + "/" + list.length); b.append(s);
+    b.addEventListener("click", () => { current = g.key; try { history.replaceState(null, "", "#" + current); } catch (e) {} render(); $("#list").scrollIntoView({ block: "start" }); });
+    box.append(b);
+  });
+}
+
+function renderStat() {
+  const { total, n } = counts();
+  $("#bar").style.width = (n / total * 100).toFixed(1) + "%";
+  const st = $("#stat"); st.textContent = "";
+  const a = el("span"); a.innerHTML = "готово <b>" + n + "</b> из <b>" + total + "</b>"; st.append(a);
+  const cur = byGroup[current]; const k = cur.filter(t => done[t.id]).length;
+  const b = el("span"); b.innerHTML = "этап «" + GROUPS.find(g => g.key === current).name + "»: <b>" + k + "</b> из <b>" + cur.length + "</b>"; st.append(b);
+}
+
+function card(t) {
+  const c = el("article", "card" + (done[t.id] ? " done" : "")); c.id = "t-" + t.id;
+  const head = el("div", "card-head");
+  head.append(el("h3", null, t.title));
+  const lab = el("label", "check"); const cb = el("input"); cb.type = "checkbox"; cb.checked = !!done[t.id]; cb.id = "cb-" + t.id;
+  lab.append(cb, el("span", null, "Готово"));
+  cb.addEventListener("change", () => { if (cb.checked) done[t.id] = 1; else delete done[t.id]; saveDone(); c.classList.toggle("done", cb.checked); renderTabs(); renderStat(); if ($("#hide-done").checked) render(); });
+  head.append(lab);
+  const meta = el("div", "meta");
+  meta.append(el("span", "chip tool-" + t.tool, TOOL[t.tool]));
+  if (t.shape) meta.append(el("span", "chip", t.shape + (t.size ? " " + t.size : "")));
+  head.append(meta); c.append(head);
+
+  const full = t.prompt;
+  if (t.tool === "tts") { const sr = el("p", "sound"); sr.append(el("b", null, "Стиль: "), t.style); c.append(sr); }
+  const pre = el("pre", "prompt", full); c.append(pre);
+  if (t.tool === "tts") {
+    const vr = el("p", "save"); vr.append("Голос в AI Studio: "); vr.append(el("code", null, t.voice)); c.append(vr);
+  }
+  const act = el("div", "actions");
+  const cp = el("button", "primary", t.tool === "tts" ? "Копировать текст" : "Копировать промпт"); cp.type = "button";
+  cp.addEventListener("click", () => copy(full, t.tool === "tts" ? "Текст скопирован" : "Промпт скопирован"));
+  if (t.tool === "tts") {
+    const cs = el("button", null, "Копировать стиль"); cs.type = "button";
+    cs.addEventListener("click", () => copy(t.style, "Стиль скопирован"));
+    act.append(cs);
+  }
+  const ex = el("button", "ghost", "Весь промпт"); ex.type = "button";
+  ex.addEventListener("click", () => { const o = pre.classList.toggle("open"); ex.textContent = o ? "Свернуть" : "Весь промпт"; });
+  act.append(cp, ex);
+  const sv = el("button", "ghost", "Имя файла"); sv.type = "button";
+  sv.addEventListener("click", () => copy(t.save, "Имя файла скопировано"));
+  act.append(sv);
+  c.append(act);
+
+  if (t.lyrics) {
+    const d = el("details"); const s = el("summary", null, "Текст песни"); d.append(s); d.append(el("pre", "lyrics", t.lyrics)); c.append(d);
+  }
+  const sp = el("p", "save"); sp.append("Сохранить как "); sp.append(el("code", null, t.save)); c.append(sp);
+  if ((t.attach && t.attach.length) || t.loc) {
+    const p = el("p", "attach"); p.append("Приложить: ");
+    (t.attach || []).forEach((a, i) => { if (i) p.append(" "); p.append(el("code", null, a)); });
+    if (t.loc) { if (t.attach && t.attach.length) p.append("  и по желанию "); p.append(el("code", null, t.loc)); }
+    c.append(p);
+  }
+  if (t.note) { const p = el("p", "note"); p.innerHTML = ""; const b = el("b", null, t.g.startsWith("frames") ? "Подпись в игре: " : "Зачем: "); p.append(b, t.note); c.append(p); }
+  if (t.sound) { const p = el("p", "sound"); p.append(el("b", null, "Звук: "), t.sound); c.append(p); }
+  return c;
+}
+
+function render() {
+  renderTabs(); renderStat();
+  const g = GROUPS.find(x => x.key === current);
+  const q = $("#q").value.trim().toLowerCase();
+  const hide = $("#hide-done").checked;
+  const list = byGroup[current].filter(t => (!hide || !done[t.id]) && (!q || (t.title + " " + t.save + " " + t.id).toLowerCase().includes(q)));
+  const main = $("#list"); main.textContent = "";
+  const intro = el("p", "sub", g.hint); intro.style.margin = "14px 0 0"; main.append(intro);
+  if (!list.length) { main.append(el("p", "empty", hide ? "Здесь всё отмечено готовым." : "Ничего не найдено.")); return; }
+  let lastDeck = null;
+  list.forEach(t => {
+    if (t.deck && t.deck !== lastDeck) {
+      lastDeck = t.deck;
+      const d = el("section", "deck"); d.append(el("h2", null, t.deck_title)); if (t.where) d.append(el("p", null, t.where)); main.append(d);
+    }
+    main.append(card(t));
+  });
+}
+
+$("#q").addEventListener("input", render);
+$("#hide-done").addEventListener("change", render);
+$("#copy-style").addEventListener("click", () => copy(DATA.style_block, "Блок «Стиль» скопирован"));
+$("#next").addEventListener("click", () => {
+  const list = byGroup[current].filter(t => !done[t.id]);
+  if (!list.length) { toast("На этом этапе всё готово. Открой следующий"); return; }
+  const t = list[0]; $("#hide-done").checked = false; $("#q").value = ""; render();
+  const e = document.getElementById("t-" + t.id); if (e) { e.scrollIntoView({ block: "start", behavior: "smooth" }); e.style.outline = "2px solid var(--lantern)"; setTimeout(() => e.style.outline = "", 1800); }
+});
+(function () {
+  const g = $("#guide"); let closed = false;
+  try { closed = localStorage.getItem("pult.guide.closed") === "1"; } catch (e) {}
+  g.open = !closed;
+  g.addEventListener("toggle", () => { try { localStorage.setItem("pult.guide.closed", g.open ? "0" : "1"); } catch (e) {} });
+})();
+render();
+</script>

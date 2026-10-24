@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="VillageDef" load_steps=17 format=3]
+[gd_resource type="Resource" script_class="VillageDef" load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://scripts/village/village_def.gd" id="1_village"]
 [ext_resource type="Script" path="res://scripts/village/house_def.gd" id="2_house"]
@@ -8,7 +8,7 @@
 script = ExtResource("2_house")
 title = "Вокзал"
 kind = 0
-pos = Vector2(128, 312)
+pos = Vector2(153, 310)
 size = Vector2(118, 92)
 art = "station_house"
 art_door = Rect2(0.26, 0.55, 0.16, 0.29)
@@ -17,7 +17,7 @@ art_door = Rect2(0.26, 0.55, 0.16, 0.29)
 script = ExtResource("2_house")
 title = "Водокачка"
 kind = 1
-pos = Vector2(592, 312)
+pos = Vector2(594, 310)
 size = Vector2(142, 100)
 art = "station_water"
 art_w = 1.1
@@ -27,7 +27,7 @@ art_door = Rect2(0.21, 0.59, 0.28, 0.32)
 script = ExtResource("2_house")
 title = "Пакгауз"
 kind = 2
-pos = Vector2(360, 232)
+pos = Vector2(385, 231)
 size = Vector2(96, 104)
 art = "station_warehouse"
 art_w = 1.65
@@ -37,7 +37,7 @@ art_door = Rect2(0.15, 0.40, 0.27, 0.47)
 script = ExtResource("2_house")
 title = "Будка"
 kind = 3
-pos = Vector2(178, 486)
+pos = Vector2(219, 490)
 size = Vector2(122, 58)
 art = "station_hut"
 art_w = 1.2
@@ -47,38 +47,24 @@ art_door = Rect2(0.22, 0.52, 0.24, 0.32)
 script = ExtResource("2_house")
 title = "Вагон"
 kind = 4
-pos = Vector2(552, 486)
+pos = Vector2(545, 484)
 size = Vector2(128, 72)
 art = "station_wagon"
 art_w = 1.4
 art_door = Rect2(0.11, 0.35, 0.17, 0.38)
 
-[sub_resource type="Resource" id="house_5"]
-script = ExtResource("2_house")
-title = ""
-kind = 5
-pos = Vector2(36, 214)
-size = Vector2(70, 56)
-
 [sub_resource type="Resource" id="house_6"]
 script = ExtResource("2_house")
 title = ""
 kind = 0
-pos = Vector2(232, 206)
+pos = Vector2(290, 200)
 size = Vector2(84, 66)
-
-[sub_resource type="Resource" id="house_7"]
-script = ExtResource("2_house")
-title = ""
-kind = 0
-pos = Vector2(500, 204)
-size = Vector2(86, 66)
 
 [sub_resource type="Resource" id="house_8"]
 script = ExtResource("2_house")
 title = ""
 kind = 5
-pos = Vector2(690, 218)
+pos = Vector2(644, 397)
 size = Vector2(72, 56)
 
 [sub_resource type="Resource" id="job_water"]
@@ -110,7 +96,7 @@ title = "Заправить фонари"
 place = "у фонаря"
 done_line = "Фонари заправлены."
 kind = 2
-pos = Vector2(234, 366)
+pos = Vector2(282, 372)
 portions = 2
 work_sec = 3.0
 
@@ -128,7 +114,7 @@ work_sec = 3.5
 [resource]
 script = ExtResource("1_village")
 shelters = Array[ExtResource("2_house")]([SubResource("house_0"), SubResource("house_1"), SubResource("house_2"), SubResource("house_3"), SubResource("house_4")])
-decor = Array[ExtResource("2_house")]([SubResource("house_5"), SubResource("house_6"), SubResource("house_7"), SubResource("house_8")])
+decor = Array[ExtResource("2_house")]([SubResource("house_6"), SubResource("house_8")])
 lamps = PackedVector2Array(258, 312, 462, 312, 360, 468)
 well = Vector2(360, 384)
 props = Array[Dictionary]([{"id": "prop_crates", "pos": Vector2(282, 548), "w": 70.0}, {"id": "prop_kennel", "pos": Vector2(56, 350), "w": 46.0}, {"id": "prop_stump_axe", "pos": Vector2(472, 550), "w": 56.0}, {"id": "prop_trough", "pos": Vector2(688, 470), "w": 62.0}, {"id": "prop_laundry", "pos": Vector2(686, 528), "w": 60.0}])

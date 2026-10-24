@@ -39,6 +39,52 @@ func clear() -> void:
 	events.clear()
 
 
+## Следы на земле (TASK-090): места событий, о которых игрок знает. Живут до конца главы (журнал живёт до конца партии),
+## не больше limit штук, свежие важнее старых, кровь важнее следов. В записи только вид, дом, день и погибший:
+## кто это сделал, след не говорит. Кровь и следы к двери ложатся там, где утром нашли погибшего;
+## следы у двери без крови там, где игрок знает о ночном стуке (он стоял на пороге или видел).
+const TRACE_LIMIT := 6
+
+
+func ground_traces(me: int = 0, limit: int = TRACE_LIMIT) -> Array[Dictionary]:
+	var found: Array[Dictionary] = []
+	var blood_at := {}
+	var steps_at := {}
+	for i in range(events.size() - 1, -1, -1):
+		var e := events[i]
+		if e.kind == Kind.DIED:
+			if not e.public and not e.known.has(me):
+				continue
+			var place := "h%d" % e.house if e.house >= 0 else "s%d" % e.target
+			if blood_at.has(place):
+				continue
+			blood_at[place] = true
+			found.append({"kind": "blood", "house": e.house, "who": e.target, "day": e.day})
+			if e.house >= 0 and not steps_at.has(e.house):
+				steps_at[e.house] = true
+				found.append({"kind": "steps", "house": e.house, "who": -1, "day": e.day})
+		elif e.kind == Kind.ADMIT or e.kind == Kind.REFUSE:
+			if e.house < 0 or steps_at.has(e.house) or not (e.actor == me or e.known.has(me)):
+				continue
+			steps_at[e.house] = true
+			found.append({"kind": "steps", "house": e.house, "who": -1, "day": e.day})
+	# свежие дни вперёд, в один день кровь раньше следов; порядок записей внутри дня сохраняется
+	var ranked: Array[Dictionary] = []
+	for day in range(_last_day(), -1, -1):
+		for kind: String in ["blood", "steps"]:
+			for t: Dictionary in found:
+				if int(t.day) == day and String(t.kind) == kind:
+					ranked.append(t)
+	return ranked.slice(0, limit)
+
+
+func _last_day() -> int:
+	var d := 0
+	for e: Event in events:
+		d = maxi(d, e.day)
+	return d
+
+
 ## Записать событие. witnesses — кто видел сам. public — знают все.
 func add(kind: Kind, day: int, actor: int, target: int, house: int = -1, witnesses: Array = [],
 		public: bool = false, info: Dictionary = {}) -> Event:

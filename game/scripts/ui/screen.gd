@@ -11,6 +11,8 @@ var body: VBoxContainer
 var footer: VBoxContainer
 var scroll: ScrollContainer
 var field_spacer: Control
+## Колонка шапка · поле · содержимое · подвал; нужна, чтобы считать высоту поля по реальным размерам.
+var chrome: VBoxContainer
 var _title_label: Label
 var hint: Hint
 var _clock: Label
@@ -73,7 +75,17 @@ func field_ratio() -> float:
 
 ## Переопределяется: высота поля при высоте экрана h. По умолчанию — доля field_ratio().
 func field_height(h: float) -> float:
-	return h * field_ratio()
+	var wanted := h * field_ratio()
+	if chrome == null:
+		return wanted
+	# на низком экране поле уступает: под содержимое остаётся min_content_ratio() высоты дисплея (но поле не меньше 20%)
+	var sep := float(chrome.get_theme_constant("separation"))
+	var bar := 0.0
+	if title() != "" and chrome.get_child_count() > 0:
+		bar = (chrome.get_child(0) as Control).get_combined_minimum_size().y
+	var content := min_content_ratio() * get_viewport_rect().size.y
+	var left := h - bar - footer.get_combined_minimum_size().y - 3.0 * sep - content
+	return clampf(left, h * 0.2, wanted)
 
 
 ## Прямоугольник поля в координатах экрана (без учёта анимации появления).
@@ -227,6 +239,9 @@ func on_clock_expired() -> void:
 ## Переопределяется: экран сам обработал «Назад» (например, закрыл шторку).
 func handle_back() -> bool:
 	for c: Node in get_children():
+		if c is SlidePlayer:
+			(c as SlidePlayer).skip()
+			return true
 		if c is ScenePlayer:
 			(c as ScenePlayer).skip()
 			return true
@@ -301,17 +316,11 @@ func _capsule(inner: Control) -> Control:
 	return p
 
 
-func scroll_to_end() -> void:
-	if not is_inside_tree():
-		await ready
-	await get_tree().process_frame
-	await get_tree().process_frame
-	if is_instance_valid(scroll):
-		scroll.scroll_vertical = int(scroll.get_v_scroll_bar().max_value)
 
 
 func _chrome() -> void:
 	var col := W.vbox(18)
+	chrome = col
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(col)
 
@@ -361,9 +370,10 @@ func _chrome() -> void:
 		field_spacer = Control.new()
 		field_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		col.add_child(field_spacer)
-		resized.connect(func() -> void: field_spacer.custom_minimum_size.y = floorf(field_height(size.y)))
+		resized.connect(_fit_field_spacer)
+		field_spacer.resized.connect(Nav._queue_field_layout)
 
-	scroll = ScrollContainer.new()
+	scroll = TouchScroll.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	col.add_child(scroll)
@@ -374,6 +384,14 @@ func _chrome() -> void:
 
 	footer = W.vbox(10)
 	col.add_child(footer)
+	# ряд кнопок внизу может перестроиться (строка → сетка) после первой раскладки: поле подстраиваем под него
+	if field_spacer != null:
+		footer.minimum_size_changed.connect(_fit_field_spacer)
+
+
+func _fit_field_spacer() -> void:
+	if field_spacer != null and size.y > 0.0:
+		field_spacer.custom_minimum_size.y = floorf(field_height(size.y))
 
 
 ## Ряд плашек с жителями. on_tap: вызывается с Villager, если плашку можно нажать.

@@ -12,13 +12,18 @@ const RUN_CRY_P := 0.4       ## пока бежишь на колокол: да�
 const ALONE_SCARE_P := 0.35  ## один в доме: шаги по крыше, скрип — и иногда удар
 const REFUSE_SCARE_P := 0.3  ## не открыл никому: иногда сразу после засова что-то бьёт в дверь
 
+const SHADOW_P := 0.45      ## тень проходит мимо двери: со второй ночи, не чаще раза за ночь (TASK-077)
+const BRANCH_P := 0.25      ## у двери сперва стучит ветка: со второй ночи, не чаще раза за главу
+
 static var rng := RandomNumberGenerator.new()
 static var _scare_day := -1
+static var _shadow_day := -1
 static var scares := 0       ## самотесты: сколько ударов прозвучало
 
 
 static func reset() -> void:
 	_scare_day = -1
+	_shadow_day = -1
 	scares = 0
 	rng.randomize()
 
@@ -36,6 +41,22 @@ static func scare(day: int, node: Control = null) -> bool:
 	return true
 
 
+## Пройдёт ли тень мимо двери этой ночью. Один раз за ночь, не в первую.
+static func shadow_due(day: int) -> bool:
+	if day < 2 or _shadow_day == day or rng.randf() >= SHADOW_P:
+		return false
+	_shadow_day = day
+	return true
+
+
+## Постучит ли сперва ветка. Делит счётчик с ложным стуком на бегу: вместе не чаще раза за главу.
+static func branch_due(day: int) -> bool:
+	if day < 2 or Game.scenes_done.has("false_knock") or rng.randf() >= BRANCH_P:
+		return false
+	Game.scenes_done["false_knock"] = true
+	return true
+
+
 ## Экран двери открыт: что слышно за ней, пока игрок решает.
 static func door(screen: DoorScreen) -> void:
 	if screen == null or Game.m == null:
@@ -50,6 +71,9 @@ static func door(screen: DoorScreen) -> void:
 				Sfx.play(&"weep" if rng.randf() < 0.5 else &"whisper", 1.0, -9.0)
 			elif rng.randf() < SCRATCH_P:
 				Sfx.play(&"scratch", rng.randf_range(0.92, 1.06), -7.0)
+			if shadow_due(day):
+				screen.shadow_fx.emit()
+				Sfx.play(&"roof_steps", rng.randf_range(0.9, 1.05), -10.0)
 		Match.DoorRole.ALONE:
 			await Juice.wait(1.6)
 			if not _alive(screen):
@@ -59,6 +83,8 @@ static func door(screen: DoorScreen) -> void:
 			if not _alive(screen):
 				return
 			Sfx.play(&"creak", rng.randf_range(0.9, 1.1), -6.0)
+			if shadow_due(day):
+				screen.shadow_fx.emit()
 			if rng.randf() < ALONE_SCARE_P:
 				await Juice.wait(1.2)
 				if _alive(screen):

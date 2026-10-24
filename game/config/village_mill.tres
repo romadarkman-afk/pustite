@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="VillageDef" load_steps=17 format=3]
+[gd_resource type="Resource" script_class="VillageDef" load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scripts/village/village_def.gd" id="1_village"]
 [ext_resource type="Script" path="res://scripts/village/house_def.gd" id="2_house"]
@@ -8,7 +8,7 @@
 script = ExtResource("2_house")
 title = "Дом мельника"
 kind = 0
-pos = Vector2(128, 312)
+pos = Vector2(210, 324)
 size = Vector2(118, 92)
 art = "miller"
 art_w = 1.45
@@ -19,7 +19,7 @@ art_chimney = Vector2(0.68, 0.04)
 script = ExtResource("2_house")
 title = "Мельничный двор"
 kind = 1
-pos = Vector2(592, 312)
+pos = Vector2(638, 324)
 size = Vector2(142, 100)
 art = "mill"
 art_w = 1.4
@@ -29,7 +29,7 @@ art_door = Rect2(0.43, 0.59, 0.16, 0.30)
 script = ExtResource("2_house")
 title = "Скит"
 kind = 2
-pos = Vector2(360, 232)
+pos = Vector2(353, 142)
 size = Vector2(96, 104)
 art = "hermitage"
 art_w = 1.65
@@ -39,7 +39,7 @@ art_door = Rect2(0.23, 0.63, 0.17, 0.27)
 script = ExtResource("2_house")
 title = "Схрон"
 kind = 3
-pos = Vector2(96, 470)
+pos = Vector2(157, 434)
 size = Vector2(122, 58)
 art = "dugout"
 art_w = 1.25
@@ -49,7 +49,7 @@ art_door = Rect2(0.18, 0.31, 0.38, 0.41)
 script = ExtResource("2_house")
 title = "Двор кузнеца"
 kind = 4
-pos = Vector2(552, 486)
+pos = Vector2(545, 481)
 size = Vector2(128, 72)
 art = "smithy"
 art_w = 1.35
@@ -60,29 +60,22 @@ art_chimney = Vector2(0.66, 0.11)
 script = ExtResource("2_house")
 title = ""
 kind = 5
-pos = Vector2(668, 522)
+pos = Vector2(640, 484)
 size = Vector2(70, 56)
 
 [sub_resource type="Resource" id="house_6"]
 script = ExtResource("2_house")
 title = ""
 kind = 0
-pos = Vector2(232, 206)
+pos = Vector2(354, 276)
 size = Vector2(84, 66)
 
 [sub_resource type="Resource" id="house_7"]
 script = ExtResource("2_house")
 title = ""
 kind = 0
-pos = Vector2(500, 204)
+pos = Vector2(436, 201)
 size = Vector2(86, 66)
-
-[sub_resource type="Resource" id="house_8"]
-script = ExtResource("2_house")
-title = ""
-kind = 5
-pos = Vector2(690, 218)
-size = Vector2(72, 56)
 
 [sub_resource type="Resource" id="job_water"]
 script = ExtResource("3_job")
@@ -102,7 +95,7 @@ title = "Нарубить дров"
 place = "у поленницы"
 done_line = "Дров на всю ночь."
 kind = 1
-pos = Vector2(596, 402)
+pos = Vector2(618, 400)
 portions = 2
 work_sec = 3.5
 
@@ -113,7 +106,7 @@ title = "Заправить фонари"
 place = "у фонаря"
 done_line = "Фонари заправлены."
 kind = 2
-pos = Vector2(234, 366)
+pos = Vector2(282, 372)
 portions = 2
 work_sec = 3.0
 
@@ -131,10 +124,10 @@ work_sec = 3.5
 [resource]
 script = ExtResource("1_village")
 shelters = Array[ExtResource("2_house")]([SubResource("house_0"), SubResource("house_1"), SubResource("house_2"), SubResource("house_3"), SubResource("house_4")])
-decor = Array[ExtResource("2_house")]([SubResource("house_5"), SubResource("house_6"), SubResource("house_7"), SubResource("house_8")])
+decor = Array[ExtResource("2_house")]([SubResource("house_5"), SubResource("house_6"), SubResource("house_7")])
 lamps = PackedVector2Array(258, 312, 462, 312, 360, 468)
 well = Vector2(360, 384)
-props = Array[Dictionary]([{"id": "prop_boat", "pos": Vector2(505, 524), "w": 84.0}, {"id": "prop_nets", "pos": Vector2(590, 548), "w": 78.0}, {"id": "prop_millstones", "pos": Vector2(44, 352), "w": 58.0}, {"id": "prop_cart", "pos": Vector2(190, 522), "w": 72.0, "flip": true}])
+props = Array[Dictionary]([{"id": "prop_boat", "pos": Vector2(326, 554), "w": 84.0}, {"id": "prop_nets", "pos": Vector2(590, 548), "w": 78.0}, {"id": "prop_millstones", "pos": Vector2(44, 352), "w": 58.0}, {"id": "prop_cart", "pos": Vector2(190, 522), "w": 72.0, "flip": true}])
 square_center = Vector2(384, 400)
 square_radii = Vector2(222, 100)
 ground = "ground_mill"
@@ -142,7 +135,7 @@ ground_rect = Rect2(-55.3, 57.4, 816, 609.3)
 color_grade = Color(0.79, 0.88, 1, 1)
 well_sprite = false
 houses_key = "houses_mill"
-fences = PackedVector2Array(604, 560)
+fences = PackedVector2Array(480, 560)
 fish_planks = false
 river = true
 low = PackedInt32Array(1, 2)

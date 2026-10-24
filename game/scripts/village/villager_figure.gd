@@ -53,7 +53,8 @@ var identity_color := Color.WHITE
 const IDENTITY_COLORS := [Color("bb7440"), Color("a83e59"), Color("4676b0"), Color("3e8b7c"),
 	Color("ad913e"), Color("8461a6"), Color("c2b190"), Color("527e49"), Color("ae6048"),
 	Color("4c91ab"), Color("936581"), Color("8c984f"), Color("ab8598")]
-const STRIDE_LENGTH := 70.0
+const STRIDE_LENGTH := 64.0            ## длина двойного шага (левая и правая нога), единиц посёлка
+const MAX_CADENCE := 2.3               ## двойных шагов в секунду: быстрее ноги не мелькают, бегущий растягивает шаг
 static var _foot_shadow_texture: Texture2D
 var _turn_t: float = 0.0
 var _knock_t: float = 0.0
@@ -62,6 +63,8 @@ var door_portrait := false
 var door_tell: StringName = &"ordinary"
 var _door_rig: Polygon2D
 var _door_shadow: Polygon2D
+var _cast_poly: Polygon2D        ## падающая тень в поле: та же сетка, прижатая к земле и сдвинутая вправо
+var cast_alpha := 0.0           ## сила тени; ставит толпа вместе с ночью и погодой, 0 — тени нет
 var _door_base := PackedVector2Array()
 var _door_weights := PackedFloat32Array()
 var _left_wrist_weights := PackedFloat32Array()
@@ -107,7 +110,9 @@ var sprite_id: int = 0
 var hero_hat_id: String = "own"
 var tag: Node2D               ## слой подписи над всем посёлком
 
-const WALK_SPEED := 145.0   ## единиц посёлка в секунду
+const CAST_KX := 0.4        ## те же числа, что у теней домов (VillageView.SHADOW_KX / SHADOW_KY)
+const CAST_KY := 0.17
+const WALK_SPEED := 105.0   ## единиц посёлка в секунду: шаг взрослого, 1 единица около 2 см
 
 
 func setup(name: String, l: LookDef, player: bool) -> void:
@@ -126,6 +131,10 @@ func setup(name: String, l: LookDef, player: bool) -> void:
 	_door_shadow.modulate = Color(0, 0, 0, 0.2)
 	_door_shadow.visible = false
 	body.add_child(_door_shadow)
+	_cast_poly = Polygon2D.new()
+	_cast_poly.show_behind_parent = true
+	_cast_poly.visible = false
+	body.add_child(_cast_poly)
 	_door_rig = Polygon2D.new()
 	_door_rig.show_behind_parent = true
 	_door_rig.visible = false
@@ -158,6 +167,7 @@ func set_identity_color(id: int) -> void:
 	identity_color = IDENTITY_COLORS[identity_id]
 	if _door_rig != null:
 		_door_rig.material = null
+		_refresh_fx()
 	if body != null:
 		body.queue_redraw()
 	if tag != null:
@@ -171,7 +181,25 @@ static func guest_sprite(guest_id: String) -> int:
 	return id if id > 0 and (ResourceLoader.exists(FOLK_REALISTIC_DIR + file) or ResourceLoader.exists(FOLK_DIR + file)) else 0
 
 
+## Именные жители кампании (TASK-108): лицо закреплено за личной историей, а не берётся из пула по полу и возрасту.
+## Так один и тот же человек выглядит одинаково в партии, на двери, в Книге и в комиксах (tools/slides/cast.py).
+## Ключ: место в списке имён (Villager.story_id), значение: номер картинки f<N>. Возраст из SocialContent.AGES учтён.
+const NAMED_SPRITES := {0: 9, 1: 2, 2: 12, 3: 4, 4: 10, 5: 13, 6: 7, 7: 3, 8: 8, 9: 11, 10: 14, 11: 1}
+
+
+## Закреплённое лицо жителя или 0: гости и жители вне первых двенадцати историй берут лицо из пула.
+static func named_sprite(v: Villager) -> int:
+	if v.is_player or not v.guest_id.is_empty() or not NAMED_SPRITES.has(v.story_id):
+		return 0
+	var id: int = NAMED_SPRITES[v.story_id]
+	return id if FOLK_FEMALE.has(id) == v.female else 0
+
+
 static func pick_cast_sprite(v: Villager, used: Dictionary) -> int:
+	var named := named_sprite(v)
+	if named > 0:
+		used[named] = true
+		return named
 	var candidates: PackedInt32Array
 	if v.female:
 		candidates = PackedInt32Array([9, 3, 10]) if v.age < 28 else (PackedInt32Array([11, 12, 1]) if v.age >= 55 else PackedInt32Array([10, 3, 9]))
@@ -187,6 +215,21 @@ static func pick_cast_sprite(v: Villager, used: Dictionary) -> int:
 			used[id] = true
 			return id
 	return candidates[posmod(v.story_id, candidates.size())]
+
+
+## Картинка с закрытыми глазами для моргания портрета (TASK-076): рядом с оригиналом, имя с суффиксом
+## _blink. Нет файла — null, моргания у этого жителя нет.
+static var _blink_tex: Dictionary = {}
+
+
+static func blink_tex(id: int) -> Texture2D:
+	if not _blink_tex.has(id):
+		var file := "hero_m" if id == HERO_M else ("hero_f" if id == HERO_F else "f%d" % id)
+		if GUEST_SPRITES.values().has(id):
+			file = "guest_" + String(GUEST_SPRITES.find_key(id))
+		var path := FOLK_REALISTIC_DIR + file + "_blink.png"
+		_blink_tex[id] = load(path) if ResourceLoader.exists(path) else null
+	return _blink_tex[id]
 
 
 static func folk_tex(id: int) -> Texture2D:
@@ -331,31 +374,55 @@ static func lantern_rect(tex: Texture2D) -> Rect2:
 	return r
 
 
-const LANTERN_TINT := preload("res://shaders/lantern_tint.gdshader")
+const FIGURE_FX := preload("res://shaders/figure_weather.gdshader")
+var fx_frost := 0.0                 ## иней на плечах и шапке, 0..1 (TASK-067)
+var fx_wet := 0.0                   ## влажный блеск, 0..1
+var _lantern_tex: Texture2D
 
 
-## Цвет фонаря героя — шейдером по его стеклу; у обычного фонаря картинка как есть.
-func _apply_lantern_tint(tex: Texture2D) -> void:
+## Погода на фигуре: один шейдер даёт иней, влагу и цвет фонаря. Без погоды и с обычным фонарём материала нет.
+func set_weather_fx(frost: float, wet: float) -> void:
+	fx_frost = clampf(frost, 0.0, 1.0)
+	fx_wet = clampf(wet, 0.0, 1.0)
+	_refresh_fx()
+
+
+func _refresh_fx() -> void:
 	if _door_rig == null:
 		return
-	if lantern_id == "classic":
+	var tinted := is_player and lantern_id != "classic" and _lantern_tex != null
+	if fx_frost <= 0.01 and fx_wet <= 0.01 and not tinted:
 		if _door_rig.material != null:
 			_door_rig.material = null
 		return
 	var mat := _door_rig.material as ShaderMaterial
-	if mat == null or mat.shader != LANTERN_TINT:
+	if mat == null or mat.shader != FIGURE_FX:
 		mat = ShaderMaterial.new()
-		mat.shader = LANTERN_TINT
+		mat.shader = FIGURE_FX
 		_door_rig.material = mat
-	var r := lantern_rect(tex)
-	mat.set_shader_parameter("lantern_rect", Vector4(r.position.x, r.position.y, r.size.x, r.size.y))
-	mat.set_shader_parameter("glass", Cosmetics.lantern(lantern_id).glass)
-	mat.set_shader_parameter("strength", 0.85 if r.size.x > 0.0 else 0.0)
+	if tinted:
+		var r := lantern_rect(_lantern_tex)
+		mat.set_shader_parameter("lantern_rect", Vector4(r.position.x, r.position.y, r.size.x, r.size.y))
+		mat.set_shader_parameter("glass", Cosmetics.lantern(lantern_id).glass)
+		mat.set_shader_parameter("strength", 0.85 if r.size.x > 0.0 else 0.0)
+	else:
+		mat.set_shader_parameter("strength", 0.0)
+	mat.set_shader_parameter("frost", fx_frost)
+	mat.set_shader_parameter("wet", fx_wet)
+	mat.set_shader_parameter("night", night)
+
+
+## Цвет фонаря героя: стекло перекрашивает тот же шейдер. У обычного фонаря картинка как есть.
+func _apply_lantern_tint(tex: Texture2D) -> void:
+	_lantern_tex = tex
+	_refresh_fx()
 
 
 ## Ночью фонарь игрока светит, днём погашен; ночью у всех встревоженные лица.
 func set_night(n: float) -> void:
 	night = n
+	if _door_rig != null and _door_rig.material is ShaderMaterial:
+		(_door_rig.material as ShaderMaterial).set_shader_parameter("night", n)
 	if lantern_light != null:
 		lantern_light.visible = n > 0.05
 		lantern_light.energy = 0.62 * n
@@ -600,6 +667,11 @@ func body_rect_global() -> Rect2:
 	return _global_rect(body_rect_local())
 
 
+## Самый высокий рост среди внешностей (config/looks*.tres); проверяется тестом --crowd.
+const LOOK_HEIGHT_MAX := 1.07
+
+
+
 # =============================================================
 # Состояния
 # =============================================================
@@ -610,6 +682,8 @@ func run_to(target: Vector2, dur: float = 0.75, delay: float = 0.0, door_house: 
 	if _tw != null:
 		_tw.kill()
 	var path := _path_to(target, door_house)
+	if path.is_empty() or path[path.size() - 1].distance_to(target) > 1.0:
+		path.append(target)   # маршрут не дошёл (нет пути или последний шаг упёрся в стену): последний отрезок напрямик, чтобы встать на отведённое место, а не посреди чужой очереди
 	if Juice.instant:
 		position = target if path.is_empty() else path[path.size() - 1]
 		_settle_idle()
@@ -769,7 +843,8 @@ func _process(delta: float) -> void:
 	var walk_target := clampf(travelled / maxf(delta, 0.001) / WALK_SPEED, 0.0, 1.0) if state == State.RUN and not Juice.instant else 0.0
 	_walk_weight = lerpf(_walk_weight, walk_target, 1.0 - exp(-12.0 * delta))
 	if state == State.RUN and travelled > 0.0 and not Juice.instant:
-		_walk = fmod(_walk + travelled / STRIDE_LENGTH, 1.0)
+		var speed := travelled / maxf(delta, 0.001)
+		_walk = fmod(_walk + travelled / maxf(STRIDE_LENGTH, speed / MAX_CADENCE), 1.0)
 	var pose: Dictionary = pose_now()[1]
 	var tilt_target := float(pose.get("lean", 0.0)) * 0.45 + float(pose.get("tilt", 0.0)) * 0.25
 	var tilt_before := _render_tilt
@@ -1107,17 +1182,6 @@ static func _oval(c: Vector2, r: Vector2) -> PackedVector2Array:
 	return pts
 
 
-## Палитра из внешности: цвета насыщеннее прежних приглушённых, шапка по типу головы.
-func _pal() -> Dictionary:
-	var coat := _bright(look.coat)
-	var tops := {LookDef.Head.BARE: "hair", LookDef.Head.CAP: "cap", LookDef.Head.SCARF: "kerchief", LookDef.Head.HAT: "hat", LookDef.Head.HOOD: "beanie"}
-	var hat := Color("3b3b58")
-	match look.head:
-		LookDef.Head.CAP: hat = coat.darkened(0.4)
-		LookDef.Head.SCARF: hat = _bright(look.accent)
-		LookDef.Head.HOOD: hat = _bright(look.accent).darkened(0.1)
-	return {"coat": coat, "coat_d": coat.darkened(0.2), "skin": look.skin.lightened(0.08), "skin_d": look.skin.darkened(0.08),
-		"hair": look.hair, "scarf": _bright(look.accent), "hat": hat, "top": tops.get(look.head, "hair")}
 
 
 func _bright(c: Color) -> Color:
@@ -1199,14 +1263,17 @@ func _draw_realistic_sprite(tex: Texture2D, h: float, w: float, pose: Dictionary
 	var idle_weight := 1.0 - _walk_weight
 	var breath := sin(_t * 1.7 + _phase) * idle_weight
 	var work := sin(float(pose.get("work", 0.0)) * TAU) if pose.has("work") else 0.0
-	var bob := absf(walk_phase) * 0.55 + breath * 0.16
-	var sway := walk_phase * 1.2 + sin(_t * 0.53 + _phase) * 0.2 * idle_weight
-	var turn := _render_tilt + walk_phase * 0.012 + breath * 0.003 + work * 0.004
+	# при шаге корпус подпрыгивает дважды за двойной шаг, переносит вес с ноги на ногу и качается
+	var bob := absf(walk_phase) * 2.0 + breath * 0.16
+	var sway := walk_phase * 1.7 + sin(_t * 0.53 + _phase) * 0.2 * idle_weight
+	var turn := _render_tilt + walk_phase * 0.034 + breath * 0.003 + work * 0.004
 	if pose.has("shiver"):
 		sway += sin(_t * 18.0 + _phase) * 0.28
-	_draw_field_rig(tex, h, w, pose, 0.25)
+	_draw_field_rig(tex, h, w, pose, 0.7)
 	_door_rig.position = Vector2(sway, bob)
 	_door_rig.rotation = turn
+	if _cast_poly.visible:
+		_cast_poly.position = Vector2(sway, 1.0)
 
 
 ## Значок на груди героя — маленький, потёртый металл, как всё в посёлке:
@@ -1263,7 +1330,7 @@ func _build_sprite_rig(tex: Texture2D, h: float, w: float) -> void:
 				var corner := row * 10 + column
 				faces.append(PackedInt32Array([corner, corner + 1, corner + 10]))
 				faces.append(PackedInt32Array([corner + 1, corner + 11, corner + 10]))
-		for rig: Polygon2D in [_door_rig, _door_shadow]:
+		for rig: Polygon2D in [_door_rig, _door_shadow, _cast_poly]:
 			rig.texture = tex
 			rig.uv = uv
 			rig.polygons = faces
@@ -1303,6 +1370,26 @@ func _draw_field_rig(tex: Texture2D, h: float, w: float, pose: Dictionary, motio
 	_door_rig.scale = Vector2.ONE
 	_door_rig.visible = true
 	_door_shadow.visible = false
+	_place_cast_shadow(points, 0.0)
+
+
+## Падающая тень стоит на земле: точка на высоте H уходит на SHADOW_KX*H вправо и SHADOW_KY*H вниз.
+## Тело отражается, когда житель смотрит влево, поэтому наклон умножаем на сторону: на экране тень всегда вправо.
+func _place_cast_shadow(points: PackedVector2Array, sway: float) -> void:
+	var on := cast_alpha > 0.01 and not door_portrait
+	_cast_poly.visible = on
+	if not on:
+		return
+	_cast_poly.polygon = points
+	_cast_poly.modulate = Color(0, 0, 0, cast_alpha)
+	_cast_poly.transform = Transform2D(Vector2(1.0, 0.0), Vector2(-CAST_KX * _face, -CAST_KY), Vector2(sway, 1.0))
+
+
+## Сила падающей тени (день сильнее, ночь и непогода слабее). Включает и гасит копию тела.
+func set_cast_shadow(a: float) -> void:
+	cast_alpha = a
+	if _cast_poly != null and a <= 0.01:
+		_cast_poly.visible = false
 
 
 ## У двери та же сетка и палитра; отдельно двигаются кисть и тень.
@@ -1414,9 +1501,3 @@ func _ellipse(c: Vector2, r: Vector2, seg: int = 18) -> PackedVector2Array:
 	return pts
 
 
-func _arc(c: Vector2, r: float) -> PackedVector2Array:
-	var pts := PackedVector2Array()
-	for i in range(13):
-		var a := PI + PI * i / 12.0
-		pts.append(c + Vector2(cos(a) * r, sin(a) * r))
-	return pts

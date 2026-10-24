@@ -29,6 +29,9 @@ func _ready() -> void:
 	root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
 	if not root.size_changed.is_connected(_on_size_changed):
 		root.size_changed.connect(_on_size_changed)
+	# масштаб применяется сразу, до сборки первого экрана: экран, построенный при масштабе 1.0,
+	# а затем сжатый до 1.2, остался бы с устаревшими минимальными размерами
+	_refresh()
 	call_deferred("_refresh")
 	if OS.is_debug_build() and not _is_mobile() and DisplayServer.get_name() != "headless":
 		var simulator := preload("res://scripts/ui/resolution_simulator.gd").new()

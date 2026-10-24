@@ -10,10 +10,25 @@ const SCHEMA := 3           ## 3: нейтральные записи для п�
 var BACKUP_PATH := "user://settings.v%d.bak"   ## копия файла перед переходом на новую версию формата
 const MEMORY_PER_CHAPTER := 40
 var save_writable := true
+## Что случилось с файлом при чтении: "" ничего, "restored" он не читался и взята предыдущая копия,
+## "reset" не читалась и она, начата новая игра. Nav показывает игроку один раз и очищает.
+var load_notice: String = ""
+var _main_good := false            ## основной файл прочитан без ошибок или записан нами и проверен: его можно сохранить как .prev
+var _loaded_path: String = ""      ## из какого файла взяты данные (основной или копия)
 
 var config: GameConfig
-var haptics: bool = true
+var haptic_level: int = 2                  ## вибрация: 0 выключена, 1 слабая, 2 сильная (TASK-075)
+var _haptic_last_on: int = 2
+var haptics: bool:                        ## включена ли вибрация вообще; ступень задаёт haptic_level
+	get:
+		return haptic_level > 0
+	set(on):
+		set_haptic_level((_haptic_last_on if haptic_level == 0 else haptic_level) if on else 0, false)
 var simplified_graphics: bool = false
+var comics_on: bool = true                ## показывать колоды комикса (TASK-106); выключено: прежние сцены без картинок-серий
+var comics_skip_seen: bool = true         ## не показывать колоды, которые игрок уже видел (повтор глав и проигрыши не мучают заставками)
+var slides_seen: Dictionary = {}          ## колода -> 1: игрок её видел (открывает галерею в Книге посёлка)
+var perf_auto_done: bool = false          ## игра уже сама включала упрощённую графику (TASK-070); второй раз не будет
 var difficulty: String = "easy"
 var text_size: int = 0                ## 0 — обычный текст, 1 — крупный, 2 — самый крупный
 var lang: String = ""                  ## язык игры: код из L.LANGS. Пусто в файле — берём язык телефона
@@ -68,7 +83,7 @@ func _ready() -> void:
 
 func load_all() -> void:
 	var cf := ConfigFile.new()
-	var has := cf.load(SETTINGS_PATH) == OK
+	var has := _load_settings(cf)
 	loaded_schema = int(cf.get_value("meta", "schema", 1)) if has else 0
 	save_writable = true
 	if has and loaded_schema > SCHEMA:
@@ -83,7 +98,7 @@ func load_all() -> void:
 			save_writable = false
 			push_error("Не найдена цепочка миграции сохранения версии %d." % source_schema)
 		else:
-			var migration_error := cf.save(SETTINGS_PATH)
+			var migration_error := _write_settings(cf)
 			if migration_error != OK:
 				save_writable = false
 				push_error("Не удалось записать мигрированное сохранение: %s" % error_string(migration_error))
@@ -162,6 +177,10 @@ func load_all() -> void:
 			var kv := part.split("=")
 			if kv.size() == 2:
 				book[kv[0]] = kv[1]
+	slides_seen.clear()
+	if has:
+		for sid: String in String(cf.get_value("progress", "slides_seen", "")).split(",", false):
+			slides_seen[sid] = 1
 	storybook.clear()
 	if has:
 		var saved_stories: Variant = cf.get_value("progress", "storybook", {})
@@ -178,8 +197,13 @@ func load_all() -> void:
 		brooch = "none"
 		avatar_id = "hero"
 	if has:
-		haptics = bool(cf.get_value("ui", "haptics", true))
+		haptic_level = haptic_level_from(cf)
+		if haptic_level > 0:
+			_haptic_last_on = haptic_level
 		simplified_graphics = bool(cf.get_value("ui", "simplified_graphics", false))
+		comics_on = bool(cf.get_value("ui", "comics_on", true))
+		comics_skip_seen = bool(cf.get_value("ui", "comics_skip_seen", true))
+		perf_auto_done = bool(cf.get_value("ui", "perf_auto_done", false))
 		window_fullscreen = bool(cf.get_value("display", "fullscreen", false))
 		var res: Variant = cf.get_value("display", "resolution", Vector2i(720, 1280))
 		if res is Vector2i:
@@ -189,7 +213,7 @@ func load_all() -> void:
 		hints_seen.clear()
 		for h: String in String(cf.get_value("hints", "seen", "")).split(",", false):
 			hints_seen[h] = true
-	Juice.haptics_enabled = haptics
+	Juice.haptic_level = haptic_level
 	for b: StringName in volumes.keys():
 		var def_v: float = DEFAULT_VOLUMES[b]
 		volumes[b] = clampf(float(cf.get_value("sound", String(b), def_v)) if has else def_v, 0.0, 1.0)
@@ -278,12 +302,37 @@ func wear(kind: String, id: String) -> bool:
 
 func set_haptics(on: bool) -> void:
 	haptics = on
-	Juice.haptics_enabled = on
 	flush()
+
+
+## Ступень вибрации из файла настроек. Старый файл хранил только да/нет: да значит сильная, как было.
+static func haptic_level_from(cf: ConfigFile) -> int:
+	return clampi(int(cf.get_value("ui", "haptic_level", 2 if bool(cf.get_value("ui", "haptics", true)) else 0)), 0, 2)
+
+
+## Вибрация тремя ступенями (TASK-075). Все вызовы идут через Juice.haptic, там и сила.
+func set_haptic_level(level: int, save_now: bool = true) -> void:
+	haptic_level = clampi(level, 0, 2)
+	if haptic_level > 0:
+		_haptic_last_on = haptic_level
+	Juice.haptic_level = haptic_level
+	if save_now:
+		flush()
 
 
 func set_simplified_graphics(on: bool) -> void:
 	simplified_graphics = on
+	flush()
+
+
+func set_comics(on: bool, skip_seen: bool) -> void:
+	comics_on = on
+	comics_skip_seen = skip_seen
+	flush()
+
+
+func set_perf_auto_done(on: bool) -> void:
+	perf_auto_done = on
 	flush()
 
 
@@ -327,7 +376,6 @@ func set_settings(cfg: GameConfig, haptics_on: bool) -> void:
 	difficulty = "custom"
 	config = cfg.sanitized()
 	haptics = haptics_on
-	Juice.haptics_enabled = haptics_on
 	flush()
 
 
@@ -411,7 +459,8 @@ func daily_streak_on(date: String) -> int:
 func flush() -> void:
 	if not save_writable:
 		return
-	ResourceSaver.save(config, BALANCE_PATH)
+	if difficulty == "custom":
+		ResourceSaver.save(config, BALANCE_PATH)    # читается только при своей сложности
 	var cf := ConfigFile.new()
 	cf.set_value("meta", "schema", SCHEMA)
 	cf.set_value("game", "difficulty", difficulty)
@@ -420,7 +469,12 @@ func flush() -> void:
 	cf.set_value("game", "howto_seen", howto_seen)
 	cf.set_value("game", "solo_last_map", solo_last_map)
 	cf.set_value("ui", "haptics", haptics)
+	cf.set_value("ui", "haptic_level", haptic_level)
 	cf.set_value("ui", "simplified_graphics", simplified_graphics)
+	cf.set_value("ui", "comics_on", comics_on)
+	cf.set_value("ui", "comics_skip_seen", comics_skip_seen)
+	cf.set_value("progress", "slides_seen", ",".join(slides_seen.keys()))
+	cf.set_value("ui", "perf_auto_done", perf_auto_done)
 	cf.set_value("ui", "lang", lang)
 	cf.set_value("ui", "text_size", text_size)
 	for b: StringName in volumes.keys():
@@ -459,7 +513,10 @@ func flush() -> void:
 		bk.append("%s=%s" % [k, book[k]])
 	cf.set_value("progress", "book", ";".join(bk))
 	cf.set_value("progress", "storybook", storybook)
-	cf.save(SETTINGS_PATH)
+	var write_error := _write_settings(cf)
+	if write_error != OK:
+		Diag.step("сохранение не записано: %s" % error_string(write_error))
+		push_error("Не удалось записать сохранение: %s" % error_string(write_error))
 
 
 ## Глава пройдена: звёзды — лучший результат, погибшие больше не придут.
@@ -616,14 +673,107 @@ func memory_of(idx: int) -> Array[Dictionary]:
 	return out
 
 
+# =============================================================
+# Надёжная запись (TASK-100, находка F-03).
+# settings.cfg никогда не пишется «на месте»: сначала settings.cfg.tmp, он читается обратно и сверяется,
+# затем прежний основной файл становится settings.cfg.prev, а .tmp занимает его место. Оборванная запись
+# оставляет прежний файл целым. При чтении основной файл, который не разбирается, заменяется копией:
+# сначала полностью записанный .tmp, потом .prev. Нечитаемый файл не стирается, а копируется в .lost.
+# =============================================================
+func _tmp_path() -> String:
+	return SETTINGS_PATH + ".tmp"
+
+
+func _prev_path() -> String:
+	return SETTINGS_PATH + ".prev"
+
+
+func _lost_path() -> String:
+	return SETTINGS_PATH + ".lost"
+
+
+## Файл читается и в нём есть хотя бы один раздел. Пустой или обрезанный посреди строки файл не проходит.
+func _read_valid(cf: ConfigFile, path: String) -> bool:
+	cf.clear()
+	if cf.load(path) != OK or cf.get_sections().is_empty():
+		cf.clear()
+		return false
+	return true
+
+
+func _load_settings(cf: ConfigFile) -> bool:
+	load_notice = ""
+	_main_good = false
+	_loaded_path = SETTINGS_PATH
+	var main_exists := FileAccess.file_exists(SETTINGS_PATH)
+	if main_exists:
+		if _read_valid(cf, SETTINGS_PATH):
+			_main_good = true
+			return true
+		_keep_unreadable()
+	for path: String in [_tmp_path(), _prev_path()]:
+		if not FileAccess.file_exists(path) or not _read_valid(cf, path):
+			continue
+		# .tmp годится только дописанный до конца: в нём стоит метка конца записи
+		if path == _tmp_path() and not cf.has_section_key("meta", "complete"):
+			continue
+		_loaded_path = path
+		if main_exists:
+			load_notice = "restored"
+		Diag.step("сохранение прочитано из %s" % path.get_file())
+		return true
+	cf.clear()
+	if main_exists:
+		load_notice = "reset"
+		Diag.step("сохранение не читается, начата новая игра")
+	return false
+
+
+## Нечитаемый файл остаётся лежать рядом: игрок или разработчик сможет достать из него данные.
+func _keep_unreadable() -> void:
+	var bytes := FileAccess.get_file_as_bytes(SETTINGS_PATH)
+	if bytes.is_empty():
+		return
+	var lost := FileAccess.open(_lost_path(), FileAccess.WRITE)
+	if lost != null:
+		lost.store_buffer(bytes)
+		lost.close()
+
+
+## Запись через временный файл с проверкой. Возвращает OK или код ошибки; прежний файл при ошибке цел.
+func _write_settings(cf: ConfigFile) -> int:
+	cf.set_value("meta", "complete", 1)         # метка конца записи, обрезанный файл её не содержит
+	var sections := cf.get_sections().size()
+	var tmp := _tmp_path()
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(tmp).get_base_dir())
+	var error := cf.save(tmp)
+	if error != OK:
+		return error
+	var check := ConfigFile.new()
+	if check.load(tmp) != OK or check.get_sections().size() != sections \
+			or not check.has_section_key("meta", "complete") \
+			or int(check.get_value("meta", "schema", -1)) != int(cf.get_value("meta", "schema", -2)):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(tmp))
+		return ERR_FILE_CORRUPT
+	if _main_good and FileAccess.file_exists(SETTINGS_PATH):
+		DirAccess.rename_absolute(SETTINGS_PATH, _prev_path())
+	error = DirAccess.rename_absolute(tmp, SETTINGS_PATH)
+	if error != OK:
+		# платформа не заменяет существующий файл: убираем его и повторяем, копия .prev уже лежит
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_PATH))
+		error = DirAccess.rename_absolute(tmp, SETTINGS_PATH)
+	_main_good = error == OK
+	return error
+
+
 ## Перед миграцией сохраняется точный снимок исходного файла.
 func _backup(from_schema: int) -> bool:
 	var path := BACKUP_PATH % from_schema
-	if not FileAccess.file_exists(SETTINGS_PATH):
+	if not FileAccess.file_exists(_loaded_path):
 		return false
 	var absolute_path := ProjectSettings.globalize_path(path)
 	DirAccess.make_dir_recursive_absolute(absolute_path.get_base_dir())
-	var source := FileAccess.get_file_as_bytes(SETTINGS_PATH)
+	var source := FileAccess.get_file_as_bytes(_loaded_path)
 	if source.is_empty():
 		return false
 	var backup := FileAccess.open(path, FileAccess.WRITE)

@@ -91,6 +91,8 @@ func show_result(tally: Dictionary[int, int], exiled: Villager) -> void:
 	var total := 0
 	for k: int in tally:
 		total += tally[k]
+	# полоса голосов не шире экрана: на узком телефоне 560 единиц распирают всё тело экрана
+	var full_w := minf(560.0, maxf(160.0, (scroll.size.x if scroll.size.x > 0.0 else Nav.host.size.x) - 4.0))
 	var order: Array[int] = []
 	order.assign(tally.keys())
 	order.sort_custom(func(a: int, b: int) -> bool: return tally[a] > tally[b])
@@ -104,7 +106,7 @@ func show_result(tally: Dictionary[int, int], exiled: Villager) -> void:
 		bar.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		row.add_child(bar)
 		body.add_child(row)
-		var target_w := 560.0 * tally[vid] / maxf(1.0, float(total))
+		var target_w := full_w * tally[vid] / maxf(1.0, float(total))
 		if Juice.instant:
 			bar.custom_minimum_size.x = target_w
 		else:

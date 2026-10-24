@@ -119,6 +119,7 @@ func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = 
 		"moon": m.force_event = Match.Event.MOON
 		"quiet": m.force_event = Match.Event.QUIET
 	director.tune = 0.0 if daily != "" else Save.tune()   # испытание дня у всех одинаковое
+	director.tune = minf(director.tune, -float(chapter.get("assist", 0.0)))   # «assist» главы: боты поддаются всегда (первая глава)
 	director.attach(m)
 	director.first_chapter = String(chapter.get("id", "")) == "a1c1"
 	director.chapter_id = String(chapter.get("id", ""))

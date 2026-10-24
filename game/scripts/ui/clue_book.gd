@@ -36,7 +36,8 @@ func _build() -> void:
 		if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
 			close())
 	add_child(dim)
-	var sheet := W.panel(&"Sheet")
+	var sheet := W.panel(&"Page")
+	sheet.name = "ClueSheet"
 	sheet.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	sheet.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	add_child(sheet)
@@ -46,7 +47,7 @@ func _build() -> void:
 	var hint := W.label(L.t("clue.hint"), &"Hint")
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(hint)
-	var sc := ScrollContainer.new()
+	var sc := TouchScroll.new()
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	sc.custom_minimum_size = Vector2(0, maxf(180.0, (get_parent() as Control).size.y * 0.5))
 	var list := W.vbox(8)
