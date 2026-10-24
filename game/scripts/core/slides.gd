@@ -14,6 +14,15 @@ const EXTS: PackedStringArray = ["webp", "jpg", "png"]
 const MUSIC_FALLBACK := {
 	&"theme_sad": &"night", &"theme_grief": &"night", &"theme_tense": &"night", &"theme_hope": &"day",
 }
+## Песня, которой заканчивается колода: [песня, с какого кадра (с 0)]. С этого кадра вместо музыки колоды играет песня.
+## Нет файла песни: музыка колоды идёт как раньше.
+const DECK_SONGS := {
+	"act1_out_all": ["song_lullaby", 0], "act1_out_some": ["song_lullaby", 0], "act1_out_none": ["song_lullaby", 0],
+	"act2_out_all": ["song_mill", 0], "act2_out_some": ["song_mill", 0], "act2_out_none": ["song_mill", 0],
+	"act3_out_all": ["song_bell", 0], "act3_out_some": ["song_bell", 0], "act3_out_none": ["song_bell", 0], "act3_out_trial": ["song_bell", 0],
+	"final_many": ["song_train", 2], "final_few": ["song_train", 2],
+	"final_shore": ["song_shore", 2], "final_upyr": ["song_pustite", 3],
+}
 const AMB_FALLBACK := {
 	&"amb_fire": &"amb_night", &"amb_bog": &"amb_night", &"amb_church": &"amb_night", &"amb_crowd": &"life_murmur",
 }
@@ -194,6 +203,52 @@ static func music_for(id: StringName) -> StringName:
 	if Sfx.has_sound(id):
 		return id
 	return MUSIC_FALLBACK.get(id, &"")
+
+
+## Песня на кадре i колоды или пусто: колода без песни, кадр раньше песни, файла песни нет.
+static func song_for(id: String, i: int) -> StringName:
+	var e: Variant = DECK_SONGS.get(id)
+	if not (e is Array):
+		return &""
+	var song := StringName(String((e as Array)[0]))
+	if i < int((e as Array)[1]) or not Sfx.has_sound(song):
+		return &""
+	return song
+
+
+## Озвучка есть только на русском: подписи на других языках переведены, чужой голос под ними не нужен.
+static func voice_on() -> bool:
+	return L.code == "ru"
+
+
+## Файл озвучки подписи по ключу «sl.<колода>.<кадр>.<строка>» или "" (нет файла, язык не русский).
+static func voice_path(key: String) -> String:
+	if not voice_on():
+		return ""
+	return voice_file(key)
+
+
+## Подмена для самотестов: ключ подписи -> путь к ресурсу озвучки.
+static var voice_test: Dictionary = {}
+
+
+## То же без проверки языка: для самотестов и ingest.
+static func voice_file(key: String) -> String:
+	if voice_test.has(key):
+		return String(voice_test[key])
+	var parts := key.split(".")
+	if parts.size() < 4 or parts[0] != "sl":
+		return ""
+	var p := "%s%s/%s.ogg" % [Sfx.VOICE_DIR, parts[1], "_".join(parts.slice(2))]
+	return p if ResourceLoader.exists(p) else ""
+
+
+## Озвучка кадра: файл первой подписи с текстом или "".
+static func panel_voice(panel: Dictionary) -> String:
+	for l: Variant in panel.get("lines", []):
+		if l is Dictionary and not text(String((l as Dictionary).get("key", ""))).is_empty():
+			return voice_path(String((l as Dictionary).get("key", "")))
+	return ""
 
 
 static func amb_for(id: StringName) -> StringName:

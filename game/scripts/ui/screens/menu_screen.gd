@@ -38,7 +38,7 @@ func ambience() -> StringName:
 
 
 func music() -> StringName:
-	return &"menu"
+	return Sfx.menu_music()
 
 
 func build() -> void:

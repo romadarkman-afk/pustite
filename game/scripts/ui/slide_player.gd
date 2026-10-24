@@ -14,6 +14,8 @@ const MIN_PANEL := 0.9           ## раньше этого тап кадр не
 const TYPE_CPS := 34.0           ## знаков подписи в секунду
 const HOLD_BASE := 1.9           ## сколько кадр держится после того, как подпись допечаталась
 const HOLD_PER_CHAR := 0.05
+const VO_TAIL := 0.9             ## пауза после голоса, пока кадр держится
+const VO_LEAD := 0.35            ## подпись дописывается чуть раньше, чем смолкнет голос
 const SILENT_PANEL := 3.2        ## кадр без подписи
 const CARD_SEC := 2.4            ## титульная плашка
 const FADE := 0.32
@@ -42,6 +44,8 @@ var completed := false
 var _t := 0.0                    ## время в кадре
 var _dur := 3.0                  ## сколько длится кадр: допечатать, подержать
 var _typed := 0.0
+var _cps := TYPE_CPS             ## скорость печати: с озвучкой подпись идёт в такт голосу
+var _vo_len := -1.0              ## длина озвучки кадра, -1: озвучки нет
 var _text_len := 0
 var _hold := 0.0
 var _sound_i := 0
@@ -278,6 +282,9 @@ func _begin() -> void:
 		_card.modulate.a = 1.0
 		_card_label.modulate.a = 0.0
 		create_tween().tween_property(_card_label, "modulate:a", 1.0, 0.6)
+		var song0 := Slides.song_for(deck_id, 0)
+		if song0 != &"":
+			Sfx.set_music(song0, 2.4)
 		# звук первого кадра начинается под плашкой
 		for ev: Variant in (_panels()[0] as Dictionary).get("sound", []):
 			if ev is Dictionary and String((ev as Dictionary).get("do", "")) == "start" and float((ev as Dictionary).get("at", 0.0)) <= 0.01:
@@ -308,6 +315,9 @@ func _next_panel() -> void:
 	_typed = 0.0
 	_pips.at = panel_i
 	_pips.queue_redraw()
+	Sfx.stop_voice_line()
+	_cps = TYPE_CPS
+	_vo_len = -1.0
 	var lines: Array = p.get("lines", [])
 	var parts := PackedStringArray()
 	var who_id := ""
@@ -332,9 +342,33 @@ func _next_panel() -> void:
 		_line.visible_characters = 0
 		_hold = HOLD_BASE + HOLD_PER_CHAR * float(_text_len) if _text_len > 0 else SILENT_PANEL
 		_dur = maxf(2.4, float(_text_len) / TYPE_CPS + _hold + 0.2)
+		if _text_len > 0:
+			_start_voice(p)
 	_set_cam(String(p.get("cam", "hold")))
 	_show_stage(panel_i, true)
+	var song := Slides.song_for(deck_id, panel_i)
+	if song != &"" and Slides.DECK_SONGS[deck_id][1] == panel_i:
+		Sfx.set_music(song, 2.4)
 	_run_sound()
+
+
+## Скорость печати под голос: подпись заканчивается за VO_LEAD до конца озвучки, не медленнее 14 и не быстрее 90 знаков в секунду.
+static func voice_cps(text_len: int, vo_len: float) -> float:
+	return clampf(float(text_len) / maxf(0.8, vo_len - VO_LEAD), 14.0, 90.0)
+
+
+## Озвучка кадра, если файл есть: подпись печатается в такт голосу, кадр ждёт, пока голос договорит.
+func _start_voice(p: Dictionary) -> void:
+	var path := Slides.panel_voice(p)
+	if path.is_empty():
+		return
+	_vo_len = Sfx.play_voice_line(path)
+	if _vo_len <= 0.0:
+		_vo_len = -1.0
+		return
+	_cps = voice_cps(_text_len, _vo_len)
+	_hold = VO_TAIL
+	_dur = _vo_len + VO_TAIL + 0.2
 
 
 ## Заглушка или настоящая картинка кадра. fresh=true: плавно появляется поверх прежнего кадра.
@@ -535,9 +569,11 @@ func _process(delta: float) -> void:
 	_apply_cam(clampf(_t / _dur, 0.0, 1.0))
 	_run_sound()
 	if _typed < float(_text_len):
-		_typed = minf(float(_text_len), _typed + delta * TYPE_CPS)
+		_typed = minf(float(_text_len), _typed + delta * _cps)
 		_line.visible_characters = int(_typed) if _typed < float(_text_len) else -1
 		return
+	if _vo_len > 0.0 and _t < _vo_len:
+		return                       # голос ещё говорит (по часам кадра, не по плееру: остановка звука не зависит от драйвера)
 	_hold -= delta
 	if _hold <= 0.0:
 		_next_panel()
@@ -556,6 +592,7 @@ func _finish(done_all: bool) -> void:
 	_done = true
 	completed = done_all
 	Game.release(_hold_key)
+	Sfx.stop_voice_line()
 	Slides.mark_seen(deck_id)
 	if _flash_tw != null:
 		_flash_tw.kill()
@@ -594,6 +631,8 @@ func run_sound_event(ev: Dictionary) -> void:
 		"start":
 			if layer == "music":
 				var mid := Slides.music_for(id)
+				if Slides.song_for(deck_id, maxi(panel_i, 0)) != &"":
+					mid = &""
 				if mid != &"":
 					Sfx.set_music(mid, fade)
 			else:
@@ -617,12 +656,15 @@ func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT:
 			_paused = true
+			Sfx.pause_voice_line(true)
 		NOTIFICATION_APPLICATION_RESUMED, NOTIFICATION_APPLICATION_FOCUS_IN:
 			_paused = false
+			Sfx.pause_voice_line(false)
 
 
 func _exit_tree() -> void:
 	if not _done:
+		Sfx.stop_voice_line()
 		_done = true
 		Game.release(_hold_key)
 		finished.emit(false)

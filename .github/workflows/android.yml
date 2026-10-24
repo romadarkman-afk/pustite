@@ -168,7 +168,7 @@ jobs:
           top=$(unzip -lv build/pustite.apk | awk 'NR>3 && $3+0>0 {print $3, $NF}' | sort -rn | head -6 | awk '{printf "%.1f МиБ %s; ", $1/1048576, $2}')
           echo "APK: $size байт, $mib МиБ"
           echo "::notice title=Вес APK::$mib МиБ ($size байт). Крупнейшие записи: $top"
-          limit=192600000   # база 176 921 857 байт (v0.62.0) плюс 15 МиБ по плану второй волны, docs/budget.md
+          limit=1000000000  # 1 ГБ: фотореализм, песни и озвучка (решение Влади, 24.10.2026). Было 192 600 000 (v0.62.0 + 15 МиБ). Лимит ассета релиза GitHub: 2 ГБ.
           if [ "$size" -gt "$limit" ]; then
             echo "::error title=APK тяжелее бюджета::$size байт при пределе $limit"
             exit 1

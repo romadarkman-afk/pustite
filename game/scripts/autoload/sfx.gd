@@ -89,6 +89,23 @@ const COMIC_THEMES := {
 	&"theme_tense": "res://assets/music/theme_tense.ogg",
 	&"theme_grief": "res://assets/music/theme_grief.ogg",
 }
+## Песни (как в Alan Wake: песня в меню и в конце эпизода). Делаются в Lyria по промптам из «Пульта» (tools/pult), кладутся в assets/music/.
+## Нет файла: играет прежняя музыка. Песня идёт петлёй, пока играет экран.
+const SONGS := {
+	&"song_pustite": "res://assets/music/song_pustite.ogg",    # меню и концовка «упырь»
+	&"song_lullaby": "res://assets/music/song_lullaby.ogg",    # итог акта I
+	&"song_mill": "res://assets/music/song_mill.ogg",          # итог акта II
+	&"song_bell": "res://assets/music/song_bell.ogg",          # итог акта III
+	&"song_train": "res://assets/music/song_train.ogg",        # концовки «многие» и «немногие»
+	&"song_shore": "res://assets/music/song_shore.ogg",        # концовка «тот берег»
+}
+## Озвучка: assets/voice/<колода>/<NN>_<строка>.ogg для кадров комикса и assets/voice/bark/<тип>_<настроение>_<k>.ogg для чата.
+const VOICE_DIR := "res://assets/voice/"
+## Настроение жителя -> набор возгласов. Остальное: calm.
+const BARK_MOOD := {"grief": "grief", "despair": "grief", "guilt": "grief", "exhaustion": "grief", "fear": "fear", "rage": "rage"}
+const BARKS_PER_SET := 8
+## Музыка в момент озвучки тише на столько дБ.
+const DUCK_DB := 5.0
 ## Музыка по главам (TASK-123): day_a1c2 … night_a4c3. У главы a1c1 и у быстрой партии на карте «посёлок» играют прежние day и night.
 ## Файлов может не быть: тогда играет общая дорожка. Их делает tools/make_stage_music.py.
 const STAGE_KEYS: PackedStringArray = ["a1c2", "a1c3", "a2c1", "a2c2", "a2c3", "a3c1", "a3c2", "a3c3", "a4c1", "a4c2", "a4c3"]
@@ -139,6 +156,10 @@ var _amb_filter: AudioEffectLowPassFilter
 var _pace := 1.0
 var _heart: AudioStreamPlayer
 var _panned_player: AudioStreamPlayer
+var _vo_p: AudioStreamPlayer          ## озвучка кадров комикса
+var _vo_gen := 0
+var _bark_cache: Dictionary = {}      ## "f_old_calm" -> Array[AudioStream]; пустой массив: файлов нет
+var _bark_last: Dictionary = {}       ## id говорящего -> номер последнего возгласа
 var _muted_by_os := false
 var _tw: Dictionary = {}
 
@@ -174,6 +195,12 @@ func _ready() -> void:
 			if comic_stream is AudioStreamOggVorbis:
 				(comic_stream as AudioStreamOggVorbis).loop = true
 			_streams[k] = comic_stream
+	for k: StringName in SONGS:
+		if ResourceLoader.exists(SONGS[k]):
+			var song_stream := load(SONGS[k]) as AudioStream
+			if song_stream is AudioStreamOggVorbis:
+				(song_stream as AudioStreamOggVorbis).loop = true
+			_streams[k] = song_stream
 	for kind: String in ["day", "night"]:
 		for key: String in STAGE_KEYS:
 			var stage_path := "res://assets/music/%s_%s.ogg" % [kind, key]
@@ -196,6 +223,7 @@ func _ready() -> void:
 	_amb_filter.cutoff_hz = 20500.0
 	AudioServer.add_bus_effect(AudioServer.get_bus_index(&"Ambience"), _amb_filter)
 	_heart = _player(&"Sfx")
+	_vo_p = _player(&"Sfx")
 	_panned_player = _player(HORROR_LEFT)
 	_heart.stream = _streams[&"heartbeat"]
 
@@ -308,7 +336,9 @@ func stop_panned(fade: float = 0.12) -> void:
 
 ## Голос жителя: 2–4 слога-писка с высотой, своей у каждого. Слышно, кто говорит.
 ## mood — состояние говорящего (TASK-009): в горе ниже и медленнее, в страхе выше и чаще.
-func voice(speaker_id: int, female: bool, text_len: int, mood: String = "") -> void:
+func voice(speaker_id: int, female: bool, text_len: int, mood: String = "", age: int = 34) -> void:
+	if bark(speaker_id, female, age, mood):
+		return
 	var base := (1.35 if female else 0.95) + 0.06 * float((speaker_id * 37) % 7)
 	var gap := 0.085
 	match mood:
@@ -326,6 +356,109 @@ func voice(speaker_id: int, female: bool, text_len: int, mood: String = "") -> v
 		if i > 0:
 			await get_tree().create_timer(gap).timeout
 		play(&"blip", base * (1.0 + 0.09 * sin(float(i) * 2.3 + speaker_id)), -15.0)
+
+
+## Тип голоса по полу и возрасту: f_old, f_mid, f_young, m_old, m_mid, m_young, boy. Совпадает с именами файлов в assets/voice/bark.
+static func voice_type(female: bool, age: int) -> String:
+	if age < 15:
+		return "boy"
+	var band := "old" if age >= 58 else ("mid" if age >= 30 else "young")
+	return "%s_%s" % ["f" if female else "m", band]
+
+
+func _barks(vtype: String, mood: String) -> Array:
+	var key := "%s_%s" % [vtype, mood]
+	if _bark_cache.has(key):
+		return _bark_cache[key]
+	var arr: Array = []
+	for k in range(BARKS_PER_SET):
+		var path := "%sbark/%s_%d.ogg" % [VOICE_DIR, key, k]
+		if ResourceLoader.exists(path):
+			var st := load(path) as AudioStream
+			if st != null:
+				arr.append(st)
+	_bark_cache[key] = arr
+	return arr
+
+
+## Записанный возглас жителя: набор по полу, возрасту и настроению, не повторяет предыдущий. false: файлов нет, играют писки.
+func bark(speaker_id: int, female: bool, age: int, mood: String = "") -> bool:
+	var vtype := voice_type(female, age)
+	var m := String(BARK_MOOD.get(mood, "calm"))
+	var set := _barks(vtype, m)
+	if set.is_empty() and m != "calm":
+		m = "calm"
+		set = _barks(vtype, m)
+	if set.is_empty():
+		return false
+	var i := randi() % set.size()
+	if set.size() > 1 and i == int(_bark_last.get(speaker_id, -1)):
+		i = (i + 1) % set.size()
+	_bark_last[speaker_id] = i
+	_note(StringName("голос:%s_%s" % [vtype, m]))
+	var p := _pool[_next]
+	_next = (_next + 1) % POOL
+	p.stream = set[i]
+	p.pitch_scale = 0.95 + 0.012 * float((speaker_id * 37) % 9)
+	p.volume_db = -3.0
+	p.play()
+	return true
+
+
+## Озвучка кадра комикса. Возвращает длину в секундах или -1.0, если файла нет. Музыка на это время тише.
+func play_voice_line(path: String, vol_db: float = 0.0) -> float:
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return -1.0
+	return play_voice_stream(load(path) as AudioStream, vol_db)
+
+
+func play_voice_stream(stream: AudioStream, vol_db: float = 0.0) -> float:
+	if stream == null or _vo_p == null:
+		return -1.0
+	_vo_gen += 1
+	var gen := _vo_gen
+	_vo_p.stream = stream
+	_vo_p.volume_db = vol_db
+	_vo_p.pitch_scale = 1.0
+	_vo_p.play()
+	_note(&"озвучка")
+	var len_s := stream.get_length()
+	if _music_p != null and _music_p.playing and music_name != &"":
+		_fade(_music_p, _music_target_db() - DUCK_DB, 0.3, false)
+		if not Juice.instant:
+			get_tree().create_timer(len_s + 0.2).timeout.connect(func() -> void:
+				if gen == _vo_gen and _music_p != null and _music_p.playing and music_name != &"":
+					_fade(_music_p, _music_target_db(), 0.9, false))
+	return len_s
+
+
+func stop_voice_line() -> void:
+	_vo_gen += 1
+	if _vo_p != null and _vo_p.playing:
+		_vo_p.stop()
+		if _music_p != null and _music_p.playing and music_name != &"":
+			_fade(_music_p, _music_target_db(), 0.4, false)
+
+
+func voice_line_playing() -> bool:
+	return _vo_p != null and _vo_p.playing
+
+
+## Сколько секунд озвучки осталось.
+func voice_line_left() -> float:
+	if _vo_p == null or not _vo_p.playing or _vo_p.stream == null:
+		return 0.0
+	return maxf(0.0, _vo_p.stream.get_length() - _vo_p.get_playback_position())
+
+
+func pause_voice_line(on: bool) -> void:
+	if _vo_p != null:
+		_vo_p.stream_paused = on
+
+
+## Музыка меню: главная песня, если файл есть.
+func menu_music() -> StringName:
+	return &"song_pustite" if has_sound(&"song_pustite") else &"menu"
 
 
 ## Фон: «amb_day», «amb_night» или "" (тишина). Плавная смена за fade секунд.

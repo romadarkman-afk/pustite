@@ -642,7 +642,7 @@ func _on_chat(line: ChatLine) -> void:
 			f.talk(b.life if b != null else 2.5)
 			if not line.emotion.is_empty():
 				f.set_emotion(line.emotion, b.life if b != null else 4.0)
-			Sfx.voice(line.speaker.id, line.speaker.female, line.text.length(), f.mood)
+			Sfx.voice(line.speaker.id, line.speaker.female, line.text.length(), f.mood, line.speaker.age)
 			_react_to_accusation(line)
 
 

@@ -15,7 +15,7 @@ SONGS = [
     dict(
         id="song_pustite",
         title="«Пустите» (главная песня)",
-        where="Меню игры, титры после финала, вставка перед последней ночью. Как главная песня в Alan Wake: узнаётся с первых нот.",
+        where="Главное меню (играет, пока открыто меню) и последние кадры концовки «упырь». Главная песня игры, как в Alan Wake: узнаётся с первых нот.",
         file="song_pustite.mp3",
         style=(
             "Dark Slavic folk-rock ballad, 72 BPM, A minor. Male baritone, gravelly and tired, almost spoken in the verses, "
@@ -63,7 +63,7 @@ SONGS = [
     dict(
         id="song_lullaby",
         title="«Колыбельная для тех, кто за дверью»",
-        where="Акт I. Звучит в доме днём и как итог акта I. Поёт старая женщина, почти шёпотом.",
+        where="Конец акта I: играет под кадрами итога, когда акт закончен (любой исход). Поёт старая женщина, почти шёпотом.",
         file="song_lullaby.mp3",
         style=(
             "Slow Russian folk lullaby, 56 BPM, D dorian. Elderly female alto, warm, cracked, very close to the microphone, "
@@ -100,7 +100,7 @@ SONGS = [
     dict(
         id="song_mill",
         title="«Колесо» (акт II, мельница)",
-        where="Итог акта II и пролог акта II. Осень, дождь, паводок.",
+        where="Конец акта II: играет под кадрами итога (любой исход). Осень, дождь, паводок.",
         file="song_mill.mp3",
         style=(
             "Melancholic Russian autumn waltz in 3/4, 88 BPM, G minor. Female mezzo-soprano with a slightly rough voice, "
@@ -141,7 +141,7 @@ SONGS = [
     dict(
         id="song_bell",
         title="«Колокол» (акт III, монастырь)",
-        where="Итог акта III и пролог акта III. Зима, метель, каменные своды.",
+        where="Конец акта III: играет под кадрами итога (любой исход, в том числе суд). Зима, метель, каменные своды.",
         file="song_bell.mp3",
         style=(
             "Slow Russian liturgical-folk hymn with a dark rock undercurrent, 50 BPM, B phrygian. "
@@ -179,7 +179,7 @@ SONGS = [
     dict(
         id="song_train",
         title="«Последний поезд» (акт IV, станция)",
-        where="Итог акта IV, финальные титры при концовках «много» и «немногие».",
+        where="Концовки «многие» и «немногие»: начинается на третьем кадре финала и идёт до конца.",
         file="song_train.mp3",
         style=(
             "Bittersweet folk-pop ballad with a train rhythm, 96 BPM, E minor moving to E major in the last chorus. "
@@ -223,7 +223,7 @@ SONGS = [
     dict(
         id="song_shore",
         title="«Тот берег» (концовка)",
-        where="Концовка «final_shore»: игрок уходит на тот берег. Тихая песня под последние кадры.",
+        where="Концовка «тот берег»: игрок уходит за реку. Тихая песня под последние три кадра.",
         file="song_shore.mp3",
         style=(
             "Quiet, eerie, beautiful ballad, 60 BPM, C minor. Duet of a young female voice and a male baritone, "

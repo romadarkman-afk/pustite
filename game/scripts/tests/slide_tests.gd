@@ -5,7 +5,7 @@ extends RefCounted
 
 const DECKS_MIN := 86
 const PANELS_MIN := 309
-const IMAGE_BUDGET := 24 * 1024 * 1024          ## все картинки комикса вместе (TASK-143)
+const IMAGE_BUDGET := 160 * 1024 * 1024         ## все картинки комикса вместе: 309 кадров по 0,5 МиБ (TASK-143, фотореализм)
 const MAX_PLATE_SHARE := 0.62                   ## подпись не выше этой доли экрана
 ## Звуки, которых игре ещё не хватает (TASK-124): кадры о них знают, плеер их пропускает.
 const SOUNDS_NOT_YET: PackedStringArray = ["wolf", "crow", "fire_crackle", "water_drip", "steps_snow", "chain", "match", "page", "glass", "wind_gust"]
@@ -20,6 +20,8 @@ static func run() -> void:
 	ok += data(fails)
 	ok += texts(fails)
 	ok += sounds(fails)
+	ok += await voice(fails)
+	ok += await voice_flow(fails)
 	ok += images(fails)
 	ok += routing(fails)
 	ok += await player(fails)
@@ -28,6 +30,170 @@ static func run() -> void:
 	ok += await geometry(fails)
 	print("время %.1f с" % (float(Time.get_ticks_msec() - t0) / 1000.0))
 	SelfTest._finish(fails, ok, "Комиксы", "86 колод, подписи на всех кадрах, звуковые карты, камера без пустых краёв, плеер листает и закрывается, подпись помещается на всех экранах")
+
+
+# ----------------------------------------------------------------- озвучка и песни
+
+## Озвучка кадров, живые возгласы и песни. Файлов может не быть: тогда всё идёт как раньше. Недостающее подставляем в памяти.
+static func voice(fails: PackedStringArray) -> int:
+	var ok := 0
+	# тип голоса по полу и возрасту
+	ok += SelfTest._expect(fails, Sfx.voice_type(false, 70) == "m_old" and Sfx.voice_type(true, 61) == "f_old", "тип голоса: старики")
+	ok += SelfTest._expect(fails, Sfx.voice_type(true, 34) == "f_mid" and Sfx.voice_type(false, 30) == "m_mid", "тип голоса: средний возраст")
+	ok += SelfTest._expect(fails, Sfx.voice_type(true, 19) == "f_young" and Sfx.voice_type(false, 25) == "m_young", "тип голоса: молодые")
+	ok += SelfTest._expect(fails, Sfx.voice_type(true, 9) == "boy" and Sfx.voice_type(false, 12) == "boy", "тип голоса: дети")
+	# все возрасты и оба пола дают один из восьми типов
+	var types := {}
+	for age in range(5, 95):
+		for f in [false, true]:
+			types[Sfx.voice_type(f, age)] = true
+	ok += SelfTest._expect(fails, types.size() == 7, "типов голоса %d, ждали 7" % types.size())
+	# возглас: без файлов false, а писк играет; с файлами true и не повторяется подряд
+	var keep_cache: Dictionary = Sfx._bark_cache.duplicate()
+	Sfx._bark_cache.clear()
+	Sfx._bark_cache["f_old_calm"] = []
+	ok += SelfTest._expect(fails, not Sfx.bark(7, true, 70, ""), "возглас без файлов вернул true")
+	Sfx.voice(7, true, 24, "", 70)
+	Sfx._bark_cache["f_old_calm"] = [AudioStreamWAV.new(), AudioStreamWAV.new(), AudioStreamWAV.new()]
+	Sfx._bark_cache["f_old_fear"] = []
+	var last := -1
+	var repeats := 0
+	for k in range(40):
+		ok += SelfTest._expect(fails, Sfx.bark(7, true, 70, "fear"), "возглас при наличии файлов не сыграл (запасной набор calm)")
+		var cur := int(Sfx._bark_last.get(7, -1))
+		if cur == last:
+			repeats += 1
+		last = cur
+	ok += SelfTest._expect(fails, repeats == 0, "один и тот же возглас подряд %d раз" % repeats)
+	Sfx._bark_cache = keep_cache
+	Sfx._bark_last.erase(7)
+	# файл озвучки: ключ -> путь
+	ok += SelfTest._expect(fails, Slides.voice_file("act1_intro.01.0").is_empty() and Slides.voice_file("sl.x").is_empty(), "путь озвучки из чужого ключа")
+	for id: String in Slides.deck_ids():
+		for p: Variant in Slides.panels(id):
+			var path := Slides.panel_voice(p as Dictionary)
+			ok += SelfTest._expect(fails, path.is_empty() or path.begins_with(Sfx.VOICE_DIR + id + "/"), "%s: озвучка лежит не в своей папке: %s" % [id, path])
+	# голос из памяти: играет, музыка тише, потом возвращается
+	var wav := AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = 22050
+	var pcm := PackedByteArray()
+	pcm.resize(22050 * 2)
+	wav.data = pcm
+	var len_s := Sfx.play_voice_stream(wav)
+	ok += SelfTest._expect(fails, absf(len_s - 1.0) < 0.05, "длина озвучки %.2f с, ждали 1" % len_s)
+	ok += SelfTest._expect(fails, Sfx.voice_line_playing() and Sfx.voice_line_left() > 0.0, "озвучка не играет")
+	Sfx.pause_voice_line(true)
+	Sfx.pause_voice_line(false)
+	Sfx.stop_voice_line()
+	ok += SelfTest._expect(fails, not Sfx.voice_line_playing() and Sfx.voice_line_left() == 0.0, "озвучка не остановилась")
+	ok += SelfTest._expect(fails, Sfx.play_voice_line("res://assets/voice/нет/нет.ogg") < 0.0, "несуществующий файл озвучки вернул длину")
+	# скорость печати под голос
+	ok += SelfTest._expect(fails, absf(SlidePlayer.voice_cps(100, 5.0) - 100.0 / 4.65) < 0.01, "скорость печати под голос")
+	ok += SelfTest._expect(fails, SlidePlayer.voice_cps(10, 30.0) == 14.0 and SlidePlayer.voice_cps(400, 3.0) == 90.0, "границы скорости печати")
+	# песни: колоды существуют, кадр песни внутри колоды, без файла песни играет музыка колоды
+	for deck_id: String in Slides.DECK_SONGS:
+		var e: Array = Slides.DECK_SONGS[deck_id]
+		ok += SelfTest._expect(fails, Slides.deck_ids().has(deck_id), "песня у несуществующей колоды %s" % deck_id)
+		ok += SelfTest._expect(fails, Sfx.SONGS.has(StringName(String(e[0]))), "%s: песни %s нет в Sfx.SONGS" % [deck_id, e[0]])
+		ok += SelfTest._expect(fails, int(e[1]) >= 0 and int(e[1]) < Slides.panels(deck_id).size(), "%s: кадр песни %d вне колоды" % [deck_id, e[1]])
+	var keep_songs := {}
+	for sn: StringName in [&"song_mill", &"song_train", &"song_pustite"]:
+		keep_songs[sn] = Sfx._streams.get(sn)
+		Sfx._streams.erase(sn)
+	ok += SelfTest._expect(fails, Slides.song_for("act2_out_all", 0) == &"", "песня без файла должна быть пустой")
+	ok += SelfTest._expect(fails, Sfx.menu_music() == &"menu", "без песни меню играет не прежнюю музыку")
+	for sn: StringName in keep_songs:
+		Sfx._streams[sn] = AudioStreamWAV.new()
+	ok += SelfTest._expect(fails, Slides.song_for("act2_out_all", 0) == &"song_mill", "песня акта II на первом кадре итога")
+	ok += SelfTest._expect(fails, Slides.song_for("final_many", 1) == &"" and Slides.song_for("final_many", 2) == &"song_train", "песня финала со второго кадра")
+	ok += SelfTest._expect(fails, Slides.song_for("a1c1_win", 0) == &"" and Slides.song_for("нет", 0) == &"", "песня у колоды без песни")
+	ok += SelfTest._expect(fails, Sfx.menu_music() == &"song_pustite", "меню не играет главную песню")
+	# плеер: на кадре песни музыка колоды не перебивает песню
+	var host := Nav.host.current
+	var pl := SlidePlayer.new()
+	pl.deck_id = "act2_out_some"
+	pl.deck = Slides.deck("act2_out_some")
+	host.add_child(pl)
+	pl._build()
+	ok += SelfTest._expect(fails, Sfx.music_name == &"song_mill", "в итоге акта II играет «%s», ждали песню" % Sfx.music_name)
+	pl.run_sound_event({"do": "start", "layer": "music", "id": "theme_sad", "fade": 0.1})
+	ok += SelfTest._expect(fails, Sfx.music_name == &"song_mill", "музыка колоды перебила песню: «%s»" % Sfx.music_name)
+	pl.skip()
+	await Nav.get_tree().process_frame
+	# вернуть, как было
+	for sn: StringName in keep_songs:
+		if keep_songs[sn] == null:
+			Sfx._streams.erase(sn)
+		else:
+			Sfx._streams[sn] = keep_songs[sn]
+	Sfx.set_music(&"", 0.0)
+	return ok
+
+
+## Озвучка в плеере при реальном времени: подпись печатается в такт голосу, кадр ждёт голос и листается после него.
+static func voice_flow(fails: PackedStringArray) -> int:
+	var ok := 0
+	var keep_lang := L.code
+	L.use("ru")
+	var wav := AudioStreamWAV.new()
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = 22050
+	var pcm := PackedByteArray()
+	pcm.resize(22050 * 2 * 2)                       # 2 секунды тишины
+	wav.data = pcm
+	var tmp := "user://vo_selftest.tres"
+	ResourceSaver.save(wav, tmp)
+	var id := "act1_intro"
+	var p0 := Slides.panels(id)[0] as Dictionary
+	var key := String(((p0.get("lines", []) as Array)[0] as Dictionary).get("key", ""))
+	Slides.voice_test = {key: tmp}
+	ok += SelfTest._expect(fails, Slides.panel_voice(p0) == tmp, "озвучка кадра не нашлась через подмену")
+	L.use("de")
+	ok += SelfTest._expect(fails, Slides.panel_voice(p0).is_empty() or Slides.text(key) == "", "озвучка играет под немецкой подписью")
+	L.use("ru")
+	Juice.instant = false
+	var host := Nav.host.current
+	var pl := SlidePlayer.new()
+	pl.deck_id = id
+	pl.deck = Slides.deck(id)
+	host.add_child(pl)
+	pl._build()
+	if pl._in_card:
+		pl.advance()
+	ok += SelfTest._expect(fails, pl.panel_i == 0 and absf(pl._vo_len - 2.0) < 0.1, "озвучка кадра не началась: длина %.2f" % pl._vo_len)
+	ok += SelfTest._expect(fails, Sfx.voice_line_playing(), "голос кадра не играет")
+	var want_cps := SlidePlayer.voice_cps(pl._text_len, pl._vo_len)
+	ok += SelfTest._expect(fails, absf(pl._cps - want_cps) < 0.01 and pl._dur >= 2.0 + SlidePlayer.VO_TAIL, "печать не под голос: %.1f знаков/с" % pl._cps)
+	# подпись допечатывается чуть раньше конца голоса
+	pl._process(0.1)
+	ok += SelfTest._expect(fails, pl._typed < float(pl._text_len), "подпись напечаталась за 0,1 с")
+	pl._process(1.0)
+	ok += SelfTest._expect(fails, pl._typed < float(pl._text_len), "подпись напечаталась за 1,1 с из 2")
+	pl._process(0.7)
+	ok += SelfTest._expect(fails, pl._typed >= float(pl._text_len), "подпись не допечаталась к 1,8 с голоса")
+	# пока голос говорит, кадр не листается и пауза после него не тратится
+	pl._process(0.1)
+	ok += SelfTest._expect(fails, pl.panel_i == 0 and absf(pl._hold - SlidePlayer.VO_TAIL) < 0.001, "кадр держится не по голосу: кадр %d, пауза %.2f" % [pl.panel_i, pl._hold])
+	pl._process(0.2)
+	ok += SelfTest._expect(fails, pl.panel_i == 0 and pl._hold < SlidePlayer.VO_TAIL, "после голоса пауза не пошла")
+	pl._process(SlidePlayer.VO_TAIL)
+	ok += SelfTest._expect(fails, pl.panel_i == 1, "кадр не перелистнулся после голоса: %d" % pl.panel_i)
+	# тап по кадру с голосом: подпись сразу, второй тап листает и глушит голос
+	Sfx.play_voice_stream(wav)
+	pl._vo_len = 2.0
+	pl._typed = 0.0
+	pl._t = 5.0
+	ok += SelfTest._expect(fails, pl.tap() and pl._typed >= float(pl._text_len), "первый тап не допечатал подпись")
+	ok += SelfTest._expect(fails, pl.tap() and pl.panel_i == 2 and not Sfx.voice_line_playing(), "второй тап не пролистал и не заглушил голос")
+	pl.skip()
+	await Nav.get_tree().process_frame
+	ok += SelfTest._expect(fails, not Sfx.voice_line_playing(), "голос остался после закрытия колоды")
+	Slides.voice_test = {}
+	Juice.instant = true
+	L.use(keep_lang)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(tmp))
+	return ok
 
 
 # ----------------------------------------------------------------- данные
