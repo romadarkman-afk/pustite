@@ -23,6 +23,8 @@ var _toast: Label
 var _exit_armed := false
 var _started := false
 var _frame_pending := false
+## Сколько раз кадрирование поля сейчас ждёт раскладку; для самотестов (ждут, пока кадр устоится).
+var frame_busy := 0
 var _menu_preview: Match
 var _menu_horror: Node
 var perf: PerfGuard               ## кадры: автоупрощение графики и счётчик в отладке (TASK-070)
@@ -356,8 +358,10 @@ func _refresh_field_layout() -> void:
 
 
 func _frame_field(s: Screen) -> void:
+	frame_busy += 1
 	for i in range(3):
 		await get_tree().process_frame
+	frame_busy -= 1
 	if not is_instance_valid(s) or s != host.current:
 		return
 	var dur := 0.0 if Juice.instant else 0.6

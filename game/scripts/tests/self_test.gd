@@ -1980,14 +1980,11 @@ static func _settle(tree: SceneTree) -> void:
 			break
 		await tree.process_frame
 	await _frames(tree, 2)
-	# высота поля может уточниться после раскладки подвала (ряд кнопок перестроился): ждём, пока она устоится и кадр обновится
-	var cur: Screen = Nav.host.current
-	if cur != null and cur.field_spacer != null:
-		for i in range(6):
-			var before := cur.field_spacer.size.y
-			await _frames(tree, 5)
-			if not is_instance_valid(cur) or is_equal_approx(before, cur.field_spacer.size.y):
-				break
+	# высота поля может уточниться после раскладки подвала (ряд кнопок перестроился): ждём, пока кадр обновится
+	for i in range(30):
+		if not Nav._frame_pending and Nav.frame_busy == 0:
+			break
+		await tree.process_frame
 
 
 

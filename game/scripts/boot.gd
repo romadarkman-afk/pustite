@@ -7,6 +7,7 @@ extends Control
 const TEST_FLAGS: PackedStringArray = ["--sim", "--simchapters", "--chapters", "--story", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--eyes", "--lights", "--checkpoint", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk", "--loc", "--access", "--daily", "--cosmetics", "--adapt", "--display", "--gestures", "--doors", "--emptying", "--pairs", "--themes", "--soundmaps", "--actscenes", "--campmap", "--achicons", "--parallax", "--traces", "--tension", "--portraits", "--haptics", "--candle", "--storage", "--save", "--weather", "--perf", "--debugmenu", "--release"]
 const TEST_TIMEOUT_SEC := 240.0
 const LONG_TEST_TIMEOUT_SEC := 3600.0      ## полная таблица баланса глав
+const LAYOUT_TEST_TIMEOUT_SEC := 720.0     ## раскладка: 23 типа экранов и 11 устройств из списка проекта
 const LOGO_SEC := 2.2
 const SPLASH: Texture2D = preload("res://assets/splash.png")
 const MENU_PRELOAD: Array[String] = [
@@ -52,7 +53,11 @@ func _ready() -> void:
 
 
 func _run_test(flag: String) -> void:
-	var limit := LONG_TEST_TIMEOUT_SEC if flag == "--simchapters" else TEST_TIMEOUT_SEC
+	var limit := TEST_TIMEOUT_SEC
+	if flag == "--simchapters":
+		limit = LONG_TEST_TIMEOUT_SEC
+	elif flag == "--layout":
+		limit = LAYOUT_TEST_TIMEOUT_SEC
 	get_tree().create_timer(limit, true, false, true).timeout.connect(func() -> void:
 		print("ИТОГ: ТАЙМАУТ — самотест %s не закончился за %d с" % [flag, int(limit)])
 		get_tree().quit(2))

@@ -85,6 +85,7 @@ scripts/ui/action_sheet.gd
 scripts/ui/atmosphere.gd
 scripts/ui/bubbles.gd
 scripts/ui/diary_sheet.gd
+scripts/ui/fit_row.gd
 scripts/ui/glyph.gd
 scripts/ui/hint.gd
 scripts/ui/howto_art.gd
