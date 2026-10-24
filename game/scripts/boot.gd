@@ -30,6 +30,9 @@ func _ready() -> void:
 			ThemeFactory.text_scale = ThemeFactory.TEXT_SCALES[Save.text_size]
 			Nav.ui.theme = ThemeFactory.build()
 			continue
+		if a.begins_with("--csf="):
+			SelfTest.csf = clampf(float(a.substr(6)), 0.5, 3.0)    # масштаб интерфейса по плотности экрана: как на телефоне
+			continue
 		if a.begins_with("--lang="):
 			Save.lang = a.substr(7)
 			L.use(Save.lang)

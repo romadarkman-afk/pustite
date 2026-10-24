@@ -112,6 +112,22 @@ func build() -> void:
 
 
 # ---------------------------------------------------------------
+## Заголовок двери и его кнопки (свеча, «Подробнее»). На узком экране кнопки уходят под заголовок:
+## рядом с ними надпись сжималась до одного слова в строке.
+func _head_with_tools(head: HBoxContainer, tools: Array[Control]) -> void:
+	if Nav.host.size.x >= 560.0:
+		for t: Control in tools:
+			head.add_child(t)
+		_box.add_child(head)
+		return
+	_box.add_child(head)
+	var row := W.hbox(10)
+	row.size_flags_horizontal = Control.SIZE_SHRINK_END
+	for t: Control in tools:
+		row.add_child(t)
+	_box.add_child(row)
+
+
 func _build_host() -> void:
 	_inspection_left = 2 + Game.inspection_bonus
 	Sfx.set_heartbeat_pace(1.0 + 0.04 * float(mini(seat.knockers().size() - 1, 3)))
@@ -123,9 +139,7 @@ func _build_host() -> void:
 	_candle_btn.tooltip_text = L.t("door.candle_hint")
 	_candle_btn.level = m.candle
 	_candle_btn.pressed.connect(func() -> void: emit_intent(Intent.CANDLE, {}))
-	head.add_child(_candle_btn)
-	head.add_child(W.more(self, _host_info))
-	_box.add_child(head)
+	_head_with_tools(head, [_candle_btn, W.more(self, _host_info)])
 	var cap := m.config.capacity - 1
 	_seats = W.hbox(6)
 	_seats.name = "Seats"
@@ -721,11 +735,10 @@ func show_guest_result(admitted: bool) -> void:
 # ---------------------------------------------------------------
 func _build_alone() -> void:
 	var head := W.icon_line("alone", L.t("door.alone_short"), &"Tale", 52)
-	head.add_child(W.more(self, func() -> Array: return [
+	_head_with_tools(head, [W.more(self, func() -> Array: return [
 		["door", L.t("door.alone", {"house": m.house_name(seat.house)})],
 		["fang" if m.player().is_upyr else "talisman_cracked", L.t("door.alone_upyr") if m.player().is_upyr else L.t("door.alone_human")],
-		["info", L.t("door.hint_alone")]]))
-	_box.add_child(head)
+		["info", L.t("door.hint_alone")]])])
 	var next := W.button(L.t("door.wait"))
 	next.pressed.connect(func() -> void: commit(Intent.ADMIT, {"ids": [] as Array[int]}))
 	footer.add_child(next)

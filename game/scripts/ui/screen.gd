@@ -11,6 +11,8 @@ var body: VBoxContainer
 var footer: VBoxContainer
 var scroll: ScrollContainer
 var field_spacer: Control
+## Колонка шапка · поле · содержимое · подвал; нужна, чтобы считать высоту поля по реальным размерам.
+var chrome: VBoxContainer
 var _title_label: Label
 var hint: Hint
 var _clock: Label
@@ -73,7 +75,17 @@ func field_ratio() -> float:
 
 ## Переопределяется: высота поля при высоте экрана h. По умолчанию — доля field_ratio().
 func field_height(h: float) -> float:
-	return h * field_ratio()
+	var wanted := h * field_ratio()
+	if chrome == null:
+		return wanted
+	# на низком экране поле уступает: под содержимое остаётся min_content_ratio() высоты дисплея (но поле не меньше 20%)
+	var sep := float(chrome.get_theme_constant("separation"))
+	var bar := 0.0
+	if title() != "" and chrome.get_child_count() > 0:
+		bar = (chrome.get_child(0) as Control).get_combined_minimum_size().y
+	var content := min_content_ratio() * get_viewport_rect().size.y
+	var left := h - bar - footer.get_combined_minimum_size().y - 3.0 * sep - content
+	return clampf(left, h * 0.2, wanted)
 
 
 ## Прямоугольник поля в координатах экрана (без учёта анимации появления).
@@ -305,6 +317,7 @@ func _capsule(inner: Control) -> Control:
 
 func _chrome() -> void:
 	var col := W.vbox(18)
+	chrome = col
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(col)
 
@@ -354,7 +367,8 @@ func _chrome() -> void:
 		field_spacer = Control.new()
 		field_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		col.add_child(field_spacer)
-		resized.connect(func() -> void: field_spacer.custom_minimum_size.y = floorf(field_height(size.y)))
+		resized.connect(_fit_field_spacer)
+		field_spacer.resized.connect(Nav._queue_field_layout)
 
 	scroll = TouchScroll.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -367,6 +381,14 @@ func _chrome() -> void:
 
 	footer = W.vbox(10)
 	col.add_child(footer)
+	# ряд кнопок внизу может перестроиться (строка → сетка) после первой раскладки: поле подстраиваем под него
+	if field_spacer != null:
+		footer.minimum_size_changed.connect(_fit_field_spacer)
+
+
+func _fit_field_spacer() -> void:
+	if field_spacer != null and size.y > 0.0:
+		field_spacer.custom_minimum_size.y = floorf(field_height(size.y))
 
 
 ## Ряд плашек с жителями. on_tap: вызывается с Villager, если плашку можно нажать.

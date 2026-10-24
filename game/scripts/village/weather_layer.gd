@@ -10,6 +10,8 @@ extends Node2D
 const MAX_PARTICLES := 60
 const AREA := Rect2(-120, 100, 960, 460)            ## где идёт осадок, в координатах посёлка
 const FALL_H := 440.0                               ## высота падения осадка
+const SPLASH_AREA := Rect2(-70, 250, 860, 300)        ## где на земле видны брызги
+const SPLASH_SPOTS := 160                           ## сколько мест для брызг выбирается на карте
 const DIR := "res://assets/weather/"
 
 ## Сколько частиц у эмиттера при полной силе. Все числа не больше MAX_PARTICLES.
@@ -202,6 +204,9 @@ func refresh_geometry() -> void:
 			spots.append(Vector2(360, 300))
 		midges.emission_points = spots
 		_set_amount("midges", float(wanted(state).get("midges", 0.0)))
+	var splash: CPUParticles2D = _nodes.get("splash")
+	if splash != null:
+		splash.emission_points = splash_points()
 	var ripples: CPUParticles2D = _nodes.get("ripples")
 	if ripples != null:
 		var rp := PackedVector2Array()
@@ -216,6 +221,32 @@ func refresh_geometry() -> void:
 			rp.append(Vector2(360, 460))
 		ripples.emission_points = rp
 		_set_amount("ripples", float(wanted(state).get("ripples", 0.0)))
+
+
+## Куда падают брызги: на землю площади, но не на дома, колодец и реквизит.
+## Места выбираются с фиксированным зерном: одна и та же карта получает те же точки.
+func splash_points() -> PackedVector2Array:
+	var blocked: Array[Rect2] = []
+	if view != null and view.def != null:
+		blocked = view.hidden_zones()
+	var out := PackedVector2Array()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 6113
+	var tries := 0
+	while out.size() < SPLASH_SPOTS and tries < SPLASH_SPOTS * 40:
+		tries += 1
+		var at := Vector2(SPLASH_AREA.position.x + rng.randf() * SPLASH_AREA.size.x,
+			SPLASH_AREA.position.y + rng.randf() * SPLASH_AREA.size.y)
+		var hit := false
+		for r: Rect2 in blocked:
+			if r.grow(4.0).has_point(at):
+				hit = true
+				break
+		if not hit:
+			out.append(at)
+	if out.is_empty():
+		out.append(Vector2(360, 480))
+	return out
 
 
 func _process(delta: float) -> void:
@@ -378,8 +409,9 @@ func _splash() -> CPUParticles2D:
 	_play_frames(p)
 	p.lifetime = 0.5
 	p.preprocess = 0.5
-	p.position = Vector2(360, 400)
-	p.emission_rect_extents = Vector2(430, 150)
+	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_POINTS
+	p.emission_points = PackedVector2Array([Vector2(360, 480)])
+	p.position = Vector2.ZERO
 	p.spread = 0.0
 	p.initial_velocity_min = 0.0
 	p.initial_velocity_max = 0.0

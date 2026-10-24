@@ -510,8 +510,13 @@ func _apply_pace() -> void:
 		_heart.pitch_scale = clampf(_pace * (1.0 + 0.1 * tension), 0.85, 1.2)
 
 
+## Уровень каждой темы относительно канала: днём музыка тише, чтобы не перекрывать реплики и фон.
+const MUSIC_LEVEL := {&"day": -11.0, &"night": -9.0}
+
+
 func _music_target_db() -> float:
-	return -13.0 if heart_on else -8.0
+	var base: float = MUSIC_LEVEL.get(music_name, -8.0)
+	return base - 5.0 if heart_on else base
 
 
 ## Громкость канала, 0..1. 0 — канал заглушён полностью.

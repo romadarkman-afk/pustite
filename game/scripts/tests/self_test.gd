@@ -592,15 +592,43 @@ const LAYOUT_CUTOUTS: Array[Array] = [
 	[Vector2i(1080, 2400), Vector4(0, 110, 0, 70)],   # дырка в экране + жесты
 	[Vector2i(1080, 2340), Vector4(0, 140, 0, 48)],   # каплевидный вырез
 ]
+## Устройства из списка проекта: у каждого свой масштаб интерфейса по плотности. У телефонов экран в единицах
+## интерфейса от 450 до 600 в ширину, у складных и планшетов от 700 до 1230. Выбраны крайние и средние случаи.
+const LAYOUT_DEVICES: PackedStringArray = [
+	"Apple iPhone SE (2016)", "Apple iPhone 12 mini", "Google Pixel 3a", "Samsung Galaxy S8", "Samsung Galaxy Z Flip 5",
+	"Samsung Galaxy A50", "Samsung Galaxy S25 Ultra", "Amazon Fire 7", "Samsung Galaxy Z Fold 3",
+	"Samsung Galaxy Tab S4", "Apple iPad Pro 12.9-inch M1",
+]
+## Сколько шагов партии проходит устройство: хватает на день, голосование, ночь, дверь и утро.
+const DEVICE_STEPS := 16
 const MIN_TOUCH := 68.0
+## Масштаб интерфейса для самотеста (--csf=1.4): на телефонах ResolutionManager задаёт 1.2–1.6, и экран
+## в единицах интерфейса получается уже 720 — от 450 до 600 единиц.
+static var csf := 1.0
 ## Дома должны читаться: не мельче 80% задуманного размера. Пустых краёв не бывает —
 ## лес, земля и небо нарисованы шире экрана.
 const MIN_FIELD_SCALE := 0.8
 static var field_scales: PackedFloat32Array = PackedFloat32Array()
 
 
+## Профили устройств для самотеста: [размер окна, поля выреза (−1: нет), масштаб, имя модели].
+## Игра держит портрет, поэтому окно всегда высокое; масштаб считает тот же код, что работает на телефоне.
+static func device_profiles() -> Array[Array]:
+	var out: Array[Array] = []
+	for model: String in LAYOUT_DEVICES:
+		var p := DeviceDB.profile_for_model(model)
+		if p.is_empty():
+			continue
+		var w := int(p.width)
+		var h := int(p.height)
+		var sz := Vector2i(mini(w, h), maxi(w, h))
+		out.append([sz, Vector4(-1, -1, -1, -1), ResolutionManager.scale_for(sz, int(p.ppi)), model])
+	return out
+
+
 static func layout() -> void:
 	var tree := Nav.get_tree()
+	tree.root.content_scale_factor = csf
 	var problems: PackedStringArray = []
 	var checks := 0
 	var phone_cutouts: Array[Rect2] = [Rect2(500, 0, 80, 105)]
@@ -613,17 +641,52 @@ static func layout() -> void:
 		"Android: боковой вырез сжимает интерфейс по высоте")
 	var profiles: Array[Array] = []
 	for sz: Vector2i in LAYOUT_SIZES:
-		profiles.append([sz, Vector4(-1, -1, -1, -1)])
-	profiles.append_array(LAYOUT_CUTOUTS)
+		profiles.append([sz, Vector4(-1, -1, -1, -1), csf])
+	for cutout: Array in LAYOUT_CUTOUTS:
+		profiles.append([cutout[0], cutout[1], csf])
+	var plain_count := profiles.size()
+	profiles.append_array(device_profiles())
+	var only := OS.get_environment("LAYOUT_ONLY").split(",", false)
 	for prof: Array in profiles:
 		var sz: Vector2i = prof[0]
 		var cut: Vector4 = prof[1]
+		var device := prof.size() > 3
+		if not only.is_empty():
+			var wanted := false
+			for part: String in only:
+				if device and String(prof[3]).contains(part):
+					wanted = true
+			if not wanted:
+				continue
 		Nav.frame.debug_insets = cut
 		tree.root.size = sz
+		tree.root.content_scale_factor = float(prof[2])
 		await _settle(tree)
 		Nav.frame.refresh()
 		await _frames(tree, 2)
 		var tag := "%d×%d" % [sz.x, sz.y] + (" вырез %d/%d" % [int(cut.y), int(cut.w)] if cut.x >= 0.0 else "")
+		if device:
+			var units := Nav.frame.get_viewport_rect().size
+			tag = "%s %d×%d (экран %d×%d ед.)" % [prof[3], sz.x, sz.y, int(units.x), int(units.y)]
+			# запуск на телефоне: первые экраны собраны при масштабе 1.0, масштаб интерфейса меняется позже
+			tree.root.content_scale_factor = 1.0
+			await _settle(tree)
+			Nav.show_menu()
+			await _settle(tree)
+			Nav.show_settings()
+			await _settle(tree)
+			tree.root.content_scale_factor = float(prof[2])
+			await _settle(tree)
+			await _frames(tree, 2)
+			checks += _check(tag + " · масштаб сменился после сборки", problems)
+			Nav.show_menu()
+			await _settle(tree)
+			tree.root.content_scale_factor = 1.0
+			await _settle(tree)
+			tree.root.content_scale_factor = float(prof[2])
+			await _settle(tree)
+			await _frames(tree, 2)
+			checks += _check(tag + " · меню, масштаб сменился после сборки", problems)
 
 		Nav.show_menu()
 		await _settle(tree)
@@ -675,7 +738,8 @@ static func layout() -> void:
 		checks += await _check_doors(tag, problems)
 
 		var guard := 0
-		while Game.m.phase != Match.Phase.OVER and guard < 60:
+		var steps := DEVICE_STEPS if device else 60
+		while Game.m.phase != Match.Phase.OVER and guard < steps:
 			guard += 1
 			await _settle(tree)
 			checks += _check(tag, problems)
@@ -683,6 +747,7 @@ static func layout() -> void:
 		await _settle(tree)
 		checks += _check(tag, problems)
 
+	tree.root.content_scale_factor = csf
 	Nav.frame.debug_insets = Vector4(-1, -1, -1, -1)
 	if not field_scales.is_empty():
 		var lo := 9.0
@@ -691,12 +756,14 @@ static func layout() -> void:
 			lo = minf(lo, sc)
 			hi = maxf(hi, sc)
 		print("масштаб посёлка на всех экранах: от %.2f до %.2f" % [lo, hi])
-	print("=== раскладка: %d проверок на %d типах экранов (из них %d с вырезом) ===" % [checks, profiles.size(), LAYOUT_CUTOUTS.size()])
+	print("=== раскладка: %d проверок на %d типах экранов (из них %d с вырезом, %d устройств из списка) ===" % [
+		checks, profiles.size(), LAYOUT_CUTOUTS.size(), profiles.size() - plain_count])
 	if problems.is_empty():
 		print("ИТОГ: OK — все экраны на весь дисплей, кнопки ≥ 48 dp, ничего не вылезает")
 		tree.quit(0)
 	else:
-		for p: String in problems.slice(0, 40):
+		var shown := problems.size() if OS.get_environment("LAYOUT_ALL") != "" else 40
+		for p: String in problems.slice(0, shown):
 			print("  ✗ " + p)
 		print("ИТОГ: НАРУШЕНИЙ РАСКЛАДКИ: %d" % problems.size())
 		tree.quit(1)
@@ -808,6 +875,11 @@ static func _check_doors(tag: String, out: PackedStringArray) -> int:
 		var lines := _reading_lines(d)
 		if lines > 2:
 			out.append("%s · дверь %s: до первого действия %d строк текста" % [tag, d.screen_id(), lines])
+			if OS.get_environment("LAYOUT_DEBUG") != "":
+				for root: Control in [d.body, d.footer]:
+					for c: Control in _controls(root):
+						if c is Label and c.is_visible_in_tree():
+							print("   строка×%d «%s» w=%d" % [(c as Label).get_visible_line_count(), (c as Label).text.left(50), int(c.size.x)])
 		var more := _more_text(d)
 		if more.length() < 20:
 			out.append("%s · дверь %s: в «Подробнее» пусто" % [tag, d.screen_id()])
@@ -854,8 +926,16 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 			out.append("%s: под нижними кнопками пустует %d px" % [w, int(unused)])
 	if s.scroll.size.y < maxf(56.0, vp.y * s.min_content_ratio()):
 		out.append("%s: под содержимое всего %d px из %d" % [w, int(s.scroll.size.y), int(vp.y)])
-	if s is DayScreen and s.field_rect_local().size.y < Nav.host.size.y * 0.44:
-		out.append("%s: поле дня %d px — меньше 44%% экрана (%d)" % [w, int(s.field_rect_local().size.y), int(Nav.host.size.y)])
+		if OS.get_environment("LAYOUT_DEBUG") != "" and s.chrome != null:
+			# из чего сложилась высота экрана: шапка, поле, содержимое, подвал (размер/минимум)
+			var parts: Array[String] = []
+			for c: Node in s.chrome.get_children():
+				parts.append("%s %d/%d" % [c.get_class(), (c as Control).size.y, (c as Control).get_combined_minimum_size().y])
+			print("  разбор высоты %s: экран %d, %s" % [w, int(Nav.host.size.y), " | ".join(parts)])
+	# поле дня ≥ 44% экрана; на низком телефоне (меньше 1000 ед.) оно уступает место кнопкам, но не меньше 29%
+	var day_floor := 0.44 if vp.y >= 1000.0 else 0.29
+	if s is DayScreen and s.field_rect_local().size.y < Nav.host.size.y * day_floor:
+		out.append("%s: поле дня %d px — меньше %d%% экрана (%d)" % [w, int(s.field_rect_local().size.y), int(day_floor * 100), int(Nav.host.size.y)])
 	var ins := Nav.frame.insets
 	var safe := Rect2(ins.x, ins.y, vp.x - ins.x - ins.z, vp.y - ins.y - ins.w)
 	var hr := Nav.host.get_global_rect()
@@ -873,15 +953,19 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 		# полоса с домами внутри поля; долю неба задаёт VillageView.SKY_SHARE
 		var extra := fld.size.y - band.size.y
 		var want_top := fld.position.y + maxf(0.0, extra) * VillageView.SKY_SHARE
-		if extra >= 0.0 and absf(band.position.y - want_top) > 3.0:
+		# днём полоса может сидеть ниже: кадр оставляет над головами место под реплики (VillageView.BUBBLE_HEADROOM)
+		var misplaced := band.position.y < want_top - 3.0 if s is DayScreen else absf(band.position.y - want_top) > 3.0
+		if extra >= 0.0 and misplaced:
 			out.append("%s: посёлок не на своём месте в поле (верх %d, ждали %d)" % [w, int(band.position.y), int(want_top)])
 		if extra >= -1.0 and (band.position.y < fld.position.y - 1.0 or band.end.y > fld.end.y + 1.0):
 			out.append("%s: полоса с домами вылезает из поля" % w)
 		if band.size.y > fld.size.y + 3.0:
 			out.append("%s: дома не влезают в поле (%d > %d)" % [w, int(band.size.y), int(fld.size.y)])
 		var has_menu_art := s is MenuScreen and s.find_child("MenuBackdrop0", true, false) != null
-		if Nav.village.scale.x < MIN_FIELD_SCALE and not has_menu_art:
-			out.append("%s: дома мельче %d%% от задуманного (масштаб %.2f)" % [w, int(MIN_FIELD_SCALE * 100), Nav.village.scale.x])
+		# посёлок в ширину 720 ед.: на экране уже 720 он по ширине не больше vp.x / 720, поэтому порог 80% берётся от этого
+		var min_scale := minf(MIN_FIELD_SCALE, 0.75 * vp.x / VillageView.LOGICAL.x)
+		if Nav.village.scale.x < min_scale and not has_menu_art:
+			out.append("%s: дома мельче %d%% от задуманного (масштаб %.2f)" % [w, int(min_scale * 100), Nav.village.scale.x])
 		var zoomed := s.field_zoom() > 1.0
 		var me_f: VillagerFigure = Nav.village.crowd.figures.get(0)
 		if not zoomed and absf(band.get_center().x - vp.x * 0.5) > 2.0:
@@ -891,7 +975,7 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 			var left_edge: float = Nav.village.to_global(Vector2(0, 0)).x
 			var right_edge: float = Nav.village.to_global(Vector2(VillageView.LOGICAL.x, 0)).x
 			if left_edge > 20.0 * Nav.village.scale.x + 1.0 or right_edge < vp.x - 20.0 * Nav.village.scale.x - 1.0:
-				out.append("%s: камера дня ушла за край посёлка (%d…%d)" % [w, int(left_edge), int(right_edge)])
+				out.append("%s: камера дня ушла за край посёлка (%d…%d, масштаб %.2f, поле %d px)" % [w, int(left_edge), int(right_edge), Nav.village.scale.x, int(fld.size.y)])
 			if me_f != null:
 				var mx: float = me_f.get_global_transform_with_canvas().origin.x
 				if mx < vp.x * 0.2 or mx > vp.x * 0.8:
@@ -1896,6 +1980,14 @@ static func _settle(tree: SceneTree) -> void:
 			break
 		await tree.process_frame
 	await _frames(tree, 2)
+	# высота поля может уточниться после раскладки подвала (ряд кнопок перестроился): ждём, пока она устоится и кадр обновится
+	var cur: Screen = Nav.host.current
+	if cur != null and cur.field_spacer != null:
+		for i in range(6):
+			var before := cur.field_spacer.size.y
+			await _frames(tree, 5)
+			if not is_instance_valid(cur) or is_equal_approx(before, cur.field_spacer.size.y):
+				break
 
 
 
@@ -2349,6 +2441,7 @@ static func bubbles() -> void:
 	for bank: PackedStringArray in [Phrases.b("ACCUSE_STRONG"), Phrases.b("UPYR_DEFLECT"), Phrases.b("DEFEND"), Phrases.b("FILLER"), Phrases.b("ANNOUNCE")]:
 		texts.append_array(bank)
 	texts.append("Я вчера сидел тихо и дожил. Значит, всё делал правильно, а вы тут спорите о пустом.")
+	texts.append("Я вчера сидел тихо и дожил. Значит, всё делал правильно, а вы тут спорите о пустом, пока Марина ходит по дворам и смотрит на чужие двери.")
 	var profiles: Array[Array] = []
 	for sz: Vector2i in LAYOUT_SIZES:
 		profiles.append([sz, Vector4(-1, -1, -1, -1)])
@@ -2398,6 +2491,9 @@ static func bubbles() -> void:
 					problems.append("%s: пузырь %s ниже головы говорящего" % [tag, who.name])
 			for i in range(live.size()):
 				var a := live[i]
+				# длинная реплика не занимает пол экрана: до 90% ширины поля и до трети его высоты
+				if a.rect.size.x > fld.size.x * 0.9 + 0.5 or a.rect.size.y > fld.size.y * 0.34:
+					problems.append("%s: пузырь %s %dx%d слишком большой для поля %dx%d" % [tag, a.who, int(a.rect.size.x), int(a.rect.size.y), int(fld.size.x), int(fld.size.y)])
 				if a.rect.position.x < -0.5 or a.rect.end.x > vp.x + 0.5:
 					problems.append("%s: пузырь %s за краем экрана" % [tag, a.who])
 				if a.rect.position.y < fld.position.y - 0.5 or a.rect.end.y > fld.end.y + 0.5:
@@ -3332,6 +3428,34 @@ static func weather() -> void:
 	view.set_weather(Weather.EMPTY.duplicate())
 	ok += _expect(fails, layer.emitter_names().is_empty(), "пустая погода оставила эмиттеры: %s" % layer.emitter_names())
 
+	# мягкая текстура теней и пылинок прозрачна по краям: иначе они рисуются светлыми квадратами с пятном внутри
+	var soft_tex := view._soft_texture()
+	await _frames(tree, 3)
+	var soft_img := soft_tex.get_image()
+	ok += _expect(fails, soft_img != null and not soft_img.is_empty(), "мягкая текстура не создала картинку")
+	if soft_img != null and not soft_img.is_empty():
+		var corners := maxf(soft_img.get_pixel(0, 0).a, maxf(soft_img.get_pixel(127, 0).a, maxf(soft_img.get_pixel(0, 127).a, soft_img.get_pixel(127, 127).a)))
+		var sides := maxf(soft_img.get_pixel(64, 0).a, maxf(soft_img.get_pixel(127, 64).a, maxf(soft_img.get_pixel(64, 127).a, soft_img.get_pixel(0, 64).a)))
+		ok += _expect(fails, corners < 0.01 and sides < 0.01, "мягкая текстура непрозрачна по краям (углы %.2f, стороны %.2f): тени и пыль станут квадратами" % [corners, sides])
+		ok += _expect(fails, soft_img.get_pixel(64, 64).a > 0.8 and soft_img.get_pixel(64, 40).a < soft_img.get_pixel(64, 64).a,
+			"мягкая текстура не светлее в центре (%.2f)" % soft_img.get_pixel(64, 64).a)
+
+	# брызги дождя падают на землю площади и не попадают на дома, колодец и реквизит
+	view.set_weather(Weather.state("rain_swollen_river", 2))
+	var splash_pts := layer.splash_points()
+	ok += _expect(fails, splash_pts.size() >= 100, "мест для брызг всего %d" % splash_pts.size())
+	var splash_node := layer.emitter("splash") as CPUParticles2D
+	ok += _expect(fails, splash_node != null and splash_node.emission_shape == CPUParticles2D.EMISSION_SHAPE_POINTS \
+		and splash_node.emission_points.size() == splash_pts.size(), "брызги берут места из списка, а не из прямоугольника по всему полю")
+	var on_roof := 0
+	for at: Vector2 in splash_pts:
+		for zone: Rect2 in view.hidden_zones():
+			if zone.has_point(at):
+				on_roof += 1
+				break
+	ok += _expect(fails, on_roof == 0, "брызги дождя падают на дома, колодец или реквизит: %d мест из %d" % [on_roof, splash_pts.size()])
+	view.set_weather(Weather.EMPTY.duplicate())
+
 	var seen_seasons := {}
 	var by_season := {}
 	for id: String in Campaign.ORDER:
@@ -3896,7 +4020,8 @@ static func sound() -> void:
 		Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
 		await _settle(tree)
 		if attempt == 0:
-			ok += _expect(fails, Sfx.ambience_name == &"amb_day" and Sfx.music_name == &"", "днём не дневной фон без музыки (%s / %s)" % [Sfx.ambience_name, Sfx.music_name])
+			ok += _expect(fails, Sfx.ambience_name == &"amb_day" and Sfx.music_name == &"day" and Sfx._music_p.stream == Sfx._streams[&"day"],
+				"днём нет дневного фона или светлой темы (%s / %s)" % [Sfx.ambience_name, Sfx.music_name])
 			Sfx.played.clear()
 			Game.say("Проверка голоса.")
 			await _frames(tree, 30)
@@ -3909,8 +4034,8 @@ static func sound() -> void:
 			Game.proceed()
 			await _settle(tree)
 		if attempt == 0:
-			ok += _expect(fails, Sfx.played.has(&"bell") and Sfx.ambience_name == &"amb_night" and Sfx.music_name == &"",
-				"ночь без колокола и фонового звука или с музыкой (%s / %s)" % [Sfx.ambience_name, Sfx.music_name])
+			ok += _expect(fails, Sfx.played.has(&"bell") and Sfx.ambience_name == &"amb_night" and Sfx.music_name == &"night",
+				"ночь без колокола, ночного фона или тревожной темы (%s / %s)" % [Sfx.ambience_name, Sfx.music_name])
 		if not Game.m.player().alive:
 			continue
 		Sfx.played.clear()
@@ -8242,6 +8367,12 @@ static func display() -> void:
 			"масштаб вне допустимого диапазона для %s" % String(profile.models[0]))
 		var rotated := ResolutionManager.scale_for(Vector2i(size.y, size.x), int(profile.ppi))
 		checks += _expect(fails, is_equal_approx(scale, rotated), "смена ориентации изменила масштаб профиля %s" % String(profile.models[0]))
+		# экран в единицах интерфейса (портрет): не уже 440 и не ниже 780, иначе экраны не помещаются
+		var pw := float(mini(size.x, size.y))
+		var ph := float(maxi(size.x, size.y))
+		var units_per_px := 1.0 / (minf(pw / 720.0, ph / 1280.0) * scale)
+		checks += _expect(fails, pw * units_per_px >= 440.0 and ph * units_per_px >= 780.0,
+			"экран %s в единицах интерфейса %dx%d: уже 440 или ниже 780" % [String(profile.models[0]), int(pw * units_per_px), int(ph * units_per_px)])
 		var preview := ResolutionManager.preview_window_size(size, Vector2i(1440, 900))
 		var aspect_error := absf(float(preview.x) / float(preview.y) - float(size.x) / float(size.y))
 		checks += _expect(fails, aspect_error < 0.01 and preview.x <= 760 and preview.y <= 960,

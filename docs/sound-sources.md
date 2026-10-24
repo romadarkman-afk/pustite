@@ -1,13 +1,13 @@
 # Источники звука
 
-Сторонние записи и их авторство перечислены ниже; заявленная для них лицензия в исходном аудиопакете — CC0. Две текущие музыкальные темы сделаны процедурно скриптами проекта без внешних сэмплов. `menu_theme.wav` звучит в меню, `river_theme.wav` — во вступлении у реки. Godot сжимает WAV при импорте.
+Сторонние записи и их авторство перечислены ниже; заявленная для них лицензия в исходном аудиопакете — CC0. Четыре музыкальные темы сделаны процедурно скриптами проекта без внешних сэмплов. `menu_theme.wav` звучит в меню, `river_theme.wav` во вступлении у реки, `day.ogg` днём, `night.ogg` ночью и у двери. Godot сжимает WAV при импорте.
 
 | Файлы в игре | Исходная запись | Автор |
 | --- | --- | --- |
 | `music/menu_theme.wav` | Оригинальная процедурная тема, `game/tools/make_menu_theme.py` | Создана для проекта, внешних сэмплов нет |
 | `music/river_theme.wav` | Оригинальная процедурная тема, `game/tools/make_river_theme.py` | Создана для проекта, внешних сэмплов нет |
-| `music/day.ogg` | [CC0 - Mystery](https://opengameart.org/content/cc0-mystery) | PolygonDan |
-| `music/night.ogg` | [Dark Place (loop)](https://opengameart.org/content/dark-place-loop) | SkyleTheFrench |
+| `music/day.ogg` | Оригинальная процедурная тема (ре мажор), `tools/make_day_night_music.py` | Создана для проекта, внешних сэмплов нет. Заменила CC0 Mystery (PolygonDan) в TASK-101 |
+| `music/night.ogg` | Оригинальная процедурная тема (ми фригийский), `tools/make_day_night_music.py` | Создана для проекта, внешних сэмплов нет. Заменила Dark Place (SkyleTheFrench) в TASK-101 |
 | `music/end_dawn.ogg` | [Forget Me Not](https://opengameart.org/content/forget-me-not) | Kistol |
 | `music/end_dark.ogg` | [Game Over Dark Short Music Clips](https://opengameart.org/content/game-over-dark-short-music-clips) | Robin Lamb |
 | `sfx/amb_day.ogg` | [Ambient Bird Sounds](https://opengameart.org/content/ambient-bird-sounds) | isaiah658 |

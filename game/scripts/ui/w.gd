@@ -95,6 +95,8 @@ static func icon_line(kind: String, text: String, variation: StringName = &"Body
 	h.add_child(Glyph.make(kind, px, Glyph.tint(kind) if c.a == 0.0 else c))
 	var l := label(text, variation)
 	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	# надпись забирает всю оставшуюся ширину; без этого на узком экране она сжимается до одного слова в строке
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(l)
 	return h
 
@@ -109,30 +111,17 @@ static func more(parent: Control, lines: Callable) -> Button:
 	return b
 
 
-## Ряд кнопок: влезают в строку — встают в строку; при крупном тексте или длинных словах —
-## сеткой в два столбца, а если и так тесно — столбиком. Надписи не обрезаются.
+## Ряд кнопок: влезают в строку — встают в строку; при крупном тексте, узком экране или длинных
+## словах сам перестраивается сеткой в два столбца или столбиком (FitRow, при каждой смене ширины).
+## Надписи не обрезаются.
 static func fit_row(buttons: Array, sep: int = 8) -> Container:
-	var avail: float = Nav.host.size.x if Nav.host != null and Nav.host.size.x > 100.0 else 672.0
-	var widest := 0.0
-	var total := sep * (buttons.size() - 1.0)
-	for b: Button in buttons:
-		var need := button_need(b)
-		widest = maxf(widest, need)
-		total += need
-	var box: Container
-	if total <= avail:
-		box = hbox(sep)
-	else:
-		var g := GridContainer.new()
-		g.columns = 2 if widest * 2.0 + sep <= avail else 1
-		g.add_theme_constant_override("h_separation", sep)
-		g.add_theme_constant_override("v_separation", sep)
-		box = g
+	var box := FitRow.new()
 	box.name = "FitRow"
+	box.sep = sep
 	for b: Button in buttons:
 		b.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-		# узкая кнопка (SHRINK_BEGIN) в строке остаётся узкой; в сетке все одной ширины
-		if box is GridContainer or b.size_flags_horizontal != Control.SIZE_SHRINK_BEGIN:
+		# узкая кнопка (SHRINK_BEGIN) в строке остаётся узкой; в сетке и столбике все одной ширины
+		if b.size_flags_horizontal != Control.SIZE_SHRINK_BEGIN:
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		box.add_child(b)
 	return box

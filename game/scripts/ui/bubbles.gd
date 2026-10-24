@@ -9,6 +9,8 @@ const NAME_SIZE := 15
 const PAD := Vector2(12, 8)
 const MAX_ON_SCREEN := 3
 const GAP := 6.0
+const MAX_SHARE := 0.26      ## выше этой доли поля пузырь не растёт вверх, а расширяется
+const WIDE_SHARE := 0.88     ## и занимает до этой доли ширины поля
 const FADE_IN := 0.18
 const FADE_OUT := 0.2
 
@@ -65,6 +67,13 @@ func say(who: String, text: String, head: Vector2, mine: bool, fig: Node2D = nul
 	var maxw := minf(330.0 * ThemeFactory.text_scale, field.size.x * minf(0.7, 0.56 * ThemeFactory.text_scale))
 	var inner := maxw - PAD.x * 2.0
 	var ts := _font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, inner, fsz)
+	# Узкий экран (телефон с большой плотностью даёт всего ~590 единиц): длинная реплика в узком столбце
+	# занимала треть поля. Пока пузырь выше MAX_SHARE поля, он расширяется до WIDE_SHARE ширины.
+	var cap_w := minf(field.size.x - 8.0, field.size.x * WIDE_SHARE)
+	while maxw < cap_w and ts.y + nsz + 4.0 + PAD.y * 2.0 > field.size.y * MAX_SHARE:
+		maxw = minf(cap_w, maxw + 32.0)
+		inner = maxw - PAD.x * 2.0
+		ts = _font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, inner, fsz)
 	var nw := _font.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, nsz).x
 	var w := ceilf(maxf(ts.x, nw)) + PAD.x * 2.0
 	var h := ceilf(ts.y) + nsz + 4.0 + PAD.y * 2.0

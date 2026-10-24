@@ -338,17 +338,22 @@ func frame_to(rect: Rect2, vp_w: float, dur: float, zoom: float = 1.0, focus_x: 
 			var height := figure.look.height if figure.look != null else 1.0
 			top_head_y = minf(top_head_y, figure.position.y - VillagerFigure.FIG_TOP * height)
 	if reserve_speech_space and is_finite(top_head_y):
+		# пузырь не выше MAX_SHARE поля (Bubbles), поэтому на невысоком поле места над головами нужно меньше, чем на планшете
+		var headroom := minf(BUBBLE_HEADROOM, rect.size.y * Bubbles.MAX_SHARE + 56.0)
 		var extra_y := maxf(0.0, rect.size.y - BAND.size.y * s)
 		var head_gap := extra_y * sky_share + (top_head_y - BAND.position.y) * s
-		if head_gap < BUBBLE_HEADROOM:
+		if head_gap < headroom:
 			# Сначала используем свободное место сверху. Если его не хватает,
 			# чуть уменьшаем кадр, чтобы верхняя реплика оставалась над жителем.
 			sky_share = 1.0
 			var head_depth := BAND.end.y - top_head_y
 			if head_depth > 0.0:
-				var needed_scale := (rect.size.y - BUBBLE_HEADROOM) / head_depth
+				var needed_scale := (rect.size.y - headroom) / head_depth
 				if needed_scale > 0.0:
 					s = maxf(0.5, minf(s, needed_scale))
+	if zoom > 1.0:
+		# приближенная камера не показывает пустоту за краями посёлка: посёлок (с запасом 18 ед. с каждой стороны) не уже экрана
+		s = maxf(s, minf(rect.size.y / BAND.size.y, vp_w / (LOGICAL.x + 36.0)))
 	_vp_w = vp_w
 	if focus_x >= 0.0:
 		cam_x = focus_x
@@ -1416,12 +1421,12 @@ func _lamp_on(i: int, n: float) -> float:
 
 
 func _soft_texture() -> GradientTexture2D:
+	# Мягкая альфа-маска для теней и частиц (силу задаёт цвет частицы или тени); PointLight2D использует отдельную серую текстуру.
+	# Точки задаются массивами: set_color(1, …) после add_point() попадал в точку 0.3, а конец градиента
+	# оставался белым и непрозрачным, из-за чего тени и пылинки рисовались светлыми квадратами.
 	var g := Gradient.new()
-	# Мягкая альфа-маска остаётся для теней и частиц; PointLight2D использует отдельную серую текстуру.
-	g.set_color(0, Color(1, 1, 1, 0.24))
-	g.add_point(0.3, Color(1, 1, 1, 0.15))
-	g.add_point(0.65, Color(1, 1, 1, 0.04))
-	g.set_color(1, Color(1, 1, 1, 0.0))
+	g.offsets = PackedFloat32Array([0.0, 0.3, 0.65, 1.0])
+	g.colors = PackedColorArray([Color(1, 1, 1, 1.0), Color(1, 1, 1, 0.62), Color(1, 1, 1, 0.17), Color(1, 1, 1, 0.0)])
 	var t := GradientTexture2D.new()
 	t.gradient = g
 	t.fill = GradientTexture2D.FILL_RADIAL

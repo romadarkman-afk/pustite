@@ -10,7 +10,7 @@ var _chips: Dictionary = {}
 var _tab := "sound"
 var _about_open := false
 ## Авторы записей звука и музыки с OpenGameArt.org (docs/sound-sources.md). Имена не переводятся.
-const AUDIO_AUTHORS := "rubberduck, Robin Lamb, PolygonDan, SkyleTheFrench, Kistol, isaiah658, Ted Kerr, SketchMan3, RandomMind, AuraVoice, Nocturnal_Vanguard, HaelDB, marcelofg55, GboxMikeFozzy, Ogrebane."
+const AUDIO_AUTHORS := "rubberduck, Robin Lamb, Kistol, isaiah658, Ted Kerr, SketchMan3, RandomMind, AuraVoice, Nocturnal_Vanguard, HaelDB, marcelofg55, GboxMikeFozzy, Ogrebane."
 var _taps := DebugScreen.TapCounter.new()
 
 
