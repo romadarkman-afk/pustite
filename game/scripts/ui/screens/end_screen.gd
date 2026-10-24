@@ -83,7 +83,7 @@ func build() -> void:
 		nc.name = "NewItems"
 		var nb := W.vbox(8)
 		nb.add_child(W.icon_line("street_ok", L.t("cos.new", {"list": L.t("list.sep").join(names)}), &"Body"))
-		var wear := W.button(L.t("cos.title"), &"Row")
+		var wear := W.wrap(W.button(L.t("cos.title"), &"Row"))
 		wear.pressed.connect(func() -> void: commit(Intent.OPEN_WARDROBE))
 		nb.add_child(wear)
 		nc.add_child(nb)

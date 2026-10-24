@@ -229,7 +229,7 @@ func _build_host() -> void:
 			portrait.modulate = Color(0.8, 0.85, 0.9, 0.3)     # в тумане лица не видно (TASK-016)
 		texts.add_child(W.label(L.t("door.quote", {"text": pleas.get(g.id, "…")}), &"Small"))
 		var mem := fog and director != null and not director.shared_memory(g).is_empty()
-		var ask := W.button(L.t("door.mem_ask") if mem else L.t("door.ask"), &"Ghost")
+		var ask := W.wrap(W.button(L.t("door.mem_ask") if mem else L.t("door.ask"), &"Ghost"))
 		ask.name = "Ask_%d" % g.id
 		ask.custom_minimum_size = Vector2(0, ThemeFactory.TOUCH)
 		var aid := g.id

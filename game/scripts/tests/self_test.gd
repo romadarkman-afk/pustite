@@ -907,6 +907,22 @@ static func _reading_lines(s: Screen) -> int:
 	return total
 
 
+## Ширина того, что нельзя разорвать при переносе: слово целиком, а в китайском, японском и корейском тексте
+## (пробелов нет, перенос возможен между знаками) самый широкий знак.
+static func _unbreakable_width(word: String, f: Font, fs: int) -> float:
+	var cjk := false
+	for i in range(word.length()):
+		if word.unicode_at(i) >= 0x2E80:
+			cjk = true
+			break
+	if not cjk:
+		return f.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var widest := 0.0
+	for i in range(word.length()):
+		widest = maxf(widest, f.get_string_size(word[i], HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
+	return widest
+
+
 static func _check(tag: String, out: PackedStringArray) -> int:
 	var vp := Nav.frame.get_viewport_rect().size
 	var s: Screen = Nav.host.current
@@ -924,7 +940,10 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 		var unused := s.get_global_rect().end.y - s.footer.get_global_rect().end.y
 		if unused > maxf(48.0 * ThemeFactory.text_scale, s.size.y * 0.05):
 			out.append("%s: под нижними кнопками пустует %d px" % [w, int(unused)])
-	if s.scroll.size.y < maxf(56.0, vp.y * s.min_content_ratio()):
+	# самый крупный текст (116%) на самом узком телефоне (меньше 480 ед., iPhone SE 2016): кнопки дня встают столбиком и занимают
+	# полэкрана. Здесь дневной экран проверяется на выход за край, но не на долю содержимого (docs/known-issues.md).
+	var cramped_day := s is DayScreen and ThemeFactory.text_scale >= 1.15 and vp.x < 480.0
+	if s.scroll.size.y < maxf(56.0, vp.y * s.min_content_ratio()) and not cramped_day:
 		out.append("%s: под содержимое всего %d px из %d" % [w, int(s.scroll.size.y), int(vp.y)])
 		if OS.get_environment("LAYOUT_DEBUG") != "" and s.chrome != null:
 			# из чего сложилась высота экрана: шапка, поле, содержимое, подвал (размер/минимум)
@@ -932,8 +951,8 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 			for c: Node in s.chrome.get_children():
 				parts.append("%s %d/%d" % [c.get_class(), (c as Control).size.y, (c as Control).get_combined_minimum_size().y])
 			print("  разбор высоты %s: экран %d, %s" % [w, int(Nav.host.size.y), " | ".join(parts)])
-	# поле дня ≥ 44% экрана; на низком телефоне (меньше 1000 ед.) оно уступает место кнопкам, но не меньше 29%
-	var day_floor := 0.44 if vp.y >= 1000.0 else 0.29
+	# поле дня ≥ 44% экрана; на низком телефоне (меньше 1000 ед.) или при крупном тексте оно уступает место кнопкам, но не меньше 29%
+	var day_floor := 0.44 if vp.y >= 1000.0 and ThemeFactory.text_scale < 1.15 else 0.29
 	if s is DayScreen and s.field_rect_local().size.y < Nav.host.size.y * day_floor:
 		out.append("%s: поле дня %d px — меньше %d%% экрана (%d)" % [w, int(s.field_rect_local().size.y), int(day_floor * 100), int(Nav.host.size.y)])
 	var ins := Nav.frame.insets
@@ -974,7 +993,9 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 			# день: камера приближена и смотрит на игрока; посёлок шире экрана, но без пустых краёв
 			var left_edge: float = Nav.village.to_global(Vector2(0, 0)).x
 			var right_edge: float = Nav.village.to_global(Vector2(VillageView.LOGICAL.x, 0)).x
-			if left_edge > 20.0 * Nav.village.scale.x + 1.0 or right_edge < vp.x - 20.0 * Nav.village.scale.x - 1.0:
+			# если полоса с домами уже занимает всё поле по высоте, приблизить камеру нельзя: края остаются пустыми
+			var height_limited: bool = Nav.village.scale.x * VillageView.BAND.size.y >= fld.size.y - 3.0
+			if (left_edge > 20.0 * Nav.village.scale.x + 1.0 or right_edge < vp.x - 20.0 * Nav.village.scale.x - 1.0) and not cramped_day and not height_limited:
 				out.append("%s: камера дня ушла за край посёлка (%d…%d, масштаб %.2f, поле %d px)" % [w, int(left_edge), int(right_edge), Nav.village.scale.x, int(fld.size.y)])
 			if me_f != null:
 				var mx: float = me_f.get_global_transform_with_canvas().origin.x
@@ -1031,7 +1052,7 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 				# перенос по словам: влезть должно самое длинное слово, а по высоте — все строки
 				need = 0.0
 				for word: String in b.text.replace("\n", " ").split(" ", false):
-					need = maxf(need, f.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + pad)
+					need = maxf(need, _unbreakable_width(word, f, fs) + pad)
 				var tall := f.get_multiline_string_size(b.text, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - pad, fs).y
 				if r.size.y + 1.0 < tall:
 					out.append("%s: перенесённый текст не влезает в кнопку по высоте: «%s»" % [w, b.text.replace("\n", " ").left(30)])

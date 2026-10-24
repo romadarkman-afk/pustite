@@ -47,7 +47,7 @@ func build() -> void:
 
 	body.add_child(_about_block())
 	body.add_child(_version_row())
-	var go := W.button(L.t("settings.start"))
+	var go := W.wrap(W.button(L.t("settings.start")))
 	go.pressed.connect(func() -> void: emit_intent(Intent.START, {"cfg": cfg, "haptics": haptics, "reset_hints": reset_hints, "difficulty": difficulty}))
 	footer.add_child(go)
 	var back := W.button(L.t("ui.back"), &"Ghost")
