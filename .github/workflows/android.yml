@@ -181,15 +181,23 @@ jobs:
           path: build/pustite.apk
           retention-days: 30
 
+      # Релиз идёт с main и по ручному запуску с любой ветки (Actions → Сборка APK → Run workflow).
+      # Каждая сильная версия выкладывается как релиз; ветку без PR в main тоже можно выложить,
+      # поэтому тег ставится на коммит сборки (--target), а не на голову main.
       - name: Выложить релиз со ссылкой на APK
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="build-$(date +%Y%m%d-%H%M%S)"
           VER=$(grep -oP 'config/version="\K[^"]+' game/project.godot || echo "?")
+          {
+            echo "Отладочная сборка. Коммит ${GITHUB_SHA::7}, ветка ${GITHUB_REF_NAME}. Скачайте pustite.apk и установите на телефон."
+            echo
+            awk -v v="## $VER" 'index($0, v) == 1 {f = 1; next} f && /^## / {exit} f' CHANGELOG.md
+          } > release-notes.md
           gh release create "$TAG" "build/pustite.apk" \
+            --target "$GITHUB_SHA" \
             --title "v$VER · $TAG" \
-            --notes "Отладочная сборка. Коммит ${GITHUB_SHA::7}. Скачайте pustite.apk и установите на телефон." \
+            --notes-file release-notes.md \
             --latest
-
