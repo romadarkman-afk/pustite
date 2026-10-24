@@ -597,7 +597,7 @@ const LAYOUT_CUTOUTS: Array[Array] = [
 const LAYOUT_DEVICES: PackedStringArray = [
 	"Apple iPhone SE (2016)", "Apple iPhone 12 mini", "Google Pixel 3a", "Samsung Galaxy S8", "Samsung Galaxy Z Flip 5",
 	"Samsung Galaxy A50", "Samsung Galaxy S25 Ultra", "Amazon Fire 7", "Samsung Galaxy Z Fold 3",
-	"Samsung Galaxy Tab S4", "Apple iPad Pro 12.9-inch M1",
+	"Samsung Galaxy Tab S4", "Apple iPad Pro 12.9-inch M1", "POCO F5 Pro",
 ]
 ## Сколько шагов партии проходит устройство: хватает на день, голосование, ночь, дверь и утро.
 const DEVICE_STEPS := 16
@@ -1003,6 +1003,8 @@ static func _check(tag: String, out: PackedStringArray) -> int:
 					out.append("%s: днём игрок не в середине кадра (x=%d)" % [w, int(mx)])
 
 		field_scales.append(Nav.village.scale.x)
+		if not OS.get_environment("LAYOUT_PRINT").is_empty():
+			print("поле: %s, экран %dx%d ед., поле %dx%d, масштаб посёлка %.2f" % [w, int(vp.x), int(vp.y), int(fld.size.x), int(fld.size.y), Nav.village.scale.x])
 		if absf(Nav.scrim.top - fld.end.y) > 3.0:
 			out.append("%s: затемнение не у нижнего края поля (%d vs %d)" % [w, int(Nav.scrim.top), int(fld.end.y)])
 		if absf(Nav.scrim.field_top - fld.position.y) > 3.0:
@@ -1735,8 +1737,8 @@ static func field() -> void:
 	Save.set_difficulty("normal")    # всегда обычная партия на 7 жителей, независимо от сохранённых настроек
 
 	var vd := load("res://config/village_default.tres") as VillageDef
-	ok += _expect(fails, vd != null and vd.shelters.size() == 5 and vd.decor.size() >= 3 and vd.lamps.size() == 3,
-		"ресурс посёлка: ждём 5 убежищ, 3+ фоновых дома, 3 фонаря")
+	ok += _expect(fails, vd != null and vd.shelters.size() == 5 and vd.decor.size() >= 2 and vd.lamps.size() == 3,
+		"ресурс посёлка: ждём 5 убежищ, 2+ фоновых дома, 3 фонаря")
 	for i in range(mini(vd.shelters.size(), L.houses().size())):
 		ok += _expect(fails, vd.shelters[i].title == L.houses()[i],
 			"убежище %d в ресурсе «%s», а в правилах «%s»" % [i, vd.shelters[i].title, L.houses()[i]])
@@ -4565,7 +4567,9 @@ static func _village_layout(tree: SceneTree, fails: PackedStringArray) -> int:
 					continue
 				var back := i if houses[i].pos.y < houses[j].pos.y else j
 				var share := inter.get_area() / rects[back].get_area()
-				ok += _expect(fails, share <= 0.06, "%s: дома %d и %d наезжают друг на друга (%.0f%% дальнего)" % [id, i, j, share * 100.0])
+				# фоновый дом (без названия) может частично стоять за соседом: он дальше всех и его закрывают ближние дома
+				var overlap_max := 0.25 if houses[i].title.is_empty() or houses[j].title.is_empty() else 0.06
+				ok += _expect(fails, share <= overlap_max, "%s: дома %d и %d наезжают друг на друга (%.0f%% дальнего)" % [id, i, j, share * 100.0])
 			var door_front := h.pos + Vector2(0, 22)
 			for j in range(houses.size()):
 				ok += _expect(fails, j == i or not feet[j].has_point(door_front), "%s: дверь дома %d закрыта домом %d" % [id, i, j])

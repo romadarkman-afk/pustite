@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="VillageDef" load_steps=17 format=3]
+[gd_resource type="Resource" script_class="VillageDef" load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scripts/village/village_def.gd" id="1_village"]
 [ext_resource type="Script" path="res://scripts/village/house_def.gd" id="2_house"]
@@ -77,13 +77,6 @@ kind = 0
 pos = Vector2(436, 201)
 size = Vector2(86, 66)
 
-[sub_resource type="Resource" id="house_8"]
-script = ExtResource("2_house")
-title = ""
-kind = 5
-pos = Vector2(552, 130)
-size = Vector2(72, 56)
-
 [sub_resource type="Resource" id="job_water"]
 script = ExtResource("3_job")
 id = &"water"
@@ -131,7 +124,7 @@ work_sec = 3.5
 [resource]
 script = ExtResource("1_village")
 shelters = Array[ExtResource("2_house")]([SubResource("house_0"), SubResource("house_1"), SubResource("house_2"), SubResource("house_3"), SubResource("house_4")])
-decor = Array[ExtResource("2_house")]([SubResource("house_5"), SubResource("house_6"), SubResource("house_7"), SubResource("house_8")])
+decor = Array[ExtResource("2_house")]([SubResource("house_5"), SubResource("house_6"), SubResource("house_7")])
 lamps = PackedVector2Array(258, 312, 462, 312, 360, 468)
 well = Vector2(360, 384)
 props = Array[Dictionary]([{"id": "prop_boat", "pos": Vector2(326, 554), "w": 84.0}, {"id": "prop_nets", "pos": Vector2(590, 548), "w": 78.0}, {"id": "prop_millstones", "pos": Vector2(44, 352), "w": 58.0}, {"id": "prop_cart", "pos": Vector2(190, 522), "w": 72.0, "flip": true}])

@@ -8,6 +8,10 @@ const SIDE_MIN := 16.0                  ## боковое поле на само
 const SIDE_NARROW_VP := 450.0           ## ширина экрана в единицах, с которой поле минимальное
 const SIDE_WIDE_VP := 600.0             ## и с которой оно полное (BASE.x)
 const MAX_WIDTH := 760.0
+const KEYBOARD_MAX_SHARE := 0.55        ## экранная клавиатура не выше этой доли высоты экрана
+const INSET_MAX_TOP := 0.12             ## вырез и строка состояния
+const INSET_MAX_BOTTOM := 0.10          ## панель навигации и жесты
+const INSET_MAX_SIDE := 0.12            ## вырез сбоку в альбомной ориентации
 
 var _kb_was_open := false
 var _last_kb := 0.0
@@ -43,7 +47,7 @@ func refresh() -> void:
 	var inset := Vector4.ZERO
 
 	if OS.has_feature("android") or OS.has_feature("ios"):
-		inset = ResolutionManager.safe_insets(vp, win)
+		inset = clamp_insets(ResolutionManager.safe_insets(vp, win), vp)
 
 	if debug_insets.x >= 0.0:
 		inset = debug_insets
@@ -51,7 +55,8 @@ func refresh() -> void:
 
 	var keyboard := 0.0
 	if DisplayServer.has_feature(DisplayServer.FEATURE_VIRTUAL_KEYBOARD):
-		keyboard = float(DisplayServer.virtual_keyboard_get_height()) * k
+		var typing := get_viewport().gui_get_focus_owner() is LineEdit
+		keyboard = keyboard_inset(typing, float(DisplayServer.virtual_keyboard_get_height()) * k, vp.y)
 		if absf(keyboard - _last_kb) > 1.0:
 			_last_kb = keyboard
 			Diag.step("клавиатура: %d px" % int(keyboard))
@@ -67,6 +72,20 @@ func refresh() -> void:
 	if geometry != _last_geometry:
 		_last_geometry = geometry
 		Diag.step("экран %s, окно %s, поля %s" % [vp, win, margins])
+
+
+## Высота клавиатуры, которую надо уступить: только пока в фокусе поле ввода. Некоторые телефоны (Xiaomi, Poco) после закрытия
+## клавиатуры продолжают отдавать её прежнюю высоту, и тогда нижняя треть экрана оставалась пустой. Не больше KEYBOARD_MAX_SHARE экрана.
+static func keyboard_inset(typing: bool, reported: float, viewport_h: float) -> float:
+	if not typing or reported <= 0.0:
+		return 0.0
+	return minf(reported, viewport_h * KEYBOARD_MAX_SHARE)
+
+
+## Отступы выреза и системных панелей не бывают огромными: больше этих долей экрана отдаёт сбойный телефон, их срезаем.
+static func clamp_insets(raw: Vector4, viewport: Vector2) -> Vector4:
+	return Vector4(minf(raw.x, viewport.x * INSET_MAX_SIDE), minf(raw.y, viewport.y * INSET_MAX_TOP),
+		minf(raw.z, viewport.x * INSET_MAX_SIDE), minf(raw.w, viewport.y * INSET_MAX_BOTTOM))
 
 
 ## Боковое поле: на узком экране (450 ед.) 16, с 600 ед. и шире полные 32. Так три кнопки в ряд помещаются на iPhone SE и Pixel 3a.

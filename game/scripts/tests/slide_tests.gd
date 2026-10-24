@@ -167,9 +167,20 @@ static func sounds(fails: PackedStringArray) -> int:
 	Sfx.set_music(&"", 0.0)
 	Sfx.set_ambience(&"", 0.0)
 	pl.run_sound_event({"at": 0.0, "do": "start", "layer": "music", "id": "theme_sad", "fade": 0.0})
-	ok += SelfTest._expect(fails, Sfx.music_name == &"night", "тема theme_sad без файла должна играть ночной музыкой, играет «%s»" % Sfx.music_name)
+	var sad_want: StringName = &"theme_sad" if Sfx.has_sound(&"theme_sad") else &"night"
+	ok += SelfTest._expect(fails, Sfx.music_name == sad_want, "тема theme_sad должна играть «%s», играет «%s»" % [sad_want, Sfx.music_name])
 	pl.run_sound_event({"at": 0.0, "do": "start", "layer": "music", "id": "theme_hope", "fade": 0.0})
-	ok += SelfTest._expect(fails, Sfx.music_name == &"day", "theme_hope без файла должна играть дневной музыкой, играет «%s»" % Sfx.music_name)
+	var hope_want: StringName = &"theme_hope" if Sfx.has_sound(&"theme_hope") else &"day"
+	ok += SelfTest._expect(fails, Sfx.music_name == hope_want, "theme_hope должна играть «%s», играет «%s»" % [hope_want, Sfx.music_name])
+	# музыка по главам: есть файл главы, играет он; нет файла или первая глава, играет общая дорожка
+	var keep_chapter := Game.chapter
+	for cid: String in ["a1c1", "a1c2", "a2c3", "a4c3"]:
+		Game.chapter = {"id": cid}
+		for kind: StringName in [&"day", &"night"]:
+			var own := StringName("%s_%s" % [kind, cid])
+			var stage_want: StringName = own if Sfx.has_sound(own) else kind
+			ok += SelfTest._expect(fails, Sfx.stage_music(kind) == stage_want, "глава %s, %s: дорожка «%s», ждали «%s»" % [cid, kind, Sfx.stage_music(kind), stage_want])
+	Game.chapter = keep_chapter
 	pl.run_sound_event({"at": 0.0, "do": "start", "layer": "amb", "id": "amb_wind", "fade": 0.0})
 	ok += SelfTest._expect(fails, Sfx.ambience_name == &"amb_wind", "фон ветра не включился")
 	pl.run_sound_event({"at": 0.0, "do": "start", "layer": "amb", "id": "amb_church", "fade": 0.0})

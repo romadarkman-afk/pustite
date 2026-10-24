@@ -418,7 +418,7 @@ func ambience() -> StringName:
 
 ## Днём играет светлая тема; на голосовании тишина, ночью тревожная.
 func music() -> StringName:
-	return &"day"
+	return Sfx.stage_music(&"day")
 
 
 ## Что значат значки над жителями. Сверху — что посёлок знает про тебя самого.

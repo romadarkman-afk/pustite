@@ -4,13 +4,13 @@ extends Control
 ## был одного читаемого размера на любом телефоне. Пузыри не налезают друг на друга:
 ## новый поднимается над старыми, а если места в поле нет — уходит самый старый.
 
-const FONT_SIZE := 19        ## при обычном размере текста; крупнее — по настройке (ThemeFactory.fs)
-const NAME_SIZE := 15
-const PAD := Vector2(12, 8)
+const FONT_SIZE := 17        ## при обычном размере текста; крупнее — по настройке (ThemeFactory.fs)
+const NAME_SIZE := 13
+const PAD := Vector2(11, 7)
 const MAX_ON_SCREEN := 3
 const GAP := 6.0
-const MAX_SHARE := 0.26      ## выше этой доли поля пузырь не растёт вверх, а расширяется
-const WIDE_SHARE := 0.88     ## и занимает до этой доли ширины поля
+const MAX_SHARE := 0.2      ## выше этой доли поля пузырь не растёт вверх, а расширяется
+const WIDE_SHARE := 0.78     ## и занимает до этой доли ширины поля
 const FADE_IN := 0.18
 const FADE_OUT := 0.2
 
@@ -64,7 +64,7 @@ func say(who: String, text: String, head: Vector2, mine: bool, fig: Node2D = nul
 			_kill(b)
 	var fsz := ThemeFactory.fs(FONT_SIZE)
 	var nsz := ThemeFactory.fs(NAME_SIZE)
-	var maxw := minf(330.0 * ThemeFactory.text_scale, field.size.x * minf(0.7, 0.56 * ThemeFactory.text_scale))
+	var maxw := minf(290.0 * ThemeFactory.text_scale, field.size.x * minf(0.64, 0.5 * ThemeFactory.text_scale))
 	var inner := maxw - PAD.x * 2.0
 	var ts := _font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, inner, fsz)
 	# Узкий экран (телефон с большой плотностью даёт всего ~590 единиц): длинная реплика в узком столбце

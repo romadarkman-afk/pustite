@@ -777,7 +777,7 @@ func ambience() -> StringName:
 
 
 func music() -> StringName:
-	return &"theme_climax" if Sfx.has_theme(&"theme_climax") and m != null and m.day >= m.config.nights else &"night"
+	return &"theme_climax" if Sfx.has_theme(&"theme_climax") and m != null and m.day >= m.config.nights else Sfx.stage_music(&"night")
 
 
 func heart() -> bool:

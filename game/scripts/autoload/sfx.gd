@@ -82,6 +82,18 @@ const THEMES := {
 	&"theme_pair": "res://assets/music/theme_pair.ogg",       # утром: тот, кто потерял пару
 	&"theme_climax": "res://assets/music/theme_climax.ogg",   # у двери в последнюю ночь главы
 }
+## Темы комиксов (TASK-123, tools/make_comic_themes.py): играют в SlidePlayer по звуковой карте кадра. Нет файла: Slides.MUSIC_FALLBACK.
+const COMIC_THEMES := {
+	&"theme_sad": "res://assets/music/theme_sad.ogg",
+	&"theme_hope": "res://assets/music/theme_hope.ogg",
+	&"theme_tense": "res://assets/music/theme_tense.ogg",
+	&"theme_grief": "res://assets/music/theme_grief.ogg",
+}
+## Музыка по главам (TASK-123): day_a1c2 … night_a4c3. У главы a1c1 и у быстрой партии на карте «посёлок» играют прежние day и night.
+## Файлов может не быть: тогда играет общая дорожка. Их делает tools/make_stage_music.py.
+const STAGE_KEYS: PackedStringArray = ["a1c2", "a1c3", "a2c1", "a2c2", "a2c3", "a3c1", "a3c2", "a3c3", "a4c1", "a4c2", "a4c3"]
+## Быстрая партия: карта -> дорожки первой главы этой карты.
+const STAGE_BY_GROUND := {"ground_mill": "a2c1", "ground_monastery": "a3c1", "ground_station": "a4c1"}
 ## Звук с вариантами: каждый раз случайный из списка, в журнал пишется общее имя.
 const VARIANTS := {
 	&"reveal": [&"reveal", &"reveal_2", &"reveal_3"],
@@ -156,6 +168,20 @@ func _ready() -> void:
 			if theme_stream is AudioStreamOggVorbis:
 				(theme_stream as AudioStreamOggVorbis).loop = true
 			_streams[k] = theme_stream
+	for k: StringName in COMIC_THEMES:
+		if ResourceLoader.exists(COMIC_THEMES[k]):
+			var comic_stream := load(COMIC_THEMES[k]) as AudioStream
+			if comic_stream is AudioStreamOggVorbis:
+				(comic_stream as AudioStreamOggVorbis).loop = true
+			_streams[k] = comic_stream
+	for kind: String in ["day", "night"]:
+		for key: String in STAGE_KEYS:
+			var stage_path := "res://assets/music/%s_%s.ogg" % [kind, key]
+			if ResourceLoader.exists(stage_path):
+				var stage_stream := load(stage_path) as AudioStream
+				if stage_stream is AudioStreamOggVorbis:
+					(stage_stream as AudioStreamOggVorbis).loop = true
+				_streams[StringName("%s_%s" % [kind, key])] = stage_stream
 	for i in range(POOL):
 		var p := AudioStreamPlayer.new()
 		p.bus = &"Sfx"
@@ -206,6 +232,15 @@ func has_theme(n: StringName) -> bool:
 func act_theme(act: int) -> StringName:
 	var n := StringName("theme_act%d" % act)
 	return n if has_theme(n) else &""
+
+
+## Дорожка дня или ночи для этой главы или карты. Нет файла: общая day или night.
+func stage_music(kind: StringName) -> StringName:
+	var key := String(Game.chapter.get("id", ""))
+	if key.is_empty() and Game.m != null and Game.m.village != null:
+		key = String(STAGE_BY_GROUND.get(Game.m.village.ground, ""))
+	var n := StringName("%s_%s" % [kind, key])
+	return n if not key.is_empty() and has_sound(n) else kind
 
 
 ## Одиночный звук. pitch — высота (голоса жителей), vol_db — громкость относительно канала.
@@ -515,7 +550,7 @@ const MUSIC_LEVEL := {&"day": -11.0, &"night": -9.0}
 
 
 func _music_target_db() -> float:
-	var base: float = MUSIC_LEVEL.get(music_name, -8.0)
+	var base: float = MUSIC_LEVEL.get(music_name, MUSIC_LEVEL.get(StringName(String(music_name).get_slice("_", 0)), -8.0))
 	return base - 5.0 if heart_on else base
 
 

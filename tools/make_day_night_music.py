@@ -339,9 +339,17 @@ def lufs(path):
     return float(m[-1]) if m else None
 
 
-def write_ogg(mix, name):
+def write_ogg(mix, name, ar=32000, q=2, seam=0.0):
     os.makedirs(OUT, exist_ok=True)
     wav = os.path.join("/tmp", name + "_raw.wav")
+    if seam > 0.0:
+        # Vorbis начинает поток с задержкой в сотню отсчётов: первые отсчёты декодируются тишиной, последние отбрасываются.
+        # Короткое затухание на обоих концах петли убирает щелчок на стыке у низких тонов.
+        k = int(seam * SR)
+        ramp = np.linspace(0.0, 1.0, k)[:, None]
+        mix = mix.copy()
+        mix[:k] *= ramp
+        mix[-k:] *= ramp[::-1]
     peak = np.max(np.abs(mix)) + 1e-9
     mix = mix / peak * 0.5
     pcm = (np.clip(mix, -1.0, 1.0) * 32767).astype(np.int16)
@@ -356,7 +364,7 @@ def write_ogg(mix, name):
     out = os.path.join(OUT, name + ".ogg")
     # alimiter не даёт пикам уйти выше −1 дБ после подъёма громкости
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", wav, "-af", "volume=%.2fdB,alimiter=limit=0.89:level=false" % gain_db,
-                    "-ar", "32000", "-c:a", "libvorbis", "-q:a", "2", out], check=True)   # 32 кГц: музыка ниже 6 кГц, 0,7 МБ на дорожку (бюджет звука 6 МиБ)
+                    "-ar", str(ar), "-c:a", "libvorbis", "-q:a", str(q), out], check=True)   # 32 кГц: музыка ниже 6 кГц, 0,7 МБ на дорожку (бюджет звука 6 МиБ)
     print("%s: %.1f с, было %.1f LUFS, стало %.1f LUFS" % (out, len(mix) / SR, loud, lufs(out)))
 
 

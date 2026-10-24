@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="VillageDef" load_steps=17 format=3]
+[gd_resource type="Resource" script_class="VillageDef" load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://scripts/village/village_def.gd" id="1_village"]
 [ext_resource type="Script" path="res://scripts/village/house_def.gd" id="2_house"]
@@ -39,26 +39,12 @@ kind = 4
 pos = Vector2(553, 486)
 size = Vector2(128, 72)
 
-[sub_resource type="Resource" id="house_5"]
-script = ExtResource("2_house")
-title = ""
-kind = 5
-pos = Vector2(117, 123)
-size = Vector2(70, 56)
-
 [sub_resource type="Resource" id="house_6"]
 script = ExtResource("2_house")
 title = ""
 kind = 0
-pos = Vector2(264, 132)
-size = Vector2(84, 66)
-
-[sub_resource type="Resource" id="house_7"]
-script = ExtResource("2_house")
-title = ""
-kind = 0
-pos = Vector2(512, 127)
-size = Vector2(86, 66)
+pos = Vector2(496, 204)
+size = Vector2(62, 50)
 
 [sub_resource type="Resource" id="house_8"]
 script = ExtResource("2_house")
@@ -114,7 +100,7 @@ work_sec = 3.5
 [resource]
 script = ExtResource("1_village")
 shelters = Array[ExtResource("2_house")]([SubResource("house_0"), SubResource("house_1"), SubResource("house_2"), SubResource("house_3"), SubResource("house_4")])
-decor = Array[ExtResource("2_house")]([SubResource("house_5"), SubResource("house_6"), SubResource("house_7"), SubResource("house_8")])
+decor = Array[ExtResource("2_house")]([SubResource("house_6"), SubResource("house_8")])
 lamps = PackedVector2Array(258, 312, 462, 312, 360, 468)
 well = Vector2(360, 384)
 props = Array[Dictionary]([{"id": "prop_cart", "pos": Vector2(282, 542), "w": 84.0}, {"id": "prop_haystack", "pos": Vector2(472, 548), "w": 62.0}, {"id": "prop_scarecrow", "pos": Vector2(686, 522), "w": 52.0}, {"id": "prop_graves", "pos": Vector2(688, 470), "w": 62.0}, {"id": "prop_bench", "pos": Vector2(56, 350), "w": 54.0}])

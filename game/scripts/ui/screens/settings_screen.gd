@@ -72,11 +72,22 @@ func _about_block() -> Control:
 	return box
 
 
+## Строка про экран под номером версии: окно в пикселях, размер поля в единицах интерфейса, масштаб, отступы.
+## Тестер присылает скриншот настроек, и по нему видно, как телефон отдал размеры (Poco F5 Pro, TASK-100.2).
+func screen_info() -> String:
+	var win := DisplayServer.window_get_size()
+	var vp := Nav.get_viewport().get_visible_rect().size
+	var ins := Nav.frame.insets if Nav.frame != null else Vector4.ZERO
+	return "%d×%d px · %d×%d u · ×%.2f · safe %d/%d/%d/%d" % [win.x, win.y, int(vp.x), int(vp.y), Nav.get_tree().root.content_scale_factor,
+		int(ins.x), int(ins.y), int(ins.z), int(ins.w)]
+
+
 ## Строка версии внизу. Пять быстрых тапов в отладочной сборке открывают скрытое меню (TASK-096).
 func _version_row() -> Label:
-	var v := W.label("v%s" % ProjectSettings.get_setting("application/config/version", "?"), &"Small")
+	var v := W.label("v%s\n%s" % [ProjectSettings.get_setting("application/config/version", "?"), screen_info()], &"Small")
 	v.name = "Version"
 	v.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.modulate = Color(1, 1, 1, 0.5)
 	v.custom_minimum_size = Vector2(0, 40)
 	v.mouse_filter = Control.MOUSE_FILTER_STOP

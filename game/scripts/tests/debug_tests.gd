@@ -39,7 +39,7 @@ static func run() -> void:
 	if version == null:
 		SelfTest._finish(fails, ok, "ОТЛАДКА", "")
 		return
-	ok += SelfTest._expect(fails, version.text == "v%s" % ProjectSettings.get_setting("application/config/version", "?"), "версия в настройках «%s» не совпала с проектом" % version.text)
+	ok += SelfTest._expect(fails, version.text.begins_with("v%s" % ProjectSettings.get_setting("application/config/version", "?")), "версия в настройках «%s» не совпала с проектом" % version.text)
 	# «Об игре»: по нажатию раскрываются авторы звука и шрифты (аудит F-17), повторное нажатие сворачивает
 	var about := Nav.host.current.find_child("AboutToggle", true, false) as Button
 	ok += SelfTest._expect(fails, about != null and Nav.host.current.find_child("AboutText", true, false) == null, "в настройках нет свёрнутой кнопки «Об игре»")
