@@ -52,6 +52,7 @@ scripts/core/match.gd
 scripts/core/night_report.gd
 scripts/core/revelations.gd
 scripts/core/scenes.gd
+scripts/core/slides.gd
 scripts/core/progress.gd
 scripts/core/recap.gd
 scripts/core/villager.gd
@@ -80,6 +81,7 @@ scripts/tests/debug_tests.gd
 scripts/tests/loc_audit.gd
 scripts/tests/perf_tests.gd
 scripts/tests/sim_chapters.gd
+scripts/tests/slide_tests.gd
 scripts/tests/story_tests.gd
 tests/light_benchmark.gd
 tests/light_benchmark.tscn
@@ -99,6 +101,8 @@ scripts/ui/phase_clock.gd
 scripts/ui/safe_frame.gd
 scripts/ui/resolution_simulator.gd
 scripts/ui/scene_player.gd
+scripts/ui/slide_player.gd
+scripts/ui/slide_stand.gd
 scripts/ui/train_sheet.gd
 scripts/ui/trust_faces.gd
 scripts/ui/vouch_sheet.gd
@@ -154,6 +158,7 @@ shaders/figure_weather.gdshader
 shaders/grass_sway.gdshader
 shaders/ground_weather.gdshader
 shaders/night_grade.gdshader
+shaders/slide_grade.gdshader
 scripts/ui/widgets/door_candle.gd
 scripts/ui/widgets/candle_toggle.gd
 scripts/ui/widgets/talisman_reveal.gd

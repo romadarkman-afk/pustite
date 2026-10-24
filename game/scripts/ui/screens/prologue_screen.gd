@@ -132,8 +132,8 @@ func build() -> void:
 	_go.pressed.connect(_advance)
 	footer.add_child(_go)
 	_reveal_nodes = [role, story, role_l, case_card, facts]
-	if _act_prologue_due():
-		_play_act_prologue.call_deferred()
+	if _comics_due() or _act_prologue_due():
+		_play_intros.call_deferred()
 
 
 ## Первая глава акта II–IV открывается сценой: место, погода, первый звук (TASK-084–086). Раз за партию.
@@ -141,6 +141,37 @@ func _act_prologue_due() -> bool:
 	var ch := String(Game.chapter.get("id", ""))
 	return not Game.chapter.is_empty() and Scenes.ACT_FIRST_CHAPTER.get(int(Game.chapter.get("act", 0)), "") == ch \
 		and not Game.scenes_done.has("act_prologue")
+
+
+## Комиксы перед главой (TASK-106): предыстория один раз в начале кампании, вход в акт на первой главе акта, вход в главу.
+## Раз за партию. Самотесты комиксы не показывают, пока тест сам их не включит.
+func _comics_due() -> bool:
+	return not Game.chapter.is_empty() and not Game.scenes_done.has("comics_intro") and Save.comics_on \
+		and (not Juice.instant or SlidePlayer.instant_play)
+
+
+## Прежняя сцена акта заменена комиксом, если комиксы включены и колода есть (даже когда её уже видели).
+func _act_comics_cover() -> bool:
+	var act := int(Game.chapter.get("act", 0))
+	return Save.comics_on and (not Juice.instant or SlidePlayer.instant_play) and Slides.has_deck("act%d_intro" % act)
+
+
+func _play_intros() -> void:
+	if not is_inside_tree():
+		return
+	if _comics_due():
+		Game.scenes_done["comics_intro"] = true
+		var id := String(Game.chapter.get("id", ""))
+		var act := int(Game.chapter.get("act", 0))
+		if id == "a1c1":
+			await SlidePlayer.play(self, "prologue")
+		if id.ends_with("c1"):
+			await SlidePlayer.play(self, "act%d_intro" % act)
+		await SlidePlayer.play(self, "%s_intro" % id)
+		if not is_inside_tree():
+			return
+	if _act_prologue_due() and not _act_comics_cover():
+		await _play_act_prologue()
 
 
 func _play_act_prologue() -> void:

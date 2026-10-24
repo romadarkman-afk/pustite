@@ -21,7 +21,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Wide, afternoon light.
 SCENE: MEMORY frame, faded old film. Lida standing in an empty village schoolroom with rows of empty benches, a wiped-clean slate board, dust in a sunbeam.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Лида / lida: woman about 26, auburn hair under a brown headscarf with red ties, light freckles over the nose, large sad grey-blue eyes, narrow face, pale lips, a look of someone who keeps listening. Wears: patched linen blouse, red-trimmed vest, ink-stained fingertips, a small notebook.
+- Лида / lida: woman about 61, grey hair under a black fringed wool shawl, narrow severe face with deep lines, grey eyes, thin straight pale lips, a head slightly tilted as if she is always listening to a classroom that is empty. Wears: black fringed shawl, long dark patched dress, ink-stained fingertips, a small thin notebook.
 ```
 
 - **Подпись в игре:** Лида держала деревенскую школу.
@@ -39,7 +39,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Close on hands.
 SCENE: MEMORY frame, faded old film. Lida's ink-stained hand writing names in a thin notebook by lamplight, a row of children's caps still hanging on hooks in the background.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Лида / lida: woman about 26, auburn hair under a brown headscarf with red ties, light freckles over the nose, large sad grey-blue eyes, narrow face, pale lips, a look of someone who keeps listening. Wears: patched linen blouse, red-trimmed vest, ink-stained fingertips, a small notebook.
+- Лида / lida: woman about 61, grey hair under a black fringed wool shawl, narrow severe face with deep lines, grey eyes, thin straight pale lips, a head slightly tilted as if she is always listening to a classroom that is empty. Wears: black fringed shawl, long dark patched dress, ink-stained fingertips, a small thin notebook.
 ```
 
 - **Подпись в игре:** Теперь она записывает имена тех, кто перестал приходить.
@@ -57,7 +57,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Close-up portrait, window.
 SCENE: The face must match the reference exactly and must be clearly visible and recognizable. PRESENT, sharp. Lida at a night window with her notebook pressed to her chest, head slightly turned as if listening to something behind her, looking at the viewer.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Лида / lida: woman about 26, auburn hair under a brown headscarf with red ties, light freckles over the nose, large sad grey-blue eyes, narrow face, pale lips, a look of someone who keeps listening. Wears: patched linen blouse, red-trimmed vest, ink-stained fingertips, a small notebook.
+- Лида / lida: woman about 61, grey hair under a black fringed wool shawl, narrow severe face with deep lines, grey eyes, thin straight pale lips, a head slightly tilted as if she is always listening to a classroom that is empty. Wears: black fringed shawl, long dark patched dress, ink-stained fingertips, a small thin notebook.
 ```
 
 - **Подпись в игре:** Лида слышит по вечерам, как в пустом классе кто-то отвечает урок.

@@ -19,9 +19,9 @@ Create a tall portrait 2:3 (1024x1536) image.
 STYLE: Photo-comic noir panel in the spirit of the Max Payne motion comic: staged live-action photograph, real actors in 1890s rural Russian costume, heavy cinematic grade, crushed blacks, one cold dominant tone plus one warm light source, film grain, haze. No text, letters, numbers, logos, speech bubbles, borders or watermark. Key subject inside the central 70% of the frame.
 GRADE: warm lamp light against a cold blue window, crushed blacks; the first two frames are memories (faded sepia-grey film, soft focus), the third frame is the present, sharp and cold.
 SHOT: Medium, sickbed, lamp.
-SCENE: MEMORY frame, faded old film. Zhenya, an old healer, bending over a sickbed in a miller's house with bowls of herbs and a lamp, a family huddled in the shadows behind her.
+SCENE: MEMORY frame, faded old film. Zhenya, a tired healer in her late forties, bending over a sickbed in a miller's house with bowls of herbs and a lamp, a family huddled in the shadows behind her.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Женя / zhenya: old woman about 65, deeply wrinkled severe face, grey eyebrows, pale blue-grey eyes, thin straight mouth, brown headscarf with a faded red pattern pulled low. Wears: heavy patched brown coat, wooden prayer beads in her hands, little cloth pouches of herbs on her belt.
+- Женя / zhenya: woman about 47, light-brown hair pulled into a low bun, long stern face, thin tight mouth, green-grey eyes with tired lids, weathered skin with sun lines, two vertical frown lines between the brows. Wears: brown wool shawl over a faded red-patterned sarafan, a wicker basket of dried herbs on her arm, little cloth pouches on her belt.
 ```
 
 - **Подпись в игре:** Женя лечила семью мельника.
@@ -39,7 +39,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Wide, dusk, locked house.
 SCENE: MEMORY frame, faded old film. A locked miller's house at dusk with a small paper bill nailed to the door (no readable writing), weeds in the yard, shutters closed.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Женя / zhenya: old woman about 65, deeply wrinkled severe face, grey eyebrows, pale blue-grey eyes, thin straight mouth, brown headscarf with a faded red pattern pulled low. Wears: heavy patched brown coat, wooden prayer beads in her hands, little cloth pouches of herbs on her belt.
+- Женя / zhenya: woman about 47, light-brown hair pulled into a low bun, long stern face, thin tight mouth, green-grey eyes with tired lids, weathered skin with sun lines, two vertical frown lines between the brows. Wears: brown wool shawl over a faded red-patterned sarafan, a wicker basket of dried herbs on her arm, little cloth pouches on her belt.
 ```
 
 - **Подпись в игре:** Дом теперь заперт, а счёт за лечение так и висит на двери.
@@ -57,7 +57,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Close-up portrait, herbs.
 SCENE: The face must match the reference exactly and must be clearly visible and recognizable. PRESENT, sharp. Zhenya in her herb room with dried bunches hanging above, wooden prayer beads wound around her hands, stern pale eyes looking straight at the viewer.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Женя / zhenya: old woman about 65, deeply wrinkled severe face, grey eyebrows, pale blue-grey eyes, thin straight mouth, brown headscarf with a faded red pattern pulled low. Wears: heavy patched brown coat, wooden prayer beads in her hands, little cloth pouches of herbs on her belt.
+- Женя / zhenya: woman about 47, light-brown hair pulled into a low bun, long stern face, thin tight mouth, green-grey eyes with tired lids, weathered skin with sun lines, two vertical frown lines between the brows. Wears: brown wool shawl over a faded red-patterned sarafan, a wicker basket of dried herbs on her arm, little cloth pouches on her belt.
 ```
 
 - **Подпись в игре:** Женя знает, чем болела семья мельника. Никому не говорит.

@@ -48,6 +48,10 @@ func populate(m: Match) -> void:
 	view.set_open_count(m.config.shelters)   # таблички этой партии — до расстановки
 	var figs: Array[VillagerFigure] = []
 	var used := {}          # картинки жителей: повтор, только когда подходящие кончились
+	for named: Villager in m.villagers:      # закреплённые лица заняты заранее, чтобы пул их не раздал
+		var named_id := VillagerFigure.named_sprite(named)
+		if named_id > 0:
+			used[named_id] = true
 	for v: Villager in m.villagers:
 		var f := VillagerFigure.new()
 		var l := book.for_name(v.name, v.is_player).duplicate() as LookDef

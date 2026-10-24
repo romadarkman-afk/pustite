@@ -96,6 +96,19 @@ func _build_sound_tab() -> void:
 
 
 func _build_display_tab() -> void:
+	var comics := W.button(L.t("settings.comics_on" if Save.comics_on else "settings.comics_off"), &"RowOn" if Save.comics_on else &"Row")
+	comics.name = "Comics"
+	comics.pressed.connect(func() -> void:
+		Save.set_comics(not Save.comics_on, Save.comics_skip_seen)
+		build())
+	body.add_child(comics)
+	if Save.comics_on:
+		var once := W.button(L.t("settings.comics_once_on" if Save.comics_skip_seen else "settings.comics_once_off"), &"RowOn" if Save.comics_skip_seen else &"Row")
+		once.name = "ComicsOnce"
+		once.pressed.connect(func() -> void:
+			Save.set_comics(Save.comics_on, not Save.comics_skip_seen)
+			build())
+		body.add_child(once)
 	var simple := W.button(L.t("settings.simplified_graphics"), &"RowOn" if Save.simplified_graphics else &"Row")
 	simple.name = "SimplifiedGraphics"
 	simple.pressed.connect(func() -> void:

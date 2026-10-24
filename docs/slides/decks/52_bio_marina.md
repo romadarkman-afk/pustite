@@ -21,7 +21,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Medium, profile, golden dusk.
 SCENE: MEMORY frame, faded old film. Marina poling a flat ferry raft crowded with silent villagers at sunset, her profile against the water, rope in her scarred hands.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Марина / marina: woman about 45, light-brown hair pulled into a low bun, long stern face, thin tight mouth, green-grey eyes with tired lids, weathered skin with sun lines, two vertical frown lines between the brows. Wears: brown wool shawl over a faded red-patterned sarafan, oilskin cape on the river, rope-scarred hands.
+- Марина / marina: woman about 34 who looks older than her years, auburn hair under a brown headscarf with red ties, light freckles over the nose, large sad grey-blue eyes, narrow tired face, pale lips, a look of someone who keeps listening for a call from the far bank. Wears: patched linen blouse with a dark worn skirt, a brown shawl, an oilskin cape on the river, rope-scarred hands.
 ```
 
 - **Подпись в игре:** Марина переправляла людей через реку и знала каждого по походке.
@@ -39,7 +39,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Wide, dusk.
 SCENE: MEMORY frame, faded old film. The ferry raft returning to the shore with nobody aboard, the lantern still burning on the bow, the rope slack; Marina on the bank with her hand over her mouth.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Марина / marina: woman about 45, light-brown hair pulled into a low bun, long stern face, thin tight mouth, green-grey eyes with tired lids, weathered skin with sun lines, two vertical frown lines between the brows. Wears: brown wool shawl over a faded red-patterned sarafan, oilskin cape on the river, rope-scarred hands.
+- Марина / marina: woman about 34 who looks older than her years, auburn hair under a brown headscarf with red ties, light freckles over the nose, large sad grey-blue eyes, narrow tired face, pale lips, a look of someone who keeps listening for a call from the far bank. Wears: patched linen blouse with a dark worn skirt, a brown shawl, an oilskin cape on the river, rope-scarred hands.
 ```
 
 - **Подпись в игре:** Однажды паром вернулся без пассажиров. Фонарь на носу ещё горел.
@@ -57,7 +57,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Close-up portrait, lantern below.
 SCENE: The face must match the reference exactly and must be clearly visible and recognizable. PRESENT, sharp. Marina on the river bank at night, a lantern in her hand with the shutter half closed, staring straight at the viewer, oilskin cape beaded with spray.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Марина / marina: woman about 45, light-brown hair pulled into a low bun, long stern face, thin tight mouth, green-grey eyes with tired lids, weathered skin with sun lines, two vertical frown lines between the brows. Wears: brown wool shawl over a faded red-patterned sarafan, oilskin cape on the river, rope-scarred hands.
+- Марина / marina: woman about 34 who looks older than her years, auburn hair under a brown headscarf with red ties, light freckles over the nose, large sad grey-blue eyes, narrow tired face, pale lips, a look of someone who keeps listening for a call from the far bank. Wears: patched linen blouse with a dark worn skirt, a brown shawl, an oilskin cape on the river, rope-scarred hands.
 ```
 
 - **Подпись в игре:** Теперь Марина гасит фонарь, когда с того берега зовут. И никому не отвечает.

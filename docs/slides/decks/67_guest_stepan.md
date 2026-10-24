@@ -24,7 +24,7 @@ CHARACTERS (keep every face identical to the attached reference sheet; same age,
 - Степан / stepan: man about 45, stern square face, grey stubble, deep-set tired eyes, fur ushanka with ear flaps, soot in the creases of the skin. Wears: padded quilted jacket, wrapped felt boots, a small kerosene lantern, black hands.
 ```
 
-- **Подпись в игре:** Двадцать лет при депо. Степан знает каждый болт в паровозе.
+- **Подпись в игре:** Двадцать лет при депо. Степан знает паровоз до последнего болта.
 - **Звук:** фон rails, музыка theme_sad [нужна запись: theme_sad]
 - **Камера в игре:** zoom_in
 

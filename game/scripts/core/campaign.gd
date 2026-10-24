@@ -403,6 +403,14 @@ static func finish(m: Match, ch: Dictionary, d: Director = null) -> Dictionary:
 	return {"passed": passed, "stars": stars, "goals": g, "lost": lost, "lost_guests": lost_guests, "id": String(ch.id)}
 
 
+## Проигран ли суд в крипте (акт III): у акта тогда своя концовка и свой комикс.
+static func trial_lost() -> bool:
+	for rec: Dictionary in Save.campaign_memory:
+		if String(rec.kind) == "trial_lost":
+			return true
+	return false
+
+
 ## Концовка акта: сколько из первых жителей деревни дожили до конца акта.
 static func act_ending(act: int) -> String:
 	var id := act_ending_id(act)

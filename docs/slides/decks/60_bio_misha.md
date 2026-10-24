@@ -21,7 +21,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Medium, doorstep, dawn.
 SCENE: MEMORY frame, faded old film. A woman's boots standing neatly on a winter doorstep at dawn, Misha in the doorway looking down at them, fresh snow.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Миша / misha: lean man about 42, narrow grey eyes, weathered tanned face with a trimmed stubble, thin lips, a watchful look that checks every corner. Wears: fur ushanka with the ear flaps down, sheepskin collar, brown scarf, hunting knife, coil of rope, leather satchel.
+- Миша / misha: lean man about 45, narrow grey eyes, weathered tanned face with a trimmed stubble, thin lips, a watchful look that checks every corner. Wears: fur ushanka with the ear flaps down, sheepskin collar, brown scarf, hunting knife, coil of rope, leather satchel.
 ```
 
 - **Подпись в игре:** Жена Миши умела читать следы.
@@ -39,7 +39,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Wide, tracks.
 SCENE: MEMORY frame, faded old film. A line of footprints in deep snow leading from a doorstep into the forest, ending at the treeline, Misha kneeling at the start with a hand on the first print.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Миша / misha: lean man about 42, narrow grey eyes, weathered tanned face with a trimmed stubble, thin lips, a watchful look that checks every corner. Wears: fur ushanka with the ear flaps down, sheepskin collar, brown scarf, hunting knife, coil of rope, leather satchel.
+- Миша / misha: lean man about 45, narrow grey eyes, weathered tanned face with a trimmed stubble, thin lips, a watchful look that checks every corner. Wears: fur ushanka with the ear flaps down, sheepskin collar, brown scarf, hunting knife, coil of rope, leather satchel.
 ```
 
 - **Подпись в игре:** Однажды она ушла в лес одна. Обувь осталась у порога.
@@ -57,7 +57,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Close-up portrait.
 SCENE: The face must match the reference exactly and must be clearly visible and recognizable. PRESENT, sharp. Misha in his fur ushanka with a coil of rope on his shoulder, watching the treeline with narrow eyes, breath fog.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Миша / misha: lean man about 42, narrow grey eyes, weathered tanned face with a trimmed stubble, thin lips, a watchful look that checks every corner. Wears: fur ushanka with the ear flaps down, sheepskin collar, brown scarf, hunting knife, coil of rope, leather satchel.
+- Миша / misha: lean man about 45, narrow grey eyes, weathered tanned face with a trimmed stubble, thin lips, a watchful look that checks every corner. Wears: fur ushanka with the ear flaps down, sheepskin collar, brown scarf, hunting knife, coil of rope, leather satchel.
 ```
 
 - **Подпись в игре:** Миша читает чужие следы и ищет среди них её.

@@ -21,7 +21,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Wide, dawn, from behind.
 SCENE: MEMORY frame, faded old film. A young woman with a bundle of firewood walking into a dark forest at dawn, seen from behind, Kostya small in the foreground at the fence watching.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Костя / kostya: young man about 20, light-brown hair under a flat cap, light blue eyes, thin clean-shaven face, sharp cheekbones, restless alert look, a small old scar on the chin. Wears: brown vest over a maroon shirt, red sash belt, patched trousers.
+- Костя / kostya: young man about 21, light-brown hair under a flat cap, light blue eyes, thin clean-shaven face, sharp cheekbones, restless alert look, a small old scar on the chin. Wears: brown vest over a maroon shirt, red sash belt, patched trousers.
 ```
 
 - **Подпись в игре:** Сестра Кости ушла в лес за дровами.
@@ -39,10 +39,10 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Medium, interior.
 SCENE: MEMORY frame, faded old film. Kostya setting a second bowl at a plain table by a cold stove, the empty bench opposite, a candle.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Костя / kostya: young man about 20, light-brown hair under a flat cap, light blue eyes, thin clean-shaven face, sharp cheekbones, restless alert look, a small old scar on the chin. Wears: brown vest over a maroon shirt, red sash belt, patched trousers.
+- Костя / kostya: young man about 21, light-brown hair under a flat cap, light blue eyes, thin clean-shaven face, sharp cheekbones, restless alert look, a small old scar on the chin. Wears: brown vest over a maroon shirt, red sash belt, patched trousers.
 ```
 
-- **Подпись в игре:** С тех пор он каждый вечер оставляет ей место у печи.
+- **Подпись в игре:** С тех пор он по вечерам оставляет ей место у печи.
 - **Звук:** фон amb_night
 - **Камера в игре:** pan_u
 
@@ -57,7 +57,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Close-up portrait, window.
 SCENE: The face must match the reference exactly and must be clearly visible and recognizable. PRESENT, sharp. Kostya at a window looking at the black forest line with a lantern at his chest, light on his young face, shutters half open.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Костя / kostya: young man about 20, light-brown hair under a flat cap, light blue eyes, thin clean-shaven face, sharp cheekbones, restless alert look, a small old scar on the chin. Wears: brown vest over a maroon shirt, red sash belt, patched trousers.
+- Костя / kostya: young man about 21, light-brown hair under a flat cap, light blue eyes, thin clean-shaven face, sharp cheekbones, restless alert look, a small old scar on the chin. Wears: brown vest over a maroon shirt, red sash belt, patched trousers.
 ```
 
 - **Подпись в игре:** Костя до сих пор не закрывает ставни до конца.

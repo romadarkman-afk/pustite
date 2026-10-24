@@ -21,7 +21,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Wide, night, bridge.
 SCENE: MEMORY frame, faded old film. A wooden bridge at night with Tikhon at one end holding a lantern and a thin figure walking out into the mist at the other end.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Тихон / tikhon: man about 50, short greying brown hair, long deeply lined weary face, grey stubble, heavy-lidded sad eyes, drooping corners of the mouth. Wears: dark long coat, a coil of rope or net over one shoulder, an old kerosene lantern in hand.
+- Тихон / tikhon: man about 54, short greying brown hair, long deeply lined weary face, grey stubble, heavy-lidded sad eyes, drooping corners of the mouth. Wears: dark long coat, a coil of rope or net over one shoulder, an old kerosene lantern in hand.
 ```
 
 - **Подпись в игре:** Тихон дежурил у моста в ту ночь, когда исчез человек.
@@ -39,7 +39,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Medium, riverside.
 SCENE: MEMORY frame, faded old film. Tikhon alone at the river bank talking to his own reflection in the water, one hand gesturing, rehearsing, lantern at his feet.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Тихон / tikhon: man about 50, short greying brown hair, long deeply lined weary face, grey stubble, heavy-lidded sad eyes, drooping corners of the mouth. Wears: dark long coat, a coil of rope or net over one shoulder, an old kerosene lantern in hand.
+- Тихон / tikhon: man about 54, short greying brown hair, long deeply lined weary face, grey stubble, heavy-lidded sad eyes, drooping corners of the mouth. Wears: dark long coat, a coil of rope or net over one shoulder, an old kerosene lantern in hand.
 ```
 
 - **Подпись в игре:** Объяснение он репетирует до сих пор.
@@ -57,9 +57,9 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Close-up portrait, lantern.
 SCENE: The face must match the reference exactly and must be clearly visible and recognizable. PRESENT, sharp. Tikhon's weary face lit by his lantern, looking straight at the viewer with the expression of someone about to say something and not saying it.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Тихон / tikhon: man about 50, short greying brown hair, long deeply lined weary face, grey stubble, heavy-lidded sad eyes, drooping corners of the mouth. Wears: dark long coat, a coil of rope or net over one shoulder, an old kerosene lantern in hand.
+- Тихон / tikhon: man about 54, short greying brown hair, long deeply lined weary face, grey stubble, heavy-lidded sad eyes, drooping corners of the mouth. Wears: dark long coat, a coil of rope or net over one shoulder, an old kerosene lantern in hand.
 ```
 
-- **Подпись в игре:** Каждый раз оно получается другим.
+- **Подпись в игре:** Раз за разом оно получается другим.
 - **Звук:** без изменений
 - **Камера в игре:** zoom_in

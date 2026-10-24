@@ -58,7 +58,7 @@ SHOT: Wide, still life.
 SCENE: A table covered with many burnt-down candle stubs in rows, a girl's red hair ribbon in the middle, a ledger beside it, dim.
 ```
 
-- **Подпись в игре:** Деньги на свечи для неё. Он зажигает их каждый вечер.
+- **Подпись в игре:** Деньги на свечи для неё. Он зажигает их по вечерам.
 - **Звук:** без изменений
 - **Камера в игре:** pan_r
 

@@ -4,7 +4,7 @@ extends Control
 ## Самотесты запускаются вручную флагами ниже. Текущий android.yml выполняет короткий smoke-запуск, не полный набор тестов.
 ## --lang=en рядом с любым самотестом гоняет его на другом языке, --text=2 — с самым крупным текстом.
 
-const TEST_FLAGS: PackedStringArray = ["--sim", "--simchapters", "--chapters", "--story", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--eyes", "--lights", "--checkpoint", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk", "--loc", "--access", "--daily", "--cosmetics", "--adapt", "--display", "--gestures", "--doors", "--emptying", "--pairs", "--themes", "--soundmaps", "--actscenes", "--campmap", "--achicons", "--parallax", "--traces", "--tension", "--portraits", "--haptics", "--candle", "--storage", "--save", "--weather", "--perf", "--debugmenu", "--release"]
+const TEST_FLAGS: PackedStringArray = ["--sim", "--simchapters", "--chapters", "--story", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--eyes", "--lights", "--checkpoint", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk", "--loc", "--access", "--daily", "--cosmetics", "--adapt", "--display", "--gestures", "--doors", "--emptying", "--pairs", "--themes", "--soundmaps", "--actscenes", "--campmap", "--achicons", "--parallax", "--traces", "--tension", "--portraits", "--haptics", "--candle", "--storage", "--save", "--weather", "--perf", "--debugmenu", "--release", "--slides"]
 const TEST_TIMEOUT_SEC := 240.0
 const LONG_TEST_TIMEOUT_SEC := 3600.0      ## полная таблица баланса глав
 const LAYOUT_TEST_TIMEOUT_SEC := 720.0     ## раскладка: 23 типа экранов и 11 устройств из списка проекта
@@ -232,6 +232,10 @@ func _run_test(flag: String) -> void:
 			Juice.instant = true
 			Nav.start()
 			await SelfTest.themes()
+		"--slides":
+			Juice.instant = true
+			Nav.start()
+			await SlideTests.run()
 		"--soundmaps":
 			Juice.instant = true
 			Nav.start()

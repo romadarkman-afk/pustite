@@ -35,6 +35,24 @@ func _ready() -> void:
 				var mp := cs.find_child("CampaignMap", true, false) as Control
 				cs.scroll.scroll_vertical = int(mp.global_position.y - cs.scroll.global_position.y) + cs.scroll.scroll_vertical - 4
 				await _frames(10)
+			"slide":
+				# кадр комикса: метка:slide:колода:номер кадра с нуля:прогресс камеры (0..100, по умолчанию 55)
+				Nav.show_menu()
+				await SelfTest._settle(get_tree())
+				var pl := SlidePlayer.new()
+				pl.deck_id = ch
+				pl.deck = Slides.deck(ch)
+				Nav.host.current.add_child(pl)
+				pl._build()
+				for n in range(int(p[3]) if p.size() > 3 else 0):
+					pl.advance()
+				pl._paused = true        # кадр стоит: иначе колода в мгновенном режиме домотается до конца за время съёмки
+				if p.size() > 4:
+					pl._t = pl._dur * float(p[4]) / 100.0
+				await _frames(4)
+				pl._apply_cam(float(p[4]) / 100.0 if p.size() > 4 else 0.55)
+				await _frames(20)
+				print("SHOT slide-debug rect=", pl.get_global_rect(), " view=", pl._view.get_global_rect(), " vis=", pl.is_visible_in_tree(), " stage=", pl._stage.get_global_rect() if pl._stage != null else "нет", " parent=", pl.get_parent().name)
 			"day", "door":
 				Game.start(Campaign.config(ch), "", Campaign.chapter(ch))
 				await SelfTest._settle(get_tree())

@@ -88,6 +88,13 @@ func build() -> void:
 				page.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 				story_box.add_child(page)
 			body.add_child(story_card)
+			# комикс-предыстория открывается, когда история услышана до конца
+			var bio := Slides.bio_for_story_key(String(p[0]))
+			if story_step >= 2 and not bio.is_empty():
+				var watch := W.button(L.t("book.comic_watch"), &"Ghost")
+				watch.name = "Comic_" + String(p[0])
+				watch.pressed.connect(func() -> void: SlidePlayer.play(self, bio, true))
+				body.add_child(watch)
 		# память кампании (TASK-002): что было между игроком и этим жителем
 		if String(p[0]).begins_with("n"):
 			var k := 0
@@ -105,6 +112,7 @@ func build() -> void:
 					k += 1
 				body.add_child(mem_card)
 
+	_build_comics()
 	body.add_child(W.label(L.t("book.endings"), &"Speaker"))
 	for id: String in Progress.ENDINGS:
 		var found := Save.endings.has(id)
@@ -129,6 +137,39 @@ func build() -> void:
 	var back := W.button(L.t("ui.back"), &"Ghost")
 	back.pressed.connect(func() -> void: emit_intent(Intent.BACK))
 	footer.add_child(back)
+
+
+## Галерея комиксов (TASK-107): что игрок уже видел можно пересмотреть, остальное закрыто и не выдаёт названий.
+func _build_comics() -> void:
+	var total := Slides.deck_ids().size()
+	if total == 0:
+		return
+	var seen := Slides.seen_ids().size()
+	body.add_child(W.label(L.t("book.comics", {"n": seen, "of": total}), &"Speaker"))
+	var hint := W.label(L.t("book.comics_hint"), &"Small")
+	hint.name = "ComicsHint"
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.add_child(hint)
+	for g: Array in Slides.gallery():
+		var opened: Array = []
+		for id: String in g[1]:
+			if Slides.seen(id):
+				opened.append(id)
+		if opened.is_empty():
+			continue
+		var head := W.label("%s: %d / %d" % [L.t("book.comics_" + String(g[0])), opened.size(), (g[1] as Array).size()], &"Hint")
+		head.name = "ComicsGroup_" + String(g[0])
+		body.add_child(head)
+		for id2: String in opened:
+			var b := W.button(Slides.title(id2), &"Row")
+			b.name = "Comic_" + id2
+			W.wrap(b)
+			b.pressed.connect(func() -> void: SlidePlayer.play(self, id2, true))
+			body.add_child(b)
+	if seen < total:
+		var closed := W.label(L.t("book.comics_closed", {"n": total - seen}), &"Hint")
+		closed.name = "ComicsClosed"
+		body.add_child(closed)
 
 
 static func _archive_story(key: String, name: String, step: int) -> String:

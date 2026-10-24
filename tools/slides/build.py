@@ -23,7 +23,7 @@ ROOT = HERE.parent.parent
 sys.path.insert(0, str(HERE))
 
 import dsl  # noqa: E402
-from cast import CAST, HERO, UPYR, face_lock  # noqa: E402
+from cast import CAST, EXTRA_WHO, HERO, UPYR, face_lock  # noqa: E402
 import decks_world, decks_ch_a1a2, decks_ch_a3a4, decks_bios  # noqa: E402,F401
 
 OUT = ROOT / "docs" / "slides"
@@ -100,7 +100,7 @@ def wave(deck, panel) -> str:
 
 # ------------------------------------------------------------------ проверка текста
 BANNED = ["каша", "каши", "хаос", "жвачк", "методичк", "истерик", "дедлайн", "на стероидах", "на минималках",
-          "честно", "нормальн", "большинство", "важно понимать", "стоит отметить", "таким образом"]
+          "честно", "нормальн", "большинств", "каждый", "каждая", "каждое", "важно понимать", "стоит отметить", "таким образом"]
 
 
 def lint(text: str, where: str, errs: list):
@@ -112,8 +112,8 @@ def lint(text: str, where: str, errs: list):
             errs.append(f"{where}: слово «{w}»")
     if re.search(r"\bне [^.,;:!?]{1,40}, а\b", low) or re.search(r"\bэто не [^.,;:!?]{1,40}, это\b", low):
         errs.append(f"{where}: конструкция «не X, а Y»")
-    if len(text) > 150:
-        errs.append(f"{where}: подпись длиннее 150 знаков ({len(text)})")
+    if len(text) > 120:
+        errs.append(f"{where}: подпись длиннее 120 знаков ({len(text)})")
 
 
 def all_panels():
@@ -132,7 +132,7 @@ def check() -> list:
         where = f"{d.id}/{p.key}"
         for who, text in p.cap:
             lint(text, where, errs)
-            if who and who not in CAST and who not in ("Голос", "Гость"):
+            if who and who not in CAST and who not in EXTRA_WHO:
                 errs.append(f"{where}: неизвестный говорящий {who}")
         for c in p.cast:
             if c != "hero" and c not in CAST:
@@ -427,6 +427,42 @@ def write_needs_audio():
 
 
 # ------------------------------------------------------------------ данные игры
+ACT_NAMES = {1: "Деревня", 2: "Мельница", 3: "Монастырь", 4: "Станция"}
+ROMAN = {1: "I", 2: "II", 3: "III", 4: "IV"}
+
+
+def act_of(deck_id: str) -> int:
+    """Акт колоды по её имени: a2c1_*, act3_*; колоды без акта дают 0."""
+    import re
+    m = re.match(r"^a(\d)c\d_", deck_id) or re.match(r"^act(\d)_", deck_id)
+    return int(m.group(1)) if m else 0
+
+
+def flash_to(d) -> int:
+    """Сколько первых кадров колоды идёт как воспоминание (сепия): пролог и предыстории без разоблачений."""
+    if d.id == "prologue":
+        return 6
+    if d.kind in ("bio", "guest", "npc") and not d.id.endswith(("_human", "_upyr")):
+        return max(0, len(d.panels) - 1)
+    return 0
+
+
+def card_text(d) -> str:
+    """Титульная плашка колоды: показывается чёрным экраном перед первым кадром. Только у входов и финалов."""
+    if d.id == "prologue":
+        return "Предыстория\nТот берег"
+    a = act_of(d.id)
+    if d.kind == "act_intro":
+        return f"Акт {ROMAN[a]}\n{ACT_NAMES[a]}"
+    if d.kind == "ch_intro":
+        name = d.ru.split(":")[0]
+        n = int(d.id[3])
+        return f"Акт {ROMAN[a]}, глава {n}\n{name}"
+    if d.kind == "finale":
+        return "Финал\n" + d.ru.split(": ", 1)[1].capitalize()
+    return ""
+
+
 def write_game_json():
     decks = OrderedDict()
     text = OrderedDict()
@@ -442,10 +478,17 @@ def write_game_json():
                 lines.append({"who": who, "key": k})
             pan.append(OrderedDict([("file", f"{d.id}/{p.key}"), ("size", p.sz), ("cam", p.cam or ("zoom_in" if p.sz == "t" else "pan_r")),
                                     ("wave", wave(d, p)), ("lines", lines), ("sound", p.snd), ("cast", [c for c in p.cast if c != "hero"])]))
-        decks[d.id] = OrderedDict([("kind", d.kind), ("title_key", key_title), ("music", dsl.MUSIC.get(d.music, "")),
-                                   ("flash_to", 0 if d.id != "prologue" else 6), ("panels", pan)])
+        card = card_text(d)
+        entry = OrderedDict([("kind", d.kind), ("act", act_of(d.id)), ("title_key", key_title), ("music", dsl.MUSIC.get(d.music, "")),
+                             ("flash_to", flash_to(d)), ("panels", pan)])
+        if card:
+            text[f"sl.{d.id}.card"] = card
+            entry["card_key"] = f"sl.{d.id}.card"
+        decks[d.id] = entry
     who = OrderedDict((cid, c["ru"]) for cid, c in CAST.items())
-    data = OrderedDict([("schema_version", 1), ("dir", "res://assets/slides/"), ("decks", decks)])
+    who.update(EXTRA_WHO)
+    cast = OrderedDict((cid, c["sprite"]) for cid, c in CAST.items())
+    data = OrderedDict([("schema_version", 1), ("dir", "res://assets/slides/"), ("cast", cast), ("decks", decks)])
     (ROOT / "game" / "config").mkdir(exist_ok=True)
     (ROOT / "game" / "config" / "slides.json").write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf8")
     (ROOT / "game" / "config" / "slides_text.json").write_text(
@@ -462,6 +505,9 @@ def write_refs():
     refs = OUT / "refs"
     refs.mkdir(parents=True, exist_ok=True)
     base = ROOT / "game" / "assets" / "folk" / "realistic"
+    for old in refs.glob("ref_*.jpg"):          # эталоны убранных из состава лиц не должны остаться в папке
+        if old.stem[4:] not in CAST:
+            old.unlink()
     for cid, c in CAST.items():
         src = base / f"{c['sprite']}.png"
         if not src.exists():

@@ -52,7 +52,7 @@ SHOT: Close on hands, warm.
 SCENE: Two hands wrapped around a clay cup of hot water, a piece of dark bread, steam, a wooden table with a lit lamp not yet blown out.
 ```
 
-- **Подпись в игре:** Гость: «Я не забуду, кто открыл мне ночью.»
+- **Подпись в игре:** guest: «Я не забуду, кто открыл мне ночью.»
 - **Звук:** без изменений
 - **Камера в игре:** zoom_in
 

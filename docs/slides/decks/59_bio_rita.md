@@ -21,7 +21,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Low angle, tower.
 SCENE: MEMORY frame, faded old film. Rita climbing the ladder inside a village clock tower with a tool bag, wooden gears and a weight on a chain around her.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Рита / rita: young woman about 22, very pale skin, long thick blonde braid over one shoulder, light blue-grey eyes, small serious mouth, high forehead, calm unblinking look. Wears: plain linen blouse with a dark apron full of small tools, a magnifying lens on a cord, fine steady hands.
+- Рита / rita: woman about 29 who looks younger, very pale skin, long thick blonde braid over one shoulder, light blue-grey eyes, small serious mouth, high forehead, calm unblinking look. Wears: plain linen blouse with a dark apron full of small tools, a magnifying lens on a cord, fine steady hands.
 ```
 
 - **Подпись в игре:** Рита чинила часы на башне.
@@ -39,7 +39,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Wide, clock face.
 SCENE: MEMORY frame, faded old film. The village tower clock face stopped before midnight, Rita's small silhouette looking up at it from the square at night.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Рита / rita: young woman about 22, very pale skin, long thick blonde braid over one shoulder, light blue-grey eyes, small serious mouth, high forehead, calm unblinking look. Wears: plain linen blouse with a dark apron full of small tools, a magnifying lens on a cord, fine steady hands.
+- Рита / rita: woman about 29 who looks younger, very pale skin, long thick blonde braid over one shoulder, light blue-grey eyes, small serious mouth, high forehead, calm unblinking look. Wears: plain linen blouse with a dark apron full of small tools, a magnifying lens on a cord, fine steady hands.
 RULES: The upyr (monster) is NEVER shown clearly: only a thin tall silhouette, pale long-fingered hands, wet bare footprints, eyes that catch the light like an animal's. No fangs, no gore.
 ```
 
@@ -58,7 +58,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Close-up portrait.
 SCENE: The face must match the reference exactly and must be clearly visible and recognizable. PRESENT, sharp. Rita with a watchmaker's loupe over one eye, holding a small pocket watch up to the lamp, looking at the viewer with her other eye.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Рита / rita: young woman about 22, very pale skin, long thick blonde braid over one shoulder, light blue-grey eyes, small serious mouth, high forehead, calm unblinking look. Wears: plain linen blouse with a dark apron full of small tools, a magnifying lens on a cord, fine steady hands.
+- Рита / rita: woman about 29 who looks younger, very pale skin, long thick blonde braid over one shoulder, light blue-grey eyes, small serious mouth, high forehead, calm unblinking look. Wears: plain linen blouse with a dark apron full of small tools, a magnifying lens on a cord, fine steady hands.
 ```
 
 - **Подпись в игре:** С тех пор Рита проверяет время по своим часам и башне не верит.

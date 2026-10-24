@@ -43,7 +43,7 @@ b.add("t", "Medium, soft window light",
       [N("Утро. Тот, кого я впустил, спит у печи под моим тулупом.")], S(), tier="A", cam="zoom_out")
 b.add("t", "Close on hands, warm",
       "Two hands wrapped around a clay cup of hot water, a piece of dark bread, steam, a wooden table with a lit lamp not yet blown out.",
-      [D("Гость", "Я не забуду, кто открыл мне ночью.")], S(), tier="B", cam="zoom_in")
+      [D("guest", "Я не забуду, кто открыл мне ночью.")], S(), tier="B", cam="zoom_in")
 b.add("w", "Wide, flat daylight, tension",
       "The village well in daylight, people standing around it and looking at each other with wary eyes, buckets on the ground, no one smiling.",
       [N("Одну ночь пережили. Теперь надо решить, кто из нас врёт.")], S("murmur"), tier="A", cam="pan_r")
@@ -99,7 +99,7 @@ c.add("w", "Wide, night, fence line",
       "A lone man standing outside a village fence at night, a lantern held by villagers behind the fence lighting his back, fog around his knees; he is looking in, not out.",
       [N("Мы выгнали человека. Ночью он стоит у ограды и зовёт нас по именам.")], S("night", "sad", fx=[("call_far", 1.0, -8)]), tier="A", cam="pan_r")
 c.add("t", "Close-up, face pressed at a window",
-      "A thin frightened man's face pressed against a small window from outside, his breath fogging the glass, bruised, begging eyes, a lantern flame reflected in the pane.",
+      "A frightened thin old man's face pressed against a small window from outside, his breath fogging the glass, bruised, begging eyes, a lantern flame reflected in the pane.",
       [D("extra_thin", "Я человек! Я такой же, как вы!")], S(fx=[("human_cry_m", 0.4, -6), ("tap", 1.5, -10)]), tier="A", cast=("extra_thin",), cam="zoom_in")
 c.add("t", "High angle on the floor",
       "Wet bare footprints crossing a plank floor inside an izba to a bed with a drawn curtain, a thin trail of river water, grey morning light.",
@@ -197,7 +197,7 @@ c.add("t", "Extreme close-up on face",
       [D("melnik", "В ту ночь я её голос узнал и открыл. Это была не она.")], S(fx=[("weep", 0.6, -10)]), tier="A", cast=("melnik",), cam="zoom_in")
 c.add("w", "Wide, still life",
       "A table covered with many burnt-down candle stubs in rows, a girl's red hair ribbon in the middle, a ledger beside it, dim.",
-      [N("Деньги на свечи для неё. Он зажигает их каждый вечер.")], S(), tier="B", cam="pan_r")
+      [N("Деньги на свечи для неё. Он зажигает их по вечерам.")], S(), tier="B", cam="pan_r")
 c.add("t", "Close, hand and keys",
       "A trembling hand holding a key ring above a half-open storeroom door, darkness inside, the chain hanging loose.",
       [N("Ключ от кладовой дрожит в его руке.")], S(fx=[("chain", 0.6, -8), ("tick", 1.4, -12)]), tier="A", cam="zoom_in")
@@ -237,7 +237,7 @@ b.add("w", "Wide, roof, sun",
       [N("Сушим вещи на крыше. Первая тёплая минута за четыре дня.")], S("day", "hope"), tier="A", cam="pan_l")
 
 c.add("t", "Medium, in water",
-      "A frightened man standing in black water to his chest reaching a hand toward the camera, torches on a dark roof behind him, his mouth open.",
+      "A frightened old man standing in black water to his chest reaching a hand toward the camera, torches on a dark roof behind him, his mouth open.",
       [N("Мы выгнали невиновного. Вода по грудь, и он всё ещё просит.")], S("night", "sad", fx=[("human_cry_m", 0.5, -6)]), tier="A", cast=("extra_thin",), cam="zoom_in")
 c.add("w", "Wide, bell tower silhouette",
       "A half-sunk bell tower at night with a thin silhouette standing at the top beside the bell, moon behind, black water with ripples.",

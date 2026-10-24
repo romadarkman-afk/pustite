@@ -181,7 +181,25 @@ static func guest_sprite(guest_id: String) -> int:
 	return id if id > 0 and (ResourceLoader.exists(FOLK_REALISTIC_DIR + file) or ResourceLoader.exists(FOLK_DIR + file)) else 0
 
 
+## Именные жители кампании (TASK-108): лицо закреплено за личной историей, а не берётся из пула по полу и возрасту.
+## Так один и тот же человек выглядит одинаково в партии, на двери, в Книге и в комиксах (tools/slides/cast.py).
+## Ключ: место в списке имён (Villager.story_id), значение: номер картинки f<N>. Возраст из SocialContent.AGES учтён.
+const NAMED_SPRITES := {0: 9, 1: 2, 2: 12, 3: 4, 4: 10, 5: 13, 6: 7, 7: 3, 8: 8, 9: 11, 10: 14, 11: 1}
+
+
+## Закреплённое лицо жителя или 0: гости и жители вне первых двенадцати историй берут лицо из пула.
+static func named_sprite(v: Villager) -> int:
+	if v.is_player or not v.guest_id.is_empty() or not NAMED_SPRITES.has(v.story_id):
+		return 0
+	var id: int = NAMED_SPRITES[v.story_id]
+	return id if FOLK_FEMALE.has(id) == v.female else 0
+
+
 static func pick_cast_sprite(v: Villager, used: Dictionary) -> int:
+	var named := named_sprite(v)
+	if named > 0:
+		used[named] = true
+		return named
 	var candidates: PackedInt32Array
 	if v.female:
 		candidates = PackedInt32Array([9, 3, 10]) if v.age < 28 else (PackedInt32Array([11, 12, 1]) if v.age >= 55 else PackedInt32Array([10, 3, 9]))

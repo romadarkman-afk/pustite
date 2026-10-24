@@ -28,7 +28,7 @@ bio("marina", "bio", "bio_marina", "Марина, перевозчица", [
      "Теперь Марина гасит фонарь, когда с того берега зовут. И никому не отвечает.", S("river")),
 ])
 bio("zhenya", "bio", "bio_zhenya", "Женя, знахарка", [
-    ("Medium, sickbed, lamp", "Zhenya, an old healer, bending over a sickbed in a miller's house with bowls of herbs and a lamp, a family huddled in the shadows behind her.",
+    ("Medium, sickbed, lamp", "Zhenya, a tired healer in her late forties, bending over a sickbed in a miller's house with bowls of herbs and a lamp, a family huddled in the shadows behind her.",
      "Женя лечила семью мельника.", S("night", "sad")),
     ("Wide, dusk, locked house", "A locked miller's house at dusk with a small paper bill nailed to the door (no readable writing), weeds in the yard, shutters closed.",
      "Дом теперь заперт, а счёт за лечение так и висит на двери.", S("wind")),
@@ -41,7 +41,7 @@ bio("timur", "bio", "bio_timur", "Тимур, могильщик", [
     ("Medium, over the shoulder", "Timur standing over a fresh grave mound that he did not dig, shovel in hand, the edges too neat, frost on the heap.",
      "В одну могилу он не копал. Она уже была.", S(fx=[("crow", 0.8, -12)])),
     ("Close-up portrait, dusk", "Timur with his shovel on his shoulder at the edge of a graveyard at dusk, looking straight at the viewer, mud on his boots, wooden crosses behind him.",
-     "Тимур считает могилы вслух. Каждый раз выходит на одну больше.", S("dusk")),
+     "Тимур считает могилы вслух. Раз за разом выходит на одну больше.", S("dusk")),
 ])
 bio("lida", "bio", "bio_lida", "Лида, учительница", [
     ("Wide, afternoon light", "Lida standing in an empty village schoolroom with rows of empty benches, a wiped-clean slate board, dust in a sunbeam.",
@@ -55,7 +55,7 @@ bio("kostya", "bio", "bio_kostya", "Костя, потерявший сестр�
     ("Wide, dawn, from behind", "A young woman with a bundle of firewood walking into a dark forest at dawn, seen from behind, Kostya small in the foreground at the fence watching.",
      "Сестра Кости ушла в лес за дровами.", S("wind", "sad")),
     ("Medium, interior", "Kostya setting a second bowl at a plain table by a cold stove, the empty bench opposite, a candle.",
-     "С тех пор он каждый вечер оставляет ей место у печи.", S("night")),
+     "С тех пор он по вечерам оставляет ей место у печи.", S("night")),
     ("Close-up portrait, window", "Kostya at a window looking at the black forest line with a lantern at his chest, light on his young face, shutters half open.",
      "Костя до сих пор не закрывает ставни до конца.", S(fx=[("call_far", 1.2, -14)])),
 ])
@@ -65,7 +65,7 @@ bio("tikhon", "bio", "bio_tikhon", "Тихон, сторож моста", [
     ("Medium, riverside", "Tikhon alone at the river bank talking to his own reflection in the water, one hand gesturing, rehearsing, lantern at his feet.",
      "Объяснение он репетирует до сих пор.", S("river")),
     ("Close-up portrait, lantern", "Tikhon's weary face lit by his lantern, looking straight at the viewer with the expression of someone about to say something and not saying it.",
-     "Каждый раз оно получается другим.", S()),
+     "Раз за разом оно получается другим.", S()),
 ])
 bio("zakhar", "bio", "bio_zakhar", "Захар, трактирщик с метлой", [
     ("Wide, tavern at night", "Zakhar sweeping the floor of an empty tavern at night, benches upturned on tables, mugs in rows on a shelf.",
@@ -104,7 +104,7 @@ bio("vadim", "bio", "bio_vadim", "Вадим, садовник", [
      "Вадим выращивал яблоки за часовней.", S("day", "sad")),
     ("Medium, cellar door", "A locked cellar door in the orchard, apples scattered, frost on the planks, Vadim with an ear to the door listening.",
      "Каждую осень кто-то стучит в запертую кладовую.", S(fx=[("knock", 0.6, -10), ("knock", 1.4, -10)])),
-    ("Close-up portrait", "Vadim holding a single apple in his palm, kind tired pale eyes looking straight at the viewer, white beard, a floppy hat.",
+    ("Close-up portrait", "Vadim holding a single apple in his palm, a thin young man with kind tired eyes that look much older than he is, looking straight at the viewer, an apple-picking pole against his shoulder.",
      "Вадим не открывает. Он разговаривает с дверью через щёлку.", S()),
 ])
 bio("polina", "bio", "bio_polina", "Полина, мастер ножей", [
@@ -112,7 +112,7 @@ bio("polina", "bio", "bio_polina", "Полина, мастер ножей", [
      "Ножи Полины считались лучшими в деревне.", S("fire", "sad", fx=[("hammer", 0.6, -8)])),
     ("Wide, forge door", "A stranger in a dark coat leaving the forge door with a knife wrapped in cloth and walking into river fog, Polina at the door watching.",
      "Последний заказчик пропал сразу после покупки.", S("wind")),
-    ("Close-up portrait", "Polina with scarred forearms holding a knife blade up to the light, looking at the viewer, a girl's face with an adult's tiredness.",
+    ("Close-up portrait", "Polina with scarred forearms holding a knife blade up to the light, looking at the viewer, a stern lined face of a woman in her fifties, headscarf pulled low.",
      "Полина больше не берёт заказов. Нож для неё теперь только нож.", S()),
 ])
 
@@ -143,7 +143,7 @@ bio("efim", "guest", "guest_efim", "Ефим, торговец оберегам�
 ])
 bio("stepan", "guest", "guest_stepan", "Степан, рабочий депо", [
     ("Medium, engine shed", "A depot worker patting the side of a big black steam locomotive in a shed like a horse, oil and soot, lantern.",
-     "Двадцать лет при депо. Степан знает каждый болт в паровозе.", S("rails", "sad")),
+     "Двадцать лет при депо. Степан знает паровоз до последнего болта.", S("rails", "sad")),
     ("Low angle, under locomotive", "Stepan lying under a locomotive with a small lantern and a wrench, only his boots and hands in view, drips of oil.",
      "Говорит, машина пойдёт, если её не бросать.", S(fx=[("hammer", 0.8, -8)])),
     ("Close-up portrait", "Stepan's black oily hands on a wrench and his stern sooty face turning to the viewer, fur hat, padded jacket.",

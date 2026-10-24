@@ -19,18 +19,18 @@
 
 | id | Имя | Роль | Портрет в игре | Пол и возраст |
 |---|---|---|---|---|
-| marina | Марина | перевозчица | `f10` | f, 45 |
-| lida | Лида | учительница | `f9` | f, 26 |
-| zhenya | Женя | знахарка | `f1` | f, 65 |
-| rita | Рита | часовщица | `f3` | f, 22 |
+| marina | Марина | перевозчица | `f9` | f, 34 |
+| lida | Лида | учительница | `f12` | f, 61 |
+| zhenya | Женя | знахарка, фельдшер | `f10` | f, 47 |
+| rita | Рита | часовщица | `f3` | f, 29 |
 | nina | Нина | охотница на волков | `f11` | f, 58 |
-| polina | Полина | кузнец ножей | `f6` | f, 17 |
-| timur | Тимур | могильщик | `f2` | m, 45 |
-| kostya | Костя | потерял сестру | `f4` | m, 20 |
-| tikhon | Тихон | сторож моста | `f13` | m, 50 |
-| zakhar | Захар | трактирный подметальщик | `f7` | m, 45 |
-| misha | Миша | следопыт, вдовец | `f8` | m, 42 |
-| vadim | Вадим | садовник | `f5` | m, 75 |
+| polina | Полина | кузнец ножей | `f1` | f, 56 |
+| timur | Тимур | могильщик | `f2` | m, 41 |
+| kostya | Костя | потерял сестру | `f4` | m, 21 |
+| tikhon | Тихон | сторож моста | `f13` | m, 54 |
+| zakhar | Захар | трактирный подметальщик | `f7` | m, 23 |
+| misha | Миша | следопыт, вдовец | `f8` | m, 45 |
+| vadim | Вадим | садовник | `f14` | m, 26 |
 | gordey | Гордей | солдат без полка | `guest_soldier` | m, 25 |
 | agafya | Агафья | вдова с телегой | `guest_widow` | f, 40 |
 | efim | Ефим | торговец оберегами | `guest_merchant` | m, 50 |
@@ -40,63 +40,62 @@
 | anfisa | Сестра Анфиса | послушница | `npc_nun` | f, 22 |
 | smotritel | Смотритель | смотритель станции | `npc_stationmaster` | m, 60 |
 | melnik | Мельник Савелий | хозяин мельницы | `npc_worker` | m, 60 |
-| extra_oldwoman | Старуха | статистка | `f12` | f, 70 |
-| extra_thin | Худой мужик | статист | `f14` | m, 50 |
+| extra_thin | Худой старик | статист | `f5` | m, 72 |
 | extra_boy | Мальчик | статист | `f15` | m, 14 |
 | extra_pilgrim | Странник | статист | `f16` | m, 55 |
 
 ## Марина · перевозчица
 
-- Эталон из игры: `refs/ref_marina.jpg` (портрет `f10`)
-- Лицо: woman about 45, light-brown hair pulled into a low bun, long stern face, thin tight mouth, green-grey eyes with tired lids, weathered skin with sun lines, two vertical frown lines between the brows
-- Одежда: brown wool shawl over a faded red-patterned sarafan, oilskin cape on the river, rope-scarred hands
+- Эталон из игры: `refs/ref_marina.jpg` (портрет `f9`)
+- Лицо: woman about 34 who looks older than her years, auburn hair under a brown headscarf with red ties, light freckles over the nose, large sad grey-blue eyes, narrow tired face, pale lips, a look of someone who keeps listening for a call from the far bank
+- Одежда: patched linen blouse with a dark worn skirt, a brown shawl, an oilskin cape on the river, rope-scarred hands
 
 Промпт листа-эталона:
 
 ```
 Create a wide landscape 3:2 (1536x1024) photographic character reference sheet of the person in the attached game portrait, as a real actor in 1890s rural Russian costume, plain mid-grey studio background, soft even light, no text.
 Layout: three head-and-shoulders views on the left (front, three-quarter, profile) and one full-body standing view on the right.
-The face must match the attached portrait exactly: woman about 45, light-brown hair pulled into a low bun, long stern face, thin tight mouth, green-grey eyes with tired lids, weathered skin with sun lines, two vertical frown lines between the brows.
-Costume: brown wool shawl over a faded red-patterned sarafan, oilskin cape on the river, rope-scarred hands.
+The face must match the attached portrait exactly: woman about 34 who looks older than her years, auburn hair under a brown headscarf with red ties, light freckles over the nose, large sad grey-blue eyes, narrow tired face, pale lips, a look of someone who keeps listening for a call from the far bank.
+Costume: patched linen blouse with a dark worn skirt, a brown shawl, an oilskin cape on the river, rope-scarred hands.
 Realistic skin with pores and imperfections, tired expression, no glamour, no smile unless described.
 ```
 
 ## Лида · учительница
 
-- Эталон из игры: `refs/ref_lida.jpg` (портрет `f9`)
-- Лицо: woman about 26, auburn hair under a brown headscarf with red ties, light freckles over the nose, large sad grey-blue eyes, narrow face, pale lips, a look of someone who keeps listening
-- Одежда: patched linen blouse, red-trimmed vest, ink-stained fingertips, a small notebook
+- Эталон из игры: `refs/ref_lida.jpg` (портрет `f12`)
+- Лицо: woman about 61, grey hair under a black fringed wool shawl, narrow severe face with deep lines, grey eyes, thin straight pale lips, a head slightly tilted as if she is always listening to a classroom that is empty
+- Одежда: black fringed shawl, long dark patched dress, ink-stained fingertips, a small thin notebook
 
 Промпт листа-эталона:
 
 ```
 Create a wide landscape 3:2 (1536x1024) photographic character reference sheet of the person in the attached game portrait, as a real actor in 1890s rural Russian costume, plain mid-grey studio background, soft even light, no text.
 Layout: three head-and-shoulders views on the left (front, three-quarter, profile) and one full-body standing view on the right.
-The face must match the attached portrait exactly: woman about 26, auburn hair under a brown headscarf with red ties, light freckles over the nose, large sad grey-blue eyes, narrow face, pale lips, a look of someone who keeps listening.
-Costume: patched linen blouse, red-trimmed vest, ink-stained fingertips, a small notebook.
+The face must match the attached portrait exactly: woman about 61, grey hair under a black fringed wool shawl, narrow severe face with deep lines, grey eyes, thin straight pale lips, a head slightly tilted as if she is always listening to a classroom that is empty.
+Costume: black fringed shawl, long dark patched dress, ink-stained fingertips, a small thin notebook.
 Realistic skin with pores and imperfections, tired expression, no glamour, no smile unless described.
 ```
 
-## Женя · знахарка
+## Женя · знахарка, фельдшер
 
-- Эталон из игры: `refs/ref_zhenya.jpg` (портрет `f1`)
-- Лицо: old woman about 65, deeply wrinkled severe face, grey eyebrows, pale blue-grey eyes, thin straight mouth, brown headscarf with a faded red pattern pulled low
-- Одежда: heavy patched brown coat, wooden prayer beads in her hands, little cloth pouches of herbs on her belt
+- Эталон из игры: `refs/ref_zhenya.jpg` (портрет `f10`)
+- Лицо: woman about 47, light-brown hair pulled into a low bun, long stern face, thin tight mouth, green-grey eyes with tired lids, weathered skin with sun lines, two vertical frown lines between the brows
+- Одежда: brown wool shawl over a faded red-patterned sarafan, a wicker basket of dried herbs on her arm, little cloth pouches on her belt
 
 Промпт листа-эталона:
 
 ```
 Create a wide landscape 3:2 (1536x1024) photographic character reference sheet of the person in the attached game portrait, as a real actor in 1890s rural Russian costume, plain mid-grey studio background, soft even light, no text.
 Layout: three head-and-shoulders views on the left (front, three-quarter, profile) and one full-body standing view on the right.
-The face must match the attached portrait exactly: old woman about 65, deeply wrinkled severe face, grey eyebrows, pale blue-grey eyes, thin straight mouth, brown headscarf with a faded red pattern pulled low.
-Costume: heavy patched brown coat, wooden prayer beads in her hands, little cloth pouches of herbs on her belt.
+The face must match the attached portrait exactly: woman about 47, light-brown hair pulled into a low bun, long stern face, thin tight mouth, green-grey eyes with tired lids, weathered skin with sun lines, two vertical frown lines between the brows.
+Costume: brown wool shawl over a faded red-patterned sarafan, a wicker basket of dried herbs on her arm, little cloth pouches on her belt.
 Realistic skin with pores and imperfections, tired expression, no glamour, no smile unless described.
 ```
 
 ## Рита · часовщица
 
 - Эталон из игры: `refs/ref_rita.jpg` (портрет `f3`)
-- Лицо: young woman about 22, very pale skin, long thick blonde braid over one shoulder, light blue-grey eyes, small serious mouth, high forehead, calm unblinking look
+- Лицо: woman about 29 who looks younger, very pale skin, long thick blonde braid over one shoulder, light blue-grey eyes, small serious mouth, high forehead, calm unblinking look
 - Одежда: plain linen blouse with a dark apron full of small tools, a magnifying lens on a cord, fine steady hands
 
 Промпт листа-эталона:
@@ -104,7 +103,7 @@ Realistic skin with pores and imperfections, tired expression, no glamour, no sm
 ```
 Create a wide landscape 3:2 (1536x1024) photographic character reference sheet of the person in the attached game portrait, as a real actor in 1890s rural Russian costume, plain mid-grey studio background, soft even light, no text.
 Layout: three head-and-shoulders views on the left (front, three-quarter, profile) and one full-body standing view on the right.
-The face must match the attached portrait exactly: young woman about 22, very pale skin, long thick blonde braid over one shoulder, light blue-grey eyes, small serious mouth, high forehead, calm unblinking look.
+The face must match the attached portrait exactly: woman about 29 who looks younger, very pale skin, long thick blonde braid over one shoulder, light blue-grey eyes, small serious mouth, high forehead, calm unblinking look.
 Costume: plain linen blouse with a dark apron full of small tools, a magnifying lens on a cord, fine steady hands.
 Realistic skin with pores and imperfections, tired expression, no glamour, no smile unless described.
 ```
@@ -127,24 +126,24 @@ Realistic skin with pores and imperfections, tired expression, no glamour, no sm
 
 ## Полина · кузнец ножей
 
-- Эталон из игры: `refs/ref_polina.jpg` (портрет `f6`)
-- Лицо: girl about 17, honey-brown braid, red headband with a small cloth flower, rosy cheeks, wide pale-blue eyes that look close to tears, small chin, a child's face with an adult's tiredness
-- Одежда: linen blouse with rolled sleeves, scorched leather apron, small burn scars on both forearms
+- Эталон из игры: `refs/ref_polina.jpg` (портрет `f1`)
+- Лицо: woman about 56, deeply lined severe face, grey eyebrows, pale blue-grey eyes, thin straight mouth, brown headscarf with a faded red pattern pulled low, a stocky solid build
+- Одежда: heavy patched brown coat over a scorched leather apron, wooden beads wound round one wrist, burn scars on both forearms
 
 Промпт листа-эталона:
 
 ```
 Create a wide landscape 3:2 (1536x1024) photographic character reference sheet of the person in the attached game portrait, as a real actor in 1890s rural Russian costume, plain mid-grey studio background, soft even light, no text.
 Layout: three head-and-shoulders views on the left (front, three-quarter, profile) and one full-body standing view on the right.
-The face must match the attached portrait exactly: girl about 17, honey-brown braid, red headband with a small cloth flower, rosy cheeks, wide pale-blue eyes that look close to tears, small chin, a child's face with an adult's tiredness.
-Costume: linen blouse with rolled sleeves, scorched leather apron, small burn scars on both forearms.
+The face must match the attached portrait exactly: woman about 56, deeply lined severe face, grey eyebrows, pale blue-grey eyes, thin straight mouth, brown headscarf with a faded red pattern pulled low, a stocky solid build.
+Costume: heavy patched brown coat over a scorched leather apron, wooden beads wound round one wrist, burn scars on both forearms.
 Realistic skin with pores and imperfections, tired expression, no glamour, no smile unless described.
 ```
 
 ## Тимур · могильщик
 
 - Эталон из игры: `refs/ref_timur.jpg` (портрет `f2`)
-- Лицо: man about 45, thick red-brown beard with a few grey hairs, blue eyes under heavy lids, broken nose bridge, deep creases at the eyes, flat worker's cap
+- Лицо: man about 41, thick red-brown beard with a few grey hairs, blue eyes under heavy lids, broken nose bridge, deep creases at the eyes, flat worker's cap
 - Одежда: worn coat with a fur collar, mud to the knees, a shovel always in reach
 
 Промпт листа-эталона:
@@ -152,7 +151,7 @@ Realistic skin with pores and imperfections, tired expression, no glamour, no sm
 ```
 Create a wide landscape 3:2 (1536x1024) photographic character reference sheet of the person in the attached game portrait, as a real actor in 1890s rural Russian costume, plain mid-grey studio background, soft even light, no text.
 Layout: three head-and-shoulders views on the left (front, three-quarter, profile) and one full-body standing view on the right.
-The face must match the attached portrait exactly: man about 45, thick red-brown beard with a few grey hairs, blue eyes under heavy lids, broken nose bridge, deep creases at the eyes, flat worker's cap.
+The face must match the attached portrait exactly: man about 41, thick red-brown beard with a few grey hairs, blue eyes under heavy lids, broken nose bridge, deep creases at the eyes, flat worker's cap.
 Costume: worn coat with a fur collar, mud to the knees, a shovel always in reach.
 Realistic skin with pores and imperfections, tired expression, no glamour, no smile unless described.
 ```
@@ -160,7 +159,7 @@ Realistic skin with pores and imperfections, tired expression, no glamour, no sm
 ## Костя · потерял сестру
 
 - Эталон из игры: `refs/ref_kostya.jpg` (портрет `f4`)
-- Лицо: young man about 20, light-brown hair under a flat cap, light blue eyes, thin clean-shaven face, sharp cheekbones, restless alert look, a small old scar on the chin
+- Лицо: young man about 21, light-brown hair under a flat cap, light blue eyes, thin clean-shaven face, sharp cheekbones, restless alert look, a small old scar on the chin
 - Одежда: brown vest over a maroon shirt, red sash belt, patched trousers
 
 Промпт листа-эталона:
@@ -168,7 +167,7 @@ Realistic skin with pores and imperfections, tired expression, no glamour, no sm
 ```
 Create a wide landscape 3:2 (1536x1024) photographic character reference sheet of the person in the attached game portrait, as a real actor in 1890s rural Russian costume, plain mid-grey studio background, soft even light, no text.
 Layout: three head-and-shoulders views on the left (front, three-quarter, profile) and one full-body standing view on the right.
-The face must match the attached portrait exactly: young man about 20, light-brown hair under a flat cap, light blue eyes, thin clean-shaven face, sharp cheekbones, restless alert look, a small old scar on the chin.
+The face must match the attached portrait exactly: young man about 21, light-brown hair under a flat cap, light blue eyes, thin clean-shaven face, sharp cheekbones, restless alert look, a small old scar on the chin.
 Costume: brown vest over a maroon shirt, red sash belt, patched trousers.
 Realistic skin with pores and imperfections, tired expression, no glamour, no smile unless described.
 ```
@@ -176,7 +175,7 @@ Realistic skin with pores and imperfections, tired expression, no glamour, no sm
 ## Тихон · сторож моста
 
 - Эталон из игры: `refs/ref_tikhon.jpg` (портрет `f13`)
-- Лицо: man about 50, short greying brown hair, long deeply lined weary face, grey stubble, heavy-lidded sad eyes, drooping corners of the mouth
+- Лицо: man about 54, short greying brown hair, long deeply lined weary face, grey stubble, heavy-lidded sad eyes, drooping corners of the mouth
 - Одежда: dark long coat, a coil of rope or net over one shoulder, an old kerosene lantern in hand
 
 Промпт листа-эталона:
@@ -184,7 +183,7 @@ Realistic skin with pores and imperfections, tired expression, no glamour, no sm
 ```
 Create a wide landscape 3:2 (1536x1024) photographic character reference sheet of the person in the attached game portrait, as a real actor in 1890s rural Russian costume, plain mid-grey studio background, soft even light, no text.
 Layout: three head-and-shoulders views on the left (front, three-quarter, profile) and one full-body standing view on the right.
-The face must match the attached portrait exactly: man about 50, short greying brown hair, long deeply lined weary face, grey stubble, heavy-lidded sad eyes, drooping corners of the mouth.
+The face must match the attached portrait exactly: man about 54, short greying brown hair, long deeply lined weary face, grey stubble, heavy-lidded sad eyes, drooping corners of the mouth.
 Costume: dark long coat, a coil of rope or net over one shoulder, an old kerosene lantern in hand.
 Realistic skin with pores and imperfections, tired expression, no glamour, no smile unless described.
 ```
@@ -192,7 +191,7 @@ Realistic skin with pores and imperfections, tired expression, no glamour, no sm
 ## Захар · трактирный подметальщик
 
 - Эталон из игры: `refs/ref_zakhar.jpg` (портрет `f7`)
-- Лицо: broad heavy man about 45, short dark hair, thick brow, narrowed stern eyes, square jaw with dark stubble, a nose broken once, a stare that shuts conversations
+- Лицо: broad heavy young man of 23 who looks ten years older, short dark hair, thick brow, narrowed stern eyes, square jaw with dark stubble, a nose broken once, a stare that shuts conversations
 - Одежда: scorched leather apron over a grey shirt, huge forearms, a worn broom or a hammer
 
 Промпт листа-эталона:
@@ -200,7 +199,7 @@ Realistic skin with pores and imperfections, tired expression, no glamour, no sm
 ```
 Create a wide landscape 3:2 (1536x1024) photographic character reference sheet of the person in the attached game portrait, as a real actor in 1890s rural Russian costume, plain mid-grey studio background, soft even light, no text.
 Layout: three head-and-shoulders views on the left (front, three-quarter, profile) and one full-body standing view on the right.
-The face must match the attached portrait exactly: broad heavy man about 45, short dark hair, thick brow, narrowed stern eyes, square jaw with dark stubble, a nose broken once, a stare that shuts conversations.
+The face must match the attached portrait exactly: broad heavy young man of 23 who looks ten years older, short dark hair, thick brow, narrowed stern eyes, square jaw with dark stubble, a nose broken once, a stare that shuts conversations.
 Costume: scorched leather apron over a grey shirt, huge forearms, a worn broom or a hammer.
 Realistic skin with pores and imperfections, tired expression, no glamour, no smile unless described.
 ```
@@ -208,7 +207,7 @@ Realistic skin with pores and imperfections, tired expression, no glamour, no sm
 ## Миша · следопыт, вдовец
 
 - Эталон из игры: `refs/ref_misha.jpg` (портрет `f8`)
-- Лицо: lean man about 42, narrow grey eyes, weathered tanned face with a trimmed stubble, thin lips, a watchful look that checks every corner
+- Лицо: lean man about 45, narrow grey eyes, weathered tanned face with a trimmed stubble, thin lips, a watchful look that checks every corner
 - Одежда: fur ushanka with the ear flaps down, sheepskin collar, brown scarf, hunting knife, coil of rope, leather satchel
 
 Промпт листа-эталона:
@@ -216,24 +215,24 @@ Realistic skin with pores and imperfections, tired expression, no glamour, no sm
 ```
 Create a wide landscape 3:2 (1536x1024) photographic character reference sheet of the person in the attached game portrait, as a real actor in 1890s rural Russian costume, plain mid-grey studio background, soft even light, no text.
 Layout: three head-and-shoulders views on the left (front, three-quarter, profile) and one full-body standing view on the right.
-The face must match the attached portrait exactly: lean man about 42, narrow grey eyes, weathered tanned face with a trimmed stubble, thin lips, a watchful look that checks every corner.
+The face must match the attached portrait exactly: lean man about 45, narrow grey eyes, weathered tanned face with a trimmed stubble, thin lips, a watchful look that checks every corner.
 Costume: fur ushanka with the ear flaps down, sheepskin collar, brown scarf, hunting knife, coil of rope, leather satchel.
 Realistic skin with pores and imperfections, tired expression, no glamour, no smile unless described.
 ```
 
 ## Вадим · садовник
 
-- Эталон из игры: `refs/ref_vadim.jpg` (портрет `f5`)
-- Лицо: very old man about 75, long white beard and unkempt white hair, deep-set pale grey eyes, hooked nose, a gentle stooped face with heavy bags under the eyes
-- Одежда: floppy patched felt hat, long patched brown coat, bast shoes with wrapped legs, a walking stick
+- Эталон из игры: `refs/ref_vadim.jpg` (портрет `f14`)
+- Лицо: thin man about 26 with a prematurely aged face, grey-streaked dark hair falling over the forehead, hollow cheeks, deep tired eyes, stubble, a gentle patient look
+- Одежда: torn linen shirt with rolled sleeves, bast shoes with wrapped legs, a long fruit-picking pole, apple juice stains on the cuffs
 
 Промпт листа-эталона:
 
 ```
 Create a wide landscape 3:2 (1536x1024) photographic character reference sheet of the person in the attached game portrait, as a real actor in 1890s rural Russian costume, plain mid-grey studio background, soft even light, no text.
 Layout: three head-and-shoulders views on the left (front, three-quarter, profile) and one full-body standing view on the right.
-The face must match the attached portrait exactly: very old man about 75, long white beard and unkempt white hair, deep-set pale grey eyes, hooked nose, a gentle stooped face with heavy bags under the eyes.
-Costume: floppy patched felt hat, long patched brown coat, bast shoes with wrapped legs, a walking stick.
+The face must match the attached portrait exactly: thin man about 26 with a prematurely aged face, grey-streaked dark hair falling over the forehead, hollow cheeks, deep tired eyes, stubble, a gentle patient look.
+Costume: torn linen shirt with rolled sleeves, bast shoes with wrapped legs, a long fruit-picking pole, apple juice stains on the cuffs.
 Realistic skin with pores and imperfections, tired expression, no glamour, no smile unless described.
 ```
 
@@ -381,35 +380,19 @@ Costume: flour-covered apron over a thick grey sweater, a heavy ring of keys and
 Realistic skin with pores and imperfections, tired expression, no glamour, no smile unless described.
 ```
 
-## Старуха · статистка
+## Худой старик · статист
 
-- Эталон из игры: `refs/ref_extra_oldwoman.jpg` (портрет `f12`)
-- Лицо: old woman about 70, sunken cheeks, deep lines, grey eyes, black wool shawl pulled around the face
-- Одежда: black shawl, patched dark dress
-
-Промпт листа-эталона:
-
-```
-Create a wide landscape 3:2 (1536x1024) photographic character reference sheet of the person in the attached game portrait, as a real actor in 1890s rural Russian costume, plain mid-grey studio background, soft even light, no text.
-Layout: three head-and-shoulders views on the left (front, three-quarter, profile) and one full-body standing view on the right.
-The face must match the attached portrait exactly: old woman about 70, sunken cheeks, deep lines, grey eyes, black wool shawl pulled around the face.
-Costume: black shawl, patched dark dress.
-Realistic skin with pores and imperfections, tired expression, no glamour, no smile unless described.
-```
-
-## Худой мужик · статист
-
-- Эталон из игры: `refs/ref_extra_thin.jpg` (портрет `f14`)
-- Лицо: thin man about 50, grey hair falling over the forehead, hollow cheeks, deep tired eyes, stubble
-- Одежда: torn linen shirt, bast shoes, a stick
+- Эталон из игры: `refs/ref_extra_thin.jpg` (портрет `f5`)
+- Лицо: thin old man about 72, long white beard and unkempt white hair, deep-set pale grey eyes, hooked nose, a gentle stooped face with heavy bags under the eyes
+- Одежда: floppy patched felt hat, long patched brown coat, bast shoes with wrapped legs, a walking stick
 
 Промпт листа-эталона:
 
 ```
 Create a wide landscape 3:2 (1536x1024) photographic character reference sheet of the person in the attached game portrait, as a real actor in 1890s rural Russian costume, plain mid-grey studio background, soft even light, no text.
 Layout: three head-and-shoulders views on the left (front, three-quarter, profile) and one full-body standing view on the right.
-The face must match the attached portrait exactly: thin man about 50, grey hair falling over the forehead, hollow cheeks, deep tired eyes, stubble.
-Costume: torn linen shirt, bast shoes, a stick.
+The face must match the attached portrait exactly: thin old man about 72, long white beard and unkempt white hair, deep-set pale grey eyes, hooked nose, a gentle stooped face with heavy bags under the eyes.
+Costume: floppy patched felt hat, long patched brown coat, bast shoes with wrapped legs, a walking stick.
 Realistic skin with pores and imperfections, tired expression, no glamour, no smile unless described.
 ```
 

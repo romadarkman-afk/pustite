@@ -2,60 +2,61 @@
 
 Каждый персонаж: id, имя, роль, портрет из игры (assets/folk), приметы лица для ChatGPT на английском.
 Приметы списаны с игровых портретов (game/assets/folk/realistic), чтобы лицо в комиксе совпадало с лицом на поле.
-Именные жители привязаны к портретам по роду занятий из их предысторий (social_content.gd, "stories").
+Именные жители привязаны к портретам по возрасту (SocialContent.AGES) и роду занятий (PEOPLE_RU); та же таблица в игре:
+VillagerFigure.NAMED_SPRITES. Менять обе вместе, `--slides` сверяет.
 """
 
 # (id, имя, роль, спрайт в game/assets/folk/realistic, приметы лица EN, одежда EN)
 CAST = {
     # ---------- 12 именных жителей (предыстории) ----------
     "marina": dict(
-        ru="Марина", role="перевозчица", sprite="f10", sex="f", age=45,
-        face="woman about 45, light-brown hair pulled into a low bun, long stern face, thin tight mouth, green-grey eyes with tired lids, weathered skin with sun lines, two vertical frown lines between the brows",
-        wear="brown wool shawl over a faded red-patterned sarafan, oilskin cape on the river, rope-scarred hands"),
+        ru="Марина", role="перевозчица", sprite="f9", sex="f", age=34,
+        face="woman about 34 who looks older than her years, auburn hair under a brown headscarf with red ties, light freckles over the nose, large sad grey-blue eyes, narrow tired face, pale lips, a look of someone who keeps listening for a call from the far bank",
+        wear="patched linen blouse with a dark worn skirt, a brown shawl, an oilskin cape on the river, rope-scarred hands"),
     "lida": dict(
-        ru="Лида", role="учительница", sprite="f9", sex="f", age=26,
-        face="woman about 26, auburn hair under a brown headscarf with red ties, light freckles over the nose, large sad grey-blue eyes, narrow face, pale lips, a look of someone who keeps listening",
-        wear="patched linen blouse, red-trimmed vest, ink-stained fingertips, a small notebook"),
+        ru="Лида", role="учительница", sprite="f12", sex="f", age=61,
+        face="woman about 61, grey hair under a black fringed wool shawl, narrow severe face with deep lines, grey eyes, thin straight pale lips, a head slightly tilted as if she is always listening to a classroom that is empty",
+        wear="black fringed shawl, long dark patched dress, ink-stained fingertips, a small thin notebook"),
     "zhenya": dict(
-        ru="Женя", role="знахарка", sprite="f1", sex="f", age=65,
-        face="old woman about 65, deeply wrinkled severe face, grey eyebrows, pale blue-grey eyes, thin straight mouth, brown headscarf with a faded red pattern pulled low",
-        wear="heavy patched brown coat, wooden prayer beads in her hands, little cloth pouches of herbs on her belt"),
+        ru="Женя", role="знахарка, фельдшер", sprite="f10", sex="f", age=47,
+        face="woman about 47, light-brown hair pulled into a low bun, long stern face, thin tight mouth, green-grey eyes with tired lids, weathered skin with sun lines, two vertical frown lines between the brows",
+        wear="brown wool shawl over a faded red-patterned sarafan, a wicker basket of dried herbs on her arm, little cloth pouches on her belt"),
     "rita": dict(
-        ru="Рита", role="часовщица", sprite="f3", sex="f", age=22,
-        face="young woman about 22, very pale skin, long thick blonde braid over one shoulder, light blue-grey eyes, small serious mouth, high forehead, calm unblinking look",
+        ru="Рита", role="часовщица", sprite="f3", sex="f", age=29,
+        face="woman about 29 who looks younger, very pale skin, long thick blonde braid over one shoulder, light blue-grey eyes, small serious mouth, high forehead, calm unblinking look",
         wear="plain linen blouse with a dark apron full of small tools, a magnifying lens on a cord, fine steady hands"),
     "nina": dict(
         ru="Нина", role="охотница на волков", sprite="f11", sex="f", age=58,
         face="stout woman about 58, heavy jowls and strong jaw, grey hair under a brown headscarf, severe grey eyes under a heavy brow, deep lines from nose to mouth, a face that does not smile",
         wear="dark floral dress under a sheepskin vest, fur hat when outdoors, old long rifle on a strap"),
     "polina": dict(
-        ru="Полина", role="кузнец ножей", sprite="f6", sex="f", age=17,
-        face="girl about 17, honey-brown braid, red headband with a small cloth flower, rosy cheeks, wide pale-blue eyes that look close to tears, small chin, a child's face with an adult's tiredness",
-        wear="linen blouse with rolled sleeves, scorched leather apron, small burn scars on both forearms"),
+        ru="Полина", role="кузнец ножей", sprite="f1", sex="f", age=56,
+        face="woman about 56, deeply lined severe face, grey eyebrows, pale blue-grey eyes, thin straight mouth, brown headscarf with a faded red pattern pulled low, a stocky solid build",
+        wear="heavy patched brown coat over a scorched leather apron, wooden beads wound round one wrist, burn scars on both forearms"),
     "timur": dict(
-        ru="Тимур", role="могильщик", sprite="f2", sex="m", age=45,
-        face="man about 45, thick red-brown beard with a few grey hairs, blue eyes under heavy lids, broken nose bridge, deep creases at the eyes, flat worker's cap",
+        ru="Тимур", role="могильщик", sprite="f2", sex="m", age=41,
+        face="man about 41, thick red-brown beard with a few grey hairs, blue eyes under heavy lids, broken nose bridge, deep creases at the eyes, flat worker's cap",
         wear="worn coat with a fur collar, mud to the knees, a shovel always in reach"),
     "kostya": dict(
-        ru="Костя", role="потерял сестру", sprite="f4", sex="m", age=20,
-        face="young man about 20, light-brown hair under a flat cap, light blue eyes, thin clean-shaven face, sharp cheekbones, restless alert look, a small old scar on the chin",
+        ru="Костя", role="потерял сестру", sprite="f4", sex="m", age=21,
+        face="young man about 21, light-brown hair under a flat cap, light blue eyes, thin clean-shaven face, sharp cheekbones, restless alert look, a small old scar on the chin",
         wear="brown vest over a maroon shirt, red sash belt, patched trousers"),
     "tikhon": dict(
-        ru="Тихон", role="сторож моста", sprite="f13", sex="m", age=50,
-        face="man about 50, short greying brown hair, long deeply lined weary face, grey stubble, heavy-lidded sad eyes, drooping corners of the mouth",
+        ru="Тихон", role="сторож моста", sprite="f13", sex="m", age=54,
+        face="man about 54, short greying brown hair, long deeply lined weary face, grey stubble, heavy-lidded sad eyes, drooping corners of the mouth",
         wear="dark long coat, a coil of rope or net over one shoulder, an old kerosene lantern in hand"),
     "zakhar": dict(
-        ru="Захар", role="трактирный подметальщик", sprite="f7", sex="m", age=45,
-        face="broad heavy man about 45, short dark hair, thick brow, narrowed stern eyes, square jaw with dark stubble, a nose broken once, a stare that shuts conversations",
+        ru="Захар", role="трактирный подметальщик", sprite="f7", sex="m", age=23,
+        face="broad heavy young man of 23 who looks ten years older, short dark hair, thick brow, narrowed stern eyes, square jaw with dark stubble, a nose broken once, a stare that shuts conversations",
         wear="scorched leather apron over a grey shirt, huge forearms, a worn broom or a hammer"),
     "misha": dict(
-        ru="Миша", role="следопыт, вдовец", sprite="f8", sex="m", age=42,
-        face="lean man about 42, narrow grey eyes, weathered tanned face with a trimmed stubble, thin lips, a watchful look that checks every corner",
+        ru="Миша", role="следопыт, вдовец", sprite="f8", sex="m", age=45,
+        face="lean man about 45, narrow grey eyes, weathered tanned face with a trimmed stubble, thin lips, a watchful look that checks every corner",
         wear="fur ushanka with the ear flaps down, sheepskin collar, brown scarf, hunting knife, coil of rope, leather satchel"),
     "vadim": dict(
-        ru="Вадим", role="садовник", sprite="f5", sex="m", age=75,
-        face="very old man about 75, long white beard and unkempt white hair, deep-set pale grey eyes, hooked nose, a gentle stooped face with heavy bags under the eyes",
-        wear="floppy patched felt hat, long patched brown coat, bast shoes with wrapped legs, a walking stick"),
+        ru="Вадим", role="садовник", sprite="f14", sex="m", age=26,
+        face="thin man about 26 with a prematurely aged face, grey-streaked dark hair falling over the forehead, hollow cheeks, deep tired eyes, stubble, a gentle patient look",
+        wear="torn linen shirt with rolled sleeves, bast shoes with wrapped legs, a long fruit-picking pole, apple juice stains on the cuffs"),
 
     # ---------- гости кампании ----------
     "gordey": dict(
@@ -98,14 +99,10 @@ CAST = {
         wear="flour-covered apron over a thick grey sweater, a heavy ring of keys and a small ledger book at the belt"),
 
     # ---------- статисты (лица для толпы; именных жителей в сюжетных колодах нет, потому что они могли погибнуть) ----------
-    "extra_oldwoman": dict(
-        ru="Старуха", role="статистка", sprite="f12", sex="f", age=70,
-        face="old woman about 70, sunken cheeks, deep lines, grey eyes, black wool shawl pulled around the face",
-        wear="black shawl, patched dark dress"),
     "extra_thin": dict(
-        ru="Худой мужик", role="статист", sprite="f14", sex="m", age=50,
-        face="thin man about 50, grey hair falling over the forehead, hollow cheeks, deep tired eyes, stubble",
-        wear="torn linen shirt, bast shoes, a stick"),
+        ru="Худой старик", role="статист", sprite="f5", sex="m", age=72,
+        face="thin old man about 72, long white beard and unkempt white hair, deep-set pale grey eyes, hooked nose, a gentle stooped face with heavy bags under the eyes",
+        wear="floppy patched felt hat, long patched brown coat, bast shoes with wrapped legs, a walking stick"),
     "extra_boy": dict(
         ru="Мальчик", role="статист", sprite="f15", sex="m", age=14,
         face="boy about 14, ginger-brown hair under a flat cap, intense light eyes, freckles, a serious face",
@@ -115,6 +112,9 @@ CAST = {
         face="man about 55, long grey-brown hair, long grey beard, calm stern eyes",
         wear="dark long coat with a wooden cross and prayer beads, a book under the arm"),
 }
+
+# Говорящие без лица в кадре (подпись «Гость»): id -> русское имя; в игре берётся перевод slides.who_<id>.
+EXTRA_WHO = {"guest": "Гость"}
 
 # Что нельзя показывать и как показывать героя и упыря.
 HERO = ("The player character (called 'the hero') is NEVER shown from the front and the face is never visible: "

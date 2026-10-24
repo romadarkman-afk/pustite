@@ -87,7 +87,26 @@ func _scene_then_reveal(r: NightReport) -> void:
 		scene_chosen(sc, choice)
 		if not is_instance_valid(self):
 			return
+	await _guest_comics()
+	if not is_instance_valid(self):
+		return
 	_reveal(r)
+
+
+## Утро разгадки гостя (TASK-106): колода комикса «человек» или «упырь». Раз на гостя, повторы по настройке.
+func _guest_comics() -> void:
+	if not Save.comics_on or (Juice.instant and not SlidePlayer.instant_play):
+		return
+	for c: Dictionary in Guests.morning_clues(m):
+		if not bool(c.reveal):
+			continue
+		var v: Villager = c.who
+		var gid := String(Slides.GUEST_BY_GAME.get(v.guest_id, ""))
+		if gid.is_empty():
+			continue
+		await SlidePlayer.play(self, "guest_%s_%s" % [gid, "upyr" if v.is_upyr else "human"])
+		if not is_instance_valid(self):
+			return
 
 
 static func morning_scene(mm: Match, r: NightReport) -> Dictionary:

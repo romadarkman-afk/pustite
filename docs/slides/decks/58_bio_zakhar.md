@@ -21,7 +21,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Wide, tavern at night.
 SCENE: MEMORY frame, faded old film. Zakhar sweeping the floor of an empty tavern at night, benches upturned on tables, mugs in rows on a shelf.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Захар / zakhar: broad heavy man about 45, short dark hair, thick brow, narrowed stern eyes, square jaw with dark stubble, a nose broken once, a stare that shuts conversations. Wears: scorched leather apron over a grey shirt, huge forearms, a worn broom or a hammer.
+- Захар / zakhar: broad heavy young man of 23 who looks ten years older, short dark hair, thick brow, narrowed stern eyes, square jaw with dark stubble, a nose broken once, a stare that shuts conversations. Wears: scorched leather apron over a grey shirt, huge forearms, a worn broom or a hammer.
 ```
 
 - **Подпись в игре:** Захар подметал трактир.
@@ -39,7 +39,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Macro, shelf and book.
 SCENE: MEMORY frame, faded old film. A tavern ledger with nine mug rings drawn and only six mugs left on the shelf above it, lamp light.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Захар / zakhar: broad heavy man about 45, short dark hair, thick brow, narrowed stern eyes, square jaw with dark stubble, a nose broken once, a stare that shuts conversations. Wears: scorched leather apron over a grey shirt, huge forearms, a worn broom or a hammer.
+- Захар / zakhar: broad heavy young man of 23 who looks ten years older, short dark hair, thick brow, narrowed stern eyes, square jaw with dark stubble, a nose broken once, a stare that shuts conversations. Wears: scorched leather apron over a grey shirt, huge forearms, a worn broom or a hammer.
 ```
 
 - **Подпись в игре:** В ночь исчезновения троих в книге осталось шесть кружек.
@@ -57,7 +57,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Close-up portrait.
 SCENE: The face must match the reference exactly and must be clearly visible and recognizable. PRESENT, sharp. Zakhar leaning on his broom, giving the viewer a stare that ends conversations, leather apron, lamp at his side.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Захар / zakhar: broad heavy man about 45, short dark hair, thick brow, narrowed stern eyes, square jaw with dark stubble, a nose broken once, a stare that shuts conversations. Wears: scorched leather apron over a grey shirt, huge forearms, a worn broom or a hammer.
+- Захар / zakhar: broad heavy young man of 23 who looks ten years older, short dark hair, thick brow, narrowed stern eyes, square jaw with dark stubble, a nose broken once, a stare that shuts conversations. Wears: scorched leather apron over a grey shirt, huge forearms, a worn broom or a hammer.
 ```
 
 - **Подпись в игре:** Девять кружек в книге, шесть на полке. Захар не любит, когда их считают.

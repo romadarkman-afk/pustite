@@ -188,7 +188,7 @@ c.add("t", "Close, window",
       [N("На стекле снаружи отпечаток ладони. Слишком длинной.")], S(fx=[("scratch", 0.7, -10)]), tier="B", cam="zoom_in")
 c.add("t", "Medium, stationmaster",
       "A stationmaster at his desk with a ledger and a trembling pencil, counting under his breath, lamp on his face, a cold sweat.",
-      [N("Смотритель считает людей и каждый раз сбивается.")], S(fx=[("tick", 0.6, -10), ("tick", 1.0, -10)]), tier="A", cast=("smotritel",), cam="zoom_in")
+      [N("Смотритель считает людей и всё время сбивается.")], S(fx=[("tick", 0.6, -10), ("tick", 1.0, -10)]), tier="A", cast=("smotritel",), cam="zoom_in")
 
 # ---------------------------------------------------------------- a4c2 Список
 a, b, c = trio("a4c2", "Список", "Грузовой Тупик, весна, угольный туман",
@@ -219,7 +219,7 @@ b.add("t", "Macro, stamp",
       [N("Печать ложится на бумагу. Очередь на поезд определена.")], S(fx=[("tap", 0.6, -4)]), tier="A", cam="zoom_in")
 b.add("t", "Medium, washing",
       "People washing coal dust from their faces in a barrel of water, dark water, faces looking at each other to see who is cleaner.",
-      [N("Моем лица от угля. Каждый смотрит, кто чище.")], S(), tier="B", cam="zoom_in")
+      [N("Моем лица от угля. Смотрим, кто чище.")], S(), tier="B", cam="zoom_in")
 b.add("w", "Wide, first light",
       "First light on freight wagons and a water tower, mist retreating from the rails, silver edges.",
       [N("Туман отступает от вагонов.")], S("day", "hope"), tier="A", cam="pan_r")

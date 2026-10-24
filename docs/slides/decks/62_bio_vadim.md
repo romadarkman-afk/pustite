@@ -21,7 +21,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Wide, orchard, autumn.
 SCENE: MEMORY frame, faded old film. An old apple orchard behind a small chapel in autumn, baskets of apples under the trees, Vadim picking with a long pole, soft low sun.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Вадим / vadim: very old man about 75, long white beard and unkempt white hair, deep-set pale grey eyes, hooked nose, a gentle stooped face with heavy bags under the eyes. Wears: floppy patched felt hat, long patched brown coat, bast shoes with wrapped legs, a walking stick.
+- Вадим / vadim: thin man about 26 with a prematurely aged face, grey-streaked dark hair falling over the forehead, hollow cheeks, deep tired eyes, stubble, a gentle patient look. Wears: torn linen shirt with rolled sleeves, bast shoes with wrapped legs, a long fruit-picking pole, apple juice stains on the cuffs.
 ```
 
 - **Подпись в игре:** Вадим выращивал яблоки за часовней.
@@ -39,7 +39,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Medium, cellar door.
 SCENE: MEMORY frame, faded old film. A locked cellar door in the orchard, apples scattered, frost on the planks, Vadim with an ear to the door listening.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Вадим / vadim: very old man about 75, long white beard and unkempt white hair, deep-set pale grey eyes, hooked nose, a gentle stooped face with heavy bags under the eyes. Wears: floppy patched felt hat, long patched brown coat, bast shoes with wrapped legs, a walking stick.
+- Вадим / vadim: thin man about 26 with a prematurely aged face, grey-streaked dark hair falling over the forehead, hollow cheeks, deep tired eyes, stubble, a gentle patient look. Wears: torn linen shirt with rolled sleeves, bast shoes with wrapped legs, a long fruit-picking pole, apple juice stains on the cuffs.
 ```
 
 - **Подпись в игре:** Каждую осень кто-то стучит в запертую кладовую.
@@ -55,9 +55,9 @@ Create a tall portrait 2:3 (1024x1536) image.
 STYLE: Photo-comic noir panel in the spirit of the Max Payne motion comic: staged live-action photograph, real actors in 1890s rural Russian costume, heavy cinematic grade, crushed blacks, one cold dominant tone plus one warm light source, film grain, haze. No text, letters, numbers, logos, speech bubbles, borders or watermark. Key subject inside the central 70% of the frame.
 GRADE: warm lamp light against a cold blue window, crushed blacks; the first two frames are memories (faded sepia-grey film, soft focus), the third frame is the present, sharp and cold.
 SHOT: Close-up portrait.
-SCENE: The face must match the reference exactly and must be clearly visible and recognizable. PRESENT, sharp. Vadim holding a single apple in his palm, kind tired pale eyes looking straight at the viewer, white beard, a floppy hat.
+SCENE: The face must match the reference exactly and must be clearly visible and recognizable. PRESENT, sharp. Vadim holding a single apple in his palm, a thin young man with kind tired eyes that look much older than he is, looking straight at the viewer, an apple-picking pole against his shoulder.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Вадим / vadim: very old man about 75, long white beard and unkempt white hair, deep-set pale grey eyes, hooked nose, a gentle stooped face with heavy bags under the eyes. Wears: floppy patched felt hat, long patched brown coat, bast shoes with wrapped legs, a walking stick.
+- Вадим / vadim: thin man about 26 with a prematurely aged face, grey-streaked dark hair falling over the forehead, hollow cheeks, deep tired eyes, stubble, a gentle patient look. Wears: torn linen shirt with rolled sleeves, bast shoes with wrapped legs, a long fruit-picking pole, apple juice stains on the cuffs.
 ```
 
 - **Подпись в игре:** Вадим не открывает. Он разговаривает с дверью через щёлку.

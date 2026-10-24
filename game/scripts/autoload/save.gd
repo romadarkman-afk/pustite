@@ -25,6 +25,9 @@ var haptics: bool:                        ## включена ли вибрац�
 	set(on):
 		set_haptic_level((_haptic_last_on if haptic_level == 0 else haptic_level) if on else 0, false)
 var simplified_graphics: bool = false
+var comics_on: bool = true                ## показывать колоды комикса (TASK-106); выключено: прежние сцены без картинок-серий
+var comics_skip_seen: bool = true         ## не показывать колоды, которые игрок уже видел (повтор глав и проигрыши не мучают заставками)
+var slides_seen: Dictionary = {}          ## колода -> 1: игрок её видел (открывает галерею в Книге посёлка)
 var perf_auto_done: bool = false          ## игра уже сама включала упрощённую графику (TASK-070); второй раз не будет
 var difficulty: String = "easy"
 var text_size: int = 0                ## 0 — обычный текст, 1 — крупный, 2 — самый крупный
@@ -174,6 +177,10 @@ func load_all() -> void:
 			var kv := part.split("=")
 			if kv.size() == 2:
 				book[kv[0]] = kv[1]
+	slides_seen.clear()
+	if has:
+		for sid: String in String(cf.get_value("progress", "slides_seen", "")).split(",", false):
+			slides_seen[sid] = 1
 	storybook.clear()
 	if has:
 		var saved_stories: Variant = cf.get_value("progress", "storybook", {})
@@ -194,6 +201,8 @@ func load_all() -> void:
 		if haptic_level > 0:
 			_haptic_last_on = haptic_level
 		simplified_graphics = bool(cf.get_value("ui", "simplified_graphics", false))
+		comics_on = bool(cf.get_value("ui", "comics_on", true))
+		comics_skip_seen = bool(cf.get_value("ui", "comics_skip_seen", true))
 		perf_auto_done = bool(cf.get_value("ui", "perf_auto_done", false))
 		window_fullscreen = bool(cf.get_value("display", "fullscreen", false))
 		var res: Variant = cf.get_value("display", "resolution", Vector2i(720, 1280))
@@ -313,6 +322,12 @@ func set_haptic_level(level: int, save_now: bool = true) -> void:
 
 func set_simplified_graphics(on: bool) -> void:
 	simplified_graphics = on
+	flush()
+
+
+func set_comics(on: bool, skip_seen: bool) -> void:
+	comics_on = on
+	comics_skip_seen = skip_seen
 	flush()
 
 
@@ -456,6 +471,9 @@ func flush() -> void:
 	cf.set_value("ui", "haptics", haptics)
 	cf.set_value("ui", "haptic_level", haptic_level)
 	cf.set_value("ui", "simplified_graphics", simplified_graphics)
+	cf.set_value("ui", "comics_on", comics_on)
+	cf.set_value("ui", "comics_skip_seen", comics_skip_seen)
+	cf.set_value("progress", "slides_seen", ",".join(slides_seen.keys()))
 	cf.set_value("ui", "perf_auto_done", perf_auto_done)
 	cf.set_value("ui", "lang", lang)
 	cf.set_value("ui", "text_size", text_size)

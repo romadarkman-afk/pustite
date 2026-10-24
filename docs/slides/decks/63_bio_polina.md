@@ -21,7 +21,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Medium, forge.
 SCENE: MEMORY frame, faded old film. Polina hammering a blade in a dim forge, sparks flying, rows of finished knives on the wall.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Полина / polina: girl about 17, honey-brown braid, red headband with a small cloth flower, rosy cheeks, wide pale-blue eyes that look close to tears, small chin, a child's face with an adult's tiredness. Wears: linen blouse with rolled sleeves, scorched leather apron, small burn scars on both forearms.
+- Полина / polina: woman about 56, deeply lined severe face, grey eyebrows, pale blue-grey eyes, thin straight mouth, brown headscarf with a faded red pattern pulled low, a stocky solid build. Wears: heavy patched brown coat over a scorched leather apron, wooden beads wound round one wrist, burn scars on both forearms.
 ```
 
 - **Подпись в игре:** Ножи Полины считались лучшими в деревне.
@@ -39,7 +39,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Wide, forge door.
 SCENE: MEMORY frame, faded old film. A stranger in a dark coat leaving the forge door with a knife wrapped in cloth and walking into river fog, Polina at the door watching.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Полина / polina: girl about 17, honey-brown braid, red headband with a small cloth flower, rosy cheeks, wide pale-blue eyes that look close to tears, small chin, a child's face with an adult's tiredness. Wears: linen blouse with rolled sleeves, scorched leather apron, small burn scars on both forearms.
+- Полина / polina: woman about 56, deeply lined severe face, grey eyebrows, pale blue-grey eyes, thin straight mouth, brown headscarf with a faded red pattern pulled low, a stocky solid build. Wears: heavy patched brown coat over a scorched leather apron, wooden beads wound round one wrist, burn scars on both forearms.
 ```
 
 - **Подпись в игре:** Последний заказчик пропал сразу после покупки.
@@ -55,9 +55,9 @@ Create a tall portrait 2:3 (1024x1536) image.
 STYLE: Photo-comic noir panel in the spirit of the Max Payne motion comic: staged live-action photograph, real actors in 1890s rural Russian costume, heavy cinematic grade, crushed blacks, one cold dominant tone plus one warm light source, film grain, haze. No text, letters, numbers, logos, speech bubbles, borders or watermark. Key subject inside the central 70% of the frame.
 GRADE: warm lamp light against a cold blue window, crushed blacks; the first two frames are memories (faded sepia-grey film, soft focus), the third frame is the present, sharp and cold.
 SHOT: Close-up portrait.
-SCENE: The face must match the reference exactly and must be clearly visible and recognizable. PRESENT, sharp. Polina with scarred forearms holding a knife blade up to the light, looking at the viewer, a girl's face with an adult's tiredness.
+SCENE: The face must match the reference exactly and must be clearly visible and recognizable. PRESENT, sharp. Polina with scarred forearms holding a knife blade up to the light, looking at the viewer, a stern lined face of a woman in her fifties, headscarf pulled low.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Полина / polina: girl about 17, honey-brown braid, red headband with a small cloth flower, rosy cheeks, wide pale-blue eyes that look close to tears, small chin, a child's face with an adult's tiredness. Wears: linen blouse with rolled sleeves, scorched leather apron, small burn scars on both forearms.
+- Полина / polina: woman about 56, deeply lined severe face, grey eyebrows, pale blue-grey eyes, thin straight mouth, brown headscarf with a faded red pattern pulled low, a stocky solid build. Wears: heavy patched brown coat over a scorched leather apron, wooden beads wound round one wrist, burn scars on both forearms.
 ```
 
 - **Подпись в игре:** Полина больше не берёт заказов. Нож для неё теперь только нож.

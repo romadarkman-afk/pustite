@@ -8,7 +8,7 @@
 
 Один чат ChatGPT на колоду. В начало чата приложите листы-эталоны персонажей колоды и (если есть) эталон места, вставьте блок «Стиль» из `00_style.md`, потом идите по картинкам сверху вниз.
 
-**Лица в этой колоде:** Худой мужик (`cast_extra_thin.png`)
+**Лица в этой колоде:** Худой старик (`cast_extra_thin.png`)
 
 ## a1c2_twist / 01 · широкая 1536x1024 · волна 1
 
@@ -35,12 +35,12 @@ Create a tall portrait 2:3 (1024x1536) image.
 STYLE: Photo-comic noir panel in the spirit of the Max Payne motion comic: staged live-action photograph, real actors in 1890s rural Russian costume, heavy cinematic grade, crushed blacks, one cold dominant tone plus one warm light source, film grain, haze. No text, letters, numbers, logos, speech bubbles, borders or watermark. Key subject inside the central 70% of the frame.
 GRADE: thick fog lit from within by a lantern, black silhouettes, cold green-grey.
 SHOT: Close-up, face pressed at a window.
-SCENE: A thin frightened man's face pressed against a small window from outside, his breath fogging the glass, bruised, begging eyes, a lantern flame reflected in the pane.
+SCENE: A frightened thin old man's face pressed against a small window from outside, his breath fogging the glass, bruised, begging eyes, a lantern flame reflected in the pane.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Худой мужик / extra_thin: thin man about 50, grey hair falling over the forehead, hollow cheeks, deep tired eyes, stubble. Wears: torn linen shirt, bast shoes, a stick.
+- Худой старик / extra_thin: thin old man about 72, long white beard and unkempt white hair, deep-set pale grey eyes, hooked nose, a gentle stooped face with heavy bags under the eyes. Wears: floppy patched felt hat, long patched brown coat, bast shoes with wrapped legs, a walking stick.
 ```
 
-- **Подпись в игре:** Худой мужик: «Я человек! Я такой же, как вы!»
+- **Подпись в игре:** Худой старик: «Я человек! Я такой же, как вы!»
 - **Звук:** human_cry_m +0.4с, tap +1.5с
 - **Камера в игре:** zoom_in
 

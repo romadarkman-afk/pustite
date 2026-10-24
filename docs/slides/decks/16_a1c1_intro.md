@@ -54,7 +54,7 @@ GRADE: summer dusk: amber on the horizon fading into steel blue, river fog, one 
 SHOT: Tight close-up, lantern light from below.
 SCENE: A weathered woman ferry-keeper with her finger raised to her lips, her face lit from below by a lantern, oilskin cape wet with spray, eyes locked on the viewer.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Марина / marina: woman about 45, light-brown hair pulled into a low bun, long stern face, thin tight mouth, green-grey eyes with tired lids, weathered skin with sun lines, two vertical frown lines between the brows. Wears: brown wool shawl over a faded red-patterned sarafan, oilskin cape on the river, rope-scarred hands.
+- Марина / marina: woman about 34 who looks older than her years, auburn hair under a brown headscarf with red ties, light freckles over the nose, large sad grey-blue eyes, narrow tired face, pale lips, a look of someone who keeps listening for a call from the far bank. Wears: patched linen blouse with a dark worn skirt, a brown shawl, an oilskin cape on the river, rope-scarred hands.
 ```
 
 - **Подпись в игре:** Марина: «Не отвечай. Оно запоминает голоса.»
@@ -72,7 +72,7 @@ GRADE: summer dusk: amber on the horizon fading into steel blue, river fog, one 
 SHOT: Close on hands, shallow depth of field.
 SCENE: A rope-scarred hand cupped over a lantern flame snuffing it out, last wisp of smoke, the river suddenly black with only a faint glimmer.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Марина / marina: woman about 45, light-brown hair pulled into a low bun, long stern face, thin tight mouth, green-grey eyes with tired lids, weathered skin with sun lines, two vertical frown lines between the brows. Wears: brown wool shawl over a faded red-patterned sarafan, oilskin cape on the river, rope-scarred hands.
+- Марина / marina: woman about 34 who looks older than her years, auburn hair under a brown headscarf with red ties, light freckles over the nose, large sad grey-blue eyes, narrow tired face, pale lips, a look of someone who keeps listening for a call from the far bank. Wears: patched linen blouse with a dark worn skirt, a brown shawl, an oilskin cape on the river, rope-scarred hands.
 ```
 
 - **Подпись в игре:** Перевозчица гасит фонарь. До деревни идём молча.

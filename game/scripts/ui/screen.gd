@@ -239,6 +239,9 @@ func on_clock_expired() -> void:
 ## Переопределяется: экран сам обработал «Назад» (например, закрыл шторку).
 func handle_back() -> bool:
 	for c: Node in get_children():
+		if c is SlidePlayer:
+			(c as SlidePlayer).skip()
+			return true
 		if c is ScenePlayer:
 			(c as ScenePlayer).skip()
 			return true

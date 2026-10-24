@@ -21,7 +21,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Wide-medium, steam.
 SCENE: MEMORY frame, faded old film. Timur digging frozen ground at a village graveyard with a small fire burning on the earth to thaw it, steam rising, winter dawn.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Тимур / timur: man about 45, thick red-brown beard with a few grey hairs, blue eyes under heavy lids, broken nose bridge, deep creases at the eyes, flat worker's cap. Wears: worn coat with a fur collar, mud to the knees, a shovel always in reach.
+- Тимур / timur: man about 41, thick red-brown beard with a few grey hairs, blue eyes under heavy lids, broken nose bridge, deep creases at the eyes, flat worker's cap. Wears: worn coat with a fur collar, mud to the knees, a shovel always in reach.
 ```
 
 - **Подпись в игре:** После первой зимы Тимур копал могилы. Земля у нас оттаивает быстрее, чем память.
@@ -39,7 +39,7 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Medium, over the shoulder.
 SCENE: MEMORY frame, faded old film. Timur standing over a fresh grave mound that he did not dig, shovel in hand, the edges too neat, frost on the heap.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Тимур / timur: man about 45, thick red-brown beard with a few grey hairs, blue eyes under heavy lids, broken nose bridge, deep creases at the eyes, flat worker's cap. Wears: worn coat with a fur collar, mud to the knees, a shovel always in reach.
+- Тимур / timur: man about 41, thick red-brown beard with a few grey hairs, blue eyes under heavy lids, broken nose bridge, deep creases at the eyes, flat worker's cap. Wears: worn coat with a fur collar, mud to the knees, a shovel always in reach.
 ```
 
 - **Подпись в игре:** В одну могилу он не копал. Она уже была.
@@ -57,9 +57,9 @@ GRADE: warm lamp light against a cold blue window, crushed blacks; the first two
 SHOT: Close-up portrait, dusk.
 SCENE: The face must match the reference exactly and must be clearly visible and recognizable. PRESENT, sharp. Timur with his shovel on his shoulder at the edge of a graveyard at dusk, looking straight at the viewer, mud on his boots, wooden crosses behind him.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Тимур / timur: man about 45, thick red-brown beard with a few grey hairs, blue eyes under heavy lids, broken nose bridge, deep creases at the eyes, flat worker's cap. Wears: worn coat with a fur collar, mud to the knees, a shovel always in reach.
+- Тимур / timur: man about 41, thick red-brown beard with a few grey hairs, blue eyes under heavy lids, broken nose bridge, deep creases at the eyes, flat worker's cap. Wears: worn coat with a fur collar, mud to the knees, a shovel always in reach.
 ```
 
-- **Подпись в игре:** Тимур считает могилы вслух. Каждый раз выходит на одну больше.
+- **Подпись в игре:** Тимур считает могилы вслух. Раз за разом выходит на одну больше.
 - **Звук:** фон amb_dusk
 - **Камера в игре:** zoom_in

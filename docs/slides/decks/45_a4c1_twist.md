@@ -72,6 +72,6 @@ CHARACTERS (keep every face identical to the attached reference sheet; same age,
 - Смотритель / smotritel: man about 60, peaked railway cap with a small imperial eagle badge, grey moustache, deep nasolabial folds, stern pale eyes, a face of a man who has seen the same platform for thirty years. Wears: black railway greatcoat with epaulettes, a watch chain, white gloves gone grey, a ledger under the arm and a lantern.
 ```
 
-- **Подпись в игре:** Смотритель считает людей и каждый раз сбивается.
+- **Подпись в игре:** Смотритель считает людей и всё время сбивается.
 - **Звук:** tick +0.6с, tick +1.0с
 - **Камера в игре:** zoom_in

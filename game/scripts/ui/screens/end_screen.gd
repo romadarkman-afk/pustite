@@ -27,7 +27,9 @@ func build() -> void:
 	var people_won := m.winner == Match.Team.PEOPLE
 	var won := people_won != you.is_upyr
 	body.add_child(ending_card(people_won, won))
-	if not Juice.instant:
+	if _comics_end_due():
+		_play_comics_end.call_deferred()
+	elif not Juice.instant:
 		open_slides.call_deferred()
 	Juice.haptic(Juice.Haptic.SUCCESS if won else Juice.Haptic.DEATH)
 	Sfx.play(&"win" if won else &"lose")
@@ -243,7 +245,15 @@ func _final_night(box: Control, btn: Button) -> void:
 	var choice: String = await ScenePlayer.play(self, Scenes.final_door(), m)
 	if not is_instance_valid(box):
 		return
-	await ScenePlayer.play(self, Scenes.final_shore() if choice == "open" else Scenes.final_train(), m)
+	var shown_final := false
+	if Save.comics_on and (not Juice.instant or SlidePlayer.instant_play):
+		var ending := Campaign.final_ending("open" if choice == "open" else "train", m)
+		shown_final = Slides.has_deck(Slides.final_deck(ending))
+		await SlidePlayer.play(self, Slides.final_deck(ending), true)      # финал показывается всегда: он конец кампании
+		if not is_instance_valid(box):
+			return
+	if not shown_final:
+		await ScenePlayer.play(self, Scenes.final_shore() if choice == "open" else Scenes.final_train(), m)
 	if not is_instance_valid(box):
 		return
 	box.add_child(final_card(m, choice))
@@ -493,6 +503,37 @@ func close_slides() -> void:
 	tw.tween_callback(s.queue_free)
 	if _act_end_due():
 		_play_act_end.call_deferred()
+
+
+## Комиксы после главы (TASK-106): победа или поворот, у последней главы акта ещё и итог акта.
+## Вместо двухслайдовой заставки итога. Нет колод или они уже просмотрены: идёт прежняя заставка.
+func _comics_end_due() -> bool:
+	return not Game.chapter.is_empty() and not Game.chapter_result.is_empty() and Save.comics_on \
+		and (not Juice.instant or SlidePlayer.instant_play)
+
+
+func _play_comics_end() -> void:
+	var ch := String(Game.chapter.get("id", ""))
+	var passed := bool(Game.chapter_result.get("passed", false))
+	var shown := await SlidePlayer.play(self, "%s_%s" % [ch, "win" if passed else "twist"])
+	if not is_inside_tree():
+		return
+	var act := int(Game.chapter.get("act", 0))
+	var act_deck := ""
+	if passed and Campaign.last_of_act(ch) and act >= 1 and act <= 3:
+		act_deck = Slides.act_outro_deck(act, Campaign.act_ending_id(act).get_slice("_", 1))
+		if act == 3 and Campaign.trial_lost():
+			act_deck = Slides.act_outro_deck(3, "trial")
+		if not act_deck.is_empty() and await SlidePlayer.play(self, act_deck):
+			shown = true
+			if not is_inside_tree():
+				return
+	if not shown and not Juice.instant:
+		open_slides()
+	if _act_end_due() and not Game.scenes_done.has("act_end") and act_deck.is_empty():
+		_play_act_end.call_deferred()
+	elif not act_deck.is_empty():
+		Game.scenes_done["act_end"] = true
 
 
 ## После слайдов итога главы, которой кончается акт II или III, идёт сцена конца акта. Раз за партию.

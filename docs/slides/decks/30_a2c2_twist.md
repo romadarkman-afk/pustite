@@ -8,7 +8,7 @@
 
 Один чат ChatGPT на колоду. В начало чата приложите листы-эталоны персонажей колоды и (если есть) эталон места, вставьте блок «Стиль» из `00_style.md`, потом идите по картинкам сверху вниз.
 
-**Лица в этой колоде:** Худой мужик (`cast_extra_thin.png`), Агафья (`cast_agafya.png`)
+**Лица в этой колоде:** Худой старик (`cast_extra_thin.png`), Агафья (`cast_agafya.png`)
 
 ## a2c2_twist / 01 · высокая 1024x1536 · волна 1
 
@@ -19,9 +19,9 @@ Create a tall portrait 2:3 (1024x1536) image.
 STYLE: Photo-comic noir panel in the spirit of the Max Payne motion comic: staged live-action photograph, real actors in 1890s rural Russian costume, heavy cinematic grade, crushed blacks, one cold dominant tone plus one warm light source, film grain, haze. No text, letters, numbers, logos, speech bubbles, borders or watermark. Key subject inside the central 70% of the frame.
 GRADE: black water, torchlight reflected, cold blue moonlight, fear.
 SHOT: Medium, in water.
-SCENE: A frightened man standing in black water to his chest reaching a hand toward the camera, torches on a dark roof behind him, his mouth open.
+SCENE: A frightened old man standing in black water to his chest reaching a hand toward the camera, torches on a dark roof behind him, his mouth open.
 CHARACTERS (keep every face identical to the attached reference sheet; same age, bones, eyes, hair, beard):
-- Худой мужик / extra_thin: thin man about 50, grey hair falling over the forehead, hollow cheeks, deep tired eyes, stubble. Wears: torn linen shirt, bast shoes, a stick.
+- Худой старик / extra_thin: thin old man about 72, long white beard and unkempt white hair, deep-set pale grey eyes, hooked nose, a gentle stooped face with heavy bags under the eyes. Wears: floppy patched felt hat, long patched brown coat, bast shoes with wrapped legs, a walking stick.
 ```
 
 - **Подпись в игре:** Мы выгнали невиновного. Вода по грудь, и он всё ещё просит.

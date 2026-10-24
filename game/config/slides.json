@@ -1,9 +1,36 @@
 {
  "schema_version": 1,
  "dir": "res://assets/slides/",
+ "cast": {
+  "marina": "f9",
+  "lida": "f12",
+  "zhenya": "f10",
+  "rita": "f3",
+  "nina": "f11",
+  "polina": "f1",
+  "timur": "f2",
+  "kostya": "f4",
+  "tikhon": "f13",
+  "zakhar": "f7",
+  "misha": "f8",
+  "vadim": "f14",
+  "gordey": "guest_soldier",
+  "agafya": "guest_widow",
+  "efim": "guest_merchant",
+  "stepan": "guest_worker",
+  "pisar": "guest_clerk",
+  "ignat": "npc_abbot",
+  "anfisa": "npc_nun",
+  "smotritel": "npc_stationmaster",
+  "melnik": "npc_worker",
+  "extra_thin": "f5",
+  "extra_boy": "f15",
+  "extra_pilgrim": "f16"
+ },
  "decks": {
   "prologue": {
    "kind": "prologue",
+   "act": 0,
    "title_key": "sl.prologue.title",
    "music": "theme_sad",
    "flash_to": 6,
@@ -293,10 +320,12 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.prologue.card"
   },
   "act1_intro": {
    "kind": "act_intro",
+   "act": 1,
    "title_key": "sl.act1_intro.title",
    "music": "day",
    "flash_to": 0,
@@ -443,10 +472,12 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.act1_intro.card"
   },
   "act2_intro": {
    "kind": "act_intro",
+   "act": 2,
    "title_key": "sl.act2_intro.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -588,10 +619,12 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.act2_intro.card"
   },
   "act3_intro": {
    "kind": "act_intro",
+   "act": 3,
    "title_key": "sl.act3_intro.title",
    "music": "theme_tense",
    "flash_to": 0,
@@ -718,10 +751,12 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.act3_intro.card"
   },
   "act4_intro": {
    "kind": "act_intro",
+   "act": 4,
    "title_key": "sl.act4_intro.title",
    "music": "theme_hope",
    "flash_to": 0,
@@ -861,10 +896,12 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.act4_intro.card"
   },
   "act1_out_all": {
    "kind": "act_outro",
+   "act": 1,
    "title_key": "sl.act1_out_all.title",
    "music": "end_dawn",
    "flash_to": 0,
@@ -922,6 +959,7 @@
   },
   "act1_out_some": {
    "kind": "act_outro",
+   "act": 1,
    "title_key": "sl.act1_out_some.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -973,6 +1011,7 @@
   },
   "act1_out_none": {
    "kind": "act_outro",
+   "act": 1,
    "title_key": "sl.act1_out_none.title",
    "music": "theme_grief",
    "flash_to": 0,
@@ -1024,6 +1063,7 @@
   },
   "act2_out_all": {
    "kind": "act_outro",
+   "act": 2,
    "title_key": "sl.act2_out_all.title",
    "music": "end_dawn",
    "flash_to": 0,
@@ -1081,6 +1121,7 @@
   },
   "act2_out_some": {
    "kind": "act_outro",
+   "act": 2,
    "title_key": "sl.act2_out_some.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -1138,6 +1179,7 @@
   },
   "act2_out_none": {
    "kind": "act_outro",
+   "act": 2,
    "title_key": "sl.act2_out_none.title",
    "music": "theme_grief",
    "flash_to": 0,
@@ -1189,6 +1231,7 @@
   },
   "act3_out_all": {
    "kind": "act_outro",
+   "act": 3,
    "title_key": "sl.act3_out_all.title",
    "music": "end_dawn",
    "flash_to": 0,
@@ -1254,6 +1297,7 @@
   },
   "act3_out_some": {
    "kind": "act_outro",
+   "act": 3,
    "title_key": "sl.act3_out_some.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -1311,6 +1355,7 @@
   },
   "act3_out_none": {
    "kind": "act_outro",
+   "act": 3,
    "title_key": "sl.act3_out_none.title",
    "music": "theme_grief",
    "flash_to": 0,
@@ -1362,6 +1407,7 @@
   },
   "act3_out_trial": {
    "kind": "act_outro",
+   "act": 3,
    "title_key": "sl.act3_out_trial.title",
    "music": "theme_grief",
    "flash_to": 0,
@@ -1439,6 +1485,7 @@
   },
   "a1c1_intro": {
    "kind": "ch_intro",
+   "act": 1,
    "title_key": "sl.a1c1_intro.title",
    "music": "night",
    "flash_to": 0,
@@ -1600,10 +1647,12 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.a1c1_intro.card"
   },
   "a1c1_win": {
    "kind": "ch_win",
+   "act": 1,
    "title_key": "sl.a1c1_win.title",
    "music": "end_dawn",
    "flash_to": 0,
@@ -1670,7 +1719,7 @@
      "wave": "B",
      "lines": [
       {
-       "who": "Гость",
+       "who": "guest",
        "key": "sl.a1c1_win.03.0"
       }
      ],
@@ -1703,6 +1752,7 @@
   },
   "a1c1_twist": {
    "kind": "ch_twist",
+   "act": 1,
    "title_key": "sl.a1c1_twist.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -1809,6 +1859,7 @@
   },
   "a1c2_intro": {
    "kind": "ch_intro",
+   "act": 1,
    "title_key": "sl.a1c2_intro.title",
    "music": "night",
    "flash_to": 0,
@@ -1947,10 +1998,12 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.a1c2_intro.card"
   },
   "a1c2_win": {
    "kind": "ch_win",
+   "act": 1,
    "title_key": "sl.a1c2_win.title",
    "music": "end_dawn",
    "flash_to": 0,
@@ -2067,6 +2120,7 @@
   },
   "a1c2_twist": {
    "kind": "ch_twist",
+   "act": 1,
    "title_key": "sl.a1c2_twist.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -2181,6 +2235,7 @@
   },
   "a1c3_intro": {
    "kind": "ch_intro",
+   "act": 1,
    "title_key": "sl.a1c3_intro.title",
    "music": "night",
    "flash_to": 0,
@@ -2320,10 +2375,12 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.a1c3_intro.card"
   },
   "a1c3_win": {
    "kind": "ch_win",
+   "act": 1,
    "title_key": "sl.a1c3_win.title",
    "music": "end_dawn",
    "flash_to": 0,
@@ -2433,6 +2490,7 @@
   },
   "a1c3_twist": {
    "kind": "ch_twist",
+   "act": 1,
    "title_key": "sl.a1c3_twist.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -2534,6 +2592,7 @@
   },
   "a2c1_intro": {
    "kind": "ch_intro",
+   "act": 2,
    "title_key": "sl.a2c1_intro.title",
    "music": "night",
    "flash_to": 0,
@@ -2668,10 +2727,12 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.a2c1_intro.card"
   },
   "a2c1_win": {
    "kind": "ch_win",
+   "act": 2,
    "title_key": "sl.a2c1_win.title",
    "music": "end_dawn",
    "flash_to": 0,
@@ -2783,6 +2844,7 @@
   },
   "a2c1_twist": {
    "kind": "ch_twist",
+   "act": 2,
    "title_key": "sl.a2c1_twist.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -2886,6 +2948,7 @@
   },
   "a2c2_intro": {
    "kind": "ch_intro",
+   "act": 2,
    "title_key": "sl.a2c2_intro.title",
    "music": "night",
    "flash_to": 0,
@@ -3028,10 +3091,12 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.a2c2_intro.card"
   },
   "a2c2_win": {
    "kind": "ch_win",
+   "act": 2,
    "title_key": "sl.a2c2_win.title",
    "music": "end_dawn",
    "flash_to": 0,
@@ -3133,6 +3198,7 @@
   },
   "a2c2_twist": {
    "kind": "ch_twist",
+   "act": 2,
    "title_key": "sl.a2c2_twist.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -3248,6 +3314,7 @@
   },
   "a2c3_intro": {
    "kind": "ch_intro",
+   "act": 2,
    "title_key": "sl.a2c3_intro.title",
    "music": "night",
    "flash_to": 0,
@@ -3359,10 +3426,12 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.a2c3_intro.card"
   },
   "a2c3_win": {
    "kind": "ch_win",
+   "act": 2,
    "title_key": "sl.a2c3_win.title",
    "music": "end_dawn",
    "flash_to": 0,
@@ -3465,6 +3534,7 @@
   },
   "a2c3_twist": {
    "kind": "ch_twist",
+   "act": 2,
    "title_key": "sl.a2c3_twist.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -3578,6 +3648,7 @@
   },
   "a3c1_intro": {
    "kind": "ch_intro",
+   "act": 3,
    "title_key": "sl.a3c1_intro.title",
    "music": "night",
    "flash_to": 0,
@@ -3720,10 +3791,12 @@
       "agafya"
      ]
     }
-   ]
+   ],
+   "card_key": "sl.a3c1_intro.card"
   },
   "a3c1_win": {
    "kind": "ch_win",
+   "act": 3,
    "title_key": "sl.a3c1_win.title",
    "music": "end_dawn",
    "flash_to": 0,
@@ -3834,6 +3907,7 @@
   },
   "a3c1_twist": {
    "kind": "ch_twist",
+   "act": 3,
    "title_key": "sl.a3c1_twist.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -3954,6 +4028,7 @@
   },
   "a3c2_intro": {
    "kind": "ch_intro",
+   "act": 3,
    "title_key": "sl.a3c2_intro.title",
    "music": "night",
    "flash_to": 0,
@@ -4094,10 +4169,12 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.a3c2_intro.card"
   },
   "a3c2_win": {
    "kind": "ch_win",
+   "act": 3,
    "title_key": "sl.a3c2_win.title",
    "music": "end_dawn",
    "flash_to": 0,
@@ -4208,6 +4285,7 @@
   },
   "a3c2_twist": {
    "kind": "ch_twist",
+   "act": 3,
    "title_key": "sl.a3c2_twist.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -4353,6 +4431,7 @@
   },
   "a3c3_intro": {
    "kind": "ch_intro",
+   "act": 3,
    "title_key": "sl.a3c3_intro.title",
    "music": "night",
    "flash_to": 0,
@@ -4483,10 +4562,12 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.a3c3_intro.card"
   },
   "a3c3_win": {
    "kind": "ch_win",
+   "act": 3,
    "title_key": "sl.a3c3_win.title",
    "music": "end_dawn",
    "flash_to": 0,
@@ -4606,6 +4687,7 @@
   },
   "a3c3_twist": {
    "kind": "ch_twist",
+   "act": 3,
    "title_key": "sl.a3c3_twist.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -4708,6 +4790,7 @@
   },
   "a4c1_intro": {
    "kind": "ch_intro",
+   "act": 4,
    "title_key": "sl.a4c1_intro.title",
    "music": "night",
    "flash_to": 0,
@@ -4849,10 +4932,12 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.a4c1_intro.card"
   },
   "a4c1_win": {
    "kind": "ch_win",
+   "act": 4,
    "title_key": "sl.a4c1_win.title",
    "music": "end_dawn",
    "flash_to": 0,
@@ -4964,6 +5049,7 @@
   },
   "a4c1_twist": {
    "kind": "ch_twist",
+   "act": 4,
    "title_key": "sl.a4c1_twist.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -5072,6 +5158,7 @@
   },
   "a4c2_intro": {
    "kind": "ch_intro",
+   "act": 4,
    "title_key": "sl.a4c2_intro.title",
    "music": "night",
    "flash_to": 0,
@@ -5208,10 +5295,12 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.a4c2_intro.card"
   },
   "a4c2_win": {
    "kind": "ch_win",
+   "act": 4,
    "title_key": "sl.a4c2_win.title",
    "music": "end_dawn",
    "flash_to": 0,
@@ -5313,6 +5402,7 @@
   },
   "a4c2_twist": {
    "kind": "ch_twist",
+   "act": 4,
    "title_key": "sl.a4c2_twist.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -5417,6 +5507,7 @@
   },
   "a4c3_intro": {
    "kind": "ch_intro",
+   "act": 4,
    "title_key": "sl.a4c3_intro.title",
    "music": "night",
    "flash_to": 0,
@@ -5560,10 +5651,12 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.a4c3_intro.card"
   },
   "a4c3_win": {
    "kind": "ch_win",
+   "act": 4,
    "title_key": "sl.a4c3_win.title",
    "music": "end_dawn",
    "flash_to": 0,
@@ -5658,6 +5751,7 @@
   },
   "a4c3_twist": {
    "kind": "ch_twist",
+   "act": 4,
    "title_key": "sl.a4c3_twist.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -5772,9 +5866,10 @@
   },
   "bio_marina": {
    "kind": "bio",
+   "act": 0,
    "title_key": "sl.bio_marina.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "bio_marina/01",
@@ -5858,9 +5953,10 @@
   },
   "bio_zhenya": {
    "kind": "bio",
+   "act": 0,
    "title_key": "sl.bio_zhenya.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "bio_zhenya/01",
@@ -5937,9 +6033,10 @@
   },
   "bio_timur": {
    "kind": "bio",
+   "act": 0,
    "title_key": "sl.bio_timur.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "bio_timur/01",
@@ -6023,9 +6120,10 @@
   },
   "bio_lida": {
    "kind": "bio",
+   "act": 0,
    "title_key": "sl.bio_lida.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "bio_lida/01",
@@ -6115,9 +6213,10 @@
   },
   "bio_kostya": {
    "kind": "bio",
+   "act": 0,
    "title_key": "sl.bio_kostya.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "bio_kostya/01",
@@ -6201,9 +6300,10 @@
   },
   "bio_tikhon": {
    "kind": "bio",
+   "act": 0,
    "title_key": "sl.bio_tikhon.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "bio_tikhon/01",
@@ -6280,9 +6380,10 @@
   },
   "bio_zakhar": {
    "kind": "bio",
+   "act": 0,
    "title_key": "sl.bio_zakhar.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "bio_zakhar/01",
@@ -6358,9 +6459,10 @@
   },
   "bio_rita": {
    "kind": "bio",
+   "act": 0,
    "title_key": "sl.bio_rita.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "bio_rita/01",
@@ -6442,9 +6544,10 @@
   },
   "bio_misha": {
    "kind": "bio",
+   "act": 0,
    "title_key": "sl.bio_misha.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "bio_misha/01",
@@ -6521,9 +6624,10 @@
   },
   "bio_nina": {
    "kind": "bio",
+   "act": 0,
    "title_key": "sl.bio_nina.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "bio_nina/01",
@@ -6614,9 +6718,10 @@
   },
   "bio_vadim": {
    "kind": "bio",
+   "act": 0,
    "title_key": "sl.bio_vadim.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "bio_vadim/01",
@@ -6698,9 +6803,10 @@
   },
   "bio_polina": {
    "kind": "bio",
+   "act": 0,
    "title_key": "sl.bio_polina.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "bio_polina/01",
@@ -6783,9 +6889,10 @@
   },
   "guest_gordey": {
    "kind": "guest",
+   "act": 0,
    "title_key": "sl.guest_gordey.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "guest_gordey/01",
@@ -6862,9 +6969,10 @@
   },
   "guest_agafya": {
    "kind": "guest",
+   "act": 0,
    "title_key": "sl.guest_agafya.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "guest_agafya/01",
@@ -6946,9 +7054,10 @@
   },
   "guest_efim": {
    "kind": "guest",
+   "act": 0,
    "title_key": "sl.guest_efim.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "guest_efim/01",
@@ -7032,9 +7141,10 @@
   },
   "guest_stepan": {
    "kind": "guest",
+   "act": 0,
    "title_key": "sl.guest_stepan.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "guest_stepan/01",
@@ -7110,9 +7220,10 @@
   },
   "guest_pisar": {
    "kind": "guest",
+   "act": 0,
    "title_key": "sl.guest_pisar.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "guest_pisar/01",
@@ -7196,6 +7307,7 @@
   },
   "guest_gordey_human": {
    "kind": "guest",
+   "act": 0,
    "title_key": "sl.guest_gordey_human.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -7258,6 +7370,7 @@
   },
   "guest_gordey_upyr": {
    "kind": "guest",
+   "act": 0,
    "title_key": "sl.guest_gordey_upyr.title",
    "music": "theme_tense",
    "flash_to": 0,
@@ -7313,6 +7426,7 @@
   },
   "guest_agafya_human": {
    "kind": "guest",
+   "act": 0,
    "title_key": "sl.guest_agafya_human.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -7368,6 +7482,7 @@
   },
   "guest_agafya_upyr": {
    "kind": "guest",
+   "act": 0,
    "title_key": "sl.guest_agafya_upyr.title",
    "music": "theme_tense",
    "flash_to": 0,
@@ -7429,6 +7544,7 @@
   },
   "guest_efim_human": {
    "kind": "guest",
+   "act": 0,
    "title_key": "sl.guest_efim_human.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -7477,6 +7593,7 @@
   },
   "guest_efim_upyr": {
    "kind": "guest",
+   "act": 0,
    "title_key": "sl.guest_efim_upyr.title",
    "music": "theme_tense",
    "flash_to": 0,
@@ -7531,6 +7648,7 @@
   },
   "guest_stepan_human": {
    "kind": "guest",
+   "act": 0,
    "title_key": "sl.guest_stepan_human.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -7585,6 +7703,7 @@
   },
   "guest_stepan_upyr": {
    "kind": "guest",
+   "act": 0,
    "title_key": "sl.guest_stepan_upyr.title",
    "music": "theme_tense",
    "flash_to": 0,
@@ -7646,6 +7765,7 @@
   },
   "guest_pisar_human": {
    "kind": "guest",
+   "act": 0,
    "title_key": "sl.guest_pisar_human.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -7707,6 +7827,7 @@
   },
   "guest_pisar_upyr": {
    "kind": "guest",
+   "act": 0,
    "title_key": "sl.guest_pisar_upyr.title",
    "music": "theme_tense",
    "flash_to": 0,
@@ -7768,9 +7889,10 @@
   },
   "npc_melnik": {
    "kind": "npc",
+   "act": 0,
    "title_key": "sl.npc_melnik.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "npc_melnik/01",
@@ -7861,9 +7983,10 @@
   },
   "npc_ignat": {
    "kind": "npc",
+   "act": 0,
    "title_key": "sl.npc_ignat.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "npc_ignat/01",
@@ -7947,9 +8070,10 @@
   },
   "npc_anfisa": {
    "kind": "npc",
+   "act": 0,
    "title_key": "sl.npc_anfisa.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "npc_anfisa/01",
@@ -8025,9 +8149,10 @@
   },
   "npc_smotritel": {
    "kind": "npc",
+   "act": 0,
    "title_key": "sl.npc_smotritel.title",
    "music": "theme_sad",
-   "flash_to": 0,
+   "flash_to": 2,
    "panels": [
     {
      "file": "npc_smotritel/01",
@@ -8112,6 +8237,7 @@
   },
   "final_shore": {
    "kind": "finale",
+   "act": 0,
    "title_key": "sl.final_shore.title",
    "music": "end_dark",
    "flash_to": 0,
@@ -8258,10 +8384,12 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.final_shore.card"
   },
   "final_upyr": {
    "kind": "finale",
+   "act": 0,
    "title_key": "sl.final_upyr.title",
    "music": "theme_tense",
    "flash_to": 0,
@@ -8400,10 +8528,12 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.final_upyr.card"
   },
   "final_many": {
    "kind": "finale",
+   "act": 0,
    "title_key": "sl.final_many.title",
    "music": "end_dawn",
    "flash_to": 0,
@@ -8524,10 +8654,12 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.final_many.card"
   },
   "final_few": {
    "kind": "finale",
+   "act": 0,
    "title_key": "sl.final_few.title",
    "music": "theme_sad",
    "flash_to": 0,
@@ -8648,7 +8780,8 @@
      ],
      "cast": []
     }
-   ]
+   ],
+   "card_key": "sl.final_few.card"
   }
  }
 }

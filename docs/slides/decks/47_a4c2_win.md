@@ -52,7 +52,7 @@ SHOT: Medium, washing.
 SCENE: People washing coal dust from their faces in a barrel of water, dark water, faces looking at each other to see who is cleaner.
 ```
 
-- **Подпись в игре:** Моем лица от угля. Каждый смотрит, кто чище.
+- **Подпись в игре:** Моем лица от угля. Смотрим, кто чище.
 - **Звук:** без изменений
 - **Камера в игре:** zoom_in
 
