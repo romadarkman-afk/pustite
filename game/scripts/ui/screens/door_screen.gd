@@ -721,7 +721,7 @@ func show_guest_result(admitted: bool) -> void:
 	if not admitted and m.tunnel_to(seat.house) >= 0 and m.tunnel_room(seat.house):
 		var to := m.house_name(m.tunnel_to(seat.house))
 		_box.add_child(W.icon_line("tunnel", L.t("door.hatch", {"house": to}), &"Hint"))
-		var hole := W.button(L.t("door.tunnel", {"house": to}))
+		var hole := W.wrap(W.button(L.t("door.tunnel", {"house": to})))
 		hole.name = "Tunnel"
 		hole.pressed.connect(func() -> void: commit(Intent.TUNNEL))
 		footer.add_child(hole)
