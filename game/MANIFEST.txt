@@ -15,6 +15,8 @@ config/looks_pt.tres
 config/looks_tr.tres
 config/looks_vi.tres
 config/looks_zh.tres
+config/slides.json
+config/slides_text.json
 config/village_default.tres
 config/village_mill.tres
 config/village_monastery.tres
