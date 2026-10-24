@@ -15,6 +15,7 @@ wav, mp3, m4a, ogg, flac для звука). Куда что идёт:
   песни и музыка     game/assets/music/<имя>.ogg           (музыка зациклена кроссфейдом, громкость -16 LUFS)
   озвучка рассказчика и реплик   game/assets/voice/<колода>/<кадр>_<строка>.ogg  (файл режется по паузам)
   возгласы           game/assets/voice/bark/<тип>_<настроение>_<k>.ogg
+Песню или музыкальный трек можно прислать кусками: song_mill_1, song_mill_2 и так далее склеиваются по порядку номеров.
 Код возврата 1, если хоть один файл не принят.
 """
 import argparse
@@ -90,6 +91,16 @@ def index_files(folder):
         if p.is_file() and p.suffix.lower() in IMG_EXT | AUD_EXT:
             found[norm_stem(p.name)] = p     # новее перезаписывает старее
     return found
+
+
+def parts_of(files, stem):
+    """Куски одной дорожки: stem_1, stem_2, ... по порядку номеров. Пусто, если кусков нет."""
+    out = []
+    k = 1
+    while (stem + "_" + str(k)) in files:
+        out.append(files[stem + "_" + str(k)])
+        k += 1
+    return out
 
 
 # ----------------------------------------------------------------- картинки
@@ -273,8 +284,23 @@ def fade(x, sr, inn, out):
     return y
 
 
+def stitch(xs, sr, sec=0.5):
+    """Куски дорожки встык с коротким кроссфейдом, чтобы не было щелчка."""
+    n = int(sr * sec)
+    out = xs[0]
+    for nxt in xs[1:]:
+        if len(out) < n * 2 or len(nxt) < n * 2:
+            out = np.concatenate([out, nxt])
+            continue
+        w = np.linspace(0.0, 1.0, n, dtype=np.float32)[:, None]
+        mid = out[-n:] * (1.0 - w) + nxt[:n] * w
+        out = np.concatenate([out[:-n], mid, nxt[n:]])
+    return out
+
+
 def do_music(t, src, dry):
-    x = decode(src, MUSIC_SR, 2)
+    srcs = src if isinstance(src, list) else [src]
+    x = stitch([decode(p, MUSIC_SR, 2) for p in srcs], MUSIC_SR)
     sec = len(x) / MUSIC_SR
     problems = []
     song = t["g"] == "songs"
@@ -436,6 +462,11 @@ def main():
         stem = norm_stem(t["save"])
         known.add(stem)
         src = files.get(stem)
+        if t["g"] in ("songs", "music"):
+            parts = parts_of(files, stem)
+            if src is None and parts:
+                src = parts
+                known.update(stem + "_" + str(k + 1) for k in range(len(parts)))
         if src is None:
             continue
         try:
