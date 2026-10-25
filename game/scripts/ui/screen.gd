@@ -135,6 +135,7 @@ func mood_duration() -> float:
 
 
 var _field_press: Vector2 = Vector2.INF
+var _pan_last: Vector2 = Vector2.INF       ## где был палец в прошлый раз, пока тянет поле; INF — палец не на поле
 
 
 ## Касание по полю: короткий тап без сдвига уходит наверх намерением FIELD_TAP.
@@ -142,6 +143,7 @@ func enable_field_taps() -> void:
 	if field_spacer == null:
 		return
 	field_spacer.mouse_filter = Control.MOUSE_FILTER_STOP
+	field_spacer.set_meta("pan_field", true)
 	field_spacer.gui_input.connect(_on_field_tap_input)
 
 
@@ -156,14 +158,26 @@ func _on_field_tap_input(e: InputEvent) -> void:
 		_hold_gen += 1
 		if mb.pressed:
 			_field_press = mb.position
+			_pan_last = mb.position
 			_wait_hold(_hold_gen, mb.position)
-		elif _field_press != Vector2.INF and mb.position.distance_to(_field_press) < 24.0:
-			emit_intent(Intent.FIELD_TAP, {"pos": field_spacer.get_global_rect().position + mb.position})
-			_field_press = Vector2.INF
-	elif e is InputEventMouseMotion and _field_press != Vector2.INF:
-		if (e as InputEventMouseMotion).position.distance_to(_field_press) >= 24.0:
+		else:
+			_pan_last = Vector2.INF
+			if _field_press != Vector2.INF and mb.position.distance_to(_field_press) < 24.0:
+				emit_intent(Intent.FIELD_TAP, {"pos": field_spacer.get_global_rect().position + mb.position})
+				_field_press = Vector2.INF
+	elif e is InputEventMouseMotion and _pan_last != Vector2.INF:
+		var at := (e as InputEventMouseMotion).position
+		if _field_press != Vector2.INF:
+			if at.distance_to(_field_press) < 24.0:
+				return
 			_hold_gen += 1        # повёл пальцем — это не долгое нажатие
 			_field_press = Vector2.INF  # отпускание после перетаскивания не открывает меню
+			_pan_last = at        # первые 24 пикселя мёртвая зона, карта едет со следующего движения
+			return
+		var dx := at.x - _pan_last.x
+		_pan_last = at
+		if dx != 0.0:
+			emit_intent(Intent.FIELD_PAN, {"dx": dx})
 
 
 func _wait_hold(gen: int, at: Vector2) -> void:

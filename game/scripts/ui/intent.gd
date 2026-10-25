@@ -29,6 +29,7 @@ const SET_DIFFICULTY := &"set_difficulty"
 const OPEN_WARDROBE := &"open_wardrobe"  ## фонарь и шапка
 const WEAR := &"wear"                  ## надеть: {"kind": "lantern"|"hat", "id"}
 const FIELD_HOLD := &"field_hold"      ## долгое нажатие на поле: {"pos"}
+const FIELD_PAN := &"field_pan"        ## палец тянет поле: {"dx"} в пикселях экрана, плюс вправо (двигает камеру, герой стоит)
 const GESTURE := &"gesture"            ## жест жителю: {"kind": "point"|"trust"|"distrust", "id"}
 const DAILY := &"daily"                ## начать испытание дня
 const SET_TEXT := &"set_text"          ## размер текста: {"size": 0..2}

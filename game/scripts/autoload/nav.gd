@@ -652,6 +652,9 @@ func _on_chat(line: ChatLine) -> void:
 func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void:
 	if sender != host.current:
 		return
+	if action == Intent.FIELD_PAN:
+		_pan_field(sender, float(data.get("dx", 0.0)))      # движений пальца много: в журнал шагов не пишем
+		return
 	Diag.step("действие: %s" % action)
 	if action != Intent.FIELD_TAP:
 		_hint_done(sender, action)
@@ -889,10 +892,18 @@ func _whistle() -> void:
 		Sfx.play(&"whistle", randf_range(0.92, 1.05), -16.0)
 
 
+## Палец тянет поле днём: камера едет по посёлку, герой стоит. Тап по земле снова отправляет героя, и камера идёт за ним.
+func _pan_field(sender: Screen, dx: float) -> void:
+	if not (sender is DayScreen) or village == null or village.follow == null:
+		return
+	village.pan_by(-dx / maxf(0.1, village.scale.x))
+
+
 func walk_player(global_pos: Vector2) -> void:
 	var cr := village.crowd
 	if not cr.figures.has(0):
 		return
+	village.resume_follow()
 	_walk_gen += 1
 	Game.cancel_player_job()
 	cr.at_job.erase(0)

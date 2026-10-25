@@ -4226,6 +4226,42 @@ static func village() -> void:
 	var m := Game.m
 	var cr := v.crowd
 	var me: VillagerFigure = cr.figures[0]
+	# камеру можно двигать пальцем без шагов героя; тап по земле возвращает её к герою (отзыв тестера 0.65)
+	var cam_before := v.cam_x
+	var room_left := v._clamp_cam(cam_before - 60.0, v.scale.x) < cam_before - 1.0
+	var room_right := v._clamp_cam(cam_before + 60.0, v.scale.x) > cam_before + 1.0
+	ok += _expect(fails, v.follow != null and (room_left or room_right), "днём камера не может сдвинуться: следит %s, cam_x %.0f, масштаб %.2f" % [v.follow, cam_before, v.scale.x])
+	var hero_before := me.position
+	Nav.handle_intent(Intent.FIELD_PAN, {"dx": 120.0 if room_left else -120.0}, day)
+	await _frames(tree, 2)
+	var cam_panned := v.cam_x
+	ok += _expect(fails, v.browsing and absf(cam_panned - cam_before) > 5.0, "палец тянет карту, а камера не сдвинулась: %.1f → %.1f" % [cam_before, cam_panned])
+	await _frames(tree, 30)
+	ok += _expect(fails, absf(v.cam_x - cam_panned) < 0.5 and me.position.distance_to(hero_before) < 2.0, "камера уехала обратно к герою сразу после сдвига, не дав посмотреть, или герой пошёл")
+	v._browse_idle = VillageView.BROWSE_RETURN_SEC + 1.0
+	await _frames(tree, 20)
+	ok += _expect(fails, not v.browsing and absf(v.cam_x - cam_panned) > 0.5, "через 10 секунд без касаний камера не вернулась к герою")
+	# настоящий жест: нажатие, протяжка вбок с небольшим дрожанием по вертикали, отпускание
+	var fspace := day.field_spacer.get_global_rect()
+	var gx := fspace.position.x + fspace.size.x * 0.3
+	var gy := fspace.get_center().y
+	var gsign := 1.0 if room_left else -1.0
+	var cam_g := v.cam_x
+	var scroll_g := day.scroll.scroll_vertical
+	hero_before = me.position
+	_push_mouse(tree, Vector2(gx, gy), true, 0)
+	await _frames(tree, 1)
+	for gstep in range(1, 9):
+		_push_mouse(tree, Vector2(gx + gsign * 18.0 * gstep, gy + float(gstep % 2) * 3.0), null, MOUSE_BUTTON_MASK_LEFT)
+		await _frames(tree, 1)
+	_push_mouse(tree, Vector2(gx + gsign * 144.0, gy), false, 0)
+	await _frames(tree, 2)
+	ok += _expect(fails, v.browsing and absf(v.cam_x - cam_g) > 5.0 and day.scroll.scroll_vertical == scroll_g and me.position.distance_to(hero_before) < 2.0,
+		"протяжка пальцем по полю: камера %.1f → %.1f, прокрутка списка %d → %d, герой сдвинулся на %.1f" % [cam_g, v.cam_x, scroll_g, day.scroll.scroll_vertical, me.position.distance_to(hero_before)])
+	Nav.handle_intent(Intent.FIELD_PAN, {"dx": 80.0 if room_left else -80.0}, day)
+	ok += _expect(fails, v.browsing, "после возврата камеры палец не включил свободный просмотр снова")
+	Nav.walk_player(v.to_global(me.position))      # приказ идти (на то же место, чтобы не мешать дальнейшим проверкам) возвращает камеру к герою
+	ok += _expect(fails, not v.browsing, "приказ герою идти не вернул камеру к нему")
 	var home_button := day.find_child("BackToMenu", true, false) as Button
 	var marks_button := day.find_child("MarksLegend", true, false) as Button
 	ok += _expect(fails, home_button != null and marks_button != null,
@@ -6817,7 +6853,8 @@ static func recap() -> void:
 	npc.alive = true
 	npc.exiled = false
 	var ptally: Dictionary[int, int] = {m.player().id: 5}
-	var pex := m.apply_vote(ptally)
+	var against: Array[Villager] = m.alive_bots()
+	var pex := m.apply_vote(ptally, {against[0].id: m.player().id, against[1].id: m.player().id})
 	var vs2 := VoteScreen.new()
 	Nav.show(vs2)
 	await _settle(tree)
@@ -6825,6 +6862,14 @@ static func recap() -> void:
 	await _settle(tree)
 	ok += _expect(fails, vs2.find_child("YouExiled", true, false) != null and (m.upyri_alive() == 0 or vs2.find_child("SkipToEnd", true, false) != null),
 		"тебя изгнали, а экрана изгнания и кнопки «Закончить партию» нет")
+	# изгнанному игроку объясняют, за что: кто голосовал и что про него знали (отзыв тестера 0.65)
+	var why_labels := vs2.find_children("ExileWhy*", "Label", true, false)
+	var why_text := ""
+	for wl: Node in why_labels:
+		why_text += (wl as Label).text + "\n"
+	ok += _expect(fails, why_labels.size() == 2 and why_text.contains(String(against[0].name)) and why_text.contains(String(against[1].name)) and why_text.contains("5"),
+		"изгнанному игроку не назвали, кто голосовал против и что про него знали: %s" % why_text.replace("\n", " | "))
+	ok += _expect(fails, not why_text.contains("{") and not why_text.contains("}"), "в объяснении изгнания остались метки: %s" % why_text)
 
 	# 10. Твоя смерть (55): портрет, что слышал последним, посёлок без тебя; «Закончить» доигрывает партию
 	m.player().alive = true
@@ -7326,7 +7371,7 @@ static func loc() -> void:
 				for n: int in [1, 2, 5, 21]:
 					var a := {"who": who, "me": bf if who == bm else bm, "voice": bm, "h": who, "a": bm, "b": m.player(),
 						"house": m.houses[0], "from": m.houses[1], "said": m.houses[1], "away": m.houses[1], "to": m.houses[1],
-						"others": [who], "list": [bm, bf, m.player()], "n": n, "p": n, "u": n, "d": n, "s": n, "c": n,
+						"others": [who], "list": [bm, bf, m.player()], "n": n, "total": n, "p": n, "u": n, "d": n, "s": n, "c": n,
 						"e": "e", "text": "t", "ev": "ev", "job": "Job", "place": "place", "what": "w", "role": "role",
 						"healer": "healer", "title": "T", "rest": "r", "where": "w", "why": "y", "lost": bf, "kin": bm, "player_name": "Name", "other": bm, "name": "Name", "choice": "c", "fate": "f", "m": n, "of": n}
 					for line: String in lines:

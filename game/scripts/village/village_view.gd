@@ -78,6 +78,9 @@ var follow: Node2D                         ## за кем следит каме�
 var cam_x: float = 360.0                   ## какая точка посёлка по горизонтали в центре кадра
 var _vp_w: float = 720.0
 var _framing := false                      ## идёт переход кадра — камера не дёргается
+var browsing := false                      ## игрок тянет карту пальцем: камера не бежит за героем (отзыв тестера 0.65)
+var _browse_idle := 0.0                    ## сколько секунд после последнего сдвига пальцем
+const BROWSE_RETURN_SEC := 10.0            ## через столько секунд без касаний камера возвращается к герою
 var lamps_fueled: int = 99                 ## сколько фонарей заправлено на эту ночь
 var talismans: PackedInt32Array = PackedInt32Array()   ## состояние оберегов открытых убежищ: 2 целый … 0 расколот
 var jobs_layer: JobLayer
@@ -324,6 +327,7 @@ func house_lit(i: int, n: float) -> float:
 ## (по высоте он всё равно поместится в поле), камера встаёт на focus_x.
 func frame_to(rect: Rect2, vp_w: float, dur: float, zoom: float = 1.0, focus_x: float = -1.0, reserve_speech_space: bool = false) -> void:
 	_field = rect
+	browsing = false
 	if _branches != null:
 		_branches.queue_redraw()
 	var base := minf(vp_w / (LOGICAL.x * SIDE_VISIBLE), rect.size.y / BAND.size.y)
@@ -403,10 +407,31 @@ func _clamp_cam(x: float, s: float) -> float:
 	return clampf(x, lo, hi)
 
 
+## Сдвиг камеры пальцем: dx в единицах посёлка, плюс вправо. Герой при этом стоит на месте.
+func pan_by(dx: float) -> void:
+	if _framing:
+		return
+	browsing = true
+	_browse_idle = 0.0
+	cam_x = _clamp_cam(cam_x + dx, scale.x)
+	position.x = _vp_w * 0.5 - cam_x * scale.x
+	_apply_parallax()
+
+
+## Камера снова идёт за героем: игрок отправил его в путь или перешёл на другой экран.
+func resume_follow() -> void:
+	browsing = false
+
+
 ## Камера мягко догоняет того, за кем следит.
 func _follow_step(delta: float) -> void:
 	if follow == null or not is_instance_valid(follow) or _framing:
 		return
+	if browsing:
+		_browse_idle += delta
+		if _browse_idle < BROWSE_RETURN_SEC:
+			return
+		browsing = false
 	var want := _clamp_cam(follow.position.x, scale.x)
 	if absf(want - cam_x) < 0.05:
 		return
