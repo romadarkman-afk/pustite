@@ -298,6 +298,27 @@ def stitch(xs, sr, sec=0.5):
     return out
 
 
+def trim_quiet(x, sr, head_db=12.0, tail_db=30.0, lead=0.4, tail_keep=0.6):
+    """Песни Lyria начинаются секунд десять почти тишиной (-35 дБ и тише). В меню это значит «музыки нет».
+    Начало обрезается там, где уровень впервые поднимается к верхнему (85-й процентиль окон по 0,25 с минус head_db).
+    Хвост обрезается там, где затухание ниже верхнего уровня на tail_db."""
+    mono = x.mean(axis=1) if x.ndim == 2 else x
+    win = int(sr * 0.25)
+    frames = len(mono) // win
+    if frames < 8:
+        return x
+    rms = np.sqrt((mono[:frames * win].reshape(frames, win) ** 2).mean(axis=1)) + 1e-9
+    db = 20 * np.log10(rms)
+    ref = float(np.percentile(db, 85))
+    loud = np.where(db > ref - head_db)[0]
+    if len(loud) == 0:
+        return x
+    a = max(0, int(loud[0] * win - lead * sr))
+    live = np.where(db > ref - tail_db)[0]
+    b = min(len(x), int((live[-1] + 1) * win + tail_keep * sr))
+    return x[a:b] if b - a > sr * 30 else x
+
+
 def do_music(t, src, dry):
     srcs = src if isinstance(src, list) else [src]
     x = stitch([decode(p, MUSIC_SR, 2) for p in srcs], MUSIC_SR)
@@ -313,7 +334,8 @@ def do_music(t, src, dry):
     if problems:
         return None, problems
     if song:
-        x = fade(x, MUSIC_SR, 0.05, 2.5)
+        x = trim_quiet(x, MUSIC_SR)
+        x = fade(x, MUSIC_SR, 0.35, 2.5)
     else:
         x = loop_crossfade(x, MUSIC_SR, min(4.0, sec * 0.1))
     x, cur = to_lufs(x, MUSIC_SR, TARGET_LUFS)
