@@ -4788,7 +4788,7 @@ static func talisman() -> void:
 	var t1 := ms._text(e1)
 	var t2 := ms._text(e2)
 	ms.free()
-	ok += _expect(fails, t1.contains("Тварь") and t1.contains("Оберег"), "утром не сказано про тварь: «%s»" % t1)
+	ok += _expect(fails, t1.to_lower().contains("тварь") and t1.contains("Оберег"), "утром не сказано про тварь: «%s»" % t1)
 	ok += _expect(fails, t2.contains("Оберег") and t2.contains("подправить"), "утром не сказано, что оберег ослаб: «%s»" % t2)
 
 	# 6. На поле: оберег виден, его дело — значок у дома; починил — оберег цел
