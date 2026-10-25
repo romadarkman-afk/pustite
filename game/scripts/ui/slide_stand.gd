@@ -80,7 +80,7 @@ static func build(deck_id: String, i: int, panel: Dictionary, view: Vector2, mat
 		var fx := 0.5 + 0.45 * sin(float(i) * 1.7 + float(h % 13))
 		var fy := 0.5 + 0.45 * cos(float(i) * 1.3 + float(h % 7))
 		bg.position = -(bg.size - stage.size) * Vector2(clampf(fx, 0.0, 1.0), clampf(fy, 0.0, 1.0))
-		bg.modulate = Color(0.78, 0.82, 0.92)
+		bg.modulate = Color(1.0, 1.0, 1.0)
 		if mat != null:
 			bg.material = mat
 		stage.add_child(bg)
@@ -110,7 +110,7 @@ static func build(deck_id: String, i: int, panel: Dictionary, view: Vector2, mat
 		if n == 1:
 			center_x += view.x * 0.12 * (1.0 if (h + i) % 2 == 0 else -1.0)
 		spr.position = Vector2(center_x - spr.size.x * 0.5, view.y - hh * 0.86)
-		spr.modulate = Color(0.7, 0.74, 0.86)
+		spr.modulate = Color(0.88, 0.9, 0.98)
 		if mat != null:
 			spr.material = mat
 		stage.add_child(spr)
@@ -131,7 +131,7 @@ static func _shade_texture() -> GradientTexture2D:
 		return _gradient
 	var g := Gradient.new()
 	g.set_color(0, Color(0, 0, 0, 0))
-	g.set_color(1, Color(0, 0, 0, 0.88))
+	g.set_color(1, Color(0, 0, 0, 0.8))
 	_gradient = GradientTexture2D.new()
 	_gradient.gradient = g
 	_gradient.fill_from = Vector2(0.5, 0.0)

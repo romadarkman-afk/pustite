@@ -3982,7 +3982,7 @@ static func sound() -> void:
 	Nav.show_menu()
 	await _settle(tree)
 	var main_menu := Nav.host.current as MenuScreen
-	ok += _expect(fails, Sfx.music_name == &"menu" and Sfx.ambience_name == &"amb_night", "в меню нет темы или ночного фона (%s / %s)" % [Sfx.music_name, Sfx.ambience_name])
+	ok += _expect(fails, Sfx.music_name == Sfx.menu_music() and Sfx.ambience_name == &"amb_night", "в меню нет темы или ночного фона (%s / %s)" % [Sfx.music_name, Sfx.ambience_name])
 	ok += _expect(fails, _all_text(Nav.host.current).contains(L.t("menu.case_file")), "в меню нет отметки о деле 1894 года")
 	ok += _expect(fails, main_menu != null and main_menu.find_child("Campaign", true, false) != null
 		and main_menu.find_child("Start", true, false) != null
