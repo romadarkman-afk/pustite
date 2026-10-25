@@ -507,6 +507,9 @@ def main():
     if extra:
         print("Не нашёл в пульте (проверь имена): " + ", ".join(extra[:40]) + (" …" if len(extra) > 40 else ""))
     print("Принято %d, отклонено %d%s." % (done, failed, " (пробный запуск, файлы не записаны)" if a.dry else ""))
+    if done and not a.dry:
+        # *.import в .git/info/exclude: без -f настройки импорта кадров не попадают в коммит, и APK вырастает на 1,3 МиБ на кадр
+        print("В коммит добавлять так: git add -A && git add -f $(find game/assets/slides -name '*.import')")
     if not a.dry:
         ledger_add(ok_ids)
         status(tasks)

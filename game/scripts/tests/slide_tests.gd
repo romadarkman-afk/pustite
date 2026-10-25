@@ -385,6 +385,9 @@ static func images(fails: PackedStringArray) -> int:
 			found += 1
 			var tex := load(path) as Texture2D
 			ok += SelfTest._expect(fails, tex != null, "%s: картинка не читается" % path)
+			# без файла .import со сжатием «с потерями» (compress/mode=1) кадр уходит в APK без сжатия: 1,5 МиБ вместо 0,2
+			var imp := FileAccess.get_file_as_string(path + ".import")
+			ok += SelfTest._expect(fails, imp.contains("compress/mode=1"), "%s: нет .import со сжатием с потерями (git add -f ...webp.import)" % path)
 			if tex != null:
 				var tall := tex.get_height() > tex.get_width()
 				var want_tall := String(p.get("size", "")) == "t"
