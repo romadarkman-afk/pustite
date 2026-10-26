@@ -60,6 +60,9 @@ button.ghost { background: transparent; }
 .tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 14px 0; }
 .tools input[type="search"] { flex: 1 1 200px; min-width: 0; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 9px 12px; font: inherit; min-height: 40px; }
 .tools label { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 14px; }
+.sync { flex: 1 1 100%; margin: 0; color: var(--dim); font-size: 13px; }
+.card.accepted .check { cursor: default; }
+.card.accepted .check span { color: var(--ok); }
 
 details.guide { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; margin: 16px 0 0; }
 details.guide > summary { cursor: pointer; padding: 12px 16px; font-weight: 700; list-style: none; }
@@ -129,7 +132,7 @@ pre.prompt:not(.open)::after { content: ""; position: absolute; inset: auto 0 0 
         <li><b>Метка «ChatGPT или Nano Banana»</b> (вкладки Герои, Портреты, Образы, Места, Кадры). Открой chatgpt.com, новый чат (лучше в проекте «Пустите комикс», в его инструкции вставь блок «Стиль» кнопкой ниже). Нажми «Копировать промпт», вставь в чат, приложи файлы, которые перечислены в карточке под промптом. Вместо ChatGPT можно gemini.google.com с включённым созданием изображений (Nano Banana). Скачай картинку.</li>
         <li><b>Метка «Gemini · Lyria»</b> (вкладки Песни и Музыка). Открой gemini.google.com и включи создание музыки в меню инструментов (название пункта может отличаться). Вставь промпт целиком, слова песни уже внутри. Если приложение даёт только 30 секунд, сделай два-три куска и назови их <code>имя_1</code>, <code>имя_2</code>, я склею.</li>
         <li><b>Метка «AI Studio · Gemini TTS»</b> (вкладка Озвучка). Открой aistudio.google.com, раздел генерации речи. Голос выбери тот, что указан в карточке. В поле со стилем вставь текст кнопкой «Копировать стиль», в поле с текстом вставь текст кнопкой «Копировать текст». Паузы между фразами уже стоят в тексте, не убирай их. Скачай звук.</li>
-        <li>Сохрани файл под именем из строки «Сохранить как» (расширение любое) и отметь «Готово». Пульт запоминает отметки в этом браузере.</li>
+        <li>Сохрани файл под именем из строки «Сохранить как» (расширение любое) и отметь «Готово». Отметки общие для всех твоих устройств; файлы, которые я уже принял в игру, отмечены сами («В игре»).</li>
         <li>Лицо поплыло: напиши в том же чате <code>Keep the face exactly identical to the attached reference sheet</code>. Появился текст в картинке: <code>Redo without any text or letters</code>.</li>
         <li>Готовые файлы пачками до 20 штук кидай мне в чат. Я сожму, разложу по папкам игры, подключу и выложу релиз.</li>
       </ol>
@@ -143,6 +146,7 @@ pre.prompt:not(.open)::after { content: ""; position: absolute; inset: auto 0 0 
   <div class="tools">
     <input type="search" id="q" placeholder="Найти по названию или имени файла" aria-label="Поиск">
     <label><input type="checkbox" id="hide-done"> Скрыть готовое</label>
+    <p class="sync" id="sync" role="status"></p>
   </div>
 
   <main id="list"></main>
@@ -167,13 +171,20 @@ const TOOL = { img: "ChatGPT или Nano Banana", music: "Gemini · Lyria", tts:
 let done = {};
 try { done = JSON.parse(localStorage.getItem("pult.done.v1") || "{}") || {}; } catch (e) { done = {}; }
 function saveDone() { try { localStorage.setItem("pult.done.v1", JSON.stringify(done)); } catch (e) {} }
+// Принятое в игру приходит из журнала приёма (tools/pult/ingested.json) и отмечено на любом устройстве.
+const ACCEPTED = new Set(DATA.accepted || []);
+const isDone = id => ACCEPTED.has(id) || !!done[id];
 
 const byGroup = {};
 GROUPS.forEach(g => byGroup[g.key] = []);
 DATA.tasks.forEach(t => byGroup[t.g].push(t));
 
 let current = (location.hash || "").replace("#", "");
-if (!byGroup[current]) current = "heroes";
+if (!byGroup[current]) {
+  // без адреса с этапом открываем первый, где ещё есть неготовое
+  const open = GROUPS.find(g => byGroup[g.key].some(t => !isDone(t.id)));
+  current = open ? open.key : "heroes";
+}
 
 const $ = s => document.querySelector(s);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -195,7 +206,7 @@ function copy(text, okMsg) {
 
 function counts() {
   const total = DATA.tasks.length;
-  const n = DATA.tasks.filter(t => done[t.id]).length;
+  const n = DATA.tasks.filter(t => isDone(t.id)).length;
   return { total, n };
 }
 
@@ -203,7 +214,7 @@ function renderTabs() {
   const box = $("#tabs"); box.textContent = "";
   GROUPS.forEach(g => {
     const list = byGroup[g.key];
-    const n = list.filter(t => done[t.id]).length;
+    const n = list.filter(t => isDone(t.id)).length;
     const b = el("button", "tab"); b.type = "button"; b.setAttribute("role", "tab");
     b.setAttribute("aria-selected", g.key === current ? "true" : "false");
     b.append(g.name); const s = el("small", null, n + "/" + list.length); b.append(s);
@@ -217,17 +228,23 @@ function renderStat() {
   $("#bar").style.width = (n / total * 100).toFixed(1) + "%";
   const st = $("#stat"); st.textContent = "";
   const a = el("span"); a.innerHTML = "готово <b>" + n + "</b> из <b>" + total + "</b>"; st.append(a);
-  const cur = byGroup[current]; const k = cur.filter(t => done[t.id]).length;
+  const cur = byGroup[current]; const k = cur.filter(t => isDone(t.id)).length;
   const b = el("span"); b.innerHTML = "этап «" + GROUPS.find(g => g.key === current).name + "»: <b>" + k + "</b> из <b>" + cur.length + "</b>"; st.append(b);
 }
 
 function card(t) {
-  const c = el("article", "card" + (done[t.id] ? " done" : "")); c.id = "t-" + t.id;
+  const acc = ACCEPTED.has(t.id);
+  const c = el("article", "card" + (isDone(t.id) ? " done" : "") + (acc ? " accepted" : "")); c.id = "t-" + t.id;
   const head = el("div", "card-head");
   head.append(el("h3", null, t.title));
-  const lab = el("label", "check"); const cb = el("input"); cb.type = "checkbox"; cb.checked = !!done[t.id]; cb.id = "cb-" + t.id;
-  lab.append(cb, el("span", null, "Готово"));
-  cb.addEventListener("change", () => { if (cb.checked) done[t.id] = 1; else delete done[t.id]; saveDone(); c.classList.toggle("done", cb.checked); renderTabs(); renderStat(); if ($("#hide-done").checked) render(); });
+  const lab = el("label", "check"); const cb = el("input"); cb.type = "checkbox"; cb.checked = isDone(t.id); cb.id = "cb-" + t.id;
+  cb.disabled = acc;
+  lab.append(cb, el("span", null, acc ? "В игре" : "Готово"));
+  cb.addEventListener("change", () => {
+    if (cb.checked) done[t.id] = 1; else delete done[t.id];
+    saveDone(); pushMarks({ [t.id]: cb.checked ? 1 : 0 });
+    c.classList.toggle("done", cb.checked); renderTabs(); renderStat(); if ($("#hide-done").checked) render();
+  });
   head.append(lab);
   const meta = el("div", "meta");
   meta.append(el("span", "chip tool-" + t.tool, TOOL[t.tool]));
@@ -276,7 +293,7 @@ function render() {
   const g = GROUPS.find(x => x.key === current);
   const q = $("#q").value.trim().toLowerCase();
   const hide = $("#hide-done").checked;
-  const list = byGroup[current].filter(t => (!hide || !done[t.id]) && (!q || (t.title + " " + t.save + " " + t.id).toLowerCase().includes(q)));
+  const list = byGroup[current].filter(t => (!hide || !isDone(t.id)) && (!q || (t.title + " " + t.save + " " + t.id).toLowerCase().includes(q)));
   const main = $("#list"); main.textContent = "";
   const intro = el("p", "sub", g.hint); intro.style.margin = "14px 0 0"; main.append(intro);
   if (!list.length) { main.append(el("p", "empty", hide ? "Здесь всё отмечено готовым." : "Ничего не найдено.")); return; }
@@ -290,13 +307,61 @@ function render() {
   });
 }
 
+// Ручные отметки лежат в общей базе страницы (документ pult/marks), поэтому одинаковы на всех устройствах.
+// Без базы они остаются в браузере. Ключ с 0 снимает отметку, ключ с 1 ставит.
+let marksRef = null, marksExists = false, marksSeen = false, marksQueue = Promise.resolve();
+function setSync(msg) { const s = $("#sync"); if (s) s.textContent = msg; }
+function pushMarks(patch) {
+  if (!marksRef || !Object.keys(patch).length) return;
+  const body = { done: patch };
+  marksQueue = marksQueue.then(async () => {
+    try {
+      if (marksExists) await marksRef.update(body);
+      else { await marksRef.set(body); marksExists = true; }
+    } catch (e) { setSync("Отметку не удалось сохранить на сервере, она осталась в этом браузере."); }
+  });
+}
+function applyRemote(snap) {
+  marksExists = snap.exists;
+  const remote = (snap.exists && snap.data() && snap.data().done) || {};
+  const before = JSON.stringify(done);
+  const next = {};
+  Object.keys(remote).forEach(k => { if (remote[k]) next[k] = 1; });
+  if (!marksSeen) {
+    // первый ответ: отметки, которых в базе ещё нет, переносим из этого браузера
+    const upload = {};
+    Object.keys(done).forEach(k => { if (done[k] && !(k in remote)) { next[k] = 1; upload[k] = 1; } });
+    marksSeen = true;
+    pushMarks(upload);
+  }
+  done = next;
+  if (JSON.stringify(done) !== before) { saveDone(); render(); }
+}
+(async function () {
+  try {
+    const db = window.claude && window.claude.use ? await window.claude.use("db") : null;
+    if (!db) { setSync("Отметки хранятся только в этом браузере."); return; }
+    marksRef = db.doc("pult/marks");
+    setSync("Отметки общие для всех устройств. Принятое в игру отмечено само.");
+    marksRef.onSnapshot(applyRemote, () => { marksRef = null; setSync("Общие отметки недоступны, они остаются в этом браузере."); });
+  } catch (e) { setSync("Отметки хранятся только в этом браузере."); }
+})();
+
 $("#q").addEventListener("input", render);
-$("#hide-done").addEventListener("change", render);
+(function () {
+  let hide = true;
+  try { hide = localStorage.getItem("pult.hide.v1") !== "0"; } catch (e) {}
+  $("#hide-done").checked = hide;
+})();
+$("#hide-done").addEventListener("change", () => {
+  try { localStorage.setItem("pult.hide.v1", $("#hide-done").checked ? "1" : "0"); } catch (e) {}
+  render();
+});
 $("#copy-style").addEventListener("click", () => copy(DATA.style_block, "Блок «Стиль» скопирован"));
 $("#next").addEventListener("click", () => {
-  const list = byGroup[current].filter(t => !done[t.id]);
+  const list = byGroup[current].filter(t => !isDone(t.id));
   if (!list.length) { toast("На этом этапе всё готово. Открой следующий"); return; }
-  const t = list[0]; $("#hide-done").checked = false; $("#q").value = ""; render();
+  const t = list[0]; $("#q").value = ""; render();
   const e = document.getElementById("t-" + t.id); if (e) { e.scrollIntoView({ block: "start", behavior: "smooth" }); e.style.outline = "2px solid var(--lantern)"; setTimeout(() => e.style.outline = "", 1800); }
 });
 (function () {
