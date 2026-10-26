@@ -106,7 +106,7 @@ const BARK_MOOD := {"grief": "grief", "despair": "grief", "guilt": "grief", "exh
 const BARKS_PER_SET := 8
 ## Музыка в момент озвучки тише на столько дБ.
 const DUCK_DB := 5.0
-## Музыка по главам (TASK-123): day_a1c2 … night_a4c3. У быстрой партии на карте «посёлок» играют общие day и night; у главы a1c1 с 0.66.0 свои дорожки day_a1c1 и night_a1c1.
+## Музыка по главам (TASK-123): day_a1c2 … night_a4c3. У быстрой партии на карте «посёлок» играют общие day и night. С 0.68.0 свои дорожки day_<глава> и night_<глава> есть у всех двенадцати глав.
 ## Файлов может не быть: тогда играет общая дорожка. Их делает tools/make_stage_music.py.
 const STAGE_KEYS: PackedStringArray = ["a1c1", "a1c2", "a1c3", "a2c1", "a2c2", "a2c3", "a3c1", "a3c2", "a3c3", "a4c1", "a4c2", "a4c3"]
 ## Быстрая партия: карта -> дорожки первой главы этой карты.

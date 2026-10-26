@@ -264,11 +264,37 @@ def loop_crossfade(x, sr, sec):
         return x
     head = x[:len(x) - n].copy()
     tail = x[len(x) - n:]
-    w = np.linspace(0.0, 1.0, n, dtype=np.float32)
+    t = np.linspace(0.0, 1.0, n, dtype=np.float32)
+    # равная мощность: у несвязанных кусков громкость на стыке не проваливается (линейный кроссфейд даёт минус 3 дБ)
+    w_in, w_out = np.sin(t * np.pi / 2), np.cos(t * np.pi / 2)
     if x.ndim == 2:
-        w = w[:, None]
-    head[:n] = head[:n] * w + tail * (1.0 - w)
+        w_in, w_out = w_in[:, None], w_out[:, None]
+    head[:n] = head[:n] * w_in + tail * w_out
     return head
+
+
+def trim_loop_edges(x, sr, drop_db=9.0, max_cut=12.0):
+    """Срезает тихое начало и затухающий конец: цикл склеивается из полного звучания, без провала на стыке.
+    Тихим считается звук ниже серединного уровня на drop_db; с каждого края срезается не больше max_cut секунд.
+    Возвращает (дорожка, секунд срезано в начале, секунд срезано в конце)."""
+    mono = x.mean(axis=1) if x.ndim == 2 else x
+    hop = int(sr * 0.25)
+    k = len(mono) // hop
+    if k < 40:
+        return x, 0.0, 0.0
+    env = 20.0 * np.log10(np.sqrt((mono[:k * hop].reshape(k, hop) ** 2).mean(axis=1)) + 1e-9)
+    sm = np.convolve(np.pad(env, 2, mode="edge"), np.ones(4) / 4.0, mode="same")[2:-2]   # сглаживание на 1 с
+    thr = float(np.median(sm[k // 4: 3 * k // 4])) - drop_db
+    lim = min(int(max_cut / 0.25), k // 4)
+    a = 0
+    while a < lim and sm[a] < thr:
+        a += 1
+    b = k
+    while b > k - lim and sm[b - 1] < thr:
+        b -= 1
+    start = max(0, a * hop - int(sr * 0.1))
+    end = min(len(x), b * hop + int(sr * 0.1))
+    return x[start:end], start / sr, (len(x) - end) / sr
 
 
 def fade(x, sr, inn, out):
@@ -337,7 +363,10 @@ def do_music(t, src, dry):
         x = trim_quiet(x, MUSIC_SR)
         x = fade(x, MUSIC_SR, 0.35, 2.5)
     else:
-        x = loop_crossfade(x, MUSIC_SR, min(4.0, sec * 0.1))
+        x, cut_a, cut_b = trim_loop_edges(x, MUSIC_SR)
+        x = loop_crossfade(x, MUSIC_SR, min(3.0, len(x) / MUSIC_SR * 0.08))
+        if cut_a + cut_b > 0.5:
+            print("  %s: срезано %.1f с в начале и %.1f с в конце (тихие края)" % (dests(t)[0].name, cut_a, cut_b))
     x, cur = to_lufs(x, MUSIC_SR, TARGET_LUFS)
     dst = dests(t)[0]
     if not dry:
