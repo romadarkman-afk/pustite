@@ -1212,6 +1212,33 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 	var fail_res := Campaign.finish(m, Campaign.chapter("a1c3"))
 	ok += _expect(fails, not bool(fail_res.passed) and Save.campaign_dead.size() == dead_before and not Save.campaign_stars.has("a1c3"),
 		"проваленная глава записала погибших или звёзды")
+	# повтор пройденной главы: звёзды не падают, погибшие, память и отношения не меняются, состав как при первом заходе
+	var stars_a1c1 := int(Save.campaign_stars.get("a1c1", 0))
+	var memory_before := str(Save.campaign_memory)
+	var lost_in_before := str(Save.campaign_lost_in)
+	var bonds_before := str(Save.campaign_bonds)
+	var second_dead: Villager = m.alive_bots()[0]
+	second_dead.alive = false
+	m.winner = Match.Team.PEOPLE
+	var rep := Campaign.finish(m, Campaign.chapter("a1c1"))
+	ok += _expect(fails, bool(rep.passed) and bool(rep.replay) and Save.campaign_dead.size() == dead_before and not Save.campaign_dead.has(second_dead.story_id)
+		and int(Save.campaign_stars["a1c1"]) >= stars_a1c1 and str(Save.campaign_memory) == memory_before and str(Save.campaign_lost_in) == lost_in_before
+		and str(Save.campaign_bonds) == bonds_before,
+		"повтор пройденной главы изменил историю посёлка: %s" % [rep])
+	ok += _expect(fails, Campaign.cast("a1c1").has(lost_bot.story_id) and not Campaign.cast("a1c2").has(lost_bot.story_id),
+		"состав повтора первой главы не такой, как при первом заходе")
+	second_dead.alive = true
+	Game.chapter_result = rep
+	m.phase = Match.Phase.OVER
+	Nav.show(EndScreen.new())
+	await _settle(tree)
+	var rep_note := Nav.host.current.find_child("ReplayNote", true, false)
+	ok += _expect(fails, rep_note != null and not _all_text(rep_note).contains("{") and Nav.host.current.find_child("Stars", true, false) != null,
+		"после повтора главы нет пометки, что историю он не меняет")
+	Game.chapter_result = res
+	Nav.show(EndScreen.new())
+	await _settle(tree)
+	nxt = Nav.host.current.find_child("ChapterNext", true, false) as Button
 
 	# вторая глава: сцена главы с текстом главы и целями
 	if nxt != null:
@@ -1230,6 +1257,7 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 	var b3 := cs.find_child("Chapter_a1c3", true, false) as Button
 	ok += _expect(fails, b1 != null and not b1.disabled and b3 != null and b3.disabled and cs.find_child("Soon_4", true, false) == null and cs.find_child("Chapter_a4c3", true, false) != null and cs.find_child("Chapter_a2c1", true, false) != null
 		and cs.find_child("Fallen", true, false) != null and cs.find_child("BookCover", true, false) != null
+		and cs.find_child("Replay_a1c1", true, false) is Button and cs.find_child("Replay_a1c3", true, false) == null
 		and cs.find_child("CampaignMap", true, false) != null and cs.find_child("ChapterArt_a1c1", true, false) != null,
 		"экран глав: не видно истории глав, обложки или карты")
 	var chapter_art_ok := true
@@ -1707,6 +1735,14 @@ static func lifecycle() -> void:
 			print("  ✗ " + f)
 		print("ИТОГ: НАРУШЕНИЙ: %d" % fails.size())
 		tree.quit(1)
+
+
+## Шейдерный материал фигуры без погоды и перекраса фонаря: иней, влага и перекрас на нуле.
+static func _fx_clear(figure: VillagerFigure) -> bool:
+	var mat := figure._door_rig.material as ShaderMaterial
+	if mat == null:
+		return true
+	return float(mat.get_shader_parameter("frost")) < 0.01 and float(mat.get_shader_parameter("wet")) < 0.01 and float(mat.get_shader_parameter("strength")) < 0.01
 
 
 static func _expect(fails: PackedStringArray, ok: bool, what: String) -> int:
@@ -3612,7 +3648,7 @@ static func weather() -> void:
 	fx = view.figure_fx()
 	ok += _expect(fails, fx.y > 0.4 and fx.x < 0.2, "осенью в дождь должна быть влага: %s" % fx)
 	probe.set_weather_fx(0.0, 0.0)
-	ok += _expect(fails, probe._door_rig.material == null, "без погоды на фигуре остался шейдер")
+	ok += _expect(fails, _fx_clear(probe), "без погоды на фигуре остался иней или влага")
 	view.set_simplified_graphics(true)
 	ok += _expect(fails, view.figure_fx() == Vector2.ZERO, "на упрощённой графике остались иней и влага")
 	view.set_simplified_graphics(false)
@@ -7036,6 +7072,27 @@ static func folk() -> void:
 	ok += _expect(fails, unique_ok and female_used.size() == VillagerFigure.FOLK_FEMALE.size()
 		and male_used.size() == VillagerFigure.FOLK_MALE.size(), "новые спрайты повторяются до исчерпания списка пола")
 
+	# 0б. Разбор силуэта для шейдерной сетки: у каждой картинки пояс, шея и ноги найдены в разумных пределах
+	var rig_ids: Array[int] = []
+	for sid in range(1, 17):
+		rig_ids.append(sid)
+	rig_ids.append(VillagerFigure.HERO_M)
+	rig_ids.append(VillagerFigure.HERO_F)
+	rig_ids.append_array(VillagerFigure.GUEST_SPRITES.values())
+	var rig_ok := true
+	var legged := 0
+	for sid: int in rig_ids:
+		var info := VillagerFigure.rig_info(VillagerFigure.folk_tex(sid))
+		var good := float(info.hip) >= 0.40 and float(info.hip) <= 0.93 and float(info.neck) >= 0.12 and float(info.neck) <= 0.22 \
+			and absf(float(info.cx)) < 0.2 and float(info.foot) >= 0.9 and float(info.foot) <= 1.0
+		if not good:
+			print("разбор силуэта: картинка %d вне пределов %s" % [sid, info])
+		rig_ok = rig_ok and good
+		if float(info.legs) > 0.5:
+			legged += 1
+	ok += _expect(fails, rig_ok, "шейдерная сетка: у какой-то картинки пояс, шея или ось ног найдены неверно")
+	ok += _expect(fails, legged >= 6, "шейдерная сетка: ноги разведены лишь у %d картинок из %d" % [legged, rig_ids.size()])
+
 	# 1. Внешности: девушки — с женскими приметами, у каждого свой набор примет
 	var sig: Dictionary = {}
 	var fem_ok := true
@@ -7093,7 +7150,7 @@ static func folk() -> void:
 	ok += _expect(fails, not Nav.village._branches.visible, "ветви перекрывают небо над лесом")
 	var no_dye := true
 	for figure: VillagerFigure in cr.figures.values():
-		no_dye = no_dye and figure._door_rig.material == null
+		no_dye = no_dye and _fx_clear(figure)
 	ok += _expect(fails, no_dye, "одежду закрывает цветная маска")
 	var draws := [0]
 	f4.body.draw.connect(func() -> void: draws[0] += 1)
@@ -7104,9 +7161,24 @@ static func folk() -> void:
 	f4.fidgets_on = false         # действия от скуки проверяются отдельно (п. 9)
 	f4.fidget = ""
 	Juice.instant = false
-	await tree.create_timer(0.6).timeout
+	var idle_until := Time.get_ticks_msec() + 600
+	var breath_lo := 99.0
+	var breath_hi := -99.0
+	var tilt_lo := 99.0
+	var tilt_hi := -99.0
+	while Time.get_ticks_msec() < idle_until:
+		await tree.process_frame
+		if f4._rig_mat != null:
+			var bv: Vector4 = f4._rig_mat.get_shader_parameter("body_anim")
+			var hv: Vector4 = f4._rig_mat.get_shader_parameter("head_anim")
+			breath_lo = minf(breath_lo, bv.z)
+			breath_hi = maxf(breath_hi, bv.z)
+			tilt_lo = minf(tilt_lo, hv.x)
+			tilt_hi = maxf(tilt_hi, hv.x)
 	var idle_draws: int = draws[0]
 	draws[0] = 0
+	# стоящий житель дышит и покачивает головой, при этом тело не перерисовывается: двигает шейдер
+	ok += _expect(fails, breath_hi - breath_lo > 0.15 and tilt_hi - tilt_lo > 0.0005, "стоящий житель замер: дыхание %.2f, голова %.4f" % [breath_hi - breath_lo, tilt_hi - tilt_lo])
 	var walk0 := f4._walk
 	f4.walk_to(f4.position + Vector2(160, 0))
 	var shape_error := 0.0
@@ -7116,6 +7188,10 @@ static func folk() -> void:
 	var mesh_motion := 0.0
 	var rig_hop := 0.0
 	var rig_roll := 0.0
+	var ang_max := 0.0
+	var ang_sum := 0.0
+	var lift_max := 0.0
+	var head_seen := 0.0
 	var movement_until := Time.get_ticks_msec() + 600
 	while Time.get_ticks_msec() < movement_until:
 		await tree.process_frame
@@ -7123,6 +7199,14 @@ static func folk() -> void:
 		root_hop = maxf(root_hop, absf(f4.body.position.y))
 		rig_hop = maxf(rig_hop, absf(f4._door_rig.position.y))
 		rig_roll = maxf(rig_roll, absf(f4._door_rig.rotation - f4._render_tilt))
+		if f4._rig_mat != null:
+			var la: Vector4 = f4._rig_mat.get_shader_parameter("legs_anim")
+			var ba: Vector4 = f4._rig_mat.get_shader_parameter("body_anim")
+			ang_max = maxf(ang_max, absf(la.x))
+			ang_sum = maxf(ang_sum, absf(la.x + la.y))
+			lift_max = maxf(lift_max, maxf(la.z, la.w))
+			rig_hop = maxf(rig_hop, absf(ba.x))
+			head_seen = maxf(head_seen, absf((f4._rig_mat.get_shader_parameter("head_anim") as Vector4).x))
 		var points: PackedVector2Array = f4._door_rig.polygon
 		for vertex in range(mini(points.size(), f4._door_base.size())):
 			var base: Vector2 = f4._door_base[vertex]
@@ -7136,14 +7220,37 @@ static func folk() -> void:
 	print("шаг: деформация корпуса %.3f, подскок %.3f, движение стоп %.2f, головы %.2f, сетка %.2f, подъём %.2f, качание %.3f" % [shape_error, root_hop, feet_motion, head_motion, mesh_motion, rig_hop, rig_roll])
 	ok += _expect(fails, shape_error < 0.01 and root_hop < 0.01, "шаг сжимает тело или подбрасывает его (форма %.3f, подскок %.3f)" % [shape_error, root_hop])
 	if VillagerFigure._is_realistic_sprite(VillagerFigure.folk_tex(f4.sprite_id)):
-		# фотография целая: сетка не гнётся (ноги на ней не отделены, сдвиг низа тянул одежду), шаг показан движением корпуса
-		ok += _expect(fails, mesh_motion < 0.01, "шаг растягивает фотографию: сетка сдвинулась на %.2f" % mesh_motion)
-		ok += _expect(fails, rig_hop > 0.5 and rig_hop < 4.0 and rig_roll > 0.01, "шаг фотографии не виден или слишком резкий (подъём %.2f, качание %.3f)" % [rig_hop, rig_roll])
+		# фотография на шейдерной сетке: многоугольник стоит, ноги качаются в противофазе по очереди, стопа поднимается в махе,
+		# тело проседает на разведённых ногах не больше чем на пару единиц и не подпрыгивает
+		print("шаг фото: размах ноги %.2f, сумма углов %.3f, подъём стопы %.2f, осадка %.2f, голова %.3f" % [ang_max, ang_sum, lift_max, rig_hop, head_seen])
+		ok += _expect(fails, mesh_motion < 0.01 and f4._rig_live, "шаг двигает многоугольник вместо шейдера: сетка сдвинулась на %.2f" % mesh_motion)
+		ok += _expect(fails, ang_max > 0.05 and ang_max < 0.4 and ang_sum < 0.01, "ноги качаются не по очереди или слишком широко (размах %.2f, сумма %.3f)" % [ang_max, ang_sum])
+		ok += _expect(fails, lift_max > 0.8 and lift_max < 3.6, "стопа не поднимается в махе или взлетает (подъём %.2f)" % lift_max)
+		ok += _expect(fails, rig_hop < 3.0 and rig_roll < 0.005 and f4._door_rig.position.length() < 0.01, "тело подпрыгивает вместо шага (осадка %.2f, качание %.3f)" % [rig_hop, rig_roll])
 	else:
 		ok += _expect(fails, feet_motion > 0.5 and head_motion < 0.1, "шагают не ноги (стопы %.2f, голова %.2f)" % [feet_motion, head_motion])
-	ok += _expect(fails, run_draws >= 8 and f4._walk != walk0, "на бегу ноги не двигаются (перерисовок %d)" % run_draws)
+	ok += _expect(fails, (run_draws >= 8 or f4._rig_live) and f4._walk != walk0, "на бегу ноги не двигаются (перерисовок %d)" % run_draws)
 	ok += _expect(fails, idle_draws <= 3, "в покое житель перерисовывается слишком часто (%d за 0,6 с)" % idle_draws)
 	await tree.create_timer(1.0).timeout
+	# прогулка: несколько шагов вбок, пауза и обратно на то же место
+	if f4.state == VillagerFigure.State.RUN:
+		await f4.arrived
+	f4.fidget = ""
+	f4._talk_t = 0.0
+	f4._emotion_t = 0.0
+	var stroll_home := f4.position
+	var strolled := false
+	for stroll_offset: Vector2 in [Vector2(24, 0), Vector2(-24, 0), Vector2(0, 14), Vector2(0, -14)]:
+		strolled = f4.stroll(stroll_offset, 0.2)
+		if strolled:
+			break
+	var moved_away := false
+	var stroll_until := Time.get_ticks_msec() + 2400
+	while Time.get_ticks_msec() < stroll_until:
+		await tree.process_frame
+		moved_away = moved_away or f4.position.distance_to(stroll_home) > 8.0
+	ok += _expect(fails, strolled and moved_away and not f4.strolling and f4.position.distance_to(stroll_home) < 0.5,
+		"прогулка не состоялась или житель не вернулся на место (вышел %s, отошёл %s, гуляет %s)" % [strolled, moved_away, f4.strolling])
 	Juice.instant = true
 	Game.release(&"test")
 
@@ -7423,7 +7530,7 @@ static func loc() -> void:
 						"house": m.houses[0], "from": m.houses[1], "said": m.houses[1], "away": m.houses[1], "to": m.houses[1],
 						"others": [who], "list": [bm, bf, m.player()], "n": n, "total": n, "p": n, "u": n, "d": n, "s": n, "c": n,
 						"e": "e", "text": "t", "ev": "ev", "job": "Job", "place": "place", "what": "w", "role": "role",
-						"healer": "healer", "title": "T", "rest": "r", "where": "w", "why": "y", "lost": bf, "kin": bm, "player_name": "Name", "other": bm, "name": "Name", "choice": "c", "fate": "f", "m": n, "of": n}
+						"healer": "healer", "title": "T", "rest": "r", "where": "w", "why": "y", "lost": bf, "kin": bm, "player_name": "Name", "other": bm, "name": "Name", "choice": "c", "fate": "f", "m": n, "of": n, "stars": "★★"}
 					for line: String in lines:
 						texts.append(L.fill(line, a))
 		texts.append_array(collect_texts(c, 25))
@@ -7927,7 +8034,7 @@ static func cosmetics() -> void:
 	me.set_lantern("classic")
 	me.body.queue_redraw()
 	await _frames(tree, 2)
-	ok += _expect(fails, me._door_rig.material == null, "у обычного фонаря остался перекрас")
+	ok += _expect(fails, _fx_clear(me), "у обычного фонаря остался перекрас")
 	Nav.handle_intent(Intent.CONTINUE, {}, Nav.host.current)
 	await _settle(tree)
 	var first_resident := Game.m.alive_bots()[0]

@@ -69,7 +69,7 @@ func build() -> void:
 	var cur := Campaign.current()
 	var go := W.button(L.t("camp.continue", {"title": L.t("camp.%s.title" % cur)}) if not Campaign.is_new() else L.t("camp.start"))
 	go.name = "Continue"
-	go.pressed.connect(func() -> void: emit_intent(Intent.PLAY_CHAPTER, {"id": cur}))
+	go.pressed.connect(func() -> void: _play(cur))
 	footer.add_child(go)
 	var back := W.button(L.t("ui.back"), &"Ghost")
 	back.pressed.connect(func() -> void: emit_intent(Intent.BACK))
@@ -134,13 +134,29 @@ func _chapter_row(id: String, n: int) -> Control:
 	b.name = "Chapter_" + id
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.disabled = not open
-	b.pressed.connect(func() -> void: emit_intent(Intent.PLAY_CHAPTER, {"id": id}))
+	b.pressed.connect(func() -> void: _play(id))
 	copy.add_child(b)
 	# описание — подписью под кнопкой: длинная строка на любом языке переносится как обычный текст
 	copy.add_child(W.label(L.t("camp.%s.desc" % id) if open else L.t("camp.locked"), &"Small"))
+	if stars > 0:
+		var again := W.wrap(W.button(L.t("camp.replay"), &"Ghost"))
+		again.name = "Replay_" + id
+		again.pressed.connect(func() -> void: _play(id))
+		copy.add_child(again)
 	row.add_child(copy)
 	box.add_child(row)
 	return box
+
+
+## Новая глава начинается сразу. Пройденную сначала объясняют: звёзды растут, историю посёлка повтор не меняет.
+func _play(id: String) -> void:
+	if not Campaign.is_replay(id):
+		emit_intent(Intent.PLAY_CHAPTER, {"id": id})
+		return
+	var i: int = await ActionSheet.ask(self, L.t("camp.replay_ask", {"title": L.t("camp.%s.title" % id)}),
+		PackedStringArray([L.t("camp.replay_yes"), L.t("ui.back")]))
+	if i == 0:
+		emit_intent(Intent.PLAY_CHAPTER, {"id": id})
 
 
 func _ask_reset() -> void:

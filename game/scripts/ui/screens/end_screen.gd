@@ -208,7 +208,11 @@ func chapter_card(res: Dictionary) -> PanelContainer:
 		box.add_child(st)
 	box.add_child(PrologueScreen.goals_card(m, Game.chapter, res))
 	var lost: Array = res.get("lost", [])
-	if bool(res.passed) and (not lost.is_empty() or not (res.get("lost_guests", PackedStringArray()) as PackedStringArray).is_empty()):
+	if bool(res.passed) and bool(res.get("replay", false)):
+		var note := W.label(L.t("camp.replay_note", {"stars": Campaign.stars_text(int(res.get("best", res.stars)))}), &"Hint")
+		note.name = "ReplayNote"
+		box.add_child(note)
+	elif bool(res.passed) and (not lost.is_empty() or not (res.get("lost_guests", PackedStringArray()) as PackedStringArray).is_empty()):
 		var names: Array[Villager] = []
 		for v: Villager in m.villagers:
 			var lg: PackedStringArray = res.get("lost_guests", PackedStringArray())

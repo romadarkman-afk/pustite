@@ -254,8 +254,9 @@ static func cast(id: String, extra: int = 0) -> Array[int]:
 		rest[j] = t
 	order.append_array(rest)
 	var out: Array[int] = []
+	var dead := lost_before(id).get("n", Save.campaign_dead) as Array
 	for idx: int in order:
-		if Save.campaign_dead.has(idx) or _same_as_player(idx):
+		if dead.has(idx) or _same_as_player(idx):
 			continue
 		out.append(idx)
 		if out.size() >= n:
@@ -271,10 +272,39 @@ static func _same_as_player(idx: int) -> bool:
 ## Гости главы: кто приехал и ещё жив по ходу кампании.
 static func guests(id: String) -> PackedStringArray:
 	var out := PackedStringArray()
+	var dead := lost_before(id).get("g", Save.campaign_dead_guests) as PackedStringArray
 	for g: String in chapter(id).get("guests", []):
-		if not Save.campaign_dead_guests.has(g):
+		if not dead.has(g):
 			out.append(g)
 	return out
+
+
+## Пройдена ли глава: её можно переиграть.
+static func is_replay(id: String) -> bool:
+	return Save.campaign_stars.has(id)
+
+
+## Кто погиб насовсем до этой главы: {"n": номера имён, "g": гости}. Первое прохождение: все погибшие.
+## Повтор: только погибшие в главах перед ней, чтобы посёлок был таким, как при первом заходе.
+## Старое сохранение без записи, кто в какой главе погиб, даёт пустой словарь: берутся все погибшие.
+static func lost_before(id: String) -> Dictionary:
+	if not is_replay(id):
+		return {}
+	var names: Array[int] = []
+	var guests := PackedStringArray()
+	for prev: String in ORDER:
+		if prev == id:
+			break
+		if not Save.campaign_lost_in.has(prev):
+			if Save.campaign_stars.has(prev):
+				return {}
+			continue
+		var parts := String(Save.campaign_lost_in[prev]).split("|")
+		for s: String in parts[0].split(",", false):
+			names.append(int(s))
+		if parts.size() > 1:
+			guests.append_array(parts[1].split(",", false))
+	return {"n": names, "g": guests}
 
 
 ## Открыта ли глава: первая — всегда, остальные — после прохождения предыдущей.
@@ -393,14 +423,18 @@ static func finish(m: Match, ch: Dictionary, d: Director = null) -> Dictionary:
 			lost_guests.append(v.guest_id)
 		elif v.story_id >= 0:
 			lost.append(v.story_id)
-	if passed:
+	var replay := is_replay(String(ch.id))
+	if passed and replay:
+		Save.raise_stars(String(ch.id), stars)      # повтор: в историю посёлка ничего не пишется
+	elif passed:
 		var mem := m.world.campaign_records(m, Save.MEMORY_PER_CHAPTER - 2)
 		mem.append_array(boat_records(m))
 		mem.append_array(miller_records(m))
 		if m.trust_on:
 			mem.append({"kind": "trust", "who": -1, "day": m.trust, "knew": []})   # доверие группы — в следующую главу акта
 		Save.record_chapter(String(ch.id), stars, lost, lost_guests, mem, d.campaign_bonds() if d != null else {})
-	return {"passed": passed, "stars": stars, "goals": g, "lost": lost, "lost_guests": lost_guests, "id": String(ch.id)}
+	return {"passed": passed, "stars": stars, "goals": g, "lost": lost, "lost_guests": lost_guests, "id": String(ch.id),
+		"replay": replay, "best": int(Save.campaign_stars.get(String(ch.id), 0))}
 
 
 ## Проигран ли суд в крипте (акт III): у акта тогда своя концовка и свой комикс.

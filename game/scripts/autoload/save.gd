@@ -55,6 +55,9 @@ var anchor_bonds: Dictionary[String, int] = {} ## отношения с трем
 var campaign_stars: Dictionary[String, int] = {}  ## кампания: пройденные главы -> звёзды (1–3)
 var campaign_dead: Array[int] = []              ## кампания: номера имён погибших насовсем
 var campaign_seed: int = 0
+## Кто погиб насовсем в какой главе: id -> «3,7|гость,гость» (номера имён | гости). Нужно, чтобы повтор главы
+## собирал посёлок таким, каким он был на её старте, а не после всей кампании.
+var campaign_lost_in: Dictionary = {}
 ## Память кампании (TASK-002): что игрок сделал в пройденных главах и кто об этом знает.
 ## Жители — номерами имён (как campaign_dead), поэтому смена языка ничего не ломает.
 ## {"ch": id главы, "kind": WorldLog.RANK, "who": номер, "day": n, "knew": [номера]}
@@ -145,6 +148,7 @@ func load_all() -> void:
 	player_name = String(cf.get_value("profile", "name", "")).strip_edges().left(20) if has else ""
 	campaign_stars.clear()
 	campaign_dead.clear()
+	campaign_lost_in.clear()
 	campaign_dead_guests = String(cf.get_value("campaign", "dead_guests", "")).split(",", false) if has else PackedStringArray()
 	campaign_seed = int(cf.get_value("campaign", "seed", 0)) if has else 0
 	if has:
@@ -154,6 +158,11 @@ func load_all() -> void:
 				campaign_stars[kv[0]] = clampi(int(kv[1]), 1, 3)
 		for part: String in String(cf.get_value("campaign", "dead", "")).split(",", false):
 			campaign_dead.append(int(part))
+		var raw_lost: Variant = cf.get_value("campaign", "lost_in", {})
+		if raw_lost is Dictionary:
+			for k: Variant in raw_lost:
+				if Campaign.ORDER.has(String(k)):
+					campaign_lost_in[String(k)] = String(raw_lost[k])
 	campaign_memory.clear()
 	campaign_bonds.clear()
 	if has:
@@ -502,6 +511,7 @@ func flush() -> void:
 	cf.set_value("campaign", "stars", ",".join(st))
 	cf.set_value("campaign", "dead", ",".join(PackedStringArray(campaign_dead.map(func(x: int) -> String: return str(x)))))
 	cf.set_value("campaign", "seed", campaign_seed)
+	cf.set_value("campaign", "lost_in", campaign_lost_in)
 	cf.set_value("campaign", "dead_guests", ",".join(campaign_dead_guests))
 	cf.set_value("campaign", "memory", campaign_memory)
 	cf.set_value("campaign", "bonds", campaign_bonds)
@@ -541,7 +551,15 @@ func record_chapter(id: String, stars: int, lost: Array[int], lost_guests: Packe
 	for g: String in lost_guests:
 		if not campaign_dead_guests.has(g):
 			campaign_dead_guests.append(g)
+	campaign_lost_in[id] = ",".join(PackedStringArray(lost.map(func(x: int) -> String: return str(x)))) + "|" + ",".join(lost_guests)
 	flush()
+
+
+## Повтор пройденной главы: растёт только лучший результат. Погибшие, память и отношения остаются как после первого прохождения.
+func raise_stars(id: String, stars: int) -> void:
+	if campaign_stars.has(id) and clampi(stars, 1, 3) > int(campaign_stars[id]):
+		campaign_stars[id] = clampi(stars, 1, 3)
+		flush()
 
 
 ## Итог партии в Книгу посёлка: опыт, судьбы жителей [ключ, погиб, упырь], концовки, достижения.
@@ -590,6 +608,7 @@ func campaign_reset() -> void:
 	campaign_stars.clear()
 	campaign_dead.clear()
 	campaign_dead_guests.clear()
+	campaign_lost_in.clear()
 	campaign_memory.clear()
 	campaign_bonds.clear()
 	campaign_seed = 0
