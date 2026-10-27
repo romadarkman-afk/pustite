@@ -7368,8 +7368,8 @@ static func folk() -> void:
 	var vr := Rect2(Vector2.ZERO, Vector2(tree.root.size))
 	for v: Villager in m.alive():
 		var fv: VillagerFigure = cr.figures[v.id]
-		if fv.fidget_count < 1:
-			idle_ones.append(v.name)
+		if fv.fidget_count < 1 and fv.mood != "grief" and fv.mood != "despair":      # в горе житель не скучает: действий у него нет по замыслу
+			idle_ones.append("%s (%s)" % [v.name, fv.mood if fv.mood != "" else "без настроения"])
 		var gp := fv.get_global_transform_with_canvas().origin
 		if fv.position.distance_to(pos0[v.id]) > 0.5 or not vr.has_point(gp):
 			moved.append(v.name)
@@ -7386,7 +7386,10 @@ static func folk() -> void:
 			repeated_fidget = true
 	ok += _expect(fails, not repeated_fidget, "житель подряд повторил один жест")
 	ok += _expect(fails, cr.whispers >= 3, "соседи почти не шепчутся (%d раз за минуту)" % cr.whispers)
-	print("за минуту: действия %s, шёпотов %d" % [", ".join(posed), cr.whispers])
+	var fidgets_total := 0
+	for v: Villager in m.alive():
+		fidgets_total += (cr.figures[v.id] as VillagerFigure).fidget_count
+	print("за минуту: действия %s, шёпотов %d, жителей %d, действий всего %d" % [", ".join(posed), cr.whispers, m.alive().size(), fidgets_total])
 	Game.release(&"test")
 
 	# 8. Ночь: у двери все ёжатся, днём — нет
