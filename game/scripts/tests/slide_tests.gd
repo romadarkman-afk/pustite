@@ -471,7 +471,7 @@ static func player(fails: PackedStringArray) -> int:
 				seen_panels += 1
 				var cam := String(pl.panel().get("cam", ""))
 				cams[cam] = true
-				var view := pl._view_size
+				var view := pl._win.size        # окно сцены: весь экран у заглушки, прямоугольник картинки у настоящего кадра
 				for pr in [0.0, 0.25, 0.5, 0.75, 1.0]:
 					var r := pl.stage_rect_at(float(pr))
 					var covers := r.position.x <= 0.01 and r.position.y <= 0.01 and r.end.x >= view.x - 0.01 and r.end.y >= view.y - 0.01
@@ -761,6 +761,20 @@ static func geometry(fails: PackedStringArray) -> int:
 				longest_len = tx.length()
 				longest_id = id
 				longest_i = i
+	# самая длинная подпись среди кадров с настоящей картинкой
+	var art_id := ""
+	var art_i := 0
+	var art_len := 0
+	for id: String in Slides.deck_ids():
+		var ps := Slides.panels(id)
+		for i in range(ps.size()):
+			if Slides.art_path(ps[i] as Dictionary).is_empty():
+				continue
+			var tx := Slides.text(String((((ps[i] as Dictionary).lines as Array)[0] as Dictionary).key))
+			if tx.length() > art_len:
+				art_len = tx.length()
+				art_id = id
+				art_i = i
 	for prof: Array in profiles:
 		var sz: Vector2i = prof[0]
 		tree.root.size = sz
@@ -792,6 +806,32 @@ static func geometry(fails: PackedStringArray) -> int:
 			ok += SelfTest._expect(fails, pl._view.get_global_rect().size.is_equal_approx(view), "%s: область кадра %s не во весь экран %s" % [tag, pl._view.get_global_rect().size, view])
 			pl.skip()
 			await tree.process_frame
+			# настоящая картинка: видна целиком без искажения, подпись не лежит на ней
+			if not art_id.is_empty():
+				var pa := SlidePlayer.new()
+				pa.deck_id = art_id
+				pa.deck = Slides.deck(art_id)
+				host.add_child(pa)
+				pa._build()
+				for k in range(art_i):
+					pa.advance()
+				await SelfTest._frames(tree, 2)
+				var atag := "%s, текст %d, картинка %s/%d" % [prof[2], ts, art_id, art_i + 1]
+				var win := pa._win
+				var tex := load(Slides.art_path(pa.panel())) as Texture2D
+				var av := pa._view_size
+				ok += SelfTest._expect(fails, pa._art_on and win.position.x >= -0.5 and win.end.x <= av.x + 0.5 and win.position.y >= 0.0 and win.end.y <= av.y + 0.5,
+					"%s: окно картинки %s вне экрана %s" % [atag, win, av])
+				ok += SelfTest._expect(fails, absf(win.size.x / win.size.y - tex.get_size().x / tex.get_size().y) < 0.01,
+					"%s: картинка искажена, окно %s при исходнике %s" % [atag, win.size, tex.get_size()])
+				var aplate := pa._plate.get_global_rect()
+				ok += SelfTest._expect(fails, pa._plate.visible and win.end.y <= aplate.position.y + 0.5,
+					"%s: подпись %s налезает на картинку %s" % [atag, aplate, win])
+				ok += SelfTest._expect(fails, aplate.end.y <= av.y + 0.5 and aplate.position.x >= -0.5 and aplate.end.x <= av.x + 0.5,
+					"%s: подпись %s вне экрана %s" % [atag, aplate, av])
+				ok += SelfTest._expect(fails, pa._stage_root.find_child("Backdrop", true, false) != null, "%s: нет размытой подложки" % atag)
+				pa.skip()
+				await tree.process_frame
 	Save.text_size = host_keep_text
 	ThemeFactory.text_scale = ThemeFactory.TEXT_SCALES[host_keep_text]
 	Nav.ui.theme = ThemeFactory.build()

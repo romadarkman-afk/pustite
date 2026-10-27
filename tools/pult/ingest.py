@@ -42,6 +42,9 @@ AUD_EXT = {".wav", ".mp3", ".m4a", ".ogg", ".flac", ".aac", ".opus"}
 PAUSE_TOKEN = "<short pause>"
 
 FRAME_SIZE = {"широкая": (1536, 1024), "высокая": (1024, 1536)}
+# Качество кадра комикса: WebP-исходник и повторное сжатие при импорте в Godot (lossy_quality). При 84/80 PSNR был 34-38 дБ,
+# заметно мылились мелкие детали; при 93/93 38-42 дБ при 0,35-0,5 МиБ на кадр (0.70.0).
+FRAME_QUALITY = 93
 
 
 # ----------------------------------------------------------------- данные пульта
@@ -186,8 +189,8 @@ def do_frame(t, src, dry):
     dst = dests(t)[0]
     if not dry:
         dst.parent.mkdir(parents=True, exist_ok=True)
-        im.save(dst, "WEBP", quality=84, method=6)
-        write_import(dst)
+        im.save(dst, "WEBP", quality=FRAME_QUALITY, method=6)
+        write_import(dst, FRAME_QUALITY / 100.0)
     return [dst], []
 
 

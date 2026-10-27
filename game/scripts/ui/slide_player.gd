@@ -21,6 +21,13 @@ const CARD_SEC := 2.4            ## титульная плашка
 const FADE := 0.32
 const SHAKE_PX := 10.0
 const BREATH := 0.004           ## дыхание кадра: масштаб колеблется на эту долю
+## Раскладка настоящей картинки (0.70.0): кадр виден целиком, без обрезки и растяжения, над зоной подписи.
+## Сбоку и сверху остаётся размытое продолжение той же картинки. Подпись никогда не ложится на лица.
+const ART_TOP := 72.0            ## картинка начинается под полоской кадров и кнопкой «Пропустить»
+const ART_GAP := 14.0            ## зазор между картинкой и подписью
+const PLATE_BOTTOM := 10.0       ## отступ подписи от нижней кромки
+const ART_CAM_GAIN := 0.5        ## над целой картинкой камера идёт вдвое мягче: срезать по краям нечего
+const BACKDROP_W := 24           ## ширина размытой подложки в пикселях
 
 ## Цвет акта: холодные тени, тёплые света, сила разделения тонов, контраст. Ключ 0 — колоды без акта.
 const GRADES := {
@@ -57,7 +64,13 @@ var _hold_key: StringName
 var _music_before: StringName
 var _amb_before: StringName
 var _view: Control
-var _stage: Control
+var _stage: Control               ## то, что двигает камера: целая заглушка или картинка внутри окна
+var _stage_root: Control          ## то, что плавно появляется и исчезает: заглушка или кадр с подложкой
+var _win := Rect2()               ## окно, в котором видна сцена (для заглушки весь экран, для картинки её прямоугольник)
+var _art_on := false              ## у кадра есть настоящая картинка
+var _vignette: TextureRect
+var _stand_grade := {}            ## цвет акта для заглушек; у настоящих картинок цвета не трогаем
+static var _backdrops: Dictionary = {}
 var _grade: ShaderMaterial
 var _plate: PanelContainer
 var _who: Label
@@ -116,7 +129,8 @@ func _build() -> void:
 	black.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	black.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_view.add_child(black)
-	_view.add_child(_make_vignette())
+	_vignette = _make_vignette()
+	_view.add_child(_vignette)
 	_fit_view()
 	get_viewport().size_changed.connect(_on_resized)
 	_setup_grade()
@@ -130,7 +144,7 @@ func _build() -> void:
 	_plate.offset_bottom = -10.0
 	_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.02, 0.02, 0.03, 0.78)
+	sb.bg_color = Color(0.02, 0.02, 0.03, 0.9)
 	sb.border_color = Color(0.96, 0.74, 0.40, 0.9)
 	sb.border_width_left = 4
 	sb.set_content_margin_all(14)
@@ -255,10 +269,22 @@ func _setup_grade() -> void:
 	var g: Dictionary = GRADES.get(Slides.act_of(deck_id), GRADES[0])
 	_grade.set_shader_parameter("cold", g.cold)
 	_grade.set_shader_parameter("warm", g.warm)
-	_grade.set_shader_parameter("tone", clampf(float(g.tone) + float(KIND_TONE.get(String(deck.get("kind", "")), 0.0)), 0.0, 1.0))
-	_grade.set_shader_parameter("contrast", g.contrast)
+	_stand_grade = {"tone": clampf(float(g.tone) + float(KIND_TONE.get(String(deck.get("kind", "")), 0.0)), 0.0, 1.0),
+		"contrast": float(g.contrast), "grain": 0.06, "halftone": 0.22}
+	_apply_grade(false)
 	_grade.set_shader_parameter("memory", 0.0)
 	_grade.set_shader_parameter("flash", 0.0)
+
+
+## Цвет кадра. Заглушки получают цвет акта, зерно и полутон. Настоящие картинки остаются как сгенерированы:
+## без тонирования, контраста, зерна и полутона. Воспоминание (сепия) и вспышка работают на обоих.
+func _apply_grade(art: bool) -> void:
+	if _grade == null:
+		return
+	_grade.set_shader_parameter("tone", 0.0 if art else float(_stand_grade.get("tone", 0.3)))
+	_grade.set_shader_parameter("contrast", 1.0 if art else float(_stand_grade.get("contrast", 1.14)))
+	_grade.set_shader_parameter("grain", 0.0 if art else float(_stand_grade.get("grain", 0.06)))
+	_grade.set_shader_parameter("halftone", 0.0 if art else float(_stand_grade.get("halftone", 0.22)))
 
 
 # ----------------------------------------------------------------- ход колоды
@@ -344,6 +370,7 @@ func _next_panel() -> void:
 		_dur = maxf(2.4, float(_text_len) / TYPE_CPS + _hold + 0.2)
 		if _text_len > 0:
 			_start_voice(p)
+	_art_on = not Slides.art_path(p).is_empty()
 	_set_cam(String(p.get("cam", "hold")))
 	_show_stage(panel_i, true)
 	var song := Slides.song_for(deck_id, panel_i)
@@ -371,53 +398,157 @@ func _start_voice(p: Dictionary) -> void:
 	_dur = _vo_len + VO_TAIL + 0.2
 
 
+## Раскладка настоящего кадра: картинка целиком (без обрезки и растяжения) и подпись прямо под ней. Группа стоит по центру
+## свободного места: у высокого кадра она занимает всё, у широкого остаётся размытое продолжение картинки сверху и снизу.
+## plate_h — высота подложки подписи (0, если подписи нет), bottom — сколько оставить снизу. Возвращает окно картинки и верх подписи.
+static func art_layout(tex_size: Vector2, view: Vector2, plate_h: float, bottom: float) -> Dictionary:
+	var gap := ART_GAP if plate_h > 0.0 else 0.0
+	var avail_h := maxf(view.y - ART_TOP - bottom - plate_h - gap, view.y * 0.3)
+	var k := minf(view.x / maxf(tex_size.x, 1.0), avail_h / maxf(tex_size.y, 1.0))
+	var sz := (tex_size * k).round()
+	var free_h := view.y - ART_TOP - bottom
+	var top := ART_TOP + roundf(maxf(0.0, free_h - (sz.y + gap + plate_h)) * 0.5)
+	return {"win": Rect2(Vector2(roundf((view.x - sz.x) * 0.5), top), sz), "plate_top": top + sz.y + gap}
+
+
+## Высота подложки под текущую подпись по шрифту (с запасом на перенос). Нет текста: 0.
+func plate_height() -> float:
+	if _line == null or _line.text.is_empty():
+		return 0.0
+	var font := _line.get_theme_font("font")
+	var fs := _line.get_theme_font_size("font_size")
+	if font == null:
+		return _view_size.y * 0.16
+	# плеер может стоять в полях безопасной зоны: подпись шире него не станет
+	var pw := size.x if size.x > 100.0 else _view_size.x
+	var inner := pw - 16.0 - 18.0 - 14.0 - 8.0
+	var one := font.get_height(fs)
+	var wrapped := font.get_multiline_string_size(_line.text, HORIZONTAL_ALIGNMENT_LEFT, inner, fs)
+	var lines := maxf(1.0, ceilf(wrapped.y / maxf(one, 1.0)))
+	var h := lines * (one + float(_line.get_theme_constant("line_spacing"))) + 28.0
+	if _who.visible:
+		h += one + 4.0
+	return h
+
+
+## Сколько места оставить под подписью до нижней кромки экрана: отступ плюс поля безопасной зоны, в которых стоит плеер.
+func bottom_gap() -> float:
+	var inset := maxf(0.0, _view_size.y - get_global_rect().end.y) if is_inside_tree() else 0.0
+	return inset + PLATE_BOTTOM
+
+
+## Подпись внизу экрана (заглушки) или прямо под картинкой (top >= 0). Высоту подложка берёт по тексту.
+func _place_plate(top: float) -> void:
+	if top < 0.0:
+		_plate.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+		_plate.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		_plate.offset_left = 8.0
+		_plate.offset_right = -8.0
+		_plate.offset_bottom = -PLATE_BOTTOM
+		return
+	var y := top - (get_global_rect().position.y if is_inside_tree() else 0.0)
+	_plate.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_plate.grow_vertical = Control.GROW_DIRECTION_END
+	_plate.offset_left = 8.0
+	_plate.offset_right = -8.0
+	_plate.offset_top = y
+	_plate.offset_bottom = y
+
+
+## Размытая подложка: та же картинка, сжатая до BACKDROP_W пикселей (делением пополам, без пропуска пикселей) и растянутая на экран.
+static func backdrop_texture(path: String, tex: Texture2D) -> Texture2D:
+	if _backdrops.has(path):
+		return _backdrops[path]
+	var img := tex.get_image() if tex != null else null
+	if img == null or img.is_empty():
+		return null
+	if img.is_compressed():
+		img.decompress()
+	img.convert(Image.FORMAT_RGB8)
+	while img.get_width() > BACKDROP_W * 2:
+		img.resize(maxi(BACKDROP_W, int(img.get_width() * 0.5)), maxi(2, int(img.get_height() * 0.5)), Image.INTERPOLATE_BILINEAR)
+	var t := ImageTexture.create_from_image(img)
+	_backdrops[path] = t
+	return t
+
+
 ## Заглушка или настоящая картинка кадра. fresh=true: плавно появляется поверх прежнего кадра.
 func _show_stage(i: int, fresh: bool) -> void:
 	var p := _panels()[i] as Dictionary
-	var old := _stage
+	var old := _stage_root
 	var mat: Material = _grade
 	var flash_to := int(deck.get("flash_to", 0))
 	if _grade != null:
 		_grade.set_shader_parameter("memory", 1.0 if i < flash_to else 0.0)
 	var path := Slides.art_path(p)
-	var stage: Control
+	var root: Control
 	_draft.visible = path.is_empty() and OS.is_debug_build()
+	_art_on = not path.is_empty()
+	_apply_grade(_art_on)
+	_vignette.visible = not _art_on
 	if path.is_empty():
-		stage = SlideStand.build(deck_id, i, p, _view_size, mat)
+		root = SlideStand.build(deck_id, i, p, _view_size, mat)
+		_stage = root
+		_win = Rect2(Vector2.ZERO, _view_size)
+		_place_plate(-1.0)
 	else:
 		var tex := load(path) as Texture2D
-		stage = Control.new()
-		stage.name = "Art"
-		stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var ts := tex.get_size() if tex != null else _view_size
-		var k := maxf(_view_size.x / ts.x, _view_size.y / ts.y)
-		stage.size = ts * k
+		var lay := art_layout(ts, _view_size, plate_height(), bottom_gap())
+		_win = lay["win"]
+		_place_plate(float(lay["plate_top"]) if _plate.visible else -1.0)
+		root = Control.new()
+		root.name = "Art"
+		root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.size = _view_size
+		var back_tex := backdrop_texture(path, tex)
+		if back_tex != null:
+			var back := TextureRect.new()
+			back.name = "Backdrop"
+			back.texture = back_tex
+			back.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			back.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			back.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			back.modulate = Color(0.52, 0.52, 0.56)
+			if mat != null:
+				back.material = mat
+			root.add_child(back)
+		var window := Control.new()
+		window.name = "Window"
+		window.clip_contents = true
+		window.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		window.position = _win.position
+		window.size = _win.size
+		root.add_child(window)
 		var rect := TextureRect.new()
+		rect.name = "Picture"
 		rect.texture = tex
 		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		rect.stretch_mode = TextureRect.STRETCH_SCALE
-		rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		rect.size = _win.size
 		rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if mat != null:
 			rect.material = mat
-		stage.add_child(rect)
-	stage.pivot_offset = Vector2.ZERO
-	_view.add_child(stage)
-	_view.move_child(stage, _view.get_child_count() - 2)        # под виньетку
-	_stage = stage
+		window.add_child(rect)
+		_stage = rect
+	_stage.pivot_offset = Vector2.ZERO
+	_view.add_child(root)
+	_view.move_child(root, _view.get_child_count() - 2)        # под виньетку
+	_stage_root = root
 	_apply_cam(clampf(_t / _dur, 0.0, 1.0))
 	if old != null and is_instance_valid(old):
 		if fresh and not Juice.instant:
-			stage.modulate.a = 0.0
+			root.modulate.a = 0.0
 			var tw := create_tween().set_parallel(true)
-			tw.tween_property(stage, "modulate:a", 1.0, FADE)
+			tw.tween_property(root, "modulate:a", 1.0, FADE)
 			tw.tween_property(old, "modulate:a", 0.0, FADE)
 			tw.chain().tween_callback(old.queue_free)
 		else:
 			old.queue_free()
 	elif fresh and not Juice.instant:
-		stage.modulate.a = 0.0
-		create_tween().tween_property(stage, "modulate:a", 1.0, FADE)
+		root.modulate.a = 0.0
+		create_tween().tween_property(root, "modulate:a", 1.0, FADE)
 	if fresh and _cam_shake and _grade != null and not Juice.instant:
 		if _flash_tw != null:
 			_flash_tw.kill()
@@ -432,6 +563,14 @@ func _show_stage(i: int, fresh: bool) -> void:
 ## Масштаб никогда не меньше 1.03, поэтому по краям не видно пустоты ни при дыхании, ни при тряске.
 func _set_cam(cam: String) -> void:
 	_cam_shake = false
+	_set_cam_raw(cam)
+	if _art_on:
+		# картинка видна целиком: масштаб растёт вдвое слабее, чтобы не резать края и не растягивать пиксели
+		_cam_s0 = 1.0 + (_cam_s0 - 1.0) * ART_CAM_GAIN
+		_cam_s1 = 1.0 + (_cam_s1 - 1.0) * ART_CAM_GAIN
+
+
+func _set_cam_raw(cam: String) -> void:
 	match cam:
 		"zoom_in":
 			_cam_s0 = 1.04
@@ -484,7 +623,7 @@ func stage_rect_at(p: float) -> Rect2:
 	var s := lerpf(_cam_s0, _cam_s1, e)
 	var f := _cam_f0.lerp(_cam_f1, e)
 	var sz := _stage.size * s
-	return Rect2(-(sz - _view_size) * f, sz)
+	return Rect2(-(sz - _win.size) * f, sz)
 
 
 func _apply_cam(p: float) -> void:
@@ -496,7 +635,7 @@ func _apply_cam(p: float) -> void:
 		s *= 1.0 + BREATH * sin(_t * 1.4)
 	var f := _cam_f0.lerp(_cam_f1, e)
 	var sz := _stage.size * s
-	var pos := -(sz - _view_size) * f
+	var pos := -(sz - _win.size) * f
 	if _cam_shake and not Juice.instant:
 		var k := (1.0 - e) * (1.0 - e)
 		pos += Vector2(sin(_t * 61.0), cos(_t * 53.0)) * SHAKE_PX * k
