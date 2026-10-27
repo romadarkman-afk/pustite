@@ -3232,7 +3232,9 @@ static func howto() -> void:
 	ok += _expect(fails, h != null and h.then_play, "первая одиночная игра не открыла «Как играть»")
 	if h != null:
 		var host_h := Nav.host.size.y
-		for pg in range(HowToScreen.PAGES.size()):
+		ok += _expect(fails, h.page_count() == HowToScreen.CORE and HowToScreen.CORE < HowToScreen.PAGES.size(),
+			"перед первой партией показано %d карточек вместо основных %d" % [h.page_count(), HowToScreen.CORE])
+		for pg in range(h.page_count()):
 			var ar := h.art.get_global_rect()
 			ok += _expect(fails, h.page == pg and ar.size.y >= host_h * 0.3, "карточка %d: картинка %d px — меньше 30%% экрана" % [pg + 1, int(ar.size.y)])
 			var inside := true
@@ -3240,7 +3242,10 @@ static func howto() -> void:
 				if not ar.grow(2.0).encloses(f.body_rect_global()):
 					inside = false
 			ok += _expect(fails, inside and not h.art.figures.is_empty(), "карточка %d: фигурки вне картинки или их нет" % (pg + 1))
-			var last := pg == HowToScreen.PAGES.size() - 1
+			ok += _expect(fails, not _all_text(h.body).contains("{") and not _all_text(h.body).contains("howto."), "карточка %d: метка подстановки или ключ вместо текста" % (pg + 1))
+			var last := pg == h.page_count() - 1
+			ok += _expect(fails, h.body.find_child("Row_" + (String(HowToScreen.PAGES[pg][3][0][0]) if not (HowToScreen.PAGES[pg][3] as Array).is_empty() else "-"), true, false) != null or (HowToScreen.PAGES[pg][3] as Array).is_empty(),
+				"карточка %d: нет строк со значками" % (pg + 1))
 			var btn := _find_button(h, "Играть" if last else "Дальше")
 			ok += _expect(fails, btn != null, "карточка %d: нет кнопки «%s»" % [pg + 1, "Играть" if last else "Дальше"])
 			if btn != null:
@@ -3264,10 +3269,16 @@ static func howto() -> void:
 	h = Nav.host.current as HowToScreen
 	ok += _expect(fails, h != null and not h.then_play, "кнопка «Как играть» в меню не открыла карточки")
 	if h != null:
-		h.next_page()
-		await _settle(tree)
-		h.next_page()
-		await _settle(tree)
+		ok += _expect(fails, h.page_count() == HowToScreen.PAGES.size(), "из меню показаны не все карточки")
+		var every_row := true
+		for pg in range(h.page_count()):
+			for row: Array in HowToScreen.PAGES[pg][3]:
+				every_row = every_row and h.body.find_child("Row_" + String(row[0]), true, false) != null
+			ok += _expect(fails, not _all_text(h.body).contains("{") and h.art.figures.size() > 0, "меню, карточка %d: метка подстановки или пустая картинка" % (pg + 1))
+			if pg < h.page_count() - 1:
+				h.next_page()
+				await _settle(tree)
+		ok += _expect(fails, every_row, "в карточках «Как играть» не хватает строк со значками")
 		var done := _find_button(Nav.host.current, "Понятно")
 		ok += _expect(fails, done != null, "из меню на последней карточке нет «Понятно»")
 		if done != null:
