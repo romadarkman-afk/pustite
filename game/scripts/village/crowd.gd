@@ -993,5 +993,21 @@ func _schedule_fidget(delta: float) -> void:
 	if candidates.is_empty():
 		_fidget_clock = _life_rng.randf_range(1.0, 2.5)
 		return
-	candidates[_life_rng.randi_range(0, candidates.size() - 1)].start_fidget()
+	var pick := candidates[_life_rng.randi_range(0, candidates.size() - 1)]
+	# иногда вместо действия прогулка: несколько шагов вбок и обратно, не больше двух гуляющих сразу
+	if not Juice.instant and strollers() < 2 and _life_rng.randf() < 0.3:
+		var side := -1.0 if _life_rng.randf() < 0.5 else 1.0
+		var offset := Vector2(side * _life_rng.randf_range(16.0, 34.0), _life_rng.randf_range(-4.0, 4.0))
+		if not _hidden(pick.position + offset, true) and pick.stroll(offset, _life_rng.randf_range(1.2, 3.0)):
+			_fidget_clock = _life_rng.randf_range(2.5, 4.5)
+			return
+	pick.start_fidget()
 	_fidget_clock = _life_rng.randf_range(1.6, 2.8)
+
+
+func strollers() -> int:
+	var n := 0
+	for f: VillagerFigure in figures.values():
+		if f.strolling:
+			n += 1
+	return n
