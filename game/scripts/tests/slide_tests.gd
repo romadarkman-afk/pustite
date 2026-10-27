@@ -797,6 +797,12 @@ static func geometry(fails: PackedStringArray) -> int:
 			await SelfTest._frames(tree, 2)
 			var tag := "%s, текст %d, %s/%d" % [prof[2], ts, longest_id, longest_i + 1]
 			var view := pl._view_size
+			var extra := 0
+			while pl._plate.size.y > view.y * MAX_PLATE_SHARE and extra < 8:
+				await tree.process_frame
+				extra += 1
+			if extra > 0:
+				print("ДИАГНОСТИКА %s: подпись %.0f px при экране %.0f, дополнительных кадров %d" % [tag, pl._plate.size.y, view.y, extra])
 			var plate := pl._plate.get_global_rect()
 			ok += SelfTest._expect(fails, plate.position.x >= -0.5 and plate.end.x <= view.x + 0.5 and plate.end.y <= view.y + 0.5, "%s: подпись %s вне экрана %s" % [tag, plate, view])
 			ok += SelfTest._expect(fails, plate.size.y <= view.y * MAX_PLATE_SHARE, "%s: подпись занимает %.0f%% высоты" % [tag, plate.size.y / view.y * 100.0])
