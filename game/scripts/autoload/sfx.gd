@@ -48,6 +48,12 @@ const SOUNDS := {
 	# жизнь посёлка (TASK-069, tools/make_weather_sfx.py)
 	&"life_dog": "res://assets/sfx/life_dog.ogg",
 	&"life_hens": "res://assets/sfx/life_hens.ogg",
+	# гром (0.70.0, tools/make_rain.py): раскаты из записи ливня, нижние частоты с гармониками для динамика телефона
+	&"thunder": "res://assets/sfx/thunder.ogg",
+	&"thunder_2": "res://assets/sfx/thunder_2.ogg",
+	&"thunder_3": "res://assets/sfx/thunder_3.ogg",
+	&"thunder_4": "res://assets/sfx/thunder_4.ogg",
+	&"thunder_far": "res://assets/sfx/thunder_far.ogg",   # глухой, как через стену: для сцен в доме
 }
 const LOOPS := {
 	&"amb_day": "res://assets/sfx/amb_day.ogg",
@@ -67,7 +73,12 @@ const LOOPS := {
 	&"river_theme": "res://assets/music/river_theme.ogg",
 	# слои погоды, жизни и места (TASK-069, tools/make_weather_sfx.py)
 	&"amb_wind": "res://assets/sfx/amb_wind.ogg",
-	&"amb_rain": "res://assets/sfx/amb_rain.ogg",
+	&"amb_rain": "res://assets/sfx/amb_rain.ogg",                  # средний ровный дождь (0.70.0: живая запись вместо синтеза)
+	&"amb_rain_light": "res://assets/sfx/amb_rain_light.ogg",      # морось
+	&"amb_rain_heavy": "res://assets/sfx/amb_rain_heavy.ogg",      # ливень
+	&"amb_rain_roof": "res://assets/sfx/amb_rain_roof.ogg",        # дождь по крыше, сверху
+	&"amb_rain_drops": "res://assets/sfx/amb_rain_drops.ogg",      # капли с листвы и карниза
+	&"amb_rain_inside": "res://assets/sfx/amb_rain_inside.ogg",    # дождь за стеной, глухой
 	&"amb_blizzard": "res://assets/sfx/amb_blizzard.ogg",
 	&"life_murmur": "res://assets/sfx/life_murmur.ogg",
 	&"mill_wheel": "res://assets/sfx/mill_wheel.ogg",
@@ -115,6 +126,7 @@ const STAGE_BY_GROUND := {"ground_mill": "a2c1", "ground_monastery": "a3c1", "gr
 const VARIANTS := {
 	&"reveal": [&"reveal", &"reveal_2", &"reveal_3"],
 	&"breath": [&"breath", &"breath_2", &"breath_3"],   # за дверью дышат по-разному (TASK-081)
+	&"thunder": [&"thunder", &"thunder_2", &"thunder_3", &"thunder_4"],
 }
 const BUSES := [&"Music", &"Sfx", &"Ambience"]
 const HORROR_LEFT := &"NightHorrorLeft"
@@ -537,8 +549,24 @@ func set_place_layer(ground: String, river: bool, primary: StringName, fade: flo
 	_fade(_place, level, fade * 0.5, false)
 
 
+## Какой слой дождя звучит при такой силе и ветре. В доме (у двери ночью) дождь слышен через стену или по крыше.
+## Громкость каждого слоя подобрана так, чтобы на слух смена слоя на границе силы не прыгала больше чем на 3 дБ.
+static func rain_pick(power: float, wind: float, indoors: bool = false) -> Dictionary:
+	if indoors:
+		if power < 0.5:
+			return {"name": &"amb_rain_inside", "db": -19.5 + 5.0 * power}
+		return {"name": &"amb_rain_roof", "db": -19.0 + 5.0 * power}
+	if power < 0.4:
+		return {"name": &"amb_rain_light", "db": -21.0 + 8.0 * power}
+	if power >= 0.7:
+		return {"name": &"amb_rain_heavy", "db": -24.0 + 10.0 * power}
+	if wind < 0.2:
+		return {"name": &"amb_rain_drops", "db": -18.0 + 6.0 * power}
+	return {"name": &"amb_rain", "db": -22.5 + 10.0 * power}
+
+
 ## Какой слой погоды и с какой громкостью звучит при таком состоянии погоды.
-static func weather_pick(s: Dictionary) -> Dictionary:
+static func weather_pick(s: Dictionary, indoors: bool = false) -> Dictionary:
 	var none := {"name": &"", "db": -80.0}
 	if not bool(s.get("active", false)):
 		return none
@@ -547,7 +575,7 @@ static func weather_pick(s: Dictionary) -> Dictionary:
 	match int(s.get("precip", Weather.Precip.NONE)):
 		Weather.Precip.RAIN:
 			if power > 0.05:
-				return {"name": &"amb_rain", "db": -30.0 + 14.0 * power}
+				return rain_pick(power, wind, indoors)
 		Weather.Precip.SNOW:
 			if power > 0.05:
 				if wind >= 0.6 or power >= 0.8:
@@ -559,14 +587,19 @@ static func weather_pick(s: Dictionary) -> Dictionary:
 
 
 ## Слой погоды: ветер, дождь или метель по состоянию погоды. Тот же слой только меняет громкость.
-func set_weather_layer(s: Dictionary, fade: float = 3.0) -> void:
-	var pick := weather_pick(s)
+## indoors: игрок за дверью дома, дождь слышен через стену.
+func set_weather_layer(s: Dictionary, fade: float = 3.0, indoors: bool = false) -> void:
+	var pick := weather_pick(s, indoors)
 	var n: StringName = pick["name"]
 	weather_db = float(pick["db"])
+	_wx_power = float(s.get("power", 0.0)) if bool(s.get("active", false)) and int(s.get("precip", Weather.Precip.NONE)) == Weather.Precip.RAIN else 0.0
+	_wx_indoors = indoors
 	if n == weather_name:
 		if n != &"" and _weather_p.playing:
 			_fade(_weather_p, weather_db, fade * 0.5, false)
 		return
+	if _wx_power >= THUNDER_MIN_POWER and weather_name == &"":
+		_thunder_clock = randf_range(10.0, 22.0)   # первый раскат не сразу и не через минуту
 	weather_name = n
 	_note(StringName("погода:" + String(n)))
 	_weather_gen += 1
@@ -617,7 +650,38 @@ func long_streams() -> int:
 	return n
 
 
+## Сила дождя для грома и признак «в доме». Нулевая сила: дождя нет, грома нет.
+var _wx_power := 0.0
+var _wx_indoors := false
+var _thunder_clock := 25.0
+const THUNDER_MIN_POWER := 0.6
+
+
+## Через сколько секунд следующий раскат. Меньше 0: при такой силе дождя грома нет. roll 0..1 разбрасывает интервал.
+static func thunder_gap(power: float, roll: float) -> float:
+	if power < THUNDER_MIN_POWER:
+		return -1.0
+	var base := lerpf(80.0, 28.0, clampf((power - THUNDER_MIN_POWER) / 0.4, 0.0, 1.0))
+	return base * lerpf(0.7, 1.3, clampf(roll, 0.0, 1.0))
+
+
+## Раскат в сильный дождь. Возвращает true, если раскат сыграл. Вне дома громче и ближе, в доме глухой.
+func _tick_thunder(delta: float) -> bool:
+	if thunder_gap(_wx_power, 0.5) < 0.0 or weather_name == &"":
+		return false
+	_thunder_clock -= delta
+	if _thunder_clock > 0.0:
+		return false
+	_thunder_clock = thunder_gap(_wx_power, randf())
+	if _wx_indoors:
+		play(&"thunder_far", randf_range(0.92, 1.02), -7.0)
+	else:
+		play(&"thunder", randf_range(0.9, 1.0), -4.0 - 4.0 * randf())
+	return true
+
+
 func _process(delta: float) -> void:
+	_tick_thunder(delta)
 	if not life_day and _place_ground != "ground_monastery":
 		return
 	_life_clock -= delta

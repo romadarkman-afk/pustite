@@ -115,7 +115,7 @@ a, b, c = trio("a1c3", "Прощание", "Старый Перевоз, лет�
                "grey morning after the storm, flat cold light, mud and torn rope, no warmth")
 a.add("w", "Wide, storm on the river",
       "A river ferry crossing in a storm: boats tied to a wooden pier straining on ropes, lightning on the far bank, a watch tower with a lantern, dark spruce.",
-      [N("Старый Перевоз. Последние ночи в деревне. Перед рассветом все уходят к мельнице.")], S("rain", "tense", fx=[("scare", 3.0, -18)]), tier="A", cam="pan_r")
+      [N("Старый Перевоз. Последние ночи в деревне. Перед рассветом все уходят к мельнице.")], S("rain_heavy", "tense", fx=[("scare", 3.0, -18), ("thunder", 1.5, -6)]), tier="A", cam="pan_r")
 a.add("t", "Medium close, warm friendly face",
       "A round-faced travelling merchant in a fur hat opening a wooden box full of thistle-and-salt amulets, smiling crookedly, rain on his hat brim, lantern light.",
       [D("efim", "Дёшево отдам. Бедным даром.")], S(fx=[("tap", 0.8, -12)]), tier="A", cast=("efim",), cam="zoom_in")
@@ -127,7 +127,7 @@ a.add("t", "Medium, doorway",
       [N("Двое держатся друг за друга. Потеряем одного, второй не дойдёт.")], S(), tier="A", cam="zoom_in")
 a.add("w", "Wide, lightning",
       "A wooden watch tower on the river bank with a single lantern at the top lit by a lightning flash, two dark tiny silhouettes standing at its foot.",
-      [N("На вышке горит фонарь. Упырей двое.")], S("rain", "tense", fx=[("upyr_cry", 2.0, -14)]), tier="A", cam="pan_l")
+      [N("На вышке горит фонарь. Упырей двое.")], S("rain_heavy", "tense", fx=[("upyr_cry", 2.0, -14), ("thunder", 4.5, -9)]), tier="A", cam="pan_l")
 
 b.add("w", "Wide, dawn after the storm",
       "Rowing boats tied at a pier at dawn after the storm, people carrying sacks along the pier, golden wet light on the water, torn clouds.",
@@ -162,7 +162,7 @@ a, b, c = trio("a2c1", "Брод", "Мельничный Двор, осень, �
                "close dim interior, one candle, amber on grey, tears on a heavy face")
 a.add("w", "Wide, rain, mill yard",
       "A mill yard in heavy rain, a dark water mill with a wheel, planks laid across mud, people crouched under sacks, lanterns guttering one after another.",
-      [N("Третий день льёт дождь. Фонари гаснут один за другим.")], S("rain", "sad", fx=[("water_drip", 1.0, -12)]), tier="A", cam="pan_r")
+      [N("Третий день льёт дождь. Фонари гаснут один за другим.")], S("rain_drops", "sad", fx=[("water_drip", 1.0, -12)]), tier="A", cam="pan_r")
 a.add("t", "Medium, heavy man at a doorway",
       "A heavy miller at his doorway with one palm held out, flour in his brows, a keys ring at his belt, rain behind him, face half in shadow.",
       [D("melnik", "Пущу. За плату.")], S("mill"), tier="A", cast=("melnik",), cam="zoom_in")

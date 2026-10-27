@@ -150,7 +150,7 @@ a, b, c = trio("a4c1", "Полустанок", "Разъезд 14-я Верст�
                "dark night, one sick yellow lamp, black rails, cold green fog")
 a.add("w", "Wide, rainy junction",
       "A lonely railway halt in rain: a workers' barracks, a signal hut, a telegraph shed, a rail handcar shed, wet mud paths, spruce wall behind.",
-      [N("Разъезд 14-я Верста. Лес кончился у рельсов.")], S("rain", "tense"), tier="A", cam="pan_r")
+      [N("Разъезд 14-я Верста. Лес кончился у рельсов.")], S("rain_light", "tense"), tier="A", cam="pan_r")
 a.add("t", "Medium, platform",
       "A stationmaster in a black greatcoat and peaked cap standing on a wet platform with a lantern, looking not at the camera but at the rails.",
       [D("smotritel", "Поезд придёт через четыре ночи. Так записано.")], S("whistle"), tier="A", cast=("smotritel",), cam="zoom_in")

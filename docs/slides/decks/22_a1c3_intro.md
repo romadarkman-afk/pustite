@@ -23,7 +23,7 @@ SCENE: A river ferry crossing in a storm: boats tied to a wooden pier straining 
 ```
 
 - **Подпись в игре:** Старый Перевоз. Последние ночи в деревне. Перед рассветом все уходят к мельнице.
-- **Звук:** фон amb_rain, музыка theme_tense, scare +3.0с [нужна запись: theme_tense]
+- **Звук:** фон amb_rain_heavy, музыка theme_tense, thunder +1.5с, scare +3.0с [нужна запись: theme_tense]
 - **Камера в игре:** pan_r
 
 ## a1c3_intro / 02 · высокая 1024x1536 · волна 2
@@ -90,5 +90,5 @@ RULES: The upyr (monster) is NEVER shown clearly: only a thin tall silhouette, p
 ```
 
 - **Подпись в игре:** На вышке горит фонарь. Упырей двое.
-- **Звук:** фон amb_rain, музыка theme_tense, upyr_cry +2.0с [нужна запись: theme_tense]
+- **Звук:** фон amb_rain_heavy, музыка theme_tense, upyr_cry +2.0с, thunder +4.5с [нужна запись: theme_tense]
 - **Камера в игре:** pan_l

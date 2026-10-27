@@ -464,7 +464,8 @@ func _home_village() -> void:
 ## Звуковые слои мира (TASK-069): погода, жизнь посёлка и напряжение по состоянию партии.
 ## Чем меньше живых, тем тише говор; к ночи и к пустому посёлку фон глохнет, пульс частит.
 func _mix_world(phase: int) -> void:
-	Sfx.set_weather_layer(village.weather_state)
+	# у двери ночью игрок в доме: дождь слышен через стену и по крыше, гром глухой
+	Sfx.set_weather_layer(village.weather_state, 3.0, phase == Match.Phase.DOOR)
 	var total := Game.m.villagers.size()
 	var alive := 0
 	for v: Villager in Game.m.villagers:

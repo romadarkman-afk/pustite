@@ -3854,7 +3854,23 @@ static func sound() -> void:
 		st.merge(Weather.PROFILES[profile], true)
 		st["active"] = true
 		return st
-	ok += _expect(fails, Sfx.weather_pick(wx_state.call("river_storm"))["name"] == &"amb_rain", "ливень не выбрал слой дождя")
+	ok += _expect(fails, Sfx.weather_pick(wx_state.call("river_storm"))["name"] == &"amb_rain_heavy", "ливень не выбрал слой ливня")
+	# 0.70.0: слои дождя по силе, ветру и месту (живые записи вместо синтетического круга)
+	ok += _expect(fails, Sfx.weather_pick(wx_state.call("thaw_rail_fog"))["name"] == &"amb_rain_light", "морось не выбрала лёгкий дождь")
+	ok += _expect(fails, Sfx.weather_pick(wx_state.call("flood_water"))["name"] == &"amb_rain_drops", "тихий дождь без ветра не выбрал капли")
+	ok += _expect(fails, Sfx.rain_pick(0.55, 0.4)["name"] == &"amb_rain", "средний дождь с ветром не выбрал ровный дождь")
+	ok += _expect(fails, Sfx.rain_pick(0.3, 0.0, true)["name"] == &"amb_rain_inside" and Sfx.rain_pick(0.85, 0.6, true)["name"] == &"amb_rain_roof",
+		"в доме дождь не стал глухим или крышей")
+	var rain_names := PackedStringArray()
+	var last_db := -99.0
+	for p: float in [0.06, 0.2, 0.39, 0.41, 0.55, 0.69, 0.71, 0.85, 1.0]:
+		var rp := Sfx.rain_pick(p, 0.1)
+		rain_names.append("%s %.1f" % [rp["name"], float(rp["db"])])
+		ok += _expect(fails, Sfx.has_sound(rp["name"]), "слой дождя %s не загружен" % rp["name"])
+		if last_db > -90.0:
+			ok += _expect(fails, absf(float(rp["db"]) - last_db) < 4.0, "на силе %.2f громкость дождя прыгнула %.1f -> %.1f" % [p, last_db, float(rp["db"])])
+		last_db = float(rp["db"])
+	ok += _expect(fails, Sfx.rain_pick(0.9, 0.1)["db"] > Sfx.rain_pick(0.1, 0.1)["db"] + 3.0, "ливень не громче мороси больше чем на 3 дБ: %s" % ", ".join(rain_names))
 	ok += _expect(fails, Sfx.weather_pick(wx_state.call("blizzard"))["name"] == &"amb_blizzard", "метель не выбрала слой метели")
 	ok += _expect(fails, Sfx.weather_pick(wx_state.call("snowbound_courtyard"))["name"] == &"amb_wind", "слабый снег без ветра не выбрал лёгкий ветер")
 	ok += _expect(fails, Sfx.weather_pick(wx_state.call("summer_riverbank"))["name"] == &"", "ясное лето получило слой погоды")
@@ -3872,8 +3888,30 @@ static func sound() -> void:
 		"метель не зазвучала")
 	Sfx.set_weather_layer(wx_state.call("river_storm"), 0.01)
 	await _frames(tree, 8)
-	ok += _expect(fails, Sfx.weather_name == &"amb_rain" and Sfx._weather_p.stream == Sfx._streams[&"amb_rain"],
+	ok += _expect(fails, Sfx.weather_name == &"amb_rain_heavy" and Sfx._weather_p.stream == Sfx._streams[&"amb_rain_heavy"],
 		"метель не сменилась дождём в том же канале")
+	# гром: в слабый дождь его нет, в ливень идёт сам; в доме глухой
+	ok += _expect(fails, Sfx.thunder_gap(0.4, 0.5) < 0.0 and Sfx.thunder_gap(0.9, 0.5) > 20.0 and Sfx.thunder_gap(0.9, 0.5) < Sfx.thunder_gap(0.62, 0.5),
+		"интервал грома не убывает с силой дождя или гром идёт в слабый дождь")
+	Sfx.played.clear()
+	Sfx._thunder_clock = 5.0
+	ok += _expect(fails, not Sfx._tick_thunder(1.0) and Sfx._tick_thunder(5.0), "гром не прозвучал по таймеру в ливень")
+	ok += _expect(fails, Sfx.played.has(&"thunder"), "раскат не записан в журнал звуков")
+	Sfx.set_weather_layer(wx_state.call("river_storm"), 0.01, true)
+	await _frames(tree, 8)
+	ok += _expect(fails, Sfx.weather_name == &"amb_rain_roof", "в доме ливень не стал дождём по крыше (%s)" % Sfx.weather_name)
+	Sfx.played.clear()
+	Sfx._thunder_clock = 0.0
+	Sfx._tick_thunder(0.1)
+	ok += _expect(fails, Sfx.played.has(&"thunder_far") and not Sfx.played.has(&"thunder"), "в доме гром не стал глухим")
+	Sfx.set_weather_layer(wx_state.call("river_storm"), 0.01)
+	await _frames(tree, 8)
+	var drizzle: Dictionary = wx_state.call("thaw_rail_fog")
+	Sfx.set_weather_layer(drizzle, 0.01)
+	Sfx._thunder_clock = 0.0
+	ok += _expect(fails, not Sfx._tick_thunder(1.0), "в морось гремит гром")
+	Sfx.set_weather_layer(wx_state.call("river_storm"), 0.01)
+	await _frames(tree, 8)
 	Sfx.set_weather_layer(Weather.EMPTY, 0.01)
 	await _frames(tree, 8)
 	ok += _expect(fails, Sfx.weather_name == &"" and not Sfx._weather_p.playing, "погода не затихла при ясном небе")
@@ -3945,12 +3983,13 @@ static func sound() -> void:
 			# в экспортированной сборке исходник лежит внутри .import — размер берём из него
 			continue
 		total += f.get_length()
-	# Бюджет звука 16 МиБ (с 0.66.0: музыка Lyria тяжелее прежней синтетической, лимит APK 1 ГБ); оставляем 2,5 МиБ для следующих пакетов.
-	var sound_limit := 16 * 1024 * 1024
+	# Бюджет звука 20 МиБ (0.66.0: музыка Lyria тяжелее синтетической; 0.70.0: шесть слоёв живого дождя и гром весят 5,6 МиБ). Лимит APK 1 ГБ.
+	# Оставляем 2,5 МиБ для следующих пакетов.
+	var sound_limit := 20 * 1024 * 1024
 	var sound_headroom := int(2.5 * 1024 * 1024)
 	var free_bytes := sound_limit - total
 	ok += _expect(fails, free_bytes >= sound_headroom,
-		"звуки весят %d КБ при лимите 16 МиБ, свободно %d КБ, требуется 2560 КБ" % [total / 1024, free_bytes / 1024])
+		"звуки весят %d КБ при лимите 20 МиБ, свободно %d КБ, требуется 2560 КБ" % [total / 1024, free_bytes / 1024])
 
 	# 2. Громкость: ползунок → канал → файл настроек
 	Save.set_volume(&"Music", 0.5)
@@ -7074,23 +7113,34 @@ static func folk() -> void:
 	var root_hop := 0.0
 	var feet_motion := 0.0
 	var head_motion := 0.0
+	var mesh_motion := 0.0
+	var rig_hop := 0.0
+	var rig_roll := 0.0
 	var movement_until := Time.get_ticks_msec() + 600
 	while Time.get_ticks_msec() < movement_until:
 		await tree.process_frame
 		shape_error = maxf(shape_error, f4.body.scale.abs().distance_to(Vector2.ONE))
 		root_hop = maxf(root_hop, absf(f4.body.position.y))
+		rig_hop = maxf(rig_hop, absf(f4._door_rig.position.y))
+		rig_roll = maxf(rig_roll, absf(f4._door_rig.rotation - f4._render_tilt))
 		var points: PackedVector2Array = f4._door_rig.polygon
 		for vertex in range(mini(points.size(), f4._door_base.size())):
 			var base: Vector2 = f4._door_base[vertex]
 			var moved := points[vertex].distance_to(base)
+			mesh_motion = maxf(mesh_motion, moved)
 			if base.y > -12.0:
 				feet_motion = maxf(feet_motion, moved)
 			if base.y < -72.0:
 				head_motion = maxf(head_motion, moved)
 	var run_draws: int = draws[0]
-	print("шаг: деформация корпуса %.3f, подскок %.3f, движение стоп %.2f, головы %.2f" % [shape_error, root_hop, feet_motion, head_motion])
+	print("шаг: деформация корпуса %.3f, подскок %.3f, движение стоп %.2f, головы %.2f, сетка %.2f, подъём %.2f, качание %.3f" % [shape_error, root_hop, feet_motion, head_motion, mesh_motion, rig_hop, rig_roll])
 	ok += _expect(fails, shape_error < 0.01 and root_hop < 0.01, "шаг сжимает тело или подбрасывает его (форма %.3f, подскок %.3f)" % [shape_error, root_hop])
-	ok += _expect(fails, feet_motion > 0.5 and head_motion < 0.1, "шагают не ноги (стопы %.2f, голова %.2f)" % [feet_motion, head_motion])
+	if VillagerFigure._is_realistic_sprite(VillagerFigure.folk_tex(f4.sprite_id)):
+		# фотография целая: сетка не гнётся (ноги на ней не отделены, сдвиг низа тянул одежду), шаг показан движением корпуса
+		ok += _expect(fails, mesh_motion < 0.01, "шаг растягивает фотографию: сетка сдвинулась на %.2f" % mesh_motion)
+		ok += _expect(fails, rig_hop > 0.5 and rig_hop < 4.0 and rig_roll > 0.01, "шаг фотографии не виден или слишком резкий (подъём %.2f, качание %.3f)" % [rig_hop, rig_roll])
+	else:
+		ok += _expect(fails, feet_motion > 0.5 and head_motion < 0.1, "шагают не ноги (стопы %.2f, голова %.2f)" % [feet_motion, head_motion])
 	ok += _expect(fails, run_draws >= 8 and f4._walk != walk0, "на бегу ноги не двигаются (перерисовок %d)" % run_draws)
 	ok += _expect(fails, idle_draws <= 3, "в покое житель перерисовывается слишком часто (%d за 0,6 с)" % idle_draws)
 	await tree.create_timer(1.0).timeout

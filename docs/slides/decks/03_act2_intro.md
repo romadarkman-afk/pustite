@@ -23,7 +23,7 @@ SCENE: A line of refugees wading a river ford with bundles held over their heads
 ```
 
 - **Подпись в игре:** Осень. До мельницы добираемся вброд, вещи несём над головой.
-- **Звук:** фон amb_rain, музыка theme_sad, water_drip (новый, записать) +1.0с [нужна запись: theme_sad]
+- **Звук:** фон amb_rain_drops, музыка theme_sad, water_drip (новый, записать) +1.0с [нужна запись: theme_sad]
 - **Камера в игре:** pan_r
 
 ## act2_intro / 02 · высокая 1024x1536 · волна 2

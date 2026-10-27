@@ -23,7 +23,7 @@ SCENE: A lonely railway halt in rain: a workers' barracks, a signal hut, a teleg
 ```
 
 - **Подпись в игре:** Разъезд 14-я Верста. Лес кончился у рельсов.
-- **Звук:** фон amb_rain, музыка theme_tense [нужна запись: theme_tense]
+- **Звук:** фон amb_rain_light, музыка theme_tense [нужна запись: theme_tense]
 - **Камера в игре:** pan_r
 
 ## a4c1_intro / 02 · высокая 1024x1536 · волна 2

@@ -112,6 +112,10 @@ var tag: Node2D               ## слой подписи над всем пос�
 
 const CAST_KX := 0.4        ## те же числа, что у теней домов (VillageView.SHADOW_KX / SHADOW_KY)
 const CAST_KY := 0.17
+const REAL_STEP_LIFT := 2.4    ## подъём фотографии на шаге, единиц посёлка (рост 88)
+const REAL_STEP_SWAY := 1.3    ## сдвиг вбок при переносе веса
+const REAL_STEP_ROLL := 0.045  ## качание с боку на бок вокруг стоп, радиан
+const REAL_STEP_LEAN := 0.03   ## наклон вперёд на ходу, радиан
 const WALK_SPEED := 105.0   ## единиц посёлка в секунду: шаг взрослого, 1 единица около 2 см
 
 
@@ -1263,13 +1267,16 @@ func _draw_realistic_sprite(tex: Texture2D, h: float, w: float, pose: Dictionary
 	var idle_weight := 1.0 - _walk_weight
 	var breath := sin(_t * 1.7 + _phase) * idle_weight
 	var work := sin(float(pose.get("work", 0.0)) * TAU) if pose.has("work") else 0.0
-	# при шаге корпус подпрыгивает дважды за двойной шаг, переносит вес с ноги на ногу и качается
-	var bob := absf(walk_phase) * 2.0 + breath * 0.16
-	var sway := walk_phase * 1.7 + sin(_t * 0.53 + _phase) * 0.2 * idle_weight
-	var turn := _render_tilt + walk_phase * 0.034 + breath * 0.003 + work * 0.004
+	# Фотография целая, поэтому сетка не гнётся: ноги на ней не отделены, и любой сдвиг низа растягивал одежду.
+	# Шаг показан движением корпуса целиком: на каждый шаг он приподнимается (на стопе вес, в середине шага выше всего),
+	# качается с боку на бок вокруг стоп и наклоняется вперёд, пока идёт.
+	var lift := absf(walk_phase) * REAL_STEP_LIFT
+	var bob := -lift + breath * 0.16
+	var sway := walk_phase * REAL_STEP_SWAY + sin(_t * 0.53 + _phase) * 0.2 * idle_weight
+	var turn := _render_tilt + walk_phase * REAL_STEP_ROLL + _walk_weight * REAL_STEP_LEAN + breath * 0.003 + work * 0.004
 	if pose.has("shiver"):
 		sway += sin(_t * 18.0 + _phase) * 0.28
-	_draw_field_rig(tex, h, w, pose, 0.7)
+	_draw_field_rig(tex, h, w, pose, 0.0, true)
 	_door_rig.position = Vector2(sway, bob)
 	_door_rig.rotation = turn
 	if _cast_poly.visible:
@@ -1338,9 +1345,19 @@ func _build_sprite_rig(tex: Texture2D, h: float, w: float) -> void:
 
 ## Шаг привязан к пройденному расстоянию. Ноги и рукава двигаются раздельно;
 ## корпус и голова сохраняют высоту, при остановке движение мягко затухает.
-func _draw_field_rig(tex: Texture2D, h: float, w: float, pose: Dictionary, motion_scale: float = 1.0) -> void:
+func _draw_field_rig(tex: Texture2D, h: float, w: float, pose: Dictionary, motion_scale: float = 1.0, rigid: bool = false) -> void:
 	_build_sprite_rig(tex, h, w)
 	var points := _door_base.duplicate()
+	if rigid:
+		# фотография без деформации: сетка остаётся ровной, двигается только целый спрайт
+		_door_rig.polygon = points
+		_door_rig.position = Vector2.ZERO
+		_door_rig.rotation = _render_tilt
+		_door_rig.scale = Vector2.ONE
+		_door_rig.visible = true
+		_door_shadow.visible = false
+		_place_cast_shadow(points, 0.0)
+		return
 	var stride := sin(_walk * TAU) * _walk_weight * motion_scale
 	var body_bob := absf(stride) * 0.05
 	var work_motion := sin(float(pose.get("work", 0.0)) * TAU) if pose.has("work") else 0.0

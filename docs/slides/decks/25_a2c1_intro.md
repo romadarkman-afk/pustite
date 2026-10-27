@@ -23,7 +23,7 @@ SCENE: A mill yard in heavy rain, a dark water mill with a wheel, planks laid ac
 ```
 
 - **Подпись в игре:** Третий день льёт дождь. Фонари гаснут один за другим.
-- **Звук:** фон amb_rain, музыка theme_sad, water_drip (новый, записать) +1.0с [нужна запись: theme_sad]
+- **Звук:** фон amb_rain_drops, музыка theme_sad, water_drip (новый, записать) +1.0с [нужна запись: theme_sad]
 - **Камера в игре:** pan_r
 
 ## a2c1_intro / 02 · высокая 1024x1536 · волна 2

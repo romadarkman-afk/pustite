@@ -498,7 +498,7 @@
        "at": 0.0,
        "do": "start",
        "layer": "amb",
-       "id": "amb_rain",
+       "id": "amb_rain_drops",
        "fade": 1.4
       },
       {
@@ -2256,7 +2256,7 @@
        "at": 0.0,
        "do": "start",
        "layer": "amb",
-       "id": "amb_rain",
+       "id": "amb_rain_heavy",
        "fade": 1.4
       },
       {
@@ -2265,6 +2265,12 @@
        "layer": "music",
        "id": "theme_tense",
        "fade": 2.2
+      },
+      {
+       "at": 1.5,
+       "do": "play",
+       "id": "thunder",
+       "vol": -6.0
       },
       {
        "at": 3.0,
@@ -2356,7 +2362,7 @@
        "at": 0.0,
        "do": "start",
        "layer": "amb",
-       "id": "amb_rain",
+       "id": "amb_rain_heavy",
        "fade": 1.4
       },
       {
@@ -2371,6 +2377,12 @@
        "do": "play",
        "id": "upyr_cry",
        "vol": -14.0
+      },
+      {
+       "at": 4.5,
+       "do": "play",
+       "id": "thunder",
+       "vol": -9.0
       }
      ],
      "cast": []
@@ -2613,7 +2625,7 @@
        "at": 0.0,
        "do": "start",
        "layer": "amb",
-       "id": "amb_rain",
+       "id": "amb_rain_drops",
        "fade": 1.4
       },
       {
@@ -4811,7 +4823,7 @@
        "at": 0.0,
        "do": "start",
        "layer": "amb",
-       "id": "amb_rain",
+       "id": "amb_rain_light",
        "fade": 1.4
       },
       {

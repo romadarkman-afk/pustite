@@ -11,7 +11,8 @@ from dataclasses import dataclass, field
 
 # --- звуки, которые есть в игре сейчас (game/scripts/autoload/sfx.gd) ---
 AMB = {"day": "amb_day", "dusk": "amb_dusk", "night": "amb_night", "river": "amb_river", "wind": "amb_wind",
-       "rain": "amb_rain", "blizzard": "amb_blizzard", "murmur": "life_murmur", "mill": "mill_wheel",
+       "rain": "amb_rain", "rain_light": "amb_rain_light", "rain_heavy": "amb_rain_heavy",
+       "rain_roof": "amb_rain_roof", "rain_drops": "amb_rain_drops", "rain_inside": "amb_rain_inside", "blizzard": "amb_blizzard", "murmur": "life_murmur", "mill": "mill_wheel",
        "rails": "rails", "train": "train", "whistle": "whistle", "type": "typewriter", "heart": "heartbeat",
        # новые слои, их ещё нет в игре (TASK-124)
        "fire": "amb_fire", "bog": "amb_bog", "church": "amb_church", "crowd": "amb_crowd"}
@@ -21,7 +22,7 @@ MUSIC = {"day": "day", "night": "night", "menu": "menu", "river": "river_theme",
 FX = {"knock", "door_open", "door_shut", "bell", "scratch", "whisper", "roof_steps", "creak", "cry_far", "human_cry_m",
       "human_cry_f", "upyr_cry", "growl", "breath", "breath_2", "breath_3", "gasp", "call_far", "scare", "weep", "death",
       "latch", "floorboard", "cup_break", "hammer", "dawn", "win", "lose", "reveal", "reveal_2", "reveal_3", "exile",
-      "life_dog", "life_hens", "tap", "tick", "job_done", "job_fail",
+      "life_dog", "life_hens", "tap", "tick", "job_done", "job_fail", "thunder", "thunder_far",
       # новые, ещё не записаны (TASK-124)
       "wolf", "crow", "fire_crackle", "water_drip", "steps_snow", "chain", "match", "page", "glass", "wind_gust"}
 NEW_AMB = {"amb_fire", "amb_bog", "amb_church", "amb_crowd"}

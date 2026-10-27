@@ -78,7 +78,7 @@ d = deck("act2_intro", "Акт II «Мельница»: вход", "act_intro", 
 d.add("w", "Wide shot from the bank, rain",
       "A line of refugees wading a river ford with bundles held over their heads, seen from behind, a water mill with a wooden wheel in the grey background, heavy autumn rain.",
       [N("Осень. До мельницы добираемся вброд, вещи несём над головой.")],
-      S("rain", "sad", fx=[("water_drip", 1.0, -12)]), tier="A", cam="pan_r")
+      S("rain_drops", "sad", fx=[("water_drip", 1.0, -12)]), tier="A", cam="pan_r")
 d.add("t", "Static, low angle on the wheel",
       "A big wooden mill wheel turning empty, water pouring off its paddles, moss and rot, nothing on the grindstone behind it.",
       [N("Колесо крутится вхолостую. Зерно сюда давно никто не возит.")],
