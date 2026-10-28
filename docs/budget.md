@@ -1,5 +1,12 @@
 # Бюджет APK и ресурсов
 
+## Сборка v0.71.1
+
+- APK: 313 319 797 байт, 298,8 МиБ. Android version code: 82.
+- Релиз: [build-20261028-060248](https://github.com/romadarkman-afk/pustite/releases/tag/build-20261028-060248).
+- Сборка: [Actions run #246](https://github.com/romadarkman-afk/pustite/actions/runs/40641324035), успешно.
+- Сборка подписана отладочным ключом. Коммит `adb40d6`, ветка `claude/map-fixes`; PR #7 остаётся открытым.
+
 ## База до пакета 1
 
 Сборка v0.62.0, тег `build-20261022-090521`, коммит `9e0c704`.
