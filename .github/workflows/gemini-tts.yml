@@ -1,0 +1,131 @@
+name: Озвучить первую сюжетную реплику
+
+on:
+  workflow_dispatch:
+    inputs:
+      replace_existing:
+        description: Перезаписать файл реплики, если он уже существует
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gemini-tts-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    name: Озвучка первой реплики
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Забрать код
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Проверить секрет Gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -z "${GEMINI_API_KEY:-}" ]; then
+            echo "::error title=Не задан GEMINI_API_KEY::Добавьте ключ в Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+      - name: Подготовить конвертер OGG
+        run: |
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+
+      - name: Создать голосовую реплику
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          REPLACE_EXISTING: ${{ inputs.replace_existing }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="game/assets/voice/a1c1_intro/03_0.ogg"
+          if [[ -f "$output" && "$REPLACE_EXISTING" != "true" ]]; then
+            echo "::error title=Файл уже существует::Для перезаписи запустите workflow с replace_existing=true."
+            exit 1
+          fi
+
+          mkdir -p "$(dirname "$output")"
+          cat > /tmp/gemini-tts-request.json <<'JSON'
+          {
+            "contents": [{
+              "role": "user",
+              "parts": [{
+                "text": "Не отвечай. <short pause> Оно запоминает голоса.",
+                "speech_metadata": {
+                  "style": "Speak in Russian as Marina, a woman from an isolated village in 1894. Close, quiet, breath-soft whisper in a low register. Restrained fear, with a brief natural pause after the first sentence; make the final words quieter and ominous. Natural human cadence, no announcer delivery, no extra words, no music or sound effects."
+                }
+              }]
+            }],
+            "generationConfig": {
+              "responseModalities": ["AUDIO"],
+              "speechConfig": {
+                "languageCode": "ru-RU",
+                "voiceConfig": {
+                  "voice": "Vindemiatrix"
+                }
+              }
+            }
+          }
+          JSON
+
+          curl --fail --silent --show-error             --request POST             --header "x-goog-api-key: $GEMINI_API_KEY"             --header "Content-Type: application/json"             --data-binary @/tmp/gemini-tts-request.json             --output /tmp/gemini-tts-response.json             "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-tts:generateContent"
+
+          if jq -e '.error? != null' /tmp/gemini-tts-response.json >/dev/null; then
+            jq -r '.error.message // "Gemini вернул ошибку без описания"' /tmp/gemini-tts-response.json >&2
+            exit 1
+          fi
+
+          jq -er '[.candidates[]?.content.parts[]? | select(.inlineData.data? != null) | .inlineData.data][0] // empty'             /tmp/gemini-tts-response.json | base64 --decode > /tmp/pustite-voice.wav
+
+          if ! file /tmp/pustite-voice.wav | grep -qi 'WAVE audio'; then
+            echo "::error title=Gemini вернул неверный формат::Ожидался WAV-файл."
+            exit 1
+          fi
+
+          ffmpeg -nostdin -hide_banner -loglevel error -y             -i /tmp/pustite-voice.wav -ac 1 -ar 24000 -c:a libvorbis -q:a 5 "$output"
+
+          duration="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$output")"
+          if ! awk -v d="$duration" 'BEGIN { exit !(d > 0 && d <= 20) }'; then
+            echo "::error title=Некорректная длительность::Ожидалась реплика короче 20 секунд, получено: ${duration}s."
+            exit 1
+          fi
+
+          echo "Создан OGG-файл, длительность ${duration}s."
+
+      - name: Сохранить WAV-превью в Actions
+        uses: actions/upload-artifact@v5
+        with:
+          name: pustite-gemini-tts-preview
+          path: /tmp/pustite-voice.wav
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Записать OGG в репозиторий
+        env:
+          TARGET_BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game/assets/voice/a1c1_intro/03_0.ogg
+          if git diff --cached --quiet; then
+            echo "Озвучка не изменилась, новый коммит не нужен."
+            exit 0
+          fi
+          git commit -m "Add Gemini voice line for a1c1 intro"
+          git push origin "HEAD:${TARGET_BRANCH}"
