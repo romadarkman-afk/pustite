@@ -829,6 +829,41 @@ func hidden_zones() -> Array[Rect2]:
 	return out
 
 
+## Полные видимые области предметов для брызг и ряби. Не меняет зоны движения жителей.
+func rain_blocked_zones() -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	if def == null:
+		return out
+	for house: HouseDef in def.shelters + def.decor:
+		out.append(house_rect(house))
+	var well_at := def.well + Vector2(0, 8)
+	out.append(_rain_prop_rect(well_at, 80.0, _tex.get("well")))
+	for at: Vector2 in def.lamps:
+		var lamp: Texture2D = _tex.get("lamp_day")
+		if lamp != null:
+			var w := LAMP_H * lamp.get_width() / lamp.get_height()
+			out.append(Rect2(at.x - LAMP_BASE_X * w, at.y - LAMP_H * 0.98, w, LAMP_H))
+	for prop: Dictionary in def.props:
+		var at: Vector2 = prop.pos
+		var tex: Texture2D = _tex.get(String(prop.id))
+		out.append(_rain_prop_rect(at, float(prop.get("w", 60.0)), tex))
+	for row: Vector2 in def.fences:
+		out.append(fence_rect(row))
+	for job: JobDef in def.jobs:
+		if job.kind == JobDef.Kind.WOOD:
+			out.append(_rain_prop_rect(job.pos + Vector2(36, 4), 76.0, _tex.get("woodpile")))
+		elif job.kind == JobDef.Kind.LAMP:
+			out.append(_rain_prop_rect(job.pos + Vector2(-30, 3), 30.0, _tex.get("barrel")))
+	return out
+
+
+func _rain_prop_rect(at: Vector2, width: float, tex: Texture2D) -> Rect2:
+	var height := width
+	if tex != null and tex.get_width() > 0:
+		height = width * tex.get_height() / tex.get_width()
+	return Rect2(at.x - width * 0.5, at.y - height, width, height)
+
+
 ## Таблички открытых убежищ — капсулы на доме над дверью; рисуются над толпой.
 func _draw_plaques() -> void:
 	for i in range(open_count):
@@ -1104,8 +1139,10 @@ func _draw_house(ci: CanvasItem, h: HouseDef, state: int, n: float, lit: float, 
 	var a := _art(h)
 	var r := house_rect(h)
 	var flip := _flip(h)
-	_draw_contact_shadow(ci, Vector2(h.pos.x, h.pos.y - 1.0), r.size.x * 0.78, 24.0,
-		lerpf(0.12, 0.2, n))
+	# Опора в центре основания картинки, а не в точке двери у её края.
+	var foundation := Vector2(r.get_center().x, lerpf(h.pos.y, r.end.y, 0.45))
+	_draw_contact_shadow(ci, foundation, r.size.x * 0.88, clampf(r.size.y * 0.16, 18.0, 30.0),
+		lerpf(0.22, 0.28, n))
 	var mod := _night_mod(n)
 	if state == 2:
 		mod = mod.darkened(0.32)
@@ -1115,7 +1152,7 @@ func _draw_house(ci: CanvasItem, h: HouseDef, state: int, n: float, lit: float, 
 	if night_tex == null and state != 2:
 		# у картинки нет ночной пары: жилой дом ночью теплеет, будто внутри горит свет
 		mod = mod.lerp(Color(1.0, 0.82, 0.6), 0.42 * lit)
-	_cast_shadow(ci, _tex[a[0] + "_day"], r, flip, h.pos, n)
+	_cast_shadow(ci, _tex[a[0] + "_day"], r, flip, foundation, n)
 	_blit(ci, _tex[a[0] + "_day"], r, flip, mod)
 	if state != 2 and lit > 0.0 and night_tex != null:
 		_blit(ci, night_tex, r, flip, Color(1, 1, 1, lit * (1.0 if state == 1 else 0.85)))

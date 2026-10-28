@@ -1471,9 +1471,6 @@ func _rig_step(delta: float, pose: Dictionary) -> void:
 	var sway := REAL_SWAY * (0.55 + 0.45 * legs_k) * cos(phase) * walking + sin(_t * 0.43 + _phase * 1.7) * 0.7 * idle
 	var breath := (0.5 + 0.5 * sin(_t * 1.7 + _phase)) * (0.85 * idle + 0.35 * walking)
 	var bend := _render_tilt * 1.6 + REAL_LEAN * walking + 0.004 * sin(_t * 1.7 + _phase)
-	var head_rot := 0.02 * sin(_t * 0.8 + _phase * 1.3) + 0.012 * sin(_t * 1.9 + _phase)
-	var head_x := 0.4 * sin(_t * 0.6 + _phase * 0.7)
-	var head_y := 0.0
 	var calm := state == State.IDLE and walking < 0.05 and not working and fidget == ""
 	# взгляд в сторону и переступ с ноги на ногу: у каждого свои срок и сторона
 	if calm:
@@ -1498,8 +1495,6 @@ func _rig_step(delta: float, pose: Dictionary) -> void:
 	if _glance_t > 0.0:
 		var gp := 1.0 - _glance_t / maxf(_glance_len, 0.01)
 		var g := smoothstep(0.0, 0.3, gp) * (1.0 - smoothstep(0.7, 1.0, gp))
-		head_rot += _glance_dir * 0.09 * g
-		head_x += _glance_dir * 1.9 * g
 		sway += _glance_dir * 0.35 * g
 	if _shuffle_t > 0.0:
 		var sp := 1.0 - _shuffle_t / maxf(_shuffle_len, 0.01)
@@ -1512,45 +1507,29 @@ func _rig_step(delta: float, pose: Dictionary) -> void:
 			lift_l += step
 			ang_l += 0.07 * se
 		sway += -_shuffle_side * 0.9 * se
-	# куда смотрит и как держит голову
-	var lk: Vector2 = pose.get("look", Vector2.ZERO)
-	head_rot += lk.x * 0.06 + float(pose.get("tilt", 0.0)) * 0.5
-	head_x += lk.x * 1.7
-	if lk.y < -0.3:
-		head_y -= 0.7 * -lk.y
-		head_rot -= 0.04 * -lk.y
-	if _talk_t > 0.0:
-		head_y += 0.55 * sin(_t * 9.0 + _phase)
-		head_rot += 0.02 * sin(_t * 5.3 + _phase)
+	# Лицо не гнём сеткой: дыхание и перенос веса остаются на корпусе.
 	var face := _last_face
 	if pose.has("droop") or mood == "grief" or mood == "despair":
 		bend += 0.07
-		head_y += 1.1
 	if face == "angry" or pose.has("fists"):
 		bend += 0.04
 	elif face == "shocked" or face == "scared":
 		bend -= 0.04
-		head_y -= 0.7
-	elif face == "sad":
-		head_y += 0.6
 	if pose.has("work"):
 		bend += 0.07 * sin(float(pose.get("work", 0.0)) * TAU)
 	if pose.has("shiver"):
 		sway += sin(_t * 18.0 + _phase) * 0.35
-		head_rot += sin(_t * 21.0 + _phase) * 0.01
 	# действия от скуки
 	if fidget != "":
 		var fp := 1.0 - _fidget_t / maxf(_fidget_len, 0.01)
 		var env := smoothstep(0.0, 0.2, fp) * (1.0 - smoothstep(0.8, 1.0, fp))
 		match fidget:
 			"scratch":
-				head_rot += 0.09 * env + 0.025 * sin(_t * 13.0) * env
 				bend += 0.02 * env
 			"stretch":
 				breath += 1.8 * env
 				bend -= 0.06 * env
 				drop -= 1.0 * env
-				head_y -= 0.8 * env
 			"arms":
 				breath += 0.6 * env
 				sway += 0.6 * sin(_t * 1.4 + _phase) * env
@@ -1563,7 +1542,7 @@ func _rig_step(delta: float, pose: Dictionary) -> void:
 	_rig_chest = Vector2(sway + bend * chest_dist, drop - breath * clampf(1.0 - 0.32 / maxf(float(info.get("hip", 0.55)), 0.2), 0.0, 1.0))
 	_rig_mat.set_shader_parameter("legs_anim", Vector4(ang_l, ang_r, lift_l, lift_r))
 	_rig_mat.set_shader_parameter("body_anim", Vector4(drop, sway, breath * 1.0, bend))
-	_rig_mat.set_shader_parameter("head_anim", Vector4(head_rot, head_x, head_y, 0.0))
+	_rig_mat.set_shader_parameter("head_anim", Vector4.ZERO)
 	if _face != _rig_face:
 		_rig_face = _face
 		if not door_portrait:

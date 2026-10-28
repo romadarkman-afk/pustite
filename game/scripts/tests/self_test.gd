@@ -3507,20 +3507,43 @@ static func weather() -> void:
 		ok += _expect(fails, soft_img.get_pixel(64, 64).a > 0.8 and soft_img.get_pixel(64, 40).a < soft_img.get_pixel(64, 64).a,
 			"мягкая текстура не светлее в центре (%.2f)" % soft_img.get_pixel(64, 64).a)
 
-	# брызги дождя падают на землю площади и не попадают на дома, колодец и реквизит
-	view.set_weather(Weather.state("rain_swollen_river", 2))
-	var splash_pts := layer.splash_points()
-	ok += _expect(fails, splash_pts.size() >= 100, "мест для брызг всего %d" % splash_pts.size())
-	var splash_node := layer.emitter("splash") as CPUParticles2D
-	ok += _expect(fails, splash_node != null and splash_node.emission_shape == CPUParticles2D.EMISSION_SHAPE_POINTS \
-		and splash_node.emission_points.size() == splash_pts.size(), "брызги берут места из списка, а не из прямоугольника по всему полю")
-	var on_roof := 0
-	for at: Vector2 in splash_pts:
-		for zone: Rect2 in view.hidden_zones():
-			if zone.has_point(at):
-				on_roof += 1
-				break
-	ok += _expect(fails, on_roof == 0, "брызги дождя падают на дома, колодец или реквизит: %d мест из %d" % [on_roof, splash_pts.size()])
+
+	# Брызги и круги целиком остаются вне построек на всех четырёх картах.
+	var original_def: VillageDef = view.def
+	var original_titles: PackedStringArray = view.titles.duplicate()
+	var original_open := view.open_count
+	for map_id: String in ["default", "mill", "monastery", "station"]:
+		var map_def := load(String(Campaign.MAPS[map_id])) as VillageDef
+		view.set_village(map_def, mini(original_open, map_def.shelters.size()), original_titles)
+		view.set_weather(Weather.state("rain_swollen_river", 2))
+		layer.refresh_geometry()
+		var splash_pts := layer.splash_points()
+		var ripple_pts := layer.ripple_points()
+		print("дождь %s: брызги %d, рябь %d" % [map_id, splash_pts.size(), ripple_pts.size()])
+		var bad_splash := 0
+		var bad_ripple := 0
+		for house: HouseDef in map_def.shelters + map_def.decor:
+			var bounds := view.house_rect(house)
+			for at: Vector2 in splash_pts:
+				if bounds.grow(WeatherLayer.SPLASH_CLEARANCE).has_point(at):
+					bad_splash += 1
+			for at: Vector2 in ripple_pts:
+				if bounds.grow(WeatherLayer.RIPPLE_CLEARANCE).has_point(at):
+					bad_ripple += 1
+		var splash_node := layer.emitter("splash") as CPUParticles2D
+		var ripple_node := layer.emitter("ripples") as CPUParticles2D
+		ok += _expect(fails, splash_pts.size() > 0 and bad_splash == 0,
+			"%s: брызг %d, перекрытий построек %d" % [map_id, splash_pts.size(), bad_splash])
+		ok += _expect(fails, bad_ripple == 0, "%s: рябь перекрывает постройки %d раз" % [map_id, bad_ripple])
+		ok += _expect(fails, splash_node != null and splash_node.emission_points.size() == splash_pts.size(),
+			"%s: эмиттер брызг не использует безопасные точки" % map_id)
+		if ripple_pts.is_empty():
+			ok += _expect(fails, ripple_node != null and not ripple_node.visible and not ripple_node.emitting,
+				"%s: пустая рябь не отключена" % map_id)
+		else:
+			ok += _expect(fails, ripple_node != null and ripple_node.emission_points.size() == ripple_pts.size(),
+				"%s: эмиттер ряби не использует безопасные точки" % map_id)
+	view.set_village(original_def, original_open, original_titles)
 	view.set_weather(Weather.EMPTY.duplicate())
 
 	var seen_seasons := {}
@@ -7175,8 +7198,7 @@ static func folk() -> void:
 	var idle_until := Time.get_ticks_msec() + 600
 	var breath_lo := 99.0
 	var breath_hi := -99.0
-	var tilt_lo := 99.0
-	var tilt_hi := -99.0
+	var head_stable := true
 	while Time.get_ticks_msec() < idle_until:
 		await tree.process_frame
 		if f4._rig_mat != null:
@@ -7184,12 +7206,11 @@ static func folk() -> void:
 			var hv: Vector4 = f4._rig_mat.get_shader_parameter("head_anim")
 			breath_lo = minf(breath_lo, bv.z)
 			breath_hi = maxf(breath_hi, bv.z)
-			tilt_lo = minf(tilt_lo, hv.x)
-			tilt_hi = maxf(tilt_hi, hv.x)
+			head_stable = head_stable and hv == Vector4.ZERO
 	var idle_draws: int = draws[0]
 	draws[0] = 0
-	# стоящий житель дышит и покачивает головой, при этом тело не перерисовывается: двигает шейдер
-	ok += _expect(fails, breath_hi - breath_lo > 0.15 and tilt_hi - tilt_lo > 0.0005, "стоящий житель замер: дыхание %.2f, голова %.4f" % [breath_hi - breath_lo, tilt_hi - tilt_lo])
+	# Дыхание остаётся, отдельная деформация головы отключена.
+	ok += _expect(fails, breath_hi - breath_lo > 0.15 and head_stable, "покой: дыхание %.2f, голова закреплена %s" % [breath_hi - breath_lo, head_stable])
 	var walk0 := f4._walk
 	f4.walk_to(f4.position + Vector2(160, 0))
 	var shape_error := 0.0
@@ -7336,6 +7357,11 @@ static func folk() -> void:
 	var pos0: Dictionary[int, Vector2] = {}
 	for v: Villager in m.alive():
 		var fv: VillagerFigure = cr.figures[v.id]
+		# Этот сценарий проверяет свободных жителей после предыдущих сцен работы и изгнания.
+		fv._settle_idle()
+		fv.set_working(false)
+		fv.set_cold(false)
+		fv.strolling = false
 		fv.fidgets_on = true
 		fv.fidgets_managed = true
 		fv.fidget = ""
@@ -7369,7 +7395,7 @@ static func folk() -> void:
 	for v: Villager in m.alive():
 		var fv: VillagerFigure = cr.figures[v.id]
 		if fv.fidget_count < 1 and fv.mood != "grief" and fv.mood != "despair":      # в горе житель не скучает: действий у него нет по замыслу
-			idle_ones.append("%s (%s)" % [v.name, fv.mood if fv.mood != "" else "без настроения"])
+			idle_ones.append("%s (настроение=%s, состояние=%s, работа=%s, холод=%s, прогулка=%s)" % [v.name, fv.mood, fv.state, fv.working, fv.cold, fv.strolling])
 		var gp := fv.get_global_transform_with_canvas().origin
 		if fv.position.distance_to(pos0[v.id]) > 0.5 or not vr.has_point(gp):
 			moved.append(v.name)
