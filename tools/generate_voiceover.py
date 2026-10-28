@@ -22,7 +22,7 @@ MODEL = "gemini-3.8-flash-tts"
 API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
 VOICES_URL = "https://generativelanguage.googleapis.com/v1beta/voices?page_size=1000"
 VOICE_ROOT = Path("game/assets/voice")
-MANIFEST_PATH = VOICE_ROOT / "manifest_ru.json"
+MANIFEST_PATH = Path("docs/voiceover-manifest.json")
 PILOT_PATH = Path("game/assets/voice/a1c1_intro/03_0.ogg")
 PILOT_OLD_BLOB_SHA = "3aee3102ce11f0f4dc6691f918c3a82efb98ccab"
 CHUNK_SIZE = 20
@@ -226,7 +226,7 @@ def make_story_tasks(selected_voices: dict[str, str]) -> list[dict]:
                 actor_type = STORY_ACTOR_TYPE.get(speaker, "")
                 voice = selected_voices.get(actor_type, selected_voices["narrator"])
                 if speaker == "marina":
-                    voice = selected_voices.get("f_mid", selected_voices["narrator"])
+                    voice = selected_voices["narrator"]
                 if speaker in {"", "guest", "extra_thin"}:
                     voice = selected_voices["narrator"]
 

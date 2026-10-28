@@ -3,6 +3,12 @@ name: Самотесты
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - ".github/workflows/android.yml"
+      - ".github/workflows/tests.yml"
+      - ".github/workflows/gemini-tts.yml"
+      - ".github/run-full-voiceover"
+      - "tools/generate_voiceover.py"
   pull_request:
     branches: [main]
   workflow_dispatch:
