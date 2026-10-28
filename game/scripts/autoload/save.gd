@@ -6,7 +6,7 @@ var SETTINGS_PATH := "user://settings.cfg"
 var BALANCE_PATH := "user://balance.tres"
 const DEFAULT_BALANCE := "res://config/balance_easy.tres"
 
-const SCHEMA := 3           ## 3: нейтральные записи для пройденных глав без журнала
+const SCHEMA := 4           ## 4: повторный показ вступлений с добавленной озвучкой
 var BACKUP_PATH := "user://settings.v%d.bak"   ## копия файла перед переходом на новую версию формата
 const MEMORY_PER_CHAPTER := 40
 var save_writable := true
@@ -640,6 +640,8 @@ func _migrate_config(cf: ConfigFile, from_schema: int) -> bool:
 				_migrate_1_to_2(cf)
 			2:
 				_migrate_2_to_3(cf)
+			3:
+				_migrate_3_to_4(cf)
 			_:
 				return false
 		version += 1
@@ -680,6 +682,13 @@ static func _migrate_2_to_3(cf: ConfigFile) -> void:
 		seen[chapter_id] = true
 	cf.set_value("campaign", "memory", memory)
 
+
+## В сохранении до появления озвучки эти вступления уже считались просмотренными.
+static func _migrate_3_to_4(cf: ConfigFile) -> void:
+	var seen := String(cf.get_value("progress", "slides_seen", "")).split(",", false)
+	for deck_id: String in ["prologue", "act1_intro", "a1c1_intro"]:
+		seen.erase(deck_id)
+	cf.set_value("progress", "slides_seen", ",".join(seen))
 
 ## Что помнит кампания о жителе с номером idx: записи в порядке глав.
 func memory_of(idx: int) -> Array[Dictionary]:

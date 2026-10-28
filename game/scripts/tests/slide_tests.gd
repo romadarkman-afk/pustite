@@ -69,6 +69,26 @@ static func voice(fails: PackedStringArray) -> int:
 	Sfx._bark_last.erase(7)
 	# файл озвучки: ключ -> путь
 	ok += SelfTest._expect(fails, Slides.voice_file("act1_intro.01.0").is_empty() and Slides.voice_file("sl.x").is_empty(), "путь озвучки из чужого ключа")
+	var voice_samples: Array[Array] = [
+		["sl.prologue.01.0", "res://assets/voice/prologue/01_0.ogg"],
+		["sl.act1_intro.03.0", "res://assets/voice/act1_intro/03_0.ogg"],
+		["sl.a1c1_intro.03.0", "res://assets/voice/a1c1_intro/03_0.ogg"],
+	]
+	for sample: Array in voice_samples:
+		var voice_key := String(sample[0])
+		var expected_path := String(sample[1])
+		var voice_path := Slides.voice_file(voice_key)
+		ok += SelfTest._expect(fails, voice_path == expected_path, "%s: файл голоса %s, ожидался %s" % [voice_key, voice_path, expected_path])
+		var stream: AudioStream = null
+		if not voice_path.is_empty():
+			stream = load(voice_path) as AudioStream
+		ok += SelfTest._expect(fails, stream != null and stream.get_length() > 0.2, "%s: OGG не загружается" % expected_path)
+	var old_save := ConfigFile.new()
+	old_save.set_value("progress", "slides_seen", "prologue,act1_intro,a1c1_intro,a1c2_intro")
+	Save._migrate_3_to_4(old_save)
+	var remaining_seen := String(old_save.get_value("progress", "slides_seen", "")).split(",", false)
+	ok += SelfTest._expect(fails, not remaining_seen.has("prologue") and not remaining_seen.has("act1_intro") and not remaining_seen.has("a1c1_intro"), "миграция не открыла озвученные вступления")
+	ok += SelfTest._expect(fails, remaining_seen.has("a1c2_intro"), "миграция изменила отметки других глав")
 	for id: String in Slides.deck_ids():
 		for p: Variant in Slides.panels(id):
 			var path := Slides.panel_voice(p as Dictionary)

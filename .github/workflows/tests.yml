@@ -46,9 +46,9 @@ jobs:
       - name: Импорт ресурсов
         run: godot --headless --path game --import
 
-      - name: Жители, дождь и карта
+      - name: Жители, дождь, карта и озвучка
         env:
-          CASES: "folk=--folk weather=--weather field=--field village=--village"
+          CASES: "folk=--folk weather=--weather field=--field village=--village slides=--slides"
           CASE_TIMEOUT: "180"
         run: bash tools/ci_run_cases.sh $CASES
 
