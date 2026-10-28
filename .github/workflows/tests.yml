@@ -19,8 +19,36 @@ env:
   GODOT_VERSION: "4.6"
 
 jobs:
-  tests:
+  tests-fast:
+    name: Быстрая проверка
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Забрать код
+        uses: actions/checkout@v5
+
+      - name: Godot ${{ env.GODOT_VERSION }}
+        run: |
+          BASE="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -sfL -o godot.zip "$BASE/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+          godot --version
+
+      - name: Импорт ресурсов
+        run: godot --headless --path game --import
+
+      - name: Жители, дождь и карта
+        env:
+          CASES: "folk=--folk weather=--weather field=--field village=--village"
+          CASE_TIMEOUT: "180"
+        run: bash tools/ci_run_cases.sh $CASES
+
+  tests-full:
     name: ${{ matrix.name }}
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     # Набор с пометкой known: true показывал бы проблему, не краснив всю проверку (сейчас таких нет).
