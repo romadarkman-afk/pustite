@@ -4,7 +4,7 @@ extends Control
 ## Самотесты запускаются вручную флагами ниже. Текущий android.yml выполняет короткий smoke-запуск, не полный набор тестов.
 ## --lang=en рядом с любым самотестом гоняет его на другом языке, --text=2 — с самым крупным текстом.
 
-const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--eyes", "--lights", "--checkpoint", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk", "--loc", "--access", "--daily", "--cosmetics", "--adapt", "--display", "--gestures", "--storage", "--save"]
+const TEST_FLAGS: PackedStringArray = ["--sim", "--flow", "--layout", "--lifecycle", "--field", "--crowd", "--bubbles", "--marks", "--input", "--hints", "--difficulty", "--howto", "--night", "--eyes", "--lights", "--checkpoint", "--sound", "--village", "--talisman", "--bell", "--events", "--mimic", "--sabotage", "--box", "--roles", "--meeting", "--tunnel", "--diary", "--recap", "--folk", "--loc", "--access", "--daily", "--cosmetics", "--adapt", "--display", "--gestures", "--storage", "--save", "--weather"]
 const TEST_TIMEOUT_SEC := 240.0
 const LOGO_SEC := 2.2
 const SPLASH: Texture2D = preload("res://assets/splash.png")
@@ -52,6 +52,7 @@ func _run_test(flag: String) -> void:
 	visible = false
 	Save.hints_seen.clear()   # самотесты всегда видят подсказки — и проверяют их раскладку
 	Save.howto_seen = true    # «Играть» в самотестах сразу начинает партию; --howto проверяет это отдельно
+	Weather.enabled = false   # сезон по дате менял бы кадры от дня к дню; --weather включает погоду сам
 	match flag:
 		"--sim":
 			SelfTest.cli_balance()
@@ -201,6 +202,10 @@ func _run_test(flag: String) -> void:
 			SelfTest.storage()
 		"--save":
 			SelfTest.save()
+		"--weather":
+			Juice.instant = true
+			Nav.start()
+			await SelfTest.weather()
 
 
 # ---------------------------------------------------------------

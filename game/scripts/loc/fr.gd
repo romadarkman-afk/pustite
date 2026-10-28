@@ -508,6 +508,7 @@ func data() -> Dictionary:
 		"settings.resolution": "Taille de fenêtre",
 		"settings.mobile_display": "Sur téléphone, le jeu utilise le mode plein écran du système.",
 		"settings.simplified_graphics": "Graphismes simplifiés",
+		"perf.auto_simplified": "Le jeu ramait, les graphismes simplifiés sont activés. Tu peux les désactiver dans les réglages.",
 		"settings.input_help": "Clavier et manette : flèches ou WASD pour choisir, Entrée pour valider, Échap ou B pour revenir. Sur téléphone, touchez les boutons à l'écran.",
 		"settings.music": "Musique",
 		"settings.sfx": "Effets",

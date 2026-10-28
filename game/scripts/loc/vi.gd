@@ -491,6 +491,7 @@ func data() -> Dictionary:
 		"settings.resolution": "Kích thước cửa sổ",
 		"settings.mobile_display": "Trên điện thoại, trò chơi dùng chế độ toàn màn hình của hệ thống.",
 		"settings.simplified_graphics": "Đồ họa đơn giản",
+		"perf.auto_simplified": "Trò chơi bị giật nên đã bật đồ họa đơn giản. Bạn có thể tắt trong Cài đặt.",
 		"settings.input_help": "Bàn phím và tay cầm: phím mũi tên hoặc WASD để chọn, Enter để xác nhận, Esc hoặc B để quay lại. Trên điện thoại, chạm nút trên màn hình.",
 		"settings.music": "Nhạc",
 		"settings.sfx": "Hiệu ứng",

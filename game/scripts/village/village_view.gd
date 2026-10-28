@@ -70,6 +70,11 @@ var _vignette: Sprite2D
 var _unease := 0.0
 var _contact_shadow_texture: Texture2D
 var simplified_graphics := false
+var weather: WeatherLayer                  ## осадки и сезонные частицы (TASK-061)
+var ground_fx: GroundFx                    ## снег, лужи и трава на земле: шейдеры и MultiMesh
+var sky_fx: GroundFx                       ## тени облаков поверх толпы
+var weather_state: Dictionary = Weather.EMPTY.duplicate()
+var snow_cover := 0.0                      ## 0..1: сколько снега лежит на земле
 
 
 func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
@@ -81,6 +86,9 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	_backdrop.view = self
 	add_child(_backdrop)
 	_backdrop.visible = not _ground_is_composite
+	ground_fx = GroundFx.new()
+	add_child(ground_fx)
+	ground_fx.setup(self, "ground")
 	_build_fog_bands()
 	_build_particles()
 	_build_thresholds()
@@ -93,6 +101,9 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	add_child(crowd)
 	crowd.set_color_grade(def.color_grade)
 	_build_props()
+	sky_fx = GroundFx.new()
+	add_child(sky_fx)
+	sky_fx.setup(self, "sky")
 	_smoke = Node2D.new()
 	_smoke.name = "Smoke"
 	add_child(_smoke)
@@ -108,6 +119,9 @@ func setup(village: VillageDef, open: int, names: PackedStringArray) -> void:
 	jobs_layer.view = self
 	jobs_layer.visible = false
 	add_child(jobs_layer)
+	weather = WeatherLayer.new()
+	weather.view = self
+	add_child(weather)
 	_vignette = Sprite2D.new()
 	_vignette.name = "NightVignette"
 	_vignette.texture = _make_vignette()
@@ -153,6 +167,9 @@ func set_village(village: VillageDef, open: int, names: PackedStringArray) -> vo
 	set_simplified_graphics(simplified_graphics)
 	_build_props()
 	set_open_count(open)
+	if weather != null:
+		weather.refresh_geometry()
+	_apply_weather_grade()
 
 
 func set_open_count(n: int) -> void:
@@ -173,12 +190,13 @@ func boarded_shelters() -> int:
 func set_night(v: float) -> void:
 	night = clampf(v, 0.0, 1.0)
 	night_changed.emit(night)
+	var thick := 1.0 + 1.6 * _fog_k()
 	if _fog != null:
-		_fog.modulate.a = 0.35 + 0.65 * night
+		_fog.modulate.a = clampf((0.35 + 0.65 * night) * thick, 0.0, 1.0)
 		_dust.modulate.a = 0.12 + 0.88 * (1.0 - night)
 	for i in range(_fog_bands.size()):
 		_fog_bands[i].modulate = Color(0.8, 0.86, 0.9).lerp(Color(0.62, 0.7, 0.86), night)
-		_fog_bands[i].modulate.a = (0.24 + 0.4 * night) * (1.0 if i == 0 else 0.75)
+		_fog_bands[i].modulate.a = clampf((0.24 + 0.4 * night) * (1.0 if i == 0 else 0.75) * (1.0 + 0.9 * _fog_k()), 0.0, 1.0)
 	if _smoke != null:
 		_smoke.modulate = Color(0.92, 0.92, 0.9, 0.85).lerp(Color(0.5, 0.55, 0.7, 0.4), night)
 	if _branches != null:
@@ -355,14 +373,75 @@ func set_rain(on: bool) -> void:
 		_refresh()
 
 
+## Погода поля (TASK-061): осадки, туман, снег на земле и сезонная тонировка.
+func set_weather(state: Dictionary) -> void:
+	weather_state = state
+	snow_cover = float(state.get("cover", 0.0)) if bool(state.get("active", false)) else 0.0
+	if weather != null:
+		weather.apply(state)
+	_apply_weather_grade()
+	set_night(night)
+	_apply_fog_amount()
+	_refresh()
+
+
+func _fog_k() -> float:
+	return float(weather_state.get("fog", 0.0)) if bool(weather_state.get("active", false)) else 0.0
+
+
+## Сезонный цвет. На упрощённой графике цветокоррекции нет.
+func season_mod() -> Color:
+	if simplified_graphics or not bool(weather_state.get("active", false)):
+		return Color.WHITE
+	return Weather.tint(int(weather_state.get("season", Weather.Season.SUMMER)))
+
+
+func _apply_weather_grade() -> void:
+	if crowd != null and def != null:
+		crowd.set_color_grade(def.color_grade * season_mod())
+		var fx := figure_fx()
+		crowd.set_weather_fx(fx.x, fx.y)
+
+
+## Иней и влага на фигурах: x — иней, y — влага. На упрощённой графике шейдера фигур нет.
+func figure_fx() -> Vector2:
+	if simplified_graphics or not bool(weather_state.get("active", false)):
+		return Vector2.ZERO
+	var cover := float(weather_state.get("cover", 0.0))
+	var power := float(weather_state.get("power", 0.0))
+	var season := int(weather_state.get("season", Weather.Season.SUMMER))
+	var frost := 0.0
+	var wet := 0.0
+	match int(weather_state.get("precip", Weather.Precip.NONE)):
+		Weather.Precip.SNOW:
+			frost = clampf(cover * 0.6 + power * 0.6, 0.0, 1.0)
+		Weather.Precip.RAIN:
+			wet = clampf(power * 1.3, 0.0, 1.0)
+	if season == Weather.Season.WINTER:
+		frost = maxf(frost, cover * 0.7)
+	elif season == Weather.Season.SPRING:
+		wet = maxf(wet, 0.3 + float(weather_state.get("fog", 0.0)) * 0.3)
+		frost = maxf(frost, cover * 0.5)
+	return Vector2(frost, wet)
+
+
+func _apply_fog_amount() -> void:
+	if _fog != null:
+		var base := 7 if simplified_graphics else 14
+		_fog.amount = clampi(roundi(base * (1.0 + _fog_k())), base, 36)
+
+
 func set_simplified_graphics(on: bool) -> void:
 	simplified_graphics = on
-	if _fog != null:
-		_fog.amount = 7 if on else 14
+	_apply_fog_amount()
 	if _dust != null:
 		_dust.amount = 12 if on else 24
 	for light: PointLight2D in _lamp_lights:
 		light.shadow_enabled = not on
+	if weather != null:
+		weather.set_simplified(on)
+	_apply_weather_grade()
+	_refresh()
 
 
 ## Порог дома: туда ведут следы и там остаётся кровь.
@@ -497,7 +576,7 @@ func _draw() -> void:
 	var gr := def.ground_rect
 	var forest := Backdrop.FOREST_DAY.lerp(Backdrop.FOREST_NIGHT, n)
 	draw_rect(Rect2(-2000, gr.position.y + 40.0, 4720, 3000), Color("4a4636").lerp(Color("1c2430"), n))
-	var place_grade: Color = Color.WHITE.lerp(def.color_grade, 0.2)
+	var place_grade: Color = Color.WHITE.lerp(def.color_grade, 0.2) * season_mod()
 	draw_texture_rect(_tex.ground_day, gr, false, place_grade)
 	if n > 0.0:
 		draw_texture_rect(_tex.ground_night, gr, false, Color(place_grade, n))
@@ -727,6 +806,18 @@ func _art(h: HouseDef) -> Array:
 
 
 ## Где на поле картинка дома (в координатах посёлка).
+func ground_texture() -> Texture2D:
+	return _tex.get("ground_day")
+
+
+## Картинка земли для поиска травянистых мест. Пустая, если текстуры нет.
+func ground_image() -> Image:
+	var t: Texture2D = _tex.get("ground_day")
+	if t == null:
+		return null
+	return t.get_image()
+
+
 func house_rect(h: HouseDef) -> Rect2:
 	var a := _art(h)
 	var tex: Texture2D = _tex[a[0] + "_day"]
@@ -748,7 +839,7 @@ func door_rect(h: HouseDef) -> Rect2:
 
 
 func _night_mod(n: float) -> Color:
-	return Color.WHITE.lerp(def.color_grade, 0.12).lerp(Art.NIGHT_TINT, n)
+	return (Color.WHITE.lerp(def.color_grade, 0.12) * season_mod()).lerp(Art.NIGHT_TINT, n)
 
 
 ## Картинка в прямоугольник; flip — зеркально по горизонтали.

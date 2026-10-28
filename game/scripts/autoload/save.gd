@@ -14,6 +14,7 @@ var save_writable := true
 var config: GameConfig
 var haptics: bool = true
 var simplified_graphics: bool = false
+var perf_auto_done: bool = false          ## игра уже сама включала упрощённую графику (TASK-070); второй раз не будет
 var difficulty: String = "easy"
 var text_size: int = 0                ## 0 — обычный текст, 1 — крупный, 2 — самый крупный
 var lang: String = ""                  ## язык игры: код из L.LANGS. Пусто в файле — берём язык телефона
@@ -180,6 +181,7 @@ func load_all() -> void:
 	if has:
 		haptics = bool(cf.get_value("ui", "haptics", true))
 		simplified_graphics = bool(cf.get_value("ui", "simplified_graphics", false))
+		perf_auto_done = bool(cf.get_value("ui", "perf_auto_done", false))
 		window_fullscreen = bool(cf.get_value("display", "fullscreen", false))
 		var res: Variant = cf.get_value("display", "resolution", Vector2i(720, 1280))
 		if res is Vector2i:
@@ -284,6 +286,11 @@ func set_haptics(on: bool) -> void:
 
 func set_simplified_graphics(on: bool) -> void:
 	simplified_graphics = on
+	flush()
+
+
+func set_perf_auto_done(on: bool) -> void:
+	perf_auto_done = on
 	flush()
 
 
@@ -421,6 +428,7 @@ func flush() -> void:
 	cf.set_value("game", "solo_last_map", solo_last_map)
 	cf.set_value("ui", "haptics", haptics)
 	cf.set_value("ui", "simplified_graphics", simplified_graphics)
+	cf.set_value("ui", "perf_auto_done", perf_auto_done)
 	cf.set_value("ui", "lang", lang)
 	cf.set_value("ui", "text_size", text_size)
 	for b: StringName in volumes.keys():

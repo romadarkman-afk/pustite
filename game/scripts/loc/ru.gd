@@ -545,6 +545,7 @@ func data() -> Dictionary:
 		"settings.resolution": "Разрешение окна",
 		"settings.mobile_display": "На телефоне игра использует системный полноэкранный режим.",
 		"settings.simplified_graphics": "Упрощённая графика",
+		"perf.auto_simplified": "Игра тормозила, включена упрощённая графика. Выключить можно в настройках.",
 		"settings.input_help": "Клавиатура и геймпад: стрелки или WASD для выбора, Enter для действия, Esc или B для возврата. На телефоне нажимайте экранные кнопки.",
 		"settings.music": "Музыка",
 		"settings.sfx": "Звуки",

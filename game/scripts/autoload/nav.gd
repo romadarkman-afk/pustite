@@ -25,6 +25,7 @@ var _started := false
 var _frame_pending := false
 var _menu_preview: Match
 var _menu_horror: Node
+var perf: PerfGuard               ## кадры: автоупрощение графики и счётчик в отладке (TASK-070)
 var _walk_gen := 0                 ## каждая новая прогулка игрока отменяет прежнюю цель
 var _spoiled_ji := -1              ## у этого дела только что испортили сделанное: всплывашка уже показана
 var _solo_after_howto := false
@@ -77,6 +78,11 @@ func _ready() -> void:
 	_menu_horror = MENU_HORROR_AUDIO.new()
 	_menu_horror.name = "MenuNightAudio"
 	add_child(_menu_horror)
+	perf = PerfGuard.new()
+	perf.name = "PerfGuard"
+	perf.simplified = Save.simplified_graphics
+	add_child(perf)
+	perf.degraded.connect(_on_perf_degraded)
 
 	layer = CanvasLayer.new()
 	layer.layer = 1
@@ -158,10 +164,24 @@ func start() -> void:
 
 
 func set_simplified_graphics(on: bool) -> void:
+	if perf != null:
+		perf.simplified = on
 	if village == null:
 		return
 	village.set_simplified_graphics(on)
 	_update_night_grade(village.night)
+
+
+## 5 секунд подряд меньше 25 кадров: упрощённая графика включается сама, один раз за установку.
+## Если игрок потом выключит её руками, игра не включит её снова.
+func _on_perf_degraded() -> void:
+	Diag.step("кадры: %.0f fps, упрощённая графика включена" % perf.fps)
+	if Save.simplified_graphics or Save.perf_auto_done:
+		return
+	Save.set_perf_auto_done(true)
+	Save.set_simplified_graphics(true)
+	set_simplified_graphics(true)
+	toast(L.t("perf.auto_simplified"))
 
 
 func _update_night_grade(amount: float) -> void:
@@ -248,6 +268,8 @@ func show_howto(then_play: bool) -> void:
 
 func show(s: Screen) -> void:
 	Diag.step("экран: %s" % s.screen_id())
+	if perf != null:
+		perf.reset_stats()
 	_menu_horror.call("set_menu_active", s is MenuScreen)
 	Sfx.set_ambience(s.ambience())
 	Sfx.set_place_layer(Game.m.village.ground if Game.m != null else "",
@@ -374,7 +396,9 @@ func _sync_traces(phase: Match.Phase) -> void:
 			losses[villager.night_house] = 2 if villager.exiled else 1
 	village.set_loss_houses(losses)
 	village.set_rain(Game.m.night_event == Match.Event.RAIN and phase != Match.Phase.PROLOGUE and phase != Match.Phase.IDLE)
+	village.set_weather(Weather.for_match(Game.m, phase))
 	village.set_flood(Game.m.flooded_house)
+	_mix_world(phase)
 	if phase == Match.Phase.DAY and village.def != null and village.def.rails_y >= 0.0 and not Juice.instant and randf() < 0.6:
 		_whistle.call_deferred()                 # станция (TASK-031): редкий гудок вдали
 
@@ -404,7 +428,27 @@ func _home_village() -> void:
 	village.set_traces(PackedVector2Array(), PackedVector2Array())
 	village.set_loss_houses({})
 	village.set_rain(false)
+	village.set_weather(Weather.for_menu())
 	village.set_flood(-1)
+	Sfx.set_weather_layer(village.weather_state)
+	Sfx.set_life(0.0, false)
+	Sfx.set_tension(0.0)
+
+
+## Звуковые слои мира (TASK-069): погода, жизнь посёлка и напряжение по состоянию партии.
+## Чем меньше живых, тем тише говор; к ночи и к пустому посёлку фон глохнет, пульс частит.
+func _mix_world(phase: int) -> void:
+	Sfx.set_weather_layer(village.weather_state)
+	var total := Game.m.villagers.size()
+	var alive := 0
+	for v: Villager in Game.m.villagers:
+		if v.alive:
+			alive += 1
+	var ratio := float(alive) / float(total) if total > 0 else 1.0
+	var day := phase == Match.Phase.DAY or phase == Match.Phase.MORNING or phase == Match.Phase.VOTE
+	var night := phase == Match.Phase.NIGHT or phase == Match.Phase.DOOR
+	Sfx.set_life(ratio, day)
+	Sfx.set_tension(clampf((1.0 - ratio) * 0.9 + (0.25 if night else 0.0), 0.0, 1.0))
 
 
 ## Главный экран показывает несколько жителей. Они используют те же портреты,
