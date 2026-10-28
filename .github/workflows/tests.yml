@@ -48,7 +48,7 @@ jobs:
 
       - name: Жители, дождь, карта и озвучка
         env:
-          CASES: "folk=--folk weather=--weather field=--field village=--village slides=--slides"
+          CASES: "folk=--folk weather=--weather field=--field village=--village voice=--voice-assets"
           CASE_TIMEOUT: "180"
         run: bash tools/ci_run_cases.sh $CASES
 
