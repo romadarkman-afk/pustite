@@ -21,15 +21,17 @@ const ORDER: PackedStringArray = ["a1c1", "a1c2", "a1c3", "a2c1", "a2c2", "a2c3"
 const MAPS := {"default": "res://config/village_default.tres", "mill": "res://config/village_mill.tres",
 	"monastery": "res://config/village_monastery.tres", "station": "res://config/village_station.tres"}
 const SOLO_MAP_IDS: PackedStringArray = ["default", "mill", "monastery", "station"]
+## Сдвиги домов между главами одной карты. Малые: дом не должен залезать на воду, на соседа и на забор
+## (проверяет самотест --village по всем 12 главам). Большие сдвиги ставили дома как попало.
 const SHELTER_OFFSETS := [
 	[Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO],
-	[Vector2(-24, 18), Vector2(24, -20), Vector2(12, -22), Vector2(-28, 8), Vector2(30, 14)],
-	[Vector2(22, -12), Vector2(-28, 18), Vector2(-16, 20), Vector2(-14, 16), Vector2(24, -16)],
+	[Vector2(-8, 6), Vector2(8, -6), Vector2(6, -8), Vector2(-8, 4), Vector2(8, 6)],
+	[Vector2(8, -4), Vector2(-8, 6), Vector2(-6, 8), Vector2(-6, 6), Vector2(8, -6)],
 ]
 const DECOR_OFFSETS := [
 	[Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO],
-	[Vector2(-10, 8), Vector2(12, -8), Vector2(-12, -8), Vector2(10, 8)],
-	[Vector2(14, 10), Vector2(-14, 4), Vector2(12, 10), Vector2(-14, 4)],
+	[Vector2(-6, 6), Vector2(6, -6), Vector2(-6, -6), Vector2(6, 6)],
+	[Vector2(6, 6), Vector2(-6, 4), Vector2(6, 6), Vector2(-6, 4)],
 ]
 const CHAPTER_LANDMARKS := {
 	"a1c2": {"id": "prop_stump_axe", "pos": Vector2(286, 542), "w": 52.0},
@@ -37,7 +39,7 @@ const CHAPTER_LANDMARKS := {
 	"a2c2": {"id": "prop_crates", "pos": Vector2(292, 542), "w": 72.0},
 	"a2c3": {"id": "prop_stump_axe", "pos": Vector2(468, 544), "w": 56.0},
 	"a3c1": {"id": "prop_graves", "pos": Vector2(676, 480), "w": 60.0},
-	"a3c3": {"id": "prop_crates", "pos": Vector2(542, 526), "w": 72.0},
+	"a3c3": {"id": "prop_crates", "pos": Vector2(470, 538), "w": 72.0},
 	"a4c2": {"id": "prop_crates", "pos": Vector2(278, 542), "w": 72.0},
 	"a4c3": {"id": "prop_cart", "pos": Vector2(326, 546), "w": 82.0},
 }
@@ -224,7 +226,7 @@ static func config(id: String) -> GameConfig:
 		return c
 	# погибшие насовсем в главу не приходят: если живых местных меньше, чем мест в главе, жителей меньше
 	c.players = mini(int(ch.players), maxi(MIN_PLAYERS, cast(id).size() + 1))
-	c.monsters = int(ch.monsters)
+	c.monsters = mini(int(ch.monsters), maxi(1, (c.players - 1) / 3))   # поредевшая деревня: не больше одного упыря на троих (TASK-091)
 	c.shelters = int(ch.shelters)
 	c.capacity = int(ch.capacity)
 	c.nights = int(ch.nights)
@@ -234,8 +236,8 @@ static func config(id: String) -> GameConfig:
 
 ## Кто живёт в посёлке в этой главе: номера имён. Первые трое — постоянные жители, остальные
 ## в порядке, который задаётся один раз на всю кампанию. Погибшие пропускаются.
-static func cast(id: String) -> Array[int]:
-	var n := int(chapter(id).get("players", 5)) - 1
+static func cast(id: String, extra: int = 0) -> Array[int]:
+	var n := int(chapter(id).get("players", 5)) - 1 + extra     # extra: только для подбора баланса в sim_chapters
 	var names := L.names().size()
 	var order: Array[int] = []
 	for i in range(mini(3, names)):
@@ -252,8 +254,9 @@ static func cast(id: String) -> Array[int]:
 		rest[j] = t
 	order.append_array(rest)
 	var out: Array[int] = []
+	var dead := lost_before(id).get("n", Save.campaign_dead) as Array
 	for idx: int in order:
-		if Save.campaign_dead.has(idx) or _same_as_player(idx):
+		if dead.has(idx) or _same_as_player(idx):
 			continue
 		out.append(idx)
 		if out.size() >= n:
@@ -269,10 +272,39 @@ static func _same_as_player(idx: int) -> bool:
 ## Гости главы: кто приехал и ещё жив по ходу кампании.
 static func guests(id: String) -> PackedStringArray:
 	var out := PackedStringArray()
+	var dead := lost_before(id).get("g", Save.campaign_dead_guests) as PackedStringArray
 	for g: String in chapter(id).get("guests", []):
-		if not Save.campaign_dead_guests.has(g):
+		if not dead.has(g):
 			out.append(g)
 	return out
+
+
+## Пройдена ли глава: её можно переиграть.
+static func is_replay(id: String) -> bool:
+	return Save.campaign_stars.has(id)
+
+
+## Кто погиб насовсем до этой главы: {"n": номера имён, "g": гости}. Первое прохождение: все погибшие.
+## Повтор: только погибшие в главах перед ней, чтобы посёлок был таким, как при первом заходе.
+## Старое сохранение без записи, кто в какой главе погиб, даёт пустой словарь: берутся все погибшие.
+static func lost_before(id: String) -> Dictionary:
+	if not is_replay(id):
+		return {}
+	var names: Array[int] = []
+	var guests := PackedStringArray()
+	for prev: String in ORDER:
+		if prev == id:
+			break
+		if not Save.campaign_lost_in.has(prev):
+			if Save.campaign_stars.has(prev):
+				return {}
+			continue
+		var parts := String(Save.campaign_lost_in[prev]).split("|")
+		for s: String in parts[0].split(",", false):
+			names.append(int(s))
+		if parts.size() > 1:
+			guests.append_array(parts[1].split(",", false))
+	return {"n": names, "g": guests}
 
 
 ## Открыта ли глава: первая — всегда, остальные — после прохождения предыдущей.
@@ -287,6 +319,31 @@ static func current() -> String:
 		if not Save.campaign_stars.has(id):
 			return id
 	return ORDER[ORDER.size() - 1]
+
+
+## Акт на карте кампании (TASK-087): done (все главы пройдены), current (в нём следующая глава),
+## open (открыт, главы можно переиграть), locked. Сезон акта берётся из его первой главы.
+static func act_state(act: int) -> Dictionary:
+	var chapters: Array = []
+	for a: Dictionary in ACTS:
+		if int(a.id) == act:
+			chapters = a.chapters
+	var done := 0
+	for id: String in chapters:
+		if Save.campaign_stars.has(id):
+			done += 1
+	var state := "locked"
+	if not chapters.is_empty():
+		if done == chapters.size():
+			state = "done"
+		elif int(chapter(current()).get("act", 0)) == act:
+			state = "current"
+		elif unlocked(String(chapters[0])):
+			state = "open"
+	var season := "summer"
+	if not chapters.is_empty():
+		season = String((chapter(String(chapters[0])).get("world", {}) as Dictionary).get("season", "summer"))
+	return {"state": state, "done": done, "total": chapters.size(), "season": season}
 
 
 static func next_of(id: String) -> String:
@@ -366,14 +423,26 @@ static func finish(m: Match, ch: Dictionary, d: Director = null) -> Dictionary:
 			lost_guests.append(v.guest_id)
 		elif v.story_id >= 0:
 			lost.append(v.story_id)
-	if passed:
+	var replay := is_replay(String(ch.id))
+	if passed and replay:
+		Save.raise_stars(String(ch.id), stars)      # повтор: в историю посёлка ничего не пишется
+	elif passed:
 		var mem := m.world.campaign_records(m, Save.MEMORY_PER_CHAPTER - 2)
 		mem.append_array(boat_records(m))
 		mem.append_array(miller_records(m))
 		if m.trust_on:
 			mem.append({"kind": "trust", "who": -1, "day": m.trust, "knew": []})   # доверие группы — в следующую главу акта
 		Save.record_chapter(String(ch.id), stars, lost, lost_guests, mem, d.campaign_bonds() if d != null else {})
-	return {"passed": passed, "stars": stars, "goals": g, "lost": lost, "lost_guests": lost_guests, "id": String(ch.id)}
+	return {"passed": passed, "stars": stars, "goals": g, "lost": lost, "lost_guests": lost_guests, "id": String(ch.id),
+		"replay": replay, "best": int(Save.campaign_stars.get(String(ch.id), 0))}
+
+
+## Проигран ли суд в крипте (акт III): у акта тогда своя концовка и свой комикс.
+static func trial_lost() -> bool:
+	for rec: Dictionary in Save.campaign_memory:
+		if String(rec.kind) == "trial_lost":
+			return true
+	return false
 
 
 ## Концовка акта: сколько из первых жителей деревни дожили до конца акта.

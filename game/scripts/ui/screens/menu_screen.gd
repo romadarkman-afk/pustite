@@ -2,12 +2,13 @@ class_name MenuScreen
 extends Screen
 
 
-const MENU_ART: Array[Texture2D] = [
-	preload("res://assets/scenes/end_upyri.jpg"),
-	preload("res://assets/scenes/end_people.jpg"),
-	preload("res://assets/scenes/a2c1.jpg"),
-	preload("res://assets/scenes/a1c1.jpg"),
-	preload("res://assets/scenes/river.jpg"),
+## Картинки фона меню. Грузятся по одной, когда нужны: пять картинок по 6 МиБ в видеопамяти не должны висеть всю игру (TASK-095).
+const MENU_ART: PackedStringArray = [
+	"res://assets/scenes/end_upyri.jpg",
+	"res://assets/scenes/end_people.jpg",
+	"res://assets/scenes/a2c1.jpg",
+	"res://assets/scenes/a1c1.jpg",
+	"res://assets/scenes/river.jpg",
 ]
 
 var difficulty: String = "easy"
@@ -37,7 +38,7 @@ func ambience() -> StringName:
 
 
 func music() -> StringName:
-	return &"menu"
+	return Sfx.menu_music()
 
 
 func build() -> void:
@@ -71,9 +72,8 @@ func build() -> void:
 		"Campaign", &"Primary", Intent.OPEN_CAMPAIGN))
 	modes.add_child(_mode_tile(L.t("menu.mode_solo"), L.t("menu.mode_solo_desc"), L.t("menu.play"),
 		"Start", &"RowOn", Intent.START_SOLO))
-	modes.add_child(_mode_button(L.t("menu.mode_online"), "OnlineSoon", &"", true))
-	modes.add_child(_mode_button(L.t("settings.title"), "Settings", Intent.OPEN_SETTINGS))
 	body.add_child(modes)
+	body.add_child(_mode_button(L.t("settings.title"), "Settings", Intent.OPEN_SETTINGS))
 
 	var dbs: Array[Button] = []
 	var custom_b: Button = null
@@ -96,8 +96,7 @@ func build() -> void:
 	how.pressed.connect(func() -> void: emit_intent(Intent.OPEN_HOWTO))
 	var lb := lang_button(self)
 	lb.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	custom_b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	var wardrobe := W.button(L.t("cos.title"), &"Row")
+	var wardrobe := W.button(L.t("menu.look"), &"Row")
 	wardrobe.name = "Wardrobe"
 	wardrobe.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	wardrobe.pressed.connect(func() -> void: emit_intent(Intent.OPEN_WARDROBE))
@@ -105,9 +104,10 @@ func build() -> void:
 	book.name = "Book"
 	book.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	book.pressed.connect(func() -> void: emit_intent(Intent.OPEN_BOOK))
+	dbs.append(custom_b)
 	body.add_child(W.fit_row(dbs))
 	body.add_child(daily_button())
-	body.add_child(W.fit_row([how, lb, custom_b, wardrobe, book]))
+	body.add_child(W.fit_row([how, lb, wardrobe, book]))
 	body.add_child(W.label(L.t("menu.tale"), &"Tale"))
 
 	var footer_actions: Array[Button] = []
@@ -180,7 +180,7 @@ func _install_menu_art() -> void:
 	for i in range(2):
 		var art := TextureRect.new()
 		art.name = "MenuBackdrop%d" % i
-		art.texture = MENU_ART[i % MENU_ART.size()]
+		art.texture = load(MENU_ART[i % MENU_ART.size()]) as Texture2D
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -230,7 +230,7 @@ func _advance_menu_art() -> void:
 	var incoming := _menu_art_nodes[back_index]
 	var outgoing := _menu_art_nodes[_menu_art_front]
 	_menu_art_index = (_menu_art_index + 1) % MENU_ART.size()
-	incoming.texture = MENU_ART[_menu_art_index]
+	incoming.texture = load(MENU_ART[_menu_art_index]) as Texture2D
 	incoming.visible = true
 	incoming.modulate.a = 0.0
 	var tween := create_tween().set_parallel(true).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)

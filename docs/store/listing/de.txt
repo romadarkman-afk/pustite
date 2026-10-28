@@ -1,0 +1,25 @@
+# title
+Lass mich rein
+# short
+Nacht, 1894. Es klopft, und die Plätze sind knapp. Wen lässt du herein?
+# full
+1894. Ein Dorf am Waldrand. Nachts überlebt draußen niemand, und es gibt weniger Unterkünfte als Menschen.
+
+Jemand steht vor deiner Tür und bittet um Einlass. Du entscheidest. Unter den Dorfbewohnern sind Werwölfe, und sie kennen sich nicht einmal untereinander.
+
+TAG
+Sprich mit den Dorfbewohnern, vergleiche ihre Worte mit den Hinweisen und lies dein Tagebuch: Wer hat was gesagt, wer hat wo geschlafen, wer hat versprochen, die Tür zu öffnen. Die Versammlung stimmt ab, wer verbannt wird. Irrst du dich, geht ein Unschuldiger in den Wald.
+
+NACHT
+Es klopft. Du kannst den Besucher mustern (zweimal pro Nacht) und entscheiden, ob du öffnest. Riegel, Kerze, Bannzeichen, Lampenöl: Jedes Ding hat seinen Preis, und ein Bannzeichen kann bis zum Morgen springen. Der Nachahmer klopft mit der Stimme eines Bekannten.
+
+KAMPAGNE
+12 Kapitel in vier Akten: das Dorf, die Mühle am Fluss, das Kloster, der Bahnhof. Sommer, Herbst, Winter und Frühling, jeder Akt mit eigenem Wetter und eigenen Neuankömmlingen. Die Toten kehren nicht zurück: Ihre Häuser bleiben leer, die Lebenden erinnern sich. Das Ende jedes Akts hängt davon ab, wer den Morgen erlebt.
+
+AUSSERDEM
+• schnelle Partie gegen Bots, drei Schwierigkeitsstufen
+• Tagesaufgabe mit Serie
+• das Dorfbuch: Enden und 19 Erfolge
+• 10 Sprachen
+• Vibration bei Klopfen, in der Nacht und bei Verlusten, abschwächbar oder abschaltbar
+• keine Werbung, keine Käufe, kein Internet nötig, es werden keine Daten gesammelt

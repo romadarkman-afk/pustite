@@ -193,4 +193,4 @@ func ambience() -> StringName:
 
 
 func music() -> StringName:
-	return &""
+	return Sfx.stage_music(&"night")

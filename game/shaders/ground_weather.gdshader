@@ -47,7 +47,7 @@ void fragment() {
 
 	// Сырость: тёмный налёт пятнами.
 	float patchy = texture(mask_tex, pos / 150.0 + 0.61).r;
-	float wet_a = wet * (0.2 + 0.28 * patchy);
+	float wet_a = wet * (0.05 + 0.12 * patchy);
 	vec3 wet_col = wet_tone * mix(1.0, 0.45, night);
 
 	// Лужи: эллипс с рваным краем, внутри отражение неба. Круги от капель рисуют частицы.
@@ -68,8 +68,10 @@ void fragment() {
 	// рябь поверхности: медленно ползущий шум, свет отражения чуть гуляет
 	float shim = texture(mask_tex, pos / 23.0 + vec2(TIME * 0.02, -TIME * 0.015)).r - 0.5;
 
-	vec3 base = mix(wet_col, sky * (1.0 + shim * 0.5), pa);
-	float base_a = max(wet_a, pa * 0.6);
+	// лужа: тёмная копия земли под ней и лёгкий блик неба, булыжник просвечивает
+	vec3 puddle_col = mix(g * 0.55, sky * (1.0 + shim * 0.5), 0.28);
+	vec3 base = mix(wet_col, puddle_col, pa);
+	float base_a = max(wet_a, pa * 0.5);
 	base_a *= 1.0 - a_snow;
 
 	float out_a = max(base_a, a_snow * 0.97);

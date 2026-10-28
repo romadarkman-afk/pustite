@@ -43,8 +43,3 @@ func job_index(id: StringName) -> int:
 	return -1
 
 
-func total_portions() -> int:
-	var n := 0
-	for j: JobDef in jobs:
-		n += j.portions
-	return n

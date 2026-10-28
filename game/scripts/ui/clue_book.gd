@@ -36,7 +36,8 @@ func _build() -> void:
 		if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
 			close())
 	add_child(dim)
-	var sheet := W.panel(&"Sheet")
+	var sheet := W.panel(&"Page")
+	sheet.name = "ClueSheet"
 	sheet.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	sheet.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	add_child(sheet)

@@ -12,7 +12,7 @@ config_version=5
 
 config/name="Пустите"
 config/description="Социальная дедукция с убежищами"
-config/version="0.62.0"
+config/version="0.71.1"
 run/main_scene="res://scenes/boot.tscn"
 config/quit_on_go_back=false
 config/features=PackedStringArray("4.6", "GL Compatibility")
@@ -20,7 +20,7 @@ run/max_fps=60
 boot_splash/bg_color=Color(0.047, 0.035, 0.11, 1)
 boot_splash/stretch_mode=4
 boot_splash/image="res://assets/splash.png"
-config/icon="res://icon.svg"
+config/icon="res://assets/icon/icon_512.png"
 
 [autoload]
 

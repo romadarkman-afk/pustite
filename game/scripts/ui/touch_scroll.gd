@@ -82,7 +82,9 @@ func _handle(event: InputEvent, source: Control) -> void:
 			_dragging = false
 			return
 		var shift := motion.global_position - _origin
-		if not _dragging and absf(shift.y) > DRAG_START:
+		# поле посёлка тянется вбок (камера): горизонтальный протяг по нему список не прокручивает
+		var field_pan := source.has_meta("pan_field") and absf(shift.x) >= absf(shift.y)
+		if not _dragging and absf(shift.y) > DRAG_START and not field_pan:
 			_dragging = true
 			_cancel_press(source)
 		if _dragging:

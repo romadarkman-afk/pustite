@@ -161,6 +161,19 @@ jobs:
           ls -la build/
           test -s build/pustite.apk || { echo "APK не создан"; exit 1; }
 
+      - name: Бюджет веса APK
+        run: |
+          size=$(stat -c %s build/pustite.apk)
+          mib=$(awk -v s="$size" 'BEGIN{printf "%.1f", s/1048576}')
+          top=$(unzip -lv build/pustite.apk | awk 'NR>3 && $3+0>0 {print $3, $NF}' | sort -rn | head -6 | awk '{printf "%.1f МиБ %s; ", $1/1048576, $2}')
+          echo "APK: $size байт, $mib МиБ"
+          echo "::notice title=Вес APK::$mib МиБ ($size байт). Крупнейшие записи: $top"
+          limit=1000000000  # 1 ГБ: фотореализм, песни и озвучка (решение Влади, 24.10.2026). Было 192 600 000 (v0.62.0 + 15 МиБ). Лимит ассета релиза GitHub: 2 ГБ.
+          if [ "$size" -gt "$limit" ]; then
+            echo "::error title=APK тяжелее бюджета::$size байт при пределе $limit"
+            exit 1
+          fi
+
       - name: Положить APK в артефакты
         uses: actions/upload-artifact@v5
         with:
@@ -168,15 +181,23 @@ jobs:
           path: build/pustite.apk
           retention-days: 30
 
+      # Релиз идёт с main и по ручному запуску с любой ветки (Actions → Сборка APK → Run workflow).
+      # Каждая сильная версия выкладывается как релиз; ветку без PR в main тоже можно выложить,
+      # поэтому тег ставится на коммит сборки (--target), а не на голову main.
       - name: Выложить релиз со ссылкой на APK
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="build-$(date +%Y%m%d-%H%M%S)"
           VER=$(grep -oP 'config/version="\K[^"]+' game/project.godot || echo "?")
+          {
+            echo "Отладочная сборка. Коммит ${GITHUB_SHA::7}, ветка ${GITHUB_REF_NAME}. Скачайте pustite.apk и установите на телефон."
+            echo
+            awk -v v="## $VER" 'index($0, v) == 1 {f = 1; next} f && /^## / {exit} f' CHANGELOG.md
+          } > release-notes.md
           gh release create "$TAG" "build/pustite.apk" \
+            --target "$GITHUB_SHA" \
             --title "v$VER · $TAG" \
-            --notes "Отладочная сборка. Коммит ${GITHUB_SHA::7}. Скачайте pustite.apk и установите на телефон." \
+            --notes-file release-notes.md \
             --latest
-

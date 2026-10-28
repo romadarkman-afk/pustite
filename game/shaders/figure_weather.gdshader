@@ -12,6 +12,63 @@ uniform float frost : hint_range(0.0, 1.0) = 0.0;
 uniform float wet : hint_range(0.0, 1.0) = 0.0;
 uniform float night : hint_range(0.0, 1.0) = 0.0;
 
+// 4) Живая сетка. Фотография целая, поэтому сетка гнёт только то, что гнётся у человека:
+// ноги качаются вокруг тазобедренных суставов, верх корпуса клонится вокруг пояса, голова поворачивается вокруг шеи.
+// Все значения по умолчанию нулевые: без анимации вершины стоят на месте. Размеры в единицах посёлка.
+uniform vec2 fig = vec2(60.0, 85.0);                      // ширина и рост фигуры
+uniform vec4 anat = vec4(0.53, 0.04, 0.17, 0.0);          // пояс (доля роста сверху), полуширина перехода, шея, сдвиг центра ног (доля ширины)
+uniform vec4 anat2 = vec4(0.0, 0.1, 0.07, 1.0);           // 1 если ноги разведены, ширина перехода между ногами (доля ширины), полуширина таза (доля ширины), начало стопы (доля роста)
+uniform vec4 legs_anim = vec4(0.0);                       // угол левой и правой ноги (рад, плюс вперёд), подъём стопы левой и правой (единицы)
+uniform vec4 body_anim = vec4(0.0);                       // опускание всего тела (вниз плюс), смещение таза вбок, подъём груди на вдохе, наклон верха вокруг пояса (рад, плюс вперёд)
+uniform vec4 head_anim = vec4(0.0);                       // поворот головы вокруг шеи (рад), сдвиг вбок, сдвиг по высоте, резерв
+
+vec2 rot2(vec2 v, float a) {
+	float c = cos(a);
+	float s = sin(a);
+	return vec2(c * v.x - s * v.y, s * v.x + c * v.y);
+}
+
+void vertex() {
+	vec2 p = VERTEX;
+	float y = 1.0 + p.y / fig.y;                          // 0 макушка, 1 подошвы
+	float x = p.x / fig.x - anat.w;                       // от оси ног, доли ширины
+	float hip_y = (anat.x - 1.0) * fig.y;
+	// верх корпуса клонится вокруг пояса; ниже пояса держит нога
+	float upper = 1.0 - smoothstep(anat.x - anat.y, anat.x + anat.y, y);
+	vec2 waist = vec2(anat.w * fig.x, hip_y);
+	p += upper * (rot2(p - waist, body_anim.w) - (p - waist));
+	// ноги: каждая вращается вокруг своего сустава, между ногами плавный переход,
+	// стопа поворачивается назад (anat2.w доля роста, с которой начинается стопа; 1 если стопы не видно)
+	float leg = 1.0 - upper;
+	float wr = smoothstep(-anat2.y, anat2.y, x);
+	float wl = 1.0 - wr;
+	vec2 hl = vec2((anat.w - anat2.z) * fig.x, hip_y);
+	vec2 hr = vec2((anat.w + anat2.z) * fig.x, hip_y);
+	float along = clamp((y - anat.x) / max(1.0 - anat.x, 0.01), 0.0, 1.0);
+	float ankle = (anat2.w - 1.0) * fig.y;
+	float ankle_along = clamp((anat2.w - anat.x) / max(1.0 - anat.x, 0.01), 0.0, 1.0);
+	float ft = smoothstep(anat2.w, anat2.w + 0.03, y);
+	vec2 ql = hl + rot2(VERTEX - hl, legs_anim.x) + vec2(0.0, -legs_anim.z * along);
+	vec2 qr = hr + rot2(VERTEX - hr, legs_anim.y) + vec2(0.0, -legs_anim.w * along);
+	vec2 al = hl + rot2(vec2(hl.x, ankle) - hl, legs_anim.x) + vec2(0.0, -legs_anim.z * ankle_along);
+	vec2 ar = hr + rot2(vec2(hr.x, ankle) - hr, legs_anim.y) + vec2(0.0, -legs_anim.w * ankle_along);
+	ql = mix(ql, al + rot2(ql - al, -0.85 * legs_anim.x), ft);
+	qr = mix(qr, ar + rot2(qr - ar, -0.85 * legs_anim.y), ft);
+	p += leg * (wl * (ql - VERTEX) + wr * (qr - VERTEX));
+	// таз уходит вбок над опорной ногой, стопы остаются на земле
+	p.x += body_anim.y * (1.0 - smoothstep(anat.x, 1.0, y));
+	// на вдохе грудь и плечи поднимаются, к поясу всё меньше
+	p.y -= body_anim.z * clamp(1.0 - y / max(anat.x, 0.01), 0.0, 1.0);
+	// голова поворачивается и сдвигается вокруг шеи
+	float head = 1.0 - smoothstep(anat.z - 0.025, anat.z + 0.02, y);
+	vec2 neck = vec2(anat.w * fig.x, (anat.z - 1.0) * fig.y);
+	neck += rot2(neck - waist, body_anim.w) - (neck - waist);   // шея едет вместе с наклоном корпуса
+	neck.x += body_anim.y;
+	p += head * (rot2(p - neck, head_anim.x) - (p - neck) + head_anim.yz);
+	p.y += body_anim.x;
+	VERTEX = p;
+}
+
 float hash21(vec2 p) {
 	p = fract(p * vec2(123.34, 456.21));
 	p += dot(p, p + 45.32);

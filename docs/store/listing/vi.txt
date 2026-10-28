@@ -1,0 +1,25 @@
+# title
+Cho Tôi Vào
+# short
+Đêm 1894. Có người gõ cửa, chỗ trú thì ít. Bạn cho ai vào?
+# full
+1894. Một ngôi làng bên bìa rừng. Ban đêm không ai sống nổi ngoài đường, và chỗ trú ít hơn số người.
+
+Có người đứng trước cửa nhà bạn xin vào. Bạn quyết định. Giữa dân làng có ma cà rồng, và chúng còn không biết nhau.
+
+BAN NGÀY
+Nói chuyện với dân làng, đối chiếu lời họ nói với manh mối và đọc nhật ký: ai nói gì, ai ngủ ở đâu, ai hứa sẽ mở cửa. Buổi họp bỏ phiếu xem ai bị trục xuất. Nếu bạn nhầm, một người vô tội sẽ bị đuổi vào rừng.
+
+BAN ĐÊM
+Có tiếng gõ cửa. Bạn có thể xem xét người ngoài cửa (hai lần mỗi đêm) rồi quyết định có mở hay không. Chốt cửa, nến, lá bùa, dầu đèn: mỗi thứ đều có giá của nó, và lá bùa có thể nứt trước sáng. Kẻ Nhại Giọng gõ cửa bằng giọng của người bạn quen.
+
+CỐT TRUYỆN
+12 chương trong bốn hồi: ngôi làng, cối xay bên sông, tu viện, nhà ga. Hè, thu, đông và xuân; mỗi hồi có thời tiết riêng và những người mới đến riêng. Người đã mất không trở lại: nhà họ để trống, người sống nhớ về họ. Kết thúc mỗi hồi tùy vào việc ai sống đến sáng.
+
+NGOÀI RA
+• ván nhanh với bot, ba mức độ khó
+• thử thách hôm nay và chuỗi ngày liên tiếp
+• Sổ của làng: các kết thúc và 19 thành tích
+• 10 ngôn ngữ
+• rung khi có tiếng gõ, ban đêm và khi mất mát; có thể giảm hoặc tắt
+• không quảng cáo, không mua hàng, không cần internet, không thu thập dữ liệu

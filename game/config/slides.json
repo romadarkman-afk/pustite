@@ -1,0 +1,8799 @@
+{
+ "schema_version": 1,
+ "dir": "res://assets/slides/",
+ "cast": {
+  "marina": "f9",
+  "lida": "f12",
+  "zhenya": "f10",
+  "rita": "f3",
+  "nina": "f11",
+  "polina": "f1",
+  "timur": "f2",
+  "kostya": "f4",
+  "tikhon": "f13",
+  "zakhar": "f7",
+  "misha": "f8",
+  "vadim": "f14",
+  "gordey": "guest_soldier",
+  "agafya": "guest_widow",
+  "efim": "guest_merchant",
+  "stepan": "guest_worker",
+  "pisar": "guest_clerk",
+  "ignat": "npc_abbot",
+  "anfisa": "npc_nun",
+  "smotritel": "npc_stationmaster",
+  "melnik": "npc_worker",
+  "extra_thin": "f5",
+  "extra_boy": "f15",
+  "extra_pilgrim": "f16"
+ },
+ "decks": {
+  "prologue": {
+   "kind": "prologue",
+   "act": 0,
+   "title_key": "sl.prologue.title",
+   "music": "theme_sad",
+   "flash_to": 6,
+   "panels": [
+    {
+     "file": "prologue/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.prologue.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      },
+      {
+       "at": 2.5,
+       "do": "play",
+       "id": "call_far",
+       "vol": -14.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "prologue/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.prologue.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "call_far",
+       "vol": -9.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "prologue/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.prologue.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.4,
+       "do": "play",
+       "id": "weep",
+       "vol": -8.0
+      },
+      {
+       "at": 1.8,
+       "do": "play",
+       "id": "call_far",
+       "vol": -12.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "prologue/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.prologue.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      },
+      {
+       "at": 0.3,
+       "do": "play",
+       "id": "creak",
+       "vol": -8.0
+      },
+      {
+       "at": 1.5,
+       "do": "play",
+       "id": "breath_3",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "prologue/05",
+     "size": "w",
+     "cam": "hold",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.prologue.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "silence",
+       "fade": 0.6
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "prologue/06",
+     "size": "t",
+     "cam": "zoom_out",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.prologue.06.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_night",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "prologue/07",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.prologue.07.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 1.2,
+       "do": "play",
+       "id": "tick",
+       "vol": -12.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "prologue/08",
+     "size": "w",
+     "cam": "pan_l",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.prologue.08.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "life_murmur",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "day",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "prologue/09",
+     "size": "t",
+     "cam": "zoom_out",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.prologue.09.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_dusk",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "night",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "prologue/10",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.prologue.10.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      },
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "knock",
+       "vol": -4.0
+      },
+      {
+       "at": 1.2,
+       "do": "play",
+       "id": "knock",
+       "vol": -4.0
+      },
+      {
+       "at": 1.8,
+       "do": "play",
+       "id": "knock",
+       "vol": -3.0
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.prologue.card"
+  },
+  "act1_intro": {
+   "kind": "act_intro",
+   "act": 1,
+   "title_key": "sl.act1_intro.title",
+   "music": "day",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "act1_intro/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act1_intro.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_day",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "day",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act1_intro/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act1_intro.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "life_murmur",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act1_intro/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act1_intro.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "latch",
+       "vol": -8.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act1_intro/04",
+     "size": "w",
+     "cam": "pan_l",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act1_intro.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_dusk",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "night",
+       "fade": 2.2
+      },
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "bell",
+       "vol": -14.0
+      },
+      {
+       "at": 2.0,
+       "do": "play",
+       "id": "life_dog",
+       "vol": -14.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act1_intro/05",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act1_intro.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_night",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "night",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.act1_intro.card"
+  },
+  "act2_intro": {
+   "kind": "act_intro",
+   "act": 2,
+   "title_key": "sl.act2_intro.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "act2_intro/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act2_intro.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_rain_drops",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      },
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "water_drip",
+       "vol": -12.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act2_intro/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act2_intro.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "mill_wheel",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act2_intro/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act2_intro.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "tick",
+       "vol": -10.0
+      },
+      {
+       "at": 1.6,
+       "do": "play",
+       "id": "tick",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "melnik"
+     ]
+    },
+    {
+     "file": "act2_intro/04",
+     "size": "w",
+     "cam": "pan_l",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act2_intro.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act2_intro/05",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act2_intro.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "mill_wheel",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.act2_intro.card"
+  },
+  "act3_intro": {
+   "kind": "act_intro",
+   "act": 3,
+   "title_key": "sl.act3_intro.title",
+   "music": "theme_tense",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "act3_intro/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act3_intro.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_blizzard",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act3_intro/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act3_intro.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "creak",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act3_intro/03",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act3_intro.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "crow",
+       "vol": -12.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act3_intro/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "ignat",
+       "key": "sl.act3_intro.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "ignat"
+     ]
+    },
+    {
+     "file": "act3_intro/05",
+     "size": "w",
+     "cam": "hold",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act3_intro.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.7,
+       "do": "play",
+       "id": "door_shut",
+       "vol": -3.0
+      },
+      {
+       "at": 1.3,
+       "do": "play",
+       "id": "latch",
+       "vol": -4.0
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.act3_intro.card"
+  },
+  "act4_intro": {
+   "kind": "act_intro",
+   "act": 4,
+   "title_key": "sl.act4_intro.title",
+   "music": "theme_hope",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "act4_intro/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act4_intro.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_hope",
+       "fade": 2.2
+      },
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "water_drip",
+       "vol": -12.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act4_intro/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act4_intro.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "whistle",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "smotritel"
+     ]
+    },
+    {
+     "file": "act4_intro/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act4_intro.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    },
+    {
+     "file": "act4_intro/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act4_intro.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      },
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "tick",
+       "vol": -8.0
+      },
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "tick",
+       "vol": -8.0
+      },
+      {
+       "at": 1.4,
+       "do": "play",
+       "id": "tick",
+       "vol": -8.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act4_intro/05",
+     "size": "w",
+     "cam": "pan_l",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act4_intro.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_dusk",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.act4_intro.card"
+  },
+  "act1_out_all": {
+   "kind": "act_outro",
+   "act": 1,
+   "title_key": "sl.act1_out_all.title",
+   "music": "end_dawn",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "act1_out_all/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act1_out_all.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_day",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "end_dawn",
+       "fade": 2.2
+      },
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "bell",
+       "vol": -12.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act1_out_all/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act1_out_all.02.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    }
+   ]
+  },
+  "act1_out_some": {
+   "kind": "act_outro",
+   "act": 1,
+   "title_key": "sl.act1_out_some.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "act1_out_some/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act1_out_some.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act1_out_some/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act1_out_some.02.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    }
+   ]
+  },
+  "act1_out_none": {
+   "kind": "act_outro",
+   "act": 1,
+   "title_key": "sl.act1_out_none.title",
+   "music": "theme_grief",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "act1_out_none/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act1_out_none.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_grief",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act1_out_none/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act1_out_none.02.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    }
+   ]
+  },
+  "act2_out_all": {
+   "kind": "act_outro",
+   "act": 2,
+   "title_key": "sl.act2_out_all.title",
+   "music": "end_dawn",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "act2_out_all/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act2_out_all.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "end_dawn",
+       "fade": 2.2
+      },
+      {
+       "at": 1.5,
+       "do": "play",
+       "id": "crow",
+       "vol": -12.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act2_out_all/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act2_out_all.02.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    }
+   ]
+  },
+  "act2_out_some": {
+   "kind": "act_outro",
+   "act": 2,
+   "title_key": "sl.act2_out_some.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "act2_out_some/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act2_out_some.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_rain",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      },
+      {
+       "at": 1.5,
+       "do": "play",
+       "id": "latch",
+       "vol": -5.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act2_out_some/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act2_out_some.02.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    }
+   ]
+  },
+  "act2_out_none": {
+   "kind": "act_outro",
+   "act": 2,
+   "title_key": "sl.act2_out_none.title",
+   "music": "theme_grief",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "act2_out_none/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act2_out_none.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_grief",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act2_out_none/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act2_out_none.02.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    }
+   ]
+  },
+  "act3_out_all": {
+   "kind": "act_outro",
+   "act": 3,
+   "title_key": "sl.act3_out_all.title",
+   "music": "end_dawn",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "act3_out_all/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act3_out_all.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "end_dawn",
+       "fade": 2.2
+      },
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "bell",
+       "vol": -4.0
+      },
+      {
+       "at": 3.0,
+       "do": "play",
+       "id": "bell",
+       "vol": -6.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act3_out_all/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act3_out_all.02.0"
+      }
+     ],
+     "sound": [],
+     "cast": [
+      "ignat"
+     ]
+    }
+   ]
+  },
+  "act3_out_some": {
+   "kind": "act_outro",
+   "act": 3,
+   "title_key": "sl.act3_out_some.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "act3_out_some/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act3_out_some.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      },
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "bell",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act3_out_some/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act3_out_some.02.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    }
+   ]
+  },
+  "act3_out_none": {
+   "kind": "act_outro",
+   "act": 3,
+   "title_key": "sl.act3_out_none.title",
+   "music": "theme_grief",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "act3_out_none/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act3_out_none.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_blizzard",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_grief",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act3_out_none/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act3_out_none.02.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    }
+   ]
+  },
+  "act3_out_trial": {
+   "kind": "act_outro",
+   "act": 3,
+   "title_key": "sl.act3_out_trial.title",
+   "music": "theme_grief",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "act3_out_trial/01",
+     "size": "w",
+     "cam": "pan_l",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act3_out_trial.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_blizzard",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_grief",
+       "fade": 2.2
+      },
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "door_shut",
+       "vol": -3.0
+      },
+      {
+       "at": 1.5,
+       "do": "play",
+       "id": "latch",
+       "vol": -4.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "act3_out_trial/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.act3_out_trial.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      },
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "call_far",
+       "vol": -8.0
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a1c1_intro": {
+   "kind": "ch_intro",
+   "act": 1,
+   "title_key": "sl.a1c1_intro.title",
+   "music": "night",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a1c1_intro/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c1_intro.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "river_theme",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a1c1_intro/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c1_intro.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "call_far",
+       "vol": -8.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a1c1_intro/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "marina",
+       "key": "sl.a1c1_intro.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.4,
+       "do": "play",
+       "id": "breath",
+       "vol": -14.0
+      }
+     ],
+     "cast": [
+      "marina"
+     ]
+    },
+    {
+     "file": "a1c1_intro/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c1_intro.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_dusk",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      },
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "tick",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "marina"
+     ]
+    },
+    {
+     "file": "a1c1_intro/05",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c1_intro.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_night",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      },
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "knock",
+       "vol": -4.0
+      },
+      {
+       "at": 1.1,
+       "do": "play",
+       "id": "knock",
+       "vol": -4.0
+      },
+      {
+       "at": 1.7,
+       "do": "play",
+       "id": "knock",
+       "vol": -3.0
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.a1c1_intro.card"
+  },
+  "a1c1_win": {
+   "kind": "ch_win",
+   "act": 1,
+   "title_key": "sl.a1c1_win.title",
+   "music": "end_dawn",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a1c1_win/01",
+     "size": "w",
+     "cam": "pan_l",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c1_win.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_day",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "end_dawn",
+       "fade": 2.2
+      },
+      {
+       "at": 0.3,
+       "do": "play",
+       "id": "dawn",
+       "vol": -8.0
+      },
+      {
+       "at": 1.2,
+       "do": "play",
+       "id": "life_hens",
+       "vol": -14.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a1c1_win/02",
+     "size": "t",
+     "cam": "zoom_out",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c1_win.02.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    },
+    {
+     "file": "a1c1_win/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "guest",
+       "key": "sl.a1c1_win.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    },
+    {
+     "file": "a1c1_win/04",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c1_win.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "life_murmur",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a1c1_twist": {
+   "kind": "ch_twist",
+   "act": 1,
+   "title_key": "sl.a1c1_twist.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a1c1_twist/01",
+     "size": "w",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c1_twist.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_dusk",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a1c1_twist/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c1_twist.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "breath_2",
+       "vol": -8.0
+      },
+      {
+       "at": 2.0,
+       "do": "play",
+       "id": "floorboard",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a1c1_twist/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c1_twist.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    },
+    {
+     "file": "a1c1_twist/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c1_twist.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "life_murmur",
+       "fade": 1.4
+      },
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "whisper",
+       "vol": -12.0
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a1c2_intro": {
+   "kind": "ch_intro",
+   "act": 1,
+   "title_key": "sl.a1c2_intro.title",
+   "music": "night",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a1c2_intro/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c2_intro.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "night",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a1c2_intro/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c2_intro.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "tap",
+       "vol": -14.0
+      }
+     ],
+     "cast": [
+      "gordey",
+      "agafya"
+     ]
+    },
+    {
+     "file": "a1c2_intro/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "gordey",
+       "key": "sl.a1c2_intro.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "breath",
+       "vol": -14.0
+      }
+     ],
+     "cast": [
+      "gordey"
+     ]
+    },
+    {
+     "file": "a1c2_intro/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c2_intro.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "whisper",
+       "vol": -14.0
+      },
+      {
+       "at": 2.5,
+       "do": "play",
+       "id": "life_dog",
+       "vol": -12.0
+      }
+     ],
+     "cast": [
+      "agafya"
+     ]
+    },
+    {
+     "file": "a1c2_intro/05",
+     "size": "w",
+     "cam": "pan_l",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c2_intro.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.a1c2_intro.card"
+  },
+  "a1c2_win": {
+   "kind": "ch_win",
+   "act": 1,
+   "title_key": "sl.a1c2_win.title",
+   "music": "end_dawn",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a1c2_win/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c2_win.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      },
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "exile",
+       "vol": -8.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a1c2_win/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c2_win.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_day",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a1c2_win/03",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c2_win.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_day",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "end_dawn",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a1c2_win/04",
+     "size": "w",
+     "cam": "pan_l",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c2_win.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "life_murmur",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a1c2_twist": {
+   "kind": "ch_twist",
+   "act": 1,
+   "title_key": "sl.a1c2_twist.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a1c2_twist/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c2_twist.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_night",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      },
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "call_far",
+       "vol": -8.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a1c2_twist/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "extra_thin",
+       "key": "sl.a1c2_twist.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.4,
+       "do": "play",
+       "id": "human_cry_m",
+       "vol": -6.0
+      },
+      {
+       "at": 1.5,
+       "do": "play",
+       "id": "tap",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "extra_thin"
+     ]
+    },
+    {
+     "file": "a1c2_twist/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c2_twist.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "water_drip",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a1c2_twist/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c2_twist.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "breath_3",
+       "vol": -8.0
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a1c3_intro": {
+   "kind": "ch_intro",
+   "act": 1,
+   "title_key": "sl.a1c3_intro.title",
+   "music": "night",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a1c3_intro/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c3_intro.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_rain_heavy",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      },
+      {
+       "at": 1.5,
+       "do": "play",
+       "id": "thunder",
+       "vol": -6.0
+      },
+      {
+       "at": 3.0,
+       "do": "play",
+       "id": "scare",
+       "vol": -18.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a1c3_intro/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "efim",
+       "key": "sl.a1c3_intro.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "tap",
+       "vol": -12.0
+      }
+     ],
+     "cast": [
+      "efim"
+     ]
+    },
+    {
+     "file": "a1c3_intro/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c3_intro.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      },
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "creak",
+       "vol": -8.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a1c3_intro/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c3_intro.04.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    },
+    {
+     "file": "a1c3_intro/05",
+     "size": "w",
+     "cam": "pan_l",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c3_intro.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_rain_heavy",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      },
+      {
+       "at": 2.0,
+       "do": "play",
+       "id": "upyr_cry",
+       "vol": -14.0
+      },
+      {
+       "at": 4.5,
+       "do": "play",
+       "id": "thunder",
+       "vol": -9.0
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.a1c3_intro.card"
+  },
+  "a1c3_win": {
+   "kind": "ch_win",
+   "act": 1,
+   "title_key": "sl.a1c3_win.title",
+   "music": "end_dawn",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a1c3_win/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c3_win.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "end_dawn",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a1c3_win/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c3_win.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "latch",
+       "vol": -6.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a1c3_win/03",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c3_win.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_day",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a1c3_win/04",
+     "size": "w",
+     "cam": "pan_l",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c3_win.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_hope",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a1c3_twist": {
+   "kind": "ch_twist",
+   "act": 1,
+   "title_key": "sl.a1c3_twist.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a1c3_twist/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c3_twist.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a1c3_twist/02",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c3_twist.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a1c3_twist/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c3_twist.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "glass",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a1c3_twist/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a1c3_twist.04.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    }
+   ]
+  },
+  "a2c1_intro": {
+   "kind": "ch_intro",
+   "act": 2,
+   "title_key": "sl.a2c1_intro.title",
+   "music": "night",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a2c1_intro/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c1_intro.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_rain_drops",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      },
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "water_drip",
+       "vol": -12.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a2c1_intro/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "melnik",
+       "key": "sl.a2c1_intro.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "mill_wheel",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "melnik"
+     ]
+    },
+    {
+     "file": "a2c1_intro/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c1_intro.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "page",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a2c1_intro/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c1_intro.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "chain",
+       "vol": -8.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a2c1_intro/05",
+     "size": "w",
+     "cam": "pan_l",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c1_intro.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.a2c1_intro.card"
+  },
+  "a2c1_win": {
+   "kind": "ch_win",
+   "act": 2,
+   "title_key": "sl.a2c1_win.title",
+   "music": "end_dawn",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a2c1_win/01",
+     "size": "w",
+     "cam": "pan_u",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c1_win.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_day",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "end_dawn",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a2c1_win/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c1_win.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "latch",
+       "vol": -6.0
+      }
+     ],
+     "cast": [
+      "melnik"
+     ]
+    },
+    {
+     "file": "a2c1_win/03",
+     "size": "t",
+     "cam": "pan_l",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c1_win.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "mill_wheel",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a2c1_win/04",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c1_win.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "mill_wheel",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_hope",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a2c1_twist": {
+   "kind": "ch_twist",
+   "act": 2,
+   "title_key": "sl.a2c1_twist.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a2c1_twist/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "melnik",
+       "key": "sl.a2c1_twist.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_rain",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "melnik"
+     ]
+    },
+    {
+     "file": "a2c1_twist/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "melnik",
+       "key": "sl.a2c1_twist.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "weep",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "melnik"
+     ]
+    },
+    {
+     "file": "a2c1_twist/03",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c1_twist.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    },
+    {
+     "file": "a2c1_twist/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c1_twist.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "chain",
+       "vol": -8.0
+      },
+      {
+       "at": 1.4,
+       "do": "play",
+       "id": "tick",
+       "vol": -12.0
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a2c2_intro": {
+   "kind": "ch_intro",
+   "act": 2,
+   "title_key": "sl.a2c2_intro.title",
+   "music": "night",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a2c2_intro/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c2_intro.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a2c2_intro/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c2_intro.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "water_drip",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "gordey",
+      "agafya",
+      "efim"
+     ]
+    },
+    {
+     "file": "a2c2_intro/03",
+     "size": "t",
+     "cam": "pan_l",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c2_intro.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a2c2_intro/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c2_intro.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "bell",
+       "vol": -6.0
+      },
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "water_drip",
+       "vol": -10.0
+      },
+      {
+       "at": 3.5,
+       "do": "play",
+       "id": "bell",
+       "vol": -9.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a2c2_intro/05",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c2_intro.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_night",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.a2c2_intro.card"
+  },
+  "a2c2_win": {
+   "kind": "ch_win",
+   "act": 2,
+   "title_key": "sl.a2c2_win.title",
+   "music": "end_dawn",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a2c2_win/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c2_win.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "end_dawn",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a2c2_win/02",
+     "size": "t",
+     "cam": "zoom_out",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c2_win.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "exile",
+       "vol": -8.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a2c2_win/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c2_win.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    },
+    {
+     "file": "a2c2_win/04",
+     "size": "w",
+     "cam": "pan_l",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c2_win.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_day",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_hope",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a2c2_twist": {
+   "kind": "ch_twist",
+   "act": 2,
+   "title_key": "sl.a2c2_twist.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a2c2_twist/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c2_twist.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_night",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      },
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "human_cry_m",
+       "vol": -6.0
+      }
+     ],
+     "cast": [
+      "extra_thin"
+     ]
+    },
+    {
+     "file": "a2c2_twist/02",
+     "size": "w",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c2_twist.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "bell",
+       "vol": -5.0
+      },
+      {
+       "at": 2.8,
+       "do": "play",
+       "id": "bell",
+       "vol": -7.0
+      },
+      {
+       "at": 4.0,
+       "do": "play",
+       "id": "upyr_cry",
+       "vol": -16.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a2c2_twist/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c2_twist.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": [
+      "agafya"
+     ]
+    },
+    {
+     "file": "a2c2_twist/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c2_twist.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "breath_3",
+       "vol": -8.0
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a2c3_intro": {
+   "kind": "ch_intro",
+   "act": 2,
+   "title_key": "sl.a2c3_intro.title",
+   "music": "night",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a2c3_intro/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c3_intro.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a2c3_intro/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c3_intro.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_bog",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a2c3_intro/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c3_intro.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "crow",
+       "vol": -12.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a2c3_intro/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c3_intro.04.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    },
+    {
+     "file": "a2c3_intro/05",
+     "size": "w",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c3_intro.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 1.2,
+       "do": "play",
+       "id": "scare",
+       "vol": -18.0
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.a2c3_intro.card"
+  },
+  "a2c3_win": {
+   "kind": "ch_win",
+   "act": 2,
+   "title_key": "sl.a2c3_win.title",
+   "music": "end_dawn",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a2c3_win/01",
+     "size": "w",
+     "cam": "pan_l",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c3_win.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_bog",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "end_dawn",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a2c3_win/02",
+     "size": "t",
+     "cam": "zoom_out",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c3_win.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a2c3_win/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c3_win.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    },
+    {
+     "file": "a2c3_win/04",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c3_win.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_hope",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a2c3_twist": {
+   "kind": "ch_twist",
+   "act": 2,
+   "title_key": "sl.a2c3_twist.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a2c3_twist/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c3_twist.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "life_murmur",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      },
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "whisper",
+       "vol": -12.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a2c3_twist/02",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c3_twist.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_fire",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      },
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "fire_crackle",
+       "vol": -8.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a2c3_twist/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c3_twist.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    },
+    {
+     "file": "a2c3_twist/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a2c3_twist.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "scratch",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a3c1_intro": {
+   "kind": "ch_intro",
+   "act": 3,
+   "title_key": "sl.a3c1_intro.title",
+   "music": "night",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a3c1_intro/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c1_intro.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_blizzard",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c1_intro/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c1_intro.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "latch",
+       "vol": -6.0
+      },
+      {
+       "at": 1.8,
+       "do": "play",
+       "id": "latch",
+       "vol": -6.0
+      },
+      {
+       "at": 2.8,
+       "do": "play",
+       "id": "latch",
+       "vol": -6.0
+      }
+     ],
+     "cast": [
+      "anfisa"
+     ]
+    },
+    {
+     "file": "a3c1_intro/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c1_intro.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c1_intro/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c1_intro.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 1.2,
+       "do": "play",
+       "id": "whisper",
+       "vol": -12.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c1_intro/05",
+     "size": "w",
+     "cam": "pan_l",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c1_intro.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_blizzard",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "agafya"
+     ]
+    }
+   ],
+   "card_key": "sl.a3c1_intro.card"
+  },
+  "a3c1_win": {
+   "kind": "ch_win",
+   "act": 3,
+   "title_key": "sl.a3c1_win.title",
+   "music": "end_dawn",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a3c1_win/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c1_win.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "end_dawn",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c1_win/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c1_win.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "life_murmur",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c1_win/03",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c1_win.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c1_win/04",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c1_win.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_hope",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a3c1_twist": {
+   "kind": "ch_twist",
+   "act": 3,
+   "title_key": "sl.a3c1_twist.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a3c1_twist/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c1_twist.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_night",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      },
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "scratch",
+       "vol": -6.0
+      },
+      {
+       "at": 1.5,
+       "do": "play",
+       "id": "scratch",
+       "vol": -8.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c1_twist/02",
+     "size": "w",
+     "cam": "pan_l",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c1_twist.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_blizzard",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c1_twist/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c1_twist.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "tick",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c1_twist/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c1_twist.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "breath_3",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a3c2_intro": {
+   "kind": "ch_intro",
+   "act": 3,
+   "title_key": "sl.a3c2_intro.title",
+   "music": "night",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a3c2_intro/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c2_intro.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_blizzard",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c2_intro/02",
+     "size": "t",
+     "cam": "shake",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c2_intro.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_night",
+       "fade": 1.4
+      },
+      {
+       "at": 0.4,
+       "do": "play",
+       "id": "bell",
+       "vol": -3.0
+      },
+      {
+       "at": 2.0,
+       "do": "play",
+       "id": "bell",
+       "vol": -4.0
+      },
+      {
+       "at": 3.6,
+       "do": "play",
+       "id": "bell",
+       "vol": -5.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c2_intro/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "ignat",
+       "key": "sl.a3c2_intro.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_church",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "ignat"
+     ]
+    },
+    {
+     "file": "a3c2_intro/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c2_intro.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "whisper",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c2_intro/05",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c2_intro.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_church",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.a3c2_intro.card"
+  },
+  "a3c2_win": {
+   "kind": "ch_win",
+   "act": 3,
+   "title_key": "sl.a3c2_win.title",
+   "music": "end_dawn",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a3c2_win/01",
+     "size": "w",
+     "cam": "pan_u",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c2_win.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "end_dawn",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c2_win/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c2_win.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_church",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c2_win/03",
+     "size": "t",
+     "cam": "pan_l",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c2_win.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c2_win/04",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c2_win.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_hope",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a3c2_twist": {
+   "kind": "ch_twist",
+   "act": 3,
+   "title_key": "sl.a3c2_twist.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a3c2_twist/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c2_twist.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_blizzard",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      },
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "knock",
+       "vol": -3.0
+      },
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "knock",
+       "vol": -3.0
+      },
+      {
+       "at": 1.8,
+       "do": "play",
+       "id": "door_shut",
+       "vol": -4.0
+      },
+      {
+       "at": 2.5,
+       "do": "play",
+       "id": "latch",
+       "vol": -4.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c2_twist/02",
+     "size": "w",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c2_twist.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_night",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      },
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "bell",
+       "vol": -3.0
+      },
+      {
+       "at": 2.2,
+       "do": "play",
+       "id": "bell",
+       "vol": -5.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c2_twist/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c2_twist.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_church",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c2_twist/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c2_twist.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.4,
+       "do": "play",
+       "id": "tick",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a3c3_intro": {
+   "kind": "ch_intro",
+   "act": 3,
+   "title_key": "sl.a3c3_intro.title",
+   "music": "night",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a3c3_intro/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c3_intro.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_fire",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      },
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "fire_crackle",
+       "vol": -8.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c3_intro/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c3_intro.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_church",
+       "fade": 1.4
+      },
+      {
+       "at": 0.7,
+       "do": "play",
+       "id": "water_drip",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c3_intro/03",
+     "size": "t",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c3_intro.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 1.4,
+       "do": "play",
+       "id": "scare",
+       "vol": -20.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c3_intro/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c3_intro.04.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    },
+    {
+     "file": "a3c3_intro/05",
+     "size": "w",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c3_intro.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      },
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "call_far",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.a3c3_intro.card"
+  },
+  "a3c3_win": {
+   "kind": "ch_win",
+   "act": 3,
+   "title_key": "sl.a3c3_win.title",
+   "music": "end_dawn",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a3c3_win/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c3_win.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_church",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "end_dawn",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c3_win/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "ignat",
+       "key": "sl.a3c3_win.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_church",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "ignat"
+     ]
+    },
+    {
+     "file": "a3c3_win/03",
+     "size": "t",
+     "cam": "zoom_out",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c3_win.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_hope",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c3_win/04",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c3_win.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_hope",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a3c3_twist": {
+   "kind": "ch_twist",
+   "act": 3,
+   "title_key": "sl.a3c3_twist.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a3c3_twist/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "ignat",
+       "key": "sl.a3c3_twist.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_church",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "ignat"
+     ]
+    },
+    {
+     "file": "a3c3_twist/02",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c3_twist.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "page",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a3c3_twist/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c3_twist.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    },
+    {
+     "file": "a3c3_twist/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a3c3_twist.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      },
+      {
+       "at": 1.5,
+       "do": "play",
+       "id": "call_far",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a4c1_intro": {
+   "kind": "ch_intro",
+   "act": 4,
+   "title_key": "sl.a4c1_intro.title",
+   "music": "night",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a4c1_intro/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c1_intro.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_rain_light",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a4c1_intro/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "smotritel",
+       "key": "sl.a4c1_intro.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "whistle",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "smotritel"
+     ]
+    },
+    {
+     "file": "a4c1_intro/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c1_intro.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "hammer",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "stepan"
+     ]
+    },
+    {
+     "file": "a4c1_intro/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c1_intro.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "tick",
+       "vol": -8.0
+      },
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "tick",
+       "vol": -8.0
+      },
+      {
+       "at": 1.4,
+       "do": "play",
+       "id": "tick",
+       "vol": -8.0
+      },
+      {
+       "at": 1.6,
+       "do": "play",
+       "id": "tick",
+       "vol": -8.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a4c1_intro/05",
+     "size": "w",
+     "cam": "pan_l",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c1_intro.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "life_murmur",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.a4c1_intro.card"
+  },
+  "a4c1_win": {
+   "kind": "ch_win",
+   "act": 4,
+   "title_key": "sl.a4c1_win.title",
+   "music": "end_dawn",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a4c1_win/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c1_win.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_day",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "end_dawn",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a4c1_win/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c1_win.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.4,
+       "do": "play",
+       "id": "page",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "smotritel"
+     ]
+    },
+    {
+     "file": "a4c1_win/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c1_win.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "life_murmur",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a4c1_win/04",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c1_win.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "whistle",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_hope",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a4c1_twist": {
+   "kind": "ch_twist",
+   "act": 4,
+   "title_key": "sl.a4c1_twist.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a4c1_twist/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c1_twist.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_night",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a4c1_twist/02",
+     "size": "w",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c1_twist.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "breath_3",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a4c1_twist/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c1_twist.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.7,
+       "do": "play",
+       "id": "scratch",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a4c1_twist/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c1_twist.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "tick",
+       "vol": -10.0
+      },
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "tick",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "smotritel"
+     ]
+    }
+   ]
+  },
+  "a4c2_intro": {
+   "kind": "ch_intro",
+   "act": 4,
+   "title_key": "sl.a4c2_intro.title",
+   "music": "night",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a4c2_intro/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c2_intro.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a4c2_intro/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "pisar",
+       "key": "sl.a4c2_intro.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "typewriter",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "pisar"
+     ]
+    },
+    {
+     "file": "a4c2_intro/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c2_intro.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "typewriter",
+       "fade": 1.4
+      },
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "page",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "smotritel"
+     ]
+    },
+    {
+     "file": "a4c2_intro/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c2_intro.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "creak",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a4c2_intro/05",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c2_intro.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_fire",
+       "fade": 1.4
+      },
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "fire_crackle",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.a4c2_intro.card"
+  },
+  "a4c2_win": {
+   "kind": "ch_win",
+   "act": 4,
+   "title_key": "sl.a4c2_win.title",
+   "music": "end_dawn",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a4c2_win/01",
+     "size": "w",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c2_win.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "typewriter",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "end_dawn",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a4c2_win/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c2_win.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "tap",
+       "vol": -4.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a4c2_win/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c2_win.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    },
+    {
+     "file": "a4c2_win/04",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c2_win.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_day",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_hope",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a4c2_twist": {
+   "kind": "ch_twist",
+   "act": 4,
+   "title_key": "sl.a4c2_twist.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a4c2_twist/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c2_twist.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "typewriter",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "smotritel"
+     ]
+    },
+    {
+     "file": "a4c2_twist/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "pisar",
+       "key": "sl.a4c2_twist.02.0"
+      }
+     ],
+     "sound": [],
+     "cast": [
+      "pisar"
+     ]
+    },
+    {
+     "file": "a4c2_twist/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c2_twist.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "page",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a4c2_twist/04",
+     "size": "w",
+     "cam": "pan_l",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c2_twist.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "life_murmur",
+       "fade": 1.4
+      },
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "whisper",
+       "vol": -12.0
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a4c3_intro": {
+   "kind": "ch_intro",
+   "act": 4,
+   "title_key": "sl.a4c3_intro.title",
+   "music": "night",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a4c3_intro/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c3_intro.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a4c3_intro/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c3_intro.02.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    },
+    {
+     "file": "a4c3_intro/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c3_intro.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "creak",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a4c3_intro/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c3_intro.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_night",
+       "fade": 1.4
+      },
+      {
+       "at": 0.4,
+       "do": "play",
+       "id": "knock",
+       "vol": -3.0
+      },
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "knock",
+       "vol": -3.0
+      },
+      {
+       "at": 1.6,
+       "do": "play",
+       "id": "knock",
+       "vol": -2.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a4c3_intro/05",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c3_intro.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "whistle",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      },
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "call_far",
+       "vol": -14.0
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.a4c3_intro.card"
+  },
+  "a4c3_win": {
+   "kind": "ch_win",
+   "act": 4,
+   "title_key": "sl.a4c3_win.title",
+   "music": "end_dawn",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a4c3_win/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c3_win.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "train",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "end_dawn",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a4c3_win/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c3_win.02.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    },
+    {
+     "file": "a4c3_win/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c3_win.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    },
+    {
+     "file": "a4c3_win/04",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c3_win.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "train",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "end_dawn",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "a4c3_twist": {
+   "kind": "ch_twist",
+   "act": 4,
+   "title_key": "sl.a4c3_twist.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "a4c3_twist/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c3_twist.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_night",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      },
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "call_far",
+       "vol": -8.0
+      },
+      {
+       "at": 1.8,
+       "do": "play",
+       "id": "knock",
+       "vol": -4.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a4c3_twist/02",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c3_twist.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "train",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_grief",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "a4c3_twist/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c3_twist.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    },
+    {
+     "file": "a4c3_twist/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.a4c3_twist.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    }
+   ]
+  },
+  "bio_marina": {
+   "kind": "bio",
+   "act": 0,
+   "title_key": "sl.bio_marina.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "bio_marina/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_marina.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "marina"
+     ]
+    },
+    {
+     "file": "bio_marina/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_marina.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "call_far",
+       "vol": -12.0
+      }
+     ],
+     "cast": [
+      "marina"
+     ]
+    },
+    {
+     "file": "bio_marina/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_marina.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "marina"
+     ]
+    }
+   ]
+  },
+  "bio_zhenya": {
+   "kind": "bio",
+   "act": 0,
+   "title_key": "sl.bio_zhenya.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "bio_zhenya/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_zhenya.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_night",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "zhenya"
+     ]
+    },
+    {
+     "file": "bio_zhenya/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_zhenya.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "zhenya"
+     ]
+    },
+    {
+     "file": "bio_zhenya/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_zhenya.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": [
+      "zhenya"
+     ]
+    }
+   ]
+  },
+  "bio_timur": {
+   "kind": "bio",
+   "act": 0,
+   "title_key": "sl.bio_timur.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "bio_timur/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_timur.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "timur"
+     ]
+    },
+    {
+     "file": "bio_timur/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_timur.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "crow",
+       "vol": -12.0
+      }
+     ],
+     "cast": [
+      "timur"
+     ]
+    },
+    {
+     "file": "bio_timur/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_timur.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_dusk",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "timur"
+     ]
+    }
+   ]
+  },
+  "bio_lida": {
+   "kind": "bio",
+   "act": 0,
+   "title_key": "sl.bio_lida.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "bio_lida/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_lida.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_day",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "lida"
+     ]
+    },
+    {
+     "file": "bio_lida/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_lida.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "page",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "lida"
+     ]
+    },
+    {
+     "file": "bio_lida/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_lida.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_night",
+       "fade": 1.4
+      },
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "whisper",
+       "vol": -14.0
+      }
+     ],
+     "cast": [
+      "lida"
+     ]
+    }
+   ]
+  },
+  "bio_kostya": {
+   "kind": "bio",
+   "act": 0,
+   "title_key": "sl.bio_kostya.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "bio_kostya/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_kostya.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "kostya"
+     ]
+    },
+    {
+     "file": "bio_kostya/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_kostya.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_night",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "kostya"
+     ]
+    },
+    {
+     "file": "bio_kostya/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_kostya.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 1.2,
+       "do": "play",
+       "id": "call_far",
+       "vol": -14.0
+      }
+     ],
+     "cast": [
+      "kostya"
+     ]
+    }
+   ]
+  },
+  "bio_tikhon": {
+   "kind": "bio",
+   "act": 0,
+   "title_key": "sl.bio_tikhon.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "bio_tikhon/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_tikhon.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "tikhon"
+     ]
+    },
+    {
+     "file": "bio_tikhon/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_tikhon.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "tikhon"
+     ]
+    },
+    {
+     "file": "bio_tikhon/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_tikhon.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": [
+      "tikhon"
+     ]
+    }
+   ]
+  },
+  "bio_zakhar": {
+   "kind": "bio",
+   "act": 0,
+   "title_key": "sl.bio_zakhar.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "bio_zakhar/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_zakhar.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_night",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "zakhar"
+     ]
+    },
+    {
+     "file": "bio_zakhar/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_zakhar.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "cup_break",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "zakhar"
+     ]
+    },
+    {
+     "file": "bio_zakhar/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_zakhar.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": [
+      "zakhar"
+     ]
+    }
+   ]
+  },
+  "bio_rita": {
+   "kind": "bio",
+   "act": 0,
+   "title_key": "sl.bio_rita.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "bio_rita/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_rita.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_day",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "rita"
+     ]
+    },
+    {
+     "file": "bio_rita/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_rita.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "tick",
+       "vol": -8.0
+      },
+      {
+       "at": 1.5,
+       "do": "play",
+       "id": "tick",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "rita"
+     ]
+    },
+    {
+     "file": "bio_rita/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_rita.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": [
+      "rita"
+     ]
+    }
+   ]
+  },
+  "bio_misha": {
+   "kind": "bio",
+   "act": 0,
+   "title_key": "sl.bio_misha.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "bio_misha/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_misha.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "misha"
+     ]
+    },
+    {
+     "file": "bio_misha/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_misha.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_blizzard",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "misha"
+     ]
+    },
+    {
+     "file": "bio_misha/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_misha.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": [
+      "misha"
+     ]
+    }
+   ]
+  },
+  "bio_nina": {
+   "kind": "bio",
+   "act": 0,
+   "title_key": "sl.bio_nina.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "bio_nina/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_nina.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_blizzard",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      },
+      {
+       "at": 1.2,
+       "do": "play",
+       "id": "wolf",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "nina"
+     ]
+    },
+    {
+     "file": "bio_nina/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_nina.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "life_murmur",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "nina"
+     ]
+    },
+    {
+     "file": "bio_nina/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_nina.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "nina"
+     ]
+    }
+   ]
+  },
+  "bio_vadim": {
+   "kind": "bio",
+   "act": 0,
+   "title_key": "sl.bio_vadim.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "bio_vadim/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_vadim.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_day",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "vadim"
+     ]
+    },
+    {
+     "file": "bio_vadim/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_vadim.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "knock",
+       "vol": -10.0
+      },
+      {
+       "at": 1.4,
+       "do": "play",
+       "id": "knock",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "vadim"
+     ]
+    },
+    {
+     "file": "bio_vadim/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_vadim.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": [
+      "vadim"
+     ]
+    }
+   ]
+  },
+  "bio_polina": {
+   "kind": "bio",
+   "act": 0,
+   "title_key": "sl.bio_polina.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "bio_polina/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_polina.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_fire",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      },
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "hammer",
+       "vol": -8.0
+      }
+     ],
+     "cast": [
+      "polina"
+     ]
+    },
+    {
+     "file": "bio_polina/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_polina.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "polina"
+     ]
+    },
+    {
+     "file": "bio_polina/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.bio_polina.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": [
+      "polina"
+     ]
+    }
+   ]
+  },
+  "guest_gordey": {
+   "kind": "guest",
+   "act": 0,
+   "title_key": "sl.guest_gordey.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "guest_gordey/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_gordey.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "gordey"
+     ]
+    },
+    {
+     "file": "guest_gordey/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_gordey.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_day",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "gordey"
+     ]
+    },
+    {
+     "file": "guest_gordey/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_gordey.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": [
+      "gordey"
+     ]
+    }
+   ]
+  },
+  "guest_agafya": {
+   "kind": "guest",
+   "act": 0,
+   "title_key": "sl.guest_agafya.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "guest_agafya/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_agafya.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "agafya"
+     ]
+    },
+    {
+     "file": "guest_agafya/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_agafya.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "whisper",
+       "vol": -14.0
+      },
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "life_dog",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "agafya"
+     ]
+    },
+    {
+     "file": "guest_agafya/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_agafya.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": [
+      "agafya"
+     ]
+    }
+   ]
+  },
+  "guest_efim": {
+   "kind": "guest",
+   "act": 0,
+   "title_key": "sl.guest_efim.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "guest_efim/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_efim.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_day",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "efim"
+     ]
+    },
+    {
+     "file": "guest_efim/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_efim.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "life_murmur",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "efim"
+     ]
+    },
+    {
+     "file": "guest_efim/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_efim.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "glass",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "efim"
+     ]
+    }
+   ]
+  },
+  "guest_stepan": {
+   "kind": "guest",
+   "act": 0,
+   "title_key": "sl.guest_stepan.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "guest_stepan/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_stepan.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "rails",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "stepan"
+     ]
+    },
+    {
+     "file": "guest_stepan/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_stepan.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "hammer",
+       "vol": -8.0
+      }
+     ],
+     "cast": [
+      "stepan"
+     ]
+    },
+    {
+     "file": "guest_stepan/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_stepan.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": [
+      "stepan"
+     ]
+    }
+   ]
+  },
+  "guest_pisar": {
+   "kind": "guest",
+   "act": 0,
+   "title_key": "sl.guest_pisar.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "guest_pisar/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_pisar.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "typewriter",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "pisar"
+     ]
+    },
+    {
+     "file": "guest_pisar/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_pisar.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.4,
+       "do": "play",
+       "id": "tick",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "pisar"
+     ]
+    },
+    {
+     "file": "guest_pisar/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_pisar.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "typewriter",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "pisar"
+     ]
+    }
+   ]
+  },
+  "guest_gordey_human": {
+   "kind": "guest",
+   "act": 0,
+   "title_key": "sl.guest_gordey_human.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "guest_gordey_human/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_gordey_human.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "gasp",
+       "vol": -8.0
+      }
+     ],
+     "cast": [
+      "gordey"
+     ]
+    },
+    {
+     "file": "guest_gordey_human/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_gordey_human.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "life_murmur",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "gordey"
+     ]
+    }
+   ]
+  },
+  "guest_gordey_upyr": {
+   "kind": "guest",
+   "act": 0,
+   "title_key": "sl.guest_gordey_upyr.title",
+   "music": "theme_tense",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "guest_gordey_upyr/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_gordey_upyr.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "gordey"
+     ]
+    },
+    {
+     "file": "guest_gordey_upyr/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_gordey_upyr.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "breath_3",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "gordey"
+     ]
+    }
+   ]
+  },
+  "guest_agafya_human": {
+   "kind": "guest",
+   "act": 0,
+   "title_key": "sl.guest_agafya_human.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "guest_agafya_human/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_agafya_human.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "weep",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "agafya"
+     ]
+    },
+    {
+     "file": "guest_agafya_human/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_agafya_human.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "agafya"
+     ]
+    }
+   ]
+  },
+  "guest_agafya_upyr": {
+   "kind": "guest",
+   "act": 0,
+   "title_key": "sl.guest_agafya_upyr.title",
+   "music": "theme_tense",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "guest_agafya_upyr/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_agafya_upyr.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "scare",
+       "vol": -18.0
+      }
+     ],
+     "cast": [
+      "agafya"
+     ]
+    },
+    {
+     "file": "guest_agafya_upyr/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_agafya_upyr.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_night",
+       "fade": 1.4
+      },
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "breath_3",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "agafya"
+     ]
+    }
+   ]
+  },
+  "guest_efim_human": {
+   "kind": "guest",
+   "act": 0,
+   "title_key": "sl.guest_efim_human.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "guest_efim_human/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_efim_human.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "efim"
+     ]
+    },
+    {
+     "file": "guest_efim_human/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_efim_human.02.0"
+      }
+     ],
+     "sound": [],
+     "cast": [
+      "efim"
+     ]
+    }
+   ]
+  },
+  "guest_efim_upyr": {
+   "kind": "guest",
+   "act": 0,
+   "title_key": "sl.guest_efim_upyr.title",
+   "music": "theme_tense",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "guest_efim_upyr/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_efim_upyr.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "scare",
+       "vol": -18.0
+      }
+     ],
+     "cast": [
+      "efim"
+     ]
+    },
+    {
+     "file": "guest_efim_upyr/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_efim_upyr.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "growl",
+       "vol": -12.0
+      }
+     ],
+     "cast": [
+      "efim"
+     ]
+    }
+   ]
+  },
+  "guest_stepan_human": {
+   "kind": "guest",
+   "act": 0,
+   "title_key": "sl.guest_stepan_human.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "guest_stepan_human/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_stepan_human.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "rails",
+       "fade": 1.4
+      },
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "hammer",
+       "vol": -8.0
+      }
+     ],
+     "cast": [
+      "stepan"
+     ]
+    },
+    {
+     "file": "guest_stepan_human/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_stepan_human.02.0"
+      }
+     ],
+     "sound": [],
+     "cast": [
+      "stepan"
+     ]
+    }
+   ]
+  },
+  "guest_stepan_upyr": {
+   "kind": "guest",
+   "act": 0,
+   "title_key": "sl.guest_stepan_upyr.title",
+   "music": "theme_tense",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "guest_stepan_upyr/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_stepan_upyr.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_fire",
+       "fade": 1.4
+      },
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "fire_crackle",
+       "vol": -8.0
+      }
+     ],
+     "cast": [
+      "stepan"
+     ]
+    },
+    {
+     "file": "guest_stepan_upyr/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_stepan_upyr.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "breath_3",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "stepan"
+     ]
+    }
+   ]
+  },
+  "guest_pisar_human": {
+   "kind": "guest",
+   "act": 0,
+   "title_key": "sl.guest_pisar_human.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "guest_pisar_human/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_pisar_human.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "typewriter",
+       "fade": 1.4
+      },
+      {
+       "at": 0.4,
+       "do": "play",
+       "id": "tick",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "pisar"
+     ]
+    },
+    {
+     "file": "guest_pisar_human/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_pisar_human.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "page",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "pisar"
+     ]
+    }
+   ]
+  },
+  "guest_pisar_upyr": {
+   "kind": "guest",
+   "act": 0,
+   "title_key": "sl.guest_pisar_upyr.title",
+   "music": "theme_tense",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "guest_pisar_upyr/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_pisar_upyr.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_wind",
+       "fade": 1.4
+      },
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "breath_3",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "pisar"
+     ]
+    },
+    {
+     "file": "guest_pisar_upyr/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.guest_pisar_upyr.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "scare",
+       "vol": -18.0
+      }
+     ],
+     "cast": [
+      "pisar"
+     ]
+    }
+   ]
+  },
+  "npc_melnik": {
+   "kind": "npc",
+   "act": 0,
+   "title_key": "sl.npc_melnik.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "npc_melnik/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.npc_melnik.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "mill_wheel",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "melnik"
+     ]
+    },
+    {
+     "file": "npc_melnik/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.npc_melnik.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_rain",
+       "fade": 1.4
+      },
+      {
+       "at": 0.6,
+       "do": "play",
+       "id": "door_open",
+       "vol": -6.0
+      }
+     ],
+     "cast": [
+      "melnik"
+     ]
+    },
+    {
+     "file": "npc_melnik/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.npc_melnik.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "mill_wheel",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "melnik"
+     ]
+    }
+   ]
+  },
+  "npc_ignat": {
+   "kind": "npc",
+   "act": 0,
+   "title_key": "sl.npc_ignat.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "npc_ignat/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.npc_ignat.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_church",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "ignat"
+     ]
+    },
+    {
+     "file": "npc_ignat/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.npc_ignat.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "page",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "ignat"
+     ]
+    },
+    {
+     "file": "npc_ignat/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.npc_ignat.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_church",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "ignat"
+     ]
+    }
+   ]
+  },
+  "npc_anfisa": {
+   "kind": "npc",
+   "act": 0,
+   "title_key": "sl.npc_anfisa.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "npc_anfisa/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.npc_anfisa.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_church",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "anfisa"
+     ]
+    },
+    {
+     "file": "npc_anfisa/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.npc_anfisa.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "page",
+       "vol": -10.0
+      }
+     ],
+     "cast": [
+      "anfisa"
+     ]
+    },
+    {
+     "file": "npc_anfisa/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.npc_anfisa.03.0"
+      }
+     ],
+     "sound": [],
+     "cast": [
+      "anfisa"
+     ]
+    }
+   ]
+  },
+  "npc_smotritel": {
+   "kind": "npc",
+   "act": 0,
+   "title_key": "sl.npc_smotritel.title",
+   "music": "theme_sad",
+   "flash_to": 2,
+   "panels": [
+    {
+     "file": "npc_smotritel/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.npc_smotritel.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "whistle",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": [
+      "smotritel"
+     ]
+    },
+    {
+     "file": "npc_smotritel/02",
+     "size": "t",
+     "cam": "pan_u",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.npc_smotritel.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "typewriter",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "smotritel"
+     ]
+    },
+    {
+     "file": "npc_smotritel/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.npc_smotritel.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "train",
+       "fade": 1.4
+      }
+     ],
+     "cast": [
+      "smotritel"
+     ]
+    }
+   ]
+  },
+  "final_shore": {
+   "kind": "finale",
+   "act": 0,
+   "title_key": "sl.final_shore.title",
+   "music": "end_dark",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "final_shore/01",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_shore.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_night",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      },
+      {
+       "at": 0.5,
+       "do": "play",
+       "id": "door_open",
+       "vol": -4.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "final_shore/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_shore.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "door_shut",
+       "vol": -4.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "final_shore/03",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_shore.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_grief",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "final_shore/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_shore.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "train",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_grief",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "final_shore/05",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_shore.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_river",
+       "fade": 1.4
+      },
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "call_far",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.final_shore.card"
+  },
+  "final_upyr": {
+   "kind": "finale",
+   "act": 0,
+   "title_key": "sl.final_upyr.title",
+   "music": "theme_tense",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "final_upyr/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_upyr.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "train",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_tense",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "final_upyr/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_upyr.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "train",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "final_upyr/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_upyr.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "whistle",
+       "fade": 1.4
+      },
+      {
+       "at": 1.0,
+       "do": "play",
+       "id": "door_shut",
+       "vol": -6.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "final_upyr/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_upyr.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.8,
+       "do": "play",
+       "id": "scratch",
+       "vol": -10.0
+      },
+      {
+       "at": 1.8,
+       "do": "play",
+       "id": "breath_3",
+       "vol": -10.0
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "final_upyr/05",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_upyr.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "train",
+       "fade": 1.4
+      },
+      {
+       "at": 1.5,
+       "do": "play",
+       "id": "growl",
+       "vol": -14.0
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.final_upyr.card"
+  },
+  "final_many": {
+   "kind": "finale",
+   "act": 0,
+   "title_key": "sl.final_many.title",
+   "music": "end_dawn",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "final_many/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_many.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "train",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "end_dawn",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "final_many/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_many.02.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "life_murmur",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "final_many/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_many.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "train",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "final_many/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_many.04.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    },
+    {
+     "file": "final_many/05",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_many.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "train",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_hope",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.final_many.card"
+  },
+  "final_few": {
+   "kind": "finale",
+   "act": 0,
+   "title_key": "sl.final_few.title",
+   "music": "theme_sad",
+   "flash_to": 0,
+   "panels": [
+    {
+     "file": "final_few/01",
+     "size": "w",
+     "cam": "pan_r",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_few.01.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "train",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_sad",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "final_few/02",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_few.02.0"
+      }
+     ],
+     "sound": [],
+     "cast": []
+    },
+    {
+     "file": "final_few/03",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_few.03.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "train",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "final_few/04",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "B",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_few.04.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "train",
+       "fade": 1.4
+      }
+     ],
+     "cast": []
+    },
+    {
+     "file": "final_few/05",
+     "size": "t",
+     "cam": "zoom_in",
+     "wave": "A",
+     "lines": [
+      {
+       "who": "",
+       "key": "sl.final_few.05.0"
+      }
+     ],
+     "sound": [
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "amb",
+       "id": "train",
+       "fade": 1.4
+      },
+      {
+       "at": 0.0,
+       "do": "start",
+       "layer": "music",
+       "id": "theme_grief",
+       "fade": 2.2
+      }
+     ],
+     "cast": []
+    }
+   ],
+   "card_key": "sl.final_few.card"
+  }
+ }
+}

@@ -27,6 +27,11 @@ func mood() -> Vector2:
 	return Vector2(0.1, 0.3)
 
 
+## Рассвет после ночи идёт 3,4 с: небо светлеет, окна гаснут (TASK-079).
+func mood_duration() -> float:
+	return 3.4
+
+
 func build() -> void:
 	var r := m.report
 	var deaths := r.deaths()
@@ -82,7 +87,26 @@ func _scene_then_reveal(r: NightReport) -> void:
 		scene_chosen(sc, choice)
 		if not is_instance_valid(self):
 			return
+	await _guest_comics()
+	if not is_instance_valid(self):
+		return
 	_reveal(r)
+
+
+## Утро разгадки гостя (TASK-106): колода комикса «человек» или «упырь». Раз на гостя, повторы по настройке.
+func _guest_comics() -> void:
+	if not Save.comics_on or (Juice.instant and not SlidePlayer.instant_play):
+		return
+	for c: Dictionary in Guests.morning_clues(m):
+		if not bool(c.reveal):
+			continue
+		var v: Villager = c.who
+		var gid := String(Slides.GUEST_BY_GAME.get(v.guest_id, ""))
+		if gid.is_empty():
+			continue
+		await SlidePlayer.play(self, "guest_%s_%s" % [gid, "upyr" if v.is_upyr else "human"])
+		if not is_instance_valid(self):
+			return
 
 
 static func morning_scene(mm: Match, r: NightReport) -> Dictionary:
@@ -114,6 +138,10 @@ static func morning_scene(mm: Match, r: NightReport) -> Dictionary:
 	if ch == "a3c3" and not Game.scenes_done.has("crypt"):
 		Game.scenes_done["crypt"] = true
 		return Scenes.crypt(mm)
+	# акт IV (TASK-086): первое утро второй главы: в тумане два огня
+	if ch == "a4c2" and not Game.scenes_done.has("lights") and mm.day == 1:
+		Game.scenes_done["lights"] = true
+		return Scenes.headlights(mm)
 	# акт IV (TASK-034): союзник на перроне
 	if ch == "a4c3" and not Game.scenes_done.has("betray") and mm.day >= 2 and Game.director != null:
 		var ally := mm.get_villager(Game.director.ally_id)
@@ -421,4 +449,17 @@ func ambience() -> StringName:
 
 
 func music() -> StringName:
-	return &""
+	return &"theme_pair" if Sfx.has_theme(&"theme_pair") and lost_partner() else &""
+
+
+## Этим утром кто-то из живых потерял пару: играет тема пары, если файл темы есть.
+func lost_partner() -> bool:
+	if m == null or m.report == null:
+		return false
+	for e: NightReport.Entry in m.report.deaths():
+		if e.who == null:
+			continue
+		for kin: Villager in m.mourners(e.who):
+			if kin.partner_id == e.who.id:
+				return true
+	return false

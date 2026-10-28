@@ -321,6 +321,16 @@ static func campaign_memory(fails: PackedStringArray) -> int:
 	for r2: Dictionary in Save.campaign_memory:
 		n_a1c3 += 1 if r2.ch == "a1c3" else 0
 	ok += SelfTest._expect(fails, n_a1c3 == 1, "память: повтор главы задвоил записи")
+	# кто в какой главе погиб: переживает перезапуск, поэтому повтор главы собирает посёлок как на её старте
+	var lost_two: Array[int] = [6]
+	Save.record_chapter("a1c1", 1, [])
+	Save.record_chapter("a1c2", 1, lost_two, PackedStringArray(["widow"]))
+	Save.load_all()
+	var before_c2 := Campaign.lost_before("a1c2")
+	var before_c3 := Campaign.lost_before("a1c3")
+	ok += SelfTest._expect(fails, str(Save.campaign_lost_in.get("a1c2", "")) == "6|widow" and before_c2.has("n") and (before_c2.n as Array).is_empty()
+		and str(before_c3.get("n", [])) == "[6]" and (before_c3.get("g", PackedStringArray()) as PackedStringArray).has("widow"),
+		"погибшие по главам: %s / %s" % [Save.campaign_lost_in, before_c3])
 	# сброс кампании стирает память
 	Save.campaign_reset()
 	ok += SelfTest._expect(fails, Save.campaign_memory.is_empty(), "память: сброс кампании её не стёр")
@@ -895,7 +905,7 @@ static func group_four(fails: PackedStringArray) -> int:
 	var deny_upyr := 0
 	var asked_upyr := 0
 	for ch: String in ["a1c2", "a1c3"]:
-		for sd in range(30):
+		for sd in range(60):     # упырь признаётся в четверти случаев: на 30 сидах выборка в 19 раз давала 9 из 19
 			var md := _chapter_match(ch, 3300 + sd)
 			var m: Match = md[0]
 			var d: Director = md[1]

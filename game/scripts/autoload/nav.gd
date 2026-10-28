@@ -23,6 +23,8 @@ var _toast: Label
 var _exit_armed := false
 var _started := false
 var _frame_pending := false
+## Сколько раз кадрирование поля сейчас ждёт раскладку; для самотестов (ждут, пока кадр устоится).
+var frame_busy := 0
 var _menu_preview: Match
 var _menu_horror: Node
 var perf: PerfGuard               ## кадры: автоупрощение графики и счётчик в отладке (TASK-070)
@@ -161,6 +163,9 @@ func start() -> void:
 		show(crash_screen)
 	else:
 		show_menu()
+	if not Save.load_notice.is_empty():
+		toast(L.t("save." + Save.load_notice), 5.0)    # файл прогресса не читался: восстановлен или начат заново
+		Save.load_notice = ""
 
 
 func set_simplified_graphics(on: bool) -> void:
@@ -215,6 +220,15 @@ func show_settings() -> void:
 	show(s)
 
 
+## Скрытое отладочное меню. Только в отладочной сборке.
+func show_debug() -> void:
+	if not DebugScreen.available():
+		return
+	Game.abandon()
+	_home_village()
+	show(DebugScreen.new())
+
+
 func show_wardrobe() -> void:
 	Game.abandon()
 	_home_village()
@@ -226,10 +240,10 @@ func start_match(varied_solo_map: bool = false) -> void:
 
 
 ## Глава кампании. Пустой id — продолжить с первой непройденной.
-func start_chapter(id: String = "") -> void:
+func start_chapter(id: String = "", force: bool = false) -> void:
 	if id.is_empty():
 		id = Campaign.current()
-	if not Campaign.unlocked(id):
+	if not force and not Campaign.unlocked(id):
 		toast(L.t("camp.locked"))
 		return
 	Save.mark_howto()                      # правила новичку объясняются по ходу главы
@@ -283,6 +297,7 @@ func show(s: Screen) -> void:
 	s.setup(Game.m, Game.director)
 	s.intent.connect(handle_intent.bind(s))
 	host.show_screen(s)
+	atmos.set_tension(Game.m.day if Game.m != null and (s is DoorScreen or s is NightScreen) else 0)
 	if s.door_open() >= 0.0:
 		atmos.set_door_place(Game.m.village.ground if Game.m != null else "")
 		atmos.door(s.door_open())
@@ -293,6 +308,10 @@ func show(s: Screen) -> void:
 		var d := s as DoorScreen
 		d.knock_fx.connect(atmos.knock)
 		d.open_fx.connect(func(a: float) -> void: atmos.door(a, 0.5))
+		d.candle_fx.connect(func(level: int) -> void: atmos.set_candle(level, false))
+		d.flicker_fx.connect(atmos.flicker)
+		d.shadow_fx.connect(atmos.pass_shadow)
+		atmos.set_candle(Game.m.candle if Game.m != null and d.role == Match.DoorRole.HOST else 0, true)
 	if s is MorningScreen:
 		(s as MorningScreen).death_fx.connect(atmos.blood_flash)
 	if s is NightScreen and Game.m != null:
@@ -339,8 +358,10 @@ func _refresh_field_layout() -> void:
 
 
 func _frame_field(s: Screen) -> void:
+	frame_busy += 1
 	for i in range(3):
 		await get_tree().process_frame
+	frame_busy -= 1
 	if not is_instance_valid(s) or s != host.current:
 		return
 	var dur := 0.0 if Juice.instant else 0.6
@@ -354,6 +375,7 @@ func _frame_field(s: Screen) -> void:
 		var is_day := s is DayScreen and me_fig != null
 		var follow_player := is_day and Game.m.player().alive
 		village.follow = me_fig if follow_player else null
+		village.parallax = is_day                      # сдвиг слоёв только на дневном экране, ночью и в меню они стоят
 		var zoom := s.field_zoom() if not is_day or follow_player else 1.0
 		village.frame_to(r, ui.size.x, dur, zoom, me_fig.position.x if follow_player else -1.0, is_day)
 		village.jobs_layer.m = Game.m
@@ -366,6 +388,7 @@ func _frame_field(s: Screen) -> void:
 		_tween_to(scrim, "strength", 1.0, dur)
 	else:
 		village.follow = null
+		village.parallax = false
 		village.jobs_layer.visible = false
 		_tween_to(village, "modulate:a", 0.0, dur * 0.6)
 		_tween_to(scrim, "strength", 0.0, dur * 0.6)
@@ -378,15 +401,18 @@ func _sync_traces(phase: Match.Phase) -> void:
 	var blood := PackedVector2Array()
 	var trails := PackedVector2Array()
 	var after_night := phase == Match.Phase.MORNING or phase == Match.Phase.DAY or phase == Match.Phase.VOTE or phase == Match.Phase.OVER
-	if after_night and Game.m.report != null:
-		for e: NightReport.Entry in Game.m.report.deaths():
-			if e.house >= 0 and e.house < village.def.shelters.size():
-				var d := village.door_point(e.house)
-				blood.append(d + Vector2(0, 4))
-				if not trails.has(d):
-					trails.append(d)
-			elif e.who != null:
-				blood.append(village.street_point(e.who.id))
+	# TASK-090: следы идут из журнала и держатся до конца главы, не больше TRACE_LIMIT на карте
+	if phase != Match.Phase.PROLOGUE and phase != Match.Phase.IDLE:
+		for t: Dictionary in Game.m.world.ground_traces(0):
+			var h := int(t.house)
+			var on_house := h >= 0 and h < village.def.shelters.size()
+			if t.kind == "blood":
+				if on_house:
+					blood.append(village.door_point(h) + Vector2(0, 4))
+				elif h < 0:
+					blood.append(village.street_point(int(t.who)))
+			elif on_house:
+				trails.append(village.door_point(h))
 	village.set_traces(blood, trails)
 	var losses := {}
 	if after_night:
@@ -438,7 +464,8 @@ func _home_village() -> void:
 ## Звуковые слои мира (TASK-069): погода, жизнь посёлка и напряжение по состоянию партии.
 ## Чем меньше живых, тем тише говор; к ночи и к пустому посёлку фон глохнет, пульс частит.
 func _mix_world(phase: int) -> void:
-	Sfx.set_weather_layer(village.weather_state)
+	# у двери ночью игрок в доме: дождь слышен через стену и по крыше, гром глухой
+	Sfx.set_weather_layer(village.weather_state, 3.0, phase == Match.Phase.DOOR)
 	var total := Game.m.villagers.size()
 	var alive := 0
 	for v: Villager in Game.m.villagers:
@@ -616,7 +643,7 @@ func _on_chat(line: ChatLine) -> void:
 			f.talk(b.life if b != null else 2.5)
 			if not line.emotion.is_empty():
 				f.set_emotion(line.emotion, b.life if b != null else 4.0)
-			Sfx.voice(line.speaker.id, line.speaker.female, line.text.length(), f.mood)
+			Sfx.voice(line.speaker.id, line.speaker.female, line.text.length(), f.mood, line.speaker.age)
 			_react_to_accusation(line)
 
 
@@ -625,6 +652,9 @@ func _on_chat(line: ChatLine) -> void:
 # =============================================================
 func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void:
 	if sender != host.current:
+		return
+	if action == Intent.FIELD_PAN:
+		_pan_field(sender, float(data.get("dx", 0.0)))      # движений пальца много: в журнал шагов не пишем
 		return
 	Diag.step("действие: %s" % action)
 	if action != Intent.FIELD_TAP:
@@ -659,6 +689,13 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 				show_menu()
 		Intent.OPEN_SETTINGS:
 			show_settings()
+		Intent.OPEN_DEBUG:
+			show_debug()
+		Intent.DEBUG_CLOSE:
+			show_settings()
+		Intent.DEBUG_CHAPTER:
+			if DebugScreen.available() and Campaign.ORDER.has(String(data.get("id", ""))):
+				start_chapter(String(data.id), true)
 		Intent.EXIT:
 			Diag.clean_exit()
 			get_tree().quit()
@@ -768,6 +805,11 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 				var tell := Game.inspect_visitor(int(data.id))
 				if tell != &"":
 					(sender as DoorScreen).show_inspection(int(data.id), tell)
+		Intent.CANDLE:
+			if sender is DoorScreen and Game.m != null and Game.m.phase == Match.Phase.DOOR and not (sender as DoorScreen).is_locked():
+				var next: int = {0: 1, 1: -1, -1: 0}.get(Game.m.candle, 0)
+				Game.m.set_candle(next)
+				(sender as DoorScreen).show_candle(next)
 		Intent.PLEA:
 			Game.plea(data.plea)
 		Intent.ELDER:
@@ -851,10 +893,18 @@ func _whistle() -> void:
 		Sfx.play(&"whistle", randf_range(0.92, 1.05), -16.0)
 
 
+## Палец тянет поле днём: камера едет по посёлку, герой стоит. Тап по земле снова отправляет героя, и камера идёт за ним.
+func _pan_field(sender: Screen, dx: float) -> void:
+	if not (sender is DayScreen) or village == null or village.follow == null:
+		return
+	village.pan_by(-dx / maxf(0.1, village.scale.x))
+
+
 func walk_player(global_pos: Vector2) -> void:
 	var cr := village.crowd
 	if not cr.figures.has(0):
 		return
+	village.resume_follow()
 	_walk_gen += 1
 	Game.cancel_player_job()
 	cr.at_job.erase(0)
@@ -1132,9 +1182,9 @@ func relocalize() -> void:
 	ui.theme = ThemeFactory.build()
 
 
-func toast(text: String) -> void:
+func toast(text: String, hold: float = 1.4) -> void:
 	_toast.text = text
 	var t := Juice.tween()
 	t.tween_property(_toast, "modulate:a", 1.0, 0.2)
-	t.tween_interval(1.4)
+	t.tween_interval(hold)
 	t.tween_property(_toast, "modulate:a", 0.0, 0.4)

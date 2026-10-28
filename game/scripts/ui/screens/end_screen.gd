@@ -27,7 +27,9 @@ func build() -> void:
 	var people_won := m.winner == Match.Team.PEOPLE
 	var won := people_won != you.is_upyr
 	body.add_child(ending_card(people_won, won))
-	if not Juice.instant:
+	if _comics_end_due():
+		_play_comics_end.call_deferred()
+	elif not Juice.instant:
 		open_slides.call_deferred()
 	Juice.haptic(Juice.Haptic.SUCCESS if won else Juice.Haptic.DEATH)
 	Sfx.play(&"win" if won else &"lose")
@@ -83,7 +85,7 @@ func build() -> void:
 		nc.name = "NewItems"
 		var nb := W.vbox(8)
 		nb.add_child(W.icon_line("street_ok", L.t("cos.new", {"list": L.t("list.sep").join(names)}), &"Body"))
-		var wear := W.button(L.t("cos.title"), &"Row")
+		var wear := W.wrap(W.button(L.t("cos.title"), &"Row"))
 		wear.pressed.connect(func() -> void: commit(Intent.OPEN_WARDROBE))
 		nb.add_child(wear)
 		nc.add_child(nb)
@@ -97,7 +99,7 @@ func build() -> void:
 			known.add_child(W.label(ending, &"Small"))
 	var saved_pair := Progress.saved_bond_pair(m)
 	if saved_pair.size() == 2:
-		known.add_child(W.label(L.t("bond.saved", {"guest": saved_pair[0].name, "kin": saved_pair[1].name}), &"Small"))
+		known.add_child(W.label(L.t("bond.saved", {"who": saved_pair[0].name, "kin": saved_pair[1].name}), &"Small"))
 	if known.get_child_count() > 0:
 		var chapter := W.panel(&"Card")
 		var chapter_box := W.vbox(8)
@@ -206,7 +208,11 @@ func chapter_card(res: Dictionary) -> PanelContainer:
 		box.add_child(st)
 	box.add_child(PrologueScreen.goals_card(m, Game.chapter, res))
 	var lost: Array = res.get("lost", [])
-	if bool(res.passed) and (not lost.is_empty() or not (res.get("lost_guests", PackedStringArray()) as PackedStringArray).is_empty()):
+	if bool(res.passed) and bool(res.get("replay", false)):
+		var note := W.label(L.t("camp.replay_note", {"stars": Campaign.stars_text(int(res.get("best", res.stars)))}), &"Hint")
+		note.name = "ReplayNote"
+		box.add_child(note)
+	elif bool(res.passed) and (not lost.is_empty() or not (res.get("lost_guests", PackedStringArray()) as PackedStringArray).is_empty()):
 		var names: Array[Villager] = []
 		for v: Villager in m.villagers:
 			var lg: PackedStringArray = res.get("lost_guests", PackedStringArray())
@@ -241,6 +247,17 @@ func chapter_card(res: Dictionary) -> PanelContainer:
 func _final_night(box: Control, btn: Button) -> void:
 	btn.disabled = true
 	var choice: String = await ScenePlayer.play(self, Scenes.final_door(), m)
+	if not is_instance_valid(box):
+		return
+	var shown_final := false
+	if Save.comics_on and (not Juice.instant or SlidePlayer.instant_play):
+		var ending := Campaign.final_ending("open" if choice == "open" else "train", m)
+		shown_final = Slides.has_deck(Slides.final_deck(ending))
+		await SlidePlayer.play(self, Slides.final_deck(ending), true)      # финал показывается всегда: он конец кампании
+		if not is_instance_valid(box):
+			return
+	if not shown_final:
+		await ScenePlayer.play(self, Scenes.final_shore() if choice == "open" else Scenes.final_train(), m)
 	if not is_instance_valid(box):
 		return
 	box.add_child(final_card(m, choice))
@@ -292,7 +309,7 @@ static func memory_card(mm: Match) -> PanelContainer:
 	var lines := memory_lines(mm)
 	if lines.is_empty():
 		return null
-	var card := W.panel(&"Card")
+	var card := W.panel(&"Page")
 	card.name = "TheirMemory"
 	var box := W.vbox(6)
 	card.add_child(box)
@@ -488,9 +505,59 @@ func close_slides() -> void:
 	var tw := Juice.tween()
 	tw.tween_property(s, "modulate:a", 0.0, 0.6)
 	tw.tween_callback(s.queue_free)
+	if _act_end_due():
+		_play_act_end.call_deferred()
+
+
+## Комиксы после главы (TASK-106): победа или поворот, у последней главы акта ещё и итог акта.
+## Вместо двухслайдовой заставки итога. Нет колод или они уже просмотрены: идёт прежняя заставка.
+func _comics_end_due() -> bool:
+	return not Game.chapter.is_empty() and not Game.chapter_result.is_empty() and Save.comics_on \
+		and (not Juice.instant or SlidePlayer.instant_play)
+
+
+func _play_comics_end() -> void:
+	var ch := String(Game.chapter.get("id", ""))
+	var passed := bool(Game.chapter_result.get("passed", false))
+	var shown := await SlidePlayer.play(self, "%s_%s" % [ch, "win" if passed else "twist"])
+	if not is_inside_tree():
+		return
+	var act := int(Game.chapter.get("act", 0))
+	var act_deck := ""
+	if passed and Campaign.last_of_act(ch) and act >= 1 and act <= 3:
+		act_deck = Slides.act_outro_deck(act, Campaign.act_ending_id(act).get_slice("_", 1))
+		if act == 3 and Campaign.trial_lost():
+			act_deck = Slides.act_outro_deck(3, "trial")
+		if not act_deck.is_empty() and await SlidePlayer.play(self, act_deck):
+			shown = true
+			if not is_inside_tree():
+				return
+	if not shown and not Juice.instant:
+		open_slides()
+	if _act_end_due() and not Game.scenes_done.has("act_end") and act_deck.is_empty():
+		_play_act_end.call_deferred()
+	elif not act_deck.is_empty():
+		Game.scenes_done["act_end"] = true
+
+
+## После слайдов итога главы, которой кончается акт II или III, идёт сцена конца акта. Раз за партию.
+func _act_end_due() -> bool:
+	if Game.chapter.is_empty() or Game.chapter_result.is_empty() or not bool(Game.chapter_result.get("passed", false)):
+		return false
+	var act := int(Game.chapter.get("act", 0))
+	return (act == 2 or act == 3) and Campaign.last_of_act(String(Game.chapter.id)) and not Game.scenes_done.has("act_end")
+
+
+func _play_act_end() -> void:
+	if not is_inside_tree():
+		return
+	Game.scenes_done["act_end"] = true
+	await ScenePlayer.play(self, Scenes.act_end(int(Game.chapter.get("act", 0)), m), m)
 
 
 func music() -> StringName:
+	if m != null and m.winner == Match.Team.PEOPLE:
+		return Sfx.act_theme(int(Game.chapter.get("act", 0)))
 	return &""
 
 

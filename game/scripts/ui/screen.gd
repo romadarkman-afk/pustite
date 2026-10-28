@@ -11,6 +11,8 @@ var body: VBoxContainer
 var footer: VBoxContainer
 var scroll: ScrollContainer
 var field_spacer: Control
+## Колонка шапка · поле · содержимое · подвал; нужна, чтобы считать высоту поля по реальным размерам.
+var chrome: VBoxContainer
 var _title_label: Label
 var hint: Hint
 var _clock: Label
@@ -73,7 +75,17 @@ func field_ratio() -> float:
 
 ## Переопределяется: высота поля при высоте экрана h. По умолчанию — доля field_ratio().
 func field_height(h: float) -> float:
-	return h * field_ratio()
+	var wanted := h * field_ratio()
+	if chrome == null:
+		return wanted
+	# на низком экране поле уступает: под содержимое остаётся min_content_ratio() высоты дисплея (но поле не меньше 20%)
+	var sep := float(chrome.get_theme_constant("separation"))
+	var bar := 0.0
+	if title() != "" and chrome.get_child_count() > 0:
+		bar = (chrome.get_child(0) as Control).get_combined_minimum_size().y
+	var content := min_content_ratio() * get_viewport_rect().size.y
+	var left := h - bar - footer.get_combined_minimum_size().y - 3.0 * sep - content
+	return clampf(left, h * 0.2, wanted)
 
 
 ## Прямоугольник поля в координатах экрана (без учёта анимации появления).
@@ -123,6 +135,7 @@ func mood_duration() -> float:
 
 
 var _field_press: Vector2 = Vector2.INF
+var _pan_last: Vector2 = Vector2.INF       ## где был палец в прошлый раз, пока тянет поле; INF — палец не на поле
 
 
 ## Касание по полю: короткий тап без сдвига уходит наверх намерением FIELD_TAP.
@@ -130,6 +143,7 @@ func enable_field_taps() -> void:
 	if field_spacer == null:
 		return
 	field_spacer.mouse_filter = Control.MOUSE_FILTER_STOP
+	field_spacer.set_meta("pan_field", true)
 	field_spacer.gui_input.connect(_on_field_tap_input)
 
 
@@ -144,14 +158,26 @@ func _on_field_tap_input(e: InputEvent) -> void:
 		_hold_gen += 1
 		if mb.pressed:
 			_field_press = mb.position
+			_pan_last = mb.position
 			_wait_hold(_hold_gen, mb.position)
-		elif _field_press != Vector2.INF and mb.position.distance_to(_field_press) < 24.0:
-			emit_intent(Intent.FIELD_TAP, {"pos": field_spacer.get_global_rect().position + mb.position})
-			_field_press = Vector2.INF
-	elif e is InputEventMouseMotion and _field_press != Vector2.INF:
-		if (e as InputEventMouseMotion).position.distance_to(_field_press) >= 24.0:
+		else:
+			_pan_last = Vector2.INF
+			if _field_press != Vector2.INF and mb.position.distance_to(_field_press) < 24.0:
+				emit_intent(Intent.FIELD_TAP, {"pos": field_spacer.get_global_rect().position + mb.position})
+				_field_press = Vector2.INF
+	elif e is InputEventMouseMotion and _pan_last != Vector2.INF:
+		var at := (e as InputEventMouseMotion).position
+		if _field_press != Vector2.INF:
+			if at.distance_to(_field_press) < 24.0:
+				return
 			_hold_gen += 1        # повёл пальцем — это не долгое нажатие
 			_field_press = Vector2.INF  # отпускание после перетаскивания не открывает меню
+			_pan_last = at        # первые 24 пикселя мёртвая зона, карта едет со следующего движения
+			return
+		var dx := at.x - _pan_last.x
+		_pan_last = at
+		if dx != 0.0:
+			emit_intent(Intent.FIELD_PAN, {"dx": dx})
 
 
 func _wait_hold(gen: int, at: Vector2) -> void:
@@ -227,6 +253,9 @@ func on_clock_expired() -> void:
 ## Переопределяется: экран сам обработал «Назад» (например, закрыл шторку).
 func handle_back() -> bool:
 	for c: Node in get_children():
+		if c is SlidePlayer:
+			(c as SlidePlayer).skip()
+			return true
 		if c is ScenePlayer:
 			(c as ScenePlayer).skip()
 			return true
@@ -301,17 +330,11 @@ func _capsule(inner: Control) -> Control:
 	return p
 
 
-func scroll_to_end() -> void:
-	if not is_inside_tree():
-		await ready
-	await get_tree().process_frame
-	await get_tree().process_frame
-	if is_instance_valid(scroll):
-		scroll.scroll_vertical = int(scroll.get_v_scroll_bar().max_value)
 
 
 func _chrome() -> void:
 	var col := W.vbox(18)
+	chrome = col
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(col)
 
@@ -361,7 +384,8 @@ func _chrome() -> void:
 		field_spacer = Control.new()
 		field_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		col.add_child(field_spacer)
-		resized.connect(func() -> void: field_spacer.custom_minimum_size.y = floorf(field_height(size.y)))
+		resized.connect(_fit_field_spacer)
+		field_spacer.resized.connect(Nav._queue_field_layout)
 
 	scroll = TouchScroll.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -374,6 +398,14 @@ func _chrome() -> void:
 
 	footer = W.vbox(10)
 	col.add_child(footer)
+	# ряд кнопок внизу может перестроиться (строка → сетка) после первой раскладки: поле подстраиваем под него
+	if field_spacer != null:
+		footer.minimum_size_changed.connect(_fit_field_spacer)
+
+
+func _fit_field_spacer() -> void:
+	if field_spacer != null and size.y > 0.0:
+		field_spacer.custom_minimum_size.y = floorf(field_height(size.y))
 
 
 ## Ряд плашек с жителями. on_tap: вызывается с Villager, если плашку можно нажать.

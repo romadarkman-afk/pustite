@@ -355,10 +355,6 @@ func after_box(vid: int, res: Dictionary) -> Array[ChatLine]:
 	return out
 
 
-## Кто из ботов пойдёт к ящику: случайный живой бот.
-func box_runner() -> Villager:
-	var bots := m.alive_bots()
-	return bots[rng.randi_range(0, bots.size() - 1)] if not bots.is_empty() else null
 
 
 func _bump(vid: int, w: float) -> void:

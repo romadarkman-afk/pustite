@@ -53,7 +53,8 @@ var identity_color := Color.WHITE
 const IDENTITY_COLORS := [Color("bb7440"), Color("a83e59"), Color("4676b0"), Color("3e8b7c"),
 	Color("ad913e"), Color("8461a6"), Color("c2b190"), Color("527e49"), Color("ae6048"),
 	Color("4c91ab"), Color("936581"), Color("8c984f"), Color("ab8598")]
-const STRIDE_LENGTH := 70.0
+const STRIDE_LENGTH := 64.0            ## длина двойного шага (левая и правая нога), единиц посёлка
+const MAX_CADENCE := 2.3               ## двойных шагов в секунду: быстрее ноги не мелькают, бегущий растягивает шаг
 static var _foot_shadow_texture: Texture2D
 var _turn_t: float = 0.0
 var _knock_t: float = 0.0
@@ -62,7 +63,26 @@ var door_portrait := false
 var door_tell: StringName = &"ordinary"
 var _door_rig: Polygon2D
 var _door_shadow: Polygon2D
+var _cast_poly: Polygon2D        ## падающая тень в поле: та же сетка, прижатая к земле и сдвинутая вправо
+var cast_alpha := 0.0           ## сила тени; ставит толпа вместе с ночью и погодой, 0 — тени нет
 var _door_base := PackedVector2Array()
+var _rig_mat: ShaderMaterial           ## общий материал сетки, тени и погоды: шейдер гнёт ноги, пояс и шею
+var _rig_live := false                 ## фотография двигается шейдером, перерисовка тела не нужна
+var _rig_key := ""
+var _rig_info_cur: Dictionary = {}
+var _rig_pushed := ""
+var _rig_leg_len := 38.0
+var _rig_face := 0.0
+var _rig_chest := Vector2.ZERO         ## на сколько сдвинулась грудь: значок едет вместе с ней
+var _idle_rng := RandomNumberGenerator.new()
+var _glance_in := 2.0                  ## когда следующий взгляд в сторону
+var _glance_t := 0.0
+var _glance_len := 1.4
+var _glance_dir := 1.0
+var _shuffle_in := 5.0                 ## когда следующий переступ с ноги на ногу
+var _shuffle_t := 0.0
+var _shuffle_len := 0.9
+var _shuffle_side := 1.0
 var _door_weights := PackedFloat32Array()
 var _left_wrist_weights := PackedFloat32Array()
 
@@ -79,6 +99,10 @@ var _fidget_len := 0.0
 var _fidget_in := 0.0
 var _fidget_rng := RandomNumberGenerator.new()
 var _fidget_history: PackedStringArray = []
+var strolling := false          ## вышел прогуляться на несколько шагов и вернётся на своё место
+var stroll_count := 0
+var _home := Vector2.INF
+var _stroll_move := false
 var _lean := 0.0               ## отшатнулся (обвинили) или наклонился к соседу (шепчет)
 var _lean_t := 0.0
 
@@ -107,7 +131,13 @@ var sprite_id: int = 0
 var hero_hat_id: String = "own"
 var tag: Node2D               ## слой подписи над всем посёлком
 
-const WALK_SPEED := 145.0   ## единиц посёлка в секунду
+const CAST_KX := 0.4        ## те же числа, что у теней домов (VillageView.SHADOW_KX / SHADOW_KY)
+const CAST_KY := 0.17
+const REAL_REACH := 11.0       ## на сколько единиц посёлка стопа уходит вперёд и назад от оси на шаге (рост 88)
+const REAL_SKIRT_SWING := 0.14 ## размах подола у платья до земли, рад
+const REAL_SWAY := 1.0         ## таз уходит вбок над опорной ногой, единиц
+const REAL_LEAN := 0.04        ## наклон верха вперёд на ходу, рад
+const WALK_SPEED := 105.0   ## единиц посёлка в секунду: шаг взрослого, 1 единица около 2 см
 
 
 func setup(name: String, l: LookDef, player: bool) -> void:
@@ -118,6 +148,9 @@ func setup(name: String, l: LookDef, player: bool) -> void:
 	_phase = float(absi(name.hash()) % 628) / 100.0
 	_blink_in = 1.0 + fmod(_phase, 3.0)
 	set_fidget_seed(absi(name.hash()) + 1)
+	_idle_rng.seed = absi(name.hash()) + 17
+	_glance_in = _idle_rng.randf_range(1.0, 5.0)
+	_shuffle_in = _idle_rng.randf_range(3.0, 9.0)
 	body = Node2D.new()
 	add_child(body)
 	body.draw.connect(_draw_body)
@@ -126,6 +159,10 @@ func setup(name: String, l: LookDef, player: bool) -> void:
 	_door_shadow.modulate = Color(0, 0, 0, 0.2)
 	_door_shadow.visible = false
 	body.add_child(_door_shadow)
+	_cast_poly = Polygon2D.new()
+	_cast_poly.show_behind_parent = true
+	_cast_poly.visible = false
+	body.add_child(_cast_poly)
 	_door_rig = Polygon2D.new()
 	_door_rig.show_behind_parent = true
 	_door_rig.visible = false
@@ -172,7 +209,25 @@ static func guest_sprite(guest_id: String) -> int:
 	return id if id > 0 and (ResourceLoader.exists(FOLK_REALISTIC_DIR + file) or ResourceLoader.exists(FOLK_DIR + file)) else 0
 
 
+## Именные жители кампании (TASK-108): лицо закреплено за личной историей, а не берётся из пула по полу и возрасту.
+## Так один и тот же человек выглядит одинаково в партии, на двери, в Книге и в комиксах (tools/slides/cast.py).
+## Ключ: место в списке имён (Villager.story_id), значение: номер картинки f<N>. Возраст из SocialContent.AGES учтён.
+const NAMED_SPRITES := {0: 9, 1: 2, 2: 12, 3: 4, 4: 10, 5: 13, 6: 7, 7: 3, 8: 8, 9: 11, 10: 14, 11: 1}
+
+
+## Закреплённое лицо жителя или 0: гости и жители вне первых двенадцати историй берут лицо из пула.
+static func named_sprite(v: Villager) -> int:
+	if v.is_player or not v.guest_id.is_empty() or not NAMED_SPRITES.has(v.story_id):
+		return 0
+	var id: int = NAMED_SPRITES[v.story_id]
+	return id if FOLK_FEMALE.has(id) == v.female else 0
+
+
 static func pick_cast_sprite(v: Villager, used: Dictionary) -> int:
+	var named := named_sprite(v)
+	if named > 0:
+		used[named] = true
+		return named
 	var candidates: PackedInt32Array
 	if v.female:
 		candidates = PackedInt32Array([9, 3, 10]) if v.age < 28 else (PackedInt32Array([11, 12, 1]) if v.age >= 55 else PackedInt32Array([10, 3, 9]))
@@ -188,6 +243,21 @@ static func pick_cast_sprite(v: Villager, used: Dictionary) -> int:
 			used[id] = true
 			return id
 	return candidates[posmod(v.story_id, candidates.size())]
+
+
+## Картинка с закрытыми глазами для моргания портрета (TASK-076): рядом с оригиналом, имя с суффиксом
+## _blink. Нет файла — null, моргания у этого жителя нет.
+static var _blink_tex: Dictionary = {}
+
+
+static func blink_tex(id: int) -> Texture2D:
+	if not _blink_tex.has(id):
+		var file := "hero_m" if id == HERO_M else ("hero_f" if id == HERO_F else "f%d" % id)
+		if GUEST_SPRITES.values().has(id):
+			file = "guest_" + String(GUEST_SPRITES.find_key(id))
+		var path := FOLK_REALISTIC_DIR + file + "_blink.png"
+		_blink_tex[id] = load(path) if ResourceLoader.exists(path) else null
+	return _blink_tex[id]
 
 
 static func folk_tex(id: int) -> Texture2D:
@@ -332,6 +402,100 @@ static func lantern_rect(tex: Texture2D) -> Rect2:
 	return r
 
 
+static var _rig_infos: Dictionary = {}
+
+
+## Где на картинке пояс и шея и разведены ли ноги: по прозрачности редких точек силуэта, один раз на картинку.
+## hip, neck и foot в долях роста сверху, cx, blend и hipw в долях ширины, legs 1 если между ногами виден просвет, 0.6 если ноги видны только ниже подола.
+static func rig_info(tex: Texture2D) -> Dictionary:
+	var key := tex.resource_path if tex.resource_path != "" else str(tex.get_instance_id())
+	if _rig_infos.has(key):
+		return _rig_infos[key]
+	var info := {"hip": 0.55, "ramp": 0.07, "neck": 0.17, "cx": 0.0, "legs": 0.0, "blend": 0.14, "hipw": 0.08, "foot": 1.0}
+	var img := tex.get_image()
+	if img != null and not img.is_empty():
+		if img.is_compressed():
+			img.decompress()
+		var iw := img.get_width()
+		var ih := img.get_height()
+		# ось ног: середина между левой и правой стопой (25 и 75 процентов точек у земли)
+		var xs := PackedInt32Array()
+		for yy in range(int(ih * 0.94), int(ih * 0.995), 3):
+			for xx in range(0, iw, 2):
+				if img.get_pixel(xx, yy).a > 0.5:
+					xs.append(xx)
+		var cxp := iw * 0.5
+		if xs.size() >= 8:
+			xs.sort()
+			cxp = 0.5 * (xs[xs.size() / 4] + xs[xs.size() * 3 / 4])
+		info["cx"] = cxp / iw - 0.5
+		# просвет между ногами: идём от земли вверх, пока в узкой полосе по оси ног прозрачно, а с боков есть ткань
+		var hw := maxi(2, int(iw * 0.012))
+		var reach := int(iw * 0.22)
+		var gap_top := 0.96
+		var y := int(ih * 0.96)
+		var floor_y := int(ih * 0.40)
+		while y > floor_y:
+			var clear := true
+			for xx in range(int(cxp) - hw, int(cxp) + hw + 1):
+				if xx >= 0 and xx < iw and img.get_pixel(xx, y).a > 0.25:
+					clear = false
+					break
+			if clear:
+				var left := false
+				var right := false
+				for d in range(hw + 1, reach, 2):
+					if not left and int(cxp) - d >= 0 and img.get_pixel(int(cxp) - d, y).a > 0.5:
+						left = true
+					if not right and int(cxp) + d < iw and img.get_pixel(int(cxp) + d, y).a > 0.5:
+						right = true
+					if left and right:
+						break
+				clear = left and right
+			if not clear:
+				break
+			gap_top = float(y) / ih
+			y -= 3
+		var gap_len := 0.96 - gap_top
+		if gap_len >= 0.02:
+			# ноги видны: у штанов с просветом от паха, у длинного пальто только ниже подола
+			var full := gap_len >= 0.11
+			info["legs"] = 1.0 if full else 0.6
+			info["hip"] = clampf(gap_top - (0.025 if full else 0.02), 0.40, 0.93)
+			info["ramp"] = 0.035 if full else 0.02
+			info["blend"] = 0.03
+			info["hipw"] = 0.09
+			info["foot"] = 0.925
+		else:
+			# платье и юбка до земли: двигается только подол
+			info["legs"] = 0.0
+			info["hip"] = 0.55
+			info["ramp"] = 0.07
+			info["blend"] = 0.14
+			info["hipw"] = 0.08
+			info["foot"] = 1.0
+		# шея: самое узкое место силуэта между головой и плечами
+		var best_w := 99999
+		var best_y := 0.17
+		for yy in range(int(ih * 0.10), int(ih * 0.235), 3):
+			var l := -1
+			var r := -1
+			for xx in range(0, iw, 2):
+				if img.get_pixel(xx, yy).a > 0.5:
+					l = xx
+					break
+			for xx in range(iw - 1, 0, -2):
+				if img.get_pixel(xx, yy).a > 0.5:
+					r = xx
+					break
+			if l >= 0 and r - l < best_w:
+				best_w = r - l
+				best_y = float(yy) / ih
+		info["neck"] = clampf(best_y, 0.12, 0.22)
+	_rig_infos[key] = info
+	return info
+
+
 const FIGURE_FX := preload("res://shaders/figure_weather.gdshader")
 var fx_frost := 0.0                 ## иней на плечах и шапке, 0..1 (TASK-067)
 var fx_wet := 0.0                   ## влажный блеск, 0..1
@@ -349,7 +513,7 @@ func _refresh_fx() -> void:
 	if _door_rig == null:
 		return
 	var tinted := is_player and lantern_id != "classic" and _lantern_tex != null
-	if fx_frost <= 0.01 and fx_wet <= 0.01 and not tinted:
+	if fx_frost <= 0.01 and fx_wet <= 0.01 and not tinted and not _rig_live:
 		if _door_rig.material != null:
 			_door_rig.material = null
 		return
@@ -358,6 +522,9 @@ func _refresh_fx() -> void:
 		mat = ShaderMaterial.new()
 		mat.shader = FIGURE_FX
 		_door_rig.material = mat
+		_cast_poly.material = mat
+		_door_shadow.material = mat
+	_rig_mat = mat
 	if tinted:
 		var r := lantern_rect(_lantern_tex)
 		mat.set_shader_parameter("lantern_rect", Vector4(r.position.x, r.position.y, r.size.x, r.size.y))
@@ -499,9 +666,40 @@ func start_fidget(f: String = "") -> void:
 	body.queue_redraw()
 
 
+## Прогулка: несколько шагов в сторону, пауза и обратно на своё место. Только по свободному ходу без домов и стен.
+func stroll(offset: Vector2, pause: float) -> bool:
+	if not is_free() or Juice.instant:
+		return false
+	var target := position + offset
+	var path := _path_to(target)
+	if path.size() != 1 or path[0].distance_to(target) > 2.0:
+		return false
+	_home = position
+	strolling = true
+	stroll_count += 1
+	_stroll_move = true
+	arrived.connect(_stroll_rest.bind(pause), CONNECT_ONE_SHOT)
+	walk_to(target)
+	_stroll_move = false
+	return true
+
+
+func _stroll_rest(pause: float) -> void:
+	if not strolling or not is_inside_tree():
+		return
+	await get_tree().create_timer(pause).timeout
+	if not strolling or not is_inside_tree() or state != State.IDLE:
+		strolling = false
+		return
+	_stroll_move = true
+	arrived.connect(func() -> void: strolling = false, CONNECT_ONE_SHOT)
+	walk_to(_home)
+	_stroll_move = false
+
+
 ## Стоит без дела: можно шепнуть ему или начать действие.
 func is_free() -> bool:
-	return state == State.IDLE and not working and not cold and _talk_t <= 0.0 and fidget == "" and (_emotion_t <= 0.0 or emotion == "")
+	return state == State.IDLE and not working and not cold and not strolling and _talk_t <= 0.0 and fidget == "" and (_emotion_t <= 0.0 or emotion == "")
 
 
 func _next_fidget_in() -> float:
@@ -625,6 +823,11 @@ func body_rect_global() -> Rect2:
 	return _global_rect(body_rect_local())
 
 
+## Самый высокий рост среди внешностей (config/looks*.tres); проверяется тестом --crowd.
+const LOOK_HEIGHT_MAX := 1.07
+
+
+
 # =============================================================
 # Состояния
 # =============================================================
@@ -632,9 +835,12 @@ func body_rect_global() -> Rect2:
 func run_to(target: Vector2, dur: float = 0.75, delay: float = 0.0, door_house: int = -1) -> void:
 	if state == State.DEAD or state == State.GONE:
 		return
+	strolling = false
 	if _tw != null:
 		_tw.kill()
 	var path := _path_to(target, door_house)
+	if path.is_empty() or path[path.size() - 1].distance_to(target) > 1.0:
+		path.append(target)   # маршрут не дошёл (нет пути или последний шаг упёрся в стену): последний отрезок напрямик, чтобы встать на отведённое место, а не посреди чужой очереди
 	if Juice.instant:
 		position = target if path.is_empty() else path[path.size() - 1]
 		_settle_idle()
@@ -666,6 +872,8 @@ func run_to(target: Vector2, dur: float = 0.75, delay: float = 0.0, door_house: 
 
 ## Идти шагом с постоянной скоростью — длина пути решает, сколько идти.
 func walk_to(target: Vector2) -> void:
+	if not _stroll_move:
+		strolling = false
 	var path := _path_to(target)
 	var destination: Vector2 = target if path.is_empty() else path[path.size() - 1]
 	var duration := clampf(_path_length(path) / WALK_SPEED, 0.25, 4.0)
@@ -794,13 +1002,16 @@ func _process(delta: float) -> void:
 	var walk_target := clampf(travelled / maxf(delta, 0.001) / WALK_SPEED, 0.0, 1.0) if state == State.RUN and not Juice.instant else 0.0
 	_walk_weight = lerpf(_walk_weight, walk_target, 1.0 - exp(-12.0 * delta))
 	if state == State.RUN and travelled > 0.0 and not Juice.instant:
-		_walk = fmod(_walk + travelled / STRIDE_LENGTH, 1.0)
+		var speed := travelled / maxf(delta, 0.001)
+		_walk = fmod(_walk + travelled / maxf(STRIDE_LENGTH, speed / MAX_CADENCE), 1.0)
 	var pose: Dictionary = pose_now()[1]
 	var tilt_target := float(pose.get("lean", 0.0)) * 0.45 + float(pose.get("tilt", 0.0)) * 0.25
 	var tilt_before := _render_tilt
 	_render_tilt = lerpf(_render_tilt, tilt_target, 1.0 - exp(-9.0 * delta))
 	if absf(_render_tilt - tilt_before) > 0.0001:
 		body.queue_redraw()
+	if _rig_live and _rig_mat != null:
+		_rig_step(delta, pose)
 	if highlight:
 		_redraw()
 	if _emotion_t > 0.0:
@@ -921,6 +1132,8 @@ func _fidget_pose(pose: Dictionary) -> String:
 ## Движение обновляется каждый игровой кадр. CanvasItem объединяет запросы до отрисовки,
 ## поэтому отдельный предел 24 Гц давал заметные рывки при лимите игры 60 кадров.
 func _anim_step(_delta: float) -> void:
+	if _rig_live and not door_portrait and not (is_player and brooch_id != "none"):
+		return       # фотографию двигает шейдер, перерисовывать тело не нужно
 	body.queue_redraw()
 	queue_redraw()
 
@@ -1132,17 +1345,6 @@ static func _oval(c: Vector2, r: Vector2) -> PackedVector2Array:
 	return pts
 
 
-## Палитра из внешности: цвета насыщеннее прежних приглушённых, шапка по типу головы.
-func _pal() -> Dictionary:
-	var coat := _bright(look.coat)
-	var tops := {LookDef.Head.BARE: "hair", LookDef.Head.CAP: "cap", LookDef.Head.SCARF: "kerchief", LookDef.Head.HAT: "hat", LookDef.Head.HOOD: "beanie"}
-	var hat := Color("3b3b58")
-	match look.head:
-		LookDef.Head.CAP: hat = coat.darkened(0.4)
-		LookDef.Head.SCARF: hat = _bright(look.accent)
-		LookDef.Head.HOOD: hat = _bright(look.accent).darkened(0.1)
-	return {"coat": coat, "coat_d": coat.darkened(0.2), "skin": look.skin.lightened(0.08), "skin_d": look.skin.darkened(0.08),
-		"hair": look.hair, "scarf": _bright(look.accent), "hat": hat, "top": tops.get(look.head, "hair")}
 
 
 func _bright(c: Color) -> Color:
@@ -1196,7 +1398,7 @@ func _draw_sprite(face: String, pose: Dictionary) -> void:
 		else:
 			_draw_field_rig(tex, h, w, pose)
 	if is_player:
-		_draw_brooch(Vector2(-w * 0.13, -h * 0.68))
+		_draw_brooch(Vector2(-w * 0.13, -h * 0.68) + (_rig_chest if _rig_live and not door_portrait else Vector2.ZERO))
 	if pose.get("lantern", false) and not pose.has("tool"):
 		if HERO_LANTERN.has(sprite_id):
 			_apply_lantern_tint(tex)    # фонарь нарисован на картинке героя: меняем цвет его стекла
@@ -1218,20 +1420,133 @@ static func _is_realistic_sprite(tex: Texture2D) -> bool:
 	return tex != null and tex.resource_path.begins_with(FOLK_REALISTIC_DIR)
 
 
-## Детализированный спрайт идёт через ту же сетку: ноги шагают, а фонарь получает локальную окраску.
-func _draw_realistic_sprite(tex: Texture2D, h: float, w: float, pose: Dictionary) -> void:
-	var walk_phase := sin(_walk * TAU) * _walk_weight
-	var idle_weight := 1.0 - _walk_weight
-	var breath := sin(_t * 1.7 + _phase) * idle_weight
-	var work := sin(float(pose.get("work", 0.0)) * TAU) if pose.has("work") else 0.0
-	var bob := absf(walk_phase) * 0.55 + breath * 0.16
-	var sway := walk_phase * 1.2 + sin(_t * 0.53 + _phase) * 0.2 * idle_weight
-	var turn := _render_tilt + walk_phase * 0.012 + breath * 0.003 + work * 0.004
+## Фотография стоит на частой сетке: шаг, дыхание, перенос веса и повороты головы считает шейдер (_rig_step даёт ему углы).
+## Тело перерисовывается только при смене позы и вида: двигается сетка, а не рисунок.
+func _draw_realistic_sprite(tex: Texture2D, h: float, w: float, _pose: Dictionary) -> void:
+	_build_sprite_rig(tex, h, w)
+	_rig_live = true
+	_refresh_fx()
+	_push_rig_anatomy(h, w)
+	_door_rig.position = Vector2.ZERO
+	_door_rig.rotation = 0.0
+	_door_rig.scale = Vector2.ONE
+	_door_rig.visible = true
+	_door_shadow.visible = false
+	_place_cast_shadow_rig()
+
+
+## Размеры и суставы этой картинки для шейдера: пояс, шея, ось ног, начало стопы.
+func _push_rig_anatomy(h: float, w: float) -> void:
+	if _rig_mat == null or _rig_pushed == _rig_key:
+		return
+	_rig_pushed = _rig_key
+	var info := _rig_info_cur
+	_rig_mat.set_shader_parameter("fig", Vector2(w, h))
+	_rig_mat.set_shader_parameter("anat", Vector4(float(info.hip), float(info.ramp), float(info.neck), float(info.cx)))
+	_rig_mat.set_shader_parameter("anat2", Vector4(float(info.legs), float(info.blend), float(info.hipw), float(info.foot)))
+	_rig_leg_len = (1.0 - float(info.hip)) * h
+
+
+## Углы ног, наклон пояса и поворот головы на этот кадр. Ноги качаются по очереди (мах вперёд с подъёмом стопы, потом опора),
+## на опоре таз уходит над ногой, тело проседает, когда ноги разведены шире всего. В покое: вдох, перенос веса, взгляд в сторону, переступ.
+func _rig_step(delta: float, pose: Dictionary) -> void:
+	if not is_visible_in_tree() or not body.visible or state == State.DEAD or state == State.GONE:
+		return
+	var info := _rig_info_cur
+	var legs_k := float(info.get("legs", 0.0))
+	var walking := _walk_weight
+	var idle := 1.0 - walking
+	var phase := _walk * TAU
+	var swing := REAL_SKIRT_SWING
+	var lift_amp := 1.6
+	if legs_k > 0.0:
+		swing = clampf(asin(minf(0.9, REAL_REACH / maxf(_rig_leg_len, 6.0))), 0.14, 0.34)
+		lift_amp = clampf(0.09 * _rig_leg_len, 1.2, 3.2)
+	var sa := sin(phase) * walking
+	var ang_l := swing * sa
+	var ang_r := -swing * sa
+	var lift_l := lift_amp * maxf(0.0, cos(phase)) * walking
+	var lift_r := lift_amp * maxf(0.0, -cos(phase)) * walking
+	var drop := _rig_leg_len * (1.0 - cos(swing * absf(sa)))
+	var sway := REAL_SWAY * (0.55 + 0.45 * legs_k) * cos(phase) * walking + sin(_t * 0.43 + _phase * 1.7) * 0.7 * idle
+	var breath := (0.5 + 0.5 * sin(_t * 1.7 + _phase)) * (0.85 * idle + 0.35 * walking)
+	var bend := _render_tilt * 1.6 + REAL_LEAN * walking + 0.004 * sin(_t * 1.7 + _phase)
+	var calm := state == State.IDLE and walking < 0.05 and not working and fidget == ""
+	# взгляд в сторону и переступ с ноги на ногу: у каждого свои срок и сторона
+	if calm:
+		if _glance_t > 0.0:
+			_glance_t = maxf(0.0, _glance_t - delta)
+		else:
+			_glance_in -= delta
+			if _glance_in <= 0.0:
+				_glance_len = _idle_rng.randf_range(1.1, 2.3)
+				_glance_t = _glance_len
+				_glance_dir = -1.0 if _idle_rng.randf() < 0.5 else 1.0
+				_glance_in = _idle_rng.randf_range(3.0, 8.0)
+		if _shuffle_t > 0.0:
+			_shuffle_t = maxf(0.0, _shuffle_t - delta)
+		else:
+			_shuffle_in -= delta
+			if _shuffle_in <= 0.0:
+				_shuffle_len = _idle_rng.randf_range(0.7, 1.2)
+				_shuffle_t = _shuffle_len
+				_shuffle_side = -1.0 if _idle_rng.randf() < 0.5 else 1.0
+				_shuffle_in = _idle_rng.randf_range(5.0, 13.0)
+	if _glance_t > 0.0:
+		var gp := 1.0 - _glance_t / maxf(_glance_len, 0.01)
+		var g := smoothstep(0.0, 0.3, gp) * (1.0 - smoothstep(0.7, 1.0, gp))
+		sway += _glance_dir * 0.35 * g
+	if _shuffle_t > 0.0:
+		var sp := 1.0 - _shuffle_t / maxf(_shuffle_len, 0.01)
+		var se := sin(sp * PI)
+		var step := 1.5 * se * (0.5 + 0.5 * legs_k)
+		if _shuffle_side > 0.0:
+			lift_r += step
+			ang_r += 0.07 * se
+		else:
+			lift_l += step
+			ang_l += 0.07 * se
+		sway += -_shuffle_side * 0.9 * se
+	# Лицо не гнём сеткой: дыхание и перенос веса остаются на корпусе.
+	var face := _last_face
+	if pose.has("droop") or mood == "grief" or mood == "despair":
+		bend += 0.07
+	if face == "angry" or pose.has("fists"):
+		bend += 0.04
+	elif face == "shocked" or face == "scared":
+		bend -= 0.04
+	if pose.has("work"):
+		bend += 0.07 * sin(float(pose.get("work", 0.0)) * TAU)
 	if pose.has("shiver"):
-		sway += sin(_t * 18.0 + _phase) * 0.28
-	_draw_field_rig(tex, h, w, pose, 0.25)
-	_door_rig.position = Vector2(sway, bob)
-	_door_rig.rotation = turn
+		sway += sin(_t * 18.0 + _phase) * 0.35
+	# действия от скуки
+	if fidget != "":
+		var fp := 1.0 - _fidget_t / maxf(_fidget_len, 0.01)
+		var env := smoothstep(0.0, 0.2, fp) * (1.0 - smoothstep(0.8, 1.0, fp))
+		match fidget:
+			"scratch":
+				bend += 0.02 * env
+			"stretch":
+				breath += 1.8 * env
+				bend -= 0.06 * env
+				drop -= 1.0 * env
+			"arms":
+				breath += 0.6 * env
+				sway += 0.6 * sin(_t * 1.4 + _phase) * env
+			"shift":
+				sway += 1.7 * sin(fp * TAU) * env
+				lift_r += 1.5 * maxf(0.0, sin(fp * TAU * 2.0)) * env * (0.5 + 0.5 * legs_k)
+			"warm":
+				sway += 0.3 * sin(_t * 5.0 + _phase) * env
+	var chest_dist := (float(info.get("hip", 0.55)) - 0.32) * _rig_leg_len / maxf(1.0 - float(info.get("hip", 0.55)), 0.2)
+	_rig_chest = Vector2(sway + bend * chest_dist, drop - breath * clampf(1.0 - 0.32 / maxf(float(info.get("hip", 0.55)), 0.2), 0.0, 1.0))
+	_rig_mat.set_shader_parameter("legs_anim", Vector4(ang_l, ang_r, lift_l, lift_r))
+	_rig_mat.set_shader_parameter("body_anim", Vector4(drop, sway, breath * 1.0, bend))
+	_rig_mat.set_shader_parameter("head_anim", Vector4.ZERO)
+	if _face != _rig_face:
+		_rig_face = _face
+		if not door_portrait:
+			_place_cast_shadow_rig()
 
 
 ## Значок на груди героя — маленький, потёртый металл, как всё в посёлке:
@@ -1260,38 +1575,70 @@ func _draw_brooch(at: Vector2) -> void:
 			body.draw_circle(at, 0.8 * k, edge)
 	body.draw_circle(at + Vector2(-0.9, -1.1) * k, 0.6 * k, Color(1, 0.95, 0.85, 0.55))
 
+## Линии сетки: ровные через 1/steps плюс нужные для суставов. Слишком близкие сливаются.
+static func _grid_lines(steps: int, extra: Array) -> PackedFloat32Array:
+	var all: Array[float] = []
+	for i in range(steps + 1):
+		all.append(float(i) / steps)
+	for e in extra:
+		all.append(clampf(float(e), 0.0, 1.0))
+	all.sort()
+	var out := PackedFloat32Array()
+	for v in all:
+		if out.is_empty() or v - out[out.size() - 1] > 0.006:
+			out.append(v)
+	out[out.size() - 1] = 1.0
+	return out
+
+
+## Сетка фигуры. Строки лежат гуще у пояса и шеи, столбцы у оси ног: там шейдер меняет вес вершин.
 func _build_sprite_rig(tex: Texture2D, h: float, w: float) -> void:
-	if _door_rig.texture != tex or _door_base.is_empty():
-		var uv := PackedVector2Array()
-		var faces: Array = []
-		_door_base.clear()
-		_door_weights.clear()
-		_left_wrist_weights.clear()
-		var hands := {1: Vector2(0.71, 0.47), 2: Vector2(0.87, 0.48), 3: Vector2(0.76, 0.47),
-			4: Vector2(0.9, 0.49), 5: Vector2(0.84, 0.53), 6: Vector2(0.78, 0.5),
-			7: Vector2(0.88, 0.51), 8: Vector2(0.91, 0.5), 9: Vector2(0.7, 0.47),
-			10: Vector2(0.94, 0.49), 11: Vector2(0.7, 0.48), 12: Vector2(0.74, 0.44),
-			13: Vector2(0.9, 0.54), 14: Vector2(0.92, 0.54), 15: Vector2(0.92, 0.54), 16: Vector2(0.9, 0.56)}
-		var wrist: Vector2 = hands.get(sprite_id, Vector2(0.88, 0.5))
-		for row in range(14):
-			for column in range(10):
-				var x := float(column) / 9.0
-				var y := float(row) / 13.0
-				_door_base.append(Vector2((x - 0.5) * w, (y - 1.0) * h))
-				uv.append(Vector2(x * tex.get_width(), y * tex.get_height()))
-				var distance := Vector2((x - wrist.x) / 0.18, (y - wrist.y) / 0.15)
-				_door_weights.append(exp(-distance.length_squared() * 2.0))
-				var left_distance := Vector2((x - 0.16) / 0.18, (y - 0.49) / 0.15)
-				_left_wrist_weights.append(exp(-left_distance.length_squared() * 2.0))
-		for row in range(13):
-			for column in range(9):
-				var corner := row * 10 + column
-				faces.append(PackedInt32Array([corner, corner + 1, corner + 10]))
-				faces.append(PackedInt32Array([corner + 1, corner + 11, corner + 10]))
-		for rig: Polygon2D in [_door_rig, _door_shadow]:
-			rig.texture = tex
-			rig.uv = uv
-			rig.polygons = faces
+	var key := "%s|%.2f|%.2f" % [tex.resource_path, w, h]
+	if _rig_key == key and not _door_base.is_empty():
+		return
+	_rig_key = key
+	var info := rig_info(tex)
+	_rig_info_cur = info
+	var cx := 0.5 + float(info.cx)
+	var blend := float(info.blend)
+	var hip := float(info.hip)
+	var ramp := float(info.ramp)
+	var neck := float(info.neck)
+	var columns := _grid_lines(14, [cx - blend, cx, cx + blend, cx - 0.1, cx + 0.1])
+	var rows := _grid_lines(28, [hip - ramp, hip, hip + ramp, neck - 0.025, neck, neck + 0.02])
+	var uv := PackedVector2Array()
+	var faces: Array = []
+	_door_base.clear()
+	_door_weights.clear()
+	_left_wrist_weights.clear()
+	var hands := {1: Vector2(0.71, 0.47), 2: Vector2(0.87, 0.48), 3: Vector2(0.76, 0.47),
+		4: Vector2(0.9, 0.49), 5: Vector2(0.84, 0.53), 6: Vector2(0.78, 0.5),
+		7: Vector2(0.88, 0.51), 8: Vector2(0.91, 0.5), 9: Vector2(0.7, 0.47),
+		10: Vector2(0.94, 0.49), 11: Vector2(0.7, 0.48), 12: Vector2(0.74, 0.44),
+		13: Vector2(0.9, 0.54), 14: Vector2(0.92, 0.54), 15: Vector2(0.92, 0.54), 16: Vector2(0.9, 0.56)}
+	var wrist: Vector2 = hands.get(sprite_id, Vector2(0.88, 0.5))
+	for yy in rows:
+		for xx in columns:
+			var x := float(xx)
+			var y := float(yy)
+			_door_base.append(Vector2((x - 0.5) * w, (y - 1.0) * h))
+			uv.append(Vector2(x * tex.get_width(), y * tex.get_height()))
+			var distance := Vector2((x - wrist.x) / 0.18, (y - wrist.y) / 0.15)
+			_door_weights.append(exp(-distance.length_squared() * 2.0))
+			var left_distance := Vector2((x - 0.16) / 0.18, (y - 0.49) / 0.15)
+			_left_wrist_weights.append(exp(-left_distance.length_squared() * 2.0))
+	var n := columns.size()
+	for row in range(rows.size() - 1):
+		for column in range(n - 1):
+			var corner := row * n + column
+			faces.append(PackedInt32Array([corner, corner + 1, corner + n]))
+			faces.append(PackedInt32Array([corner + 1, corner + n + 1, corner + n]))
+	for rig: Polygon2D in [_door_rig, _door_shadow, _cast_poly]:
+		rig.texture = tex
+		rig.polygon = _door_base
+		rig.uv = uv
+		rig.polygons = faces
+	_rig_pushed = ""
 
 
 ## Шаг привязан к пройденному расстоянию. Ноги и рукава двигаются раздельно;
@@ -1328,11 +1675,49 @@ func _draw_field_rig(tex: Texture2D, h: float, w: float, pose: Dictionary, motio
 	_door_rig.scale = Vector2.ONE
 	_door_rig.visible = true
 	_door_shadow.visible = false
+	_place_cast_shadow(points, 0.0)
+
+
+## Падающая тень стоит на земле: точка на высоте H уходит на SHADOW_KX*H вправо и SHADOW_KY*H вниз.
+## Тело отражается, когда житель смотрит влево, поэтому наклон умножаем на сторону: на экране тень всегда вправо.
+func _place_cast_shadow(points: PackedVector2Array, sway: float) -> void:
+	var on := cast_alpha > 0.01 and not door_portrait
+	_cast_poly.visible = on
+	if not on:
+		return
+	_cast_poly.polygon = points
+	_cast_poly.modulate = Color(0, 0, 0, cast_alpha)
+	_cast_poly.transform = Transform2D(Vector2(1.0, 0.0), Vector2(-CAST_KX * _face, -CAST_KY), Vector2(sway, 1.0))
+
+
+## Тень фигуры на шейдерной сетке: многоугольник тот же и гнётся тем же шейдером, меняются только цвет и наклон.
+func _place_cast_shadow_rig() -> void:
+	var on := cast_alpha > 0.01 and not door_portrait
+	_cast_poly.visible = on
+	if not on:
+		return
+	_cast_poly.modulate = Color(0, 0, 0, cast_alpha)
+	_cast_poly.transform = Transform2D(Vector2(1.0, 0.0), Vector2(-CAST_KX * _face, -CAST_KY), Vector2(0.0, 1.0))
+
+
+## Сила падающей тени (день сильнее, ночь и непогода слабее). Включает и гасит копию тела.
+func set_cast_shadow(a: float) -> void:
+	cast_alpha = a
+	if _cast_poly != null:
+		if a <= 0.01:
+			_cast_poly.visible = false
+		elif _rig_live and not door_portrait:
+			_place_cast_shadow_rig()
 
 
 ## У двери та же сетка и палитра; отдельно двигаются кисть и тень.
 func _draw_door_rig(tex: Texture2D, h: float, w: float, at: Vector2, rot: float, stretch: Vector2, motion: float) -> void:
 	_build_sprite_rig(tex, h, w)
+	if _is_realistic_sprite(tex):
+		# у двери стоящий человек дышит и покачивает головой: то же шейдерное движение, ноги и пояс стоят
+		_rig_live = true
+		_refresh_fx()
+		_push_rig_anatomy(h, w)
 	var points := _door_base.duplicate()
 	var shadow_points := _door_base.duplicate()
 	var progress := 1.0 - _knock_t / KNOCK_LEN
@@ -1439,9 +1824,3 @@ func _ellipse(c: Vector2, r: Vector2, seg: int = 18) -> PackedVector2Array:
 	return pts
 
 
-func _arc(c: Vector2, r: float) -> PackedVector2Array:
-	var pts := PackedVector2Array()
-	for i in range(13):
-		var a := PI + PI * i / 12.0
-		pts.append(c + Vector2(cos(a) * r, sin(a) * r))
-	return pts

@@ -86,11 +86,13 @@ func show_result(tally: Dictionary[int, int], exiled: Villager) -> void:
 	Juice.haptic(Juice.Haptic.DEATH)
 	Sfx.play(&"exile")
 	if exiled != null:
-		body.add_child(exile_card(exiled))
+		body.add_child(exile_card(exiled, tally))
 
 	var total := 0
 	for k: int in tally:
 		total += tally[k]
+	# полоса голосов не шире экрана: на узком телефоне 560 единиц распирают всё тело экрана
+	var full_w := minf(560.0, maxf(160.0, (scroll.size.x if scroll.size.x > 0.0 else Nav.host.size.x) - 4.0))
 	var order: Array[int] = []
 	order.assign(tally.keys())
 	order.sort_custom(func(a: int, b: int) -> bool: return tally[a] > tally[b])
@@ -104,7 +106,7 @@ func show_result(tally: Dictionary[int, int], exiled: Villager) -> void:
 		bar.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		row.add_child(bar)
 		body.add_child(row)
-		var target_w := 560.0 * tally[vid] / maxf(1.0, float(total))
+		var target_w := full_w * tally[vid] / maxf(1.0, float(total))
 		if Juice.instant:
 			bar.custom_minimum_size.x = target_w
 		else:
@@ -126,7 +128,7 @@ func show_result(tally: Dictionary[int, int], exiled: Villager) -> void:
 
 
 ## Изгнание (Task 55): человек уходит в лес. Кем он был — посёлок узнает только в конце.
-func exile_card(v: Villager) -> PanelContainer:
+func exile_card(v: Villager, tally: Dictionary = {}) -> PanelContainer:
 	var card := W.panel(&"Sheet")
 	var row := W.hbox(14)
 	card.add_child(row)
@@ -139,6 +141,11 @@ func exile_card(v: Villager) -> PanelContainer:
 		t.add_theme_color_override("font_color", ThemeFactory.BLOOD)
 		box.add_child(t)
 		box.add_child(W.label(L.t("vote.you_exiled_text"), &"Small"))
+		var reasons := _exile_reasons(v, tally)
+		for i in range(reasons.size()):
+			var why := W.label(reasons[i], &"Small")
+			why.name = "ExileWhy%d" % (i + 1)
+			box.add_child(why)
 		box.add_child(W.label(L.t("mo.without_you", {"n": m.alive().size(), "u": m.upyri_alive()}), &"Hint"))
 	else:
 		card.name = "ExileFate"
@@ -152,6 +159,28 @@ func exile_card(v: Villager) -> PanelContainer:
 		box.add_child(W.label(L.t("vote.exile_unknown", {"who": v}), &"Hint"))
 	row.add_child(box)
 	return card
+
+
+## Почему изгнали игрока (отзыв тестера 0.65: «выгнали, а я не поняла почему»): кто голосовал против
+## и что посёлок про него знал. Без улик честно сказано, что голосовали по недоверию.
+func _exile_reasons(v: Villager, tally: Dictionary) -> PackedStringArray:
+	var out := PackedStringArray()
+	var voters: Array[Villager] = []
+	if not m.vote_log.is_empty() and int(m.vote_log[-1].day) == m.day:
+		var cast: Dictionary = m.vote_log[-1].votes
+		for voter_id: Variant in cast:
+			if int(cast[voter_id]) == v.id and int(voter_id) != v.id:
+				var voter := m.get_villager(int(voter_id))
+				if voter != null:
+					voters.append(voter)
+	var total := 0
+	for k: Variant in tally:
+		total += int(tally[k])
+	if not voters.is_empty() and total > 0:
+		out.append(L.t("vote.you_votes", {"n": int(tally.get(v.id, voters.size())), "total": total, "list": voters}))
+	var known := director.evidence_text(v) if director != null else ""
+	out.append(L.t("vote.you_why", {"list": known}) if not known.is_empty() else L.t("vote.you_why_none"))
+	return out
 
 
 func ambience() -> StringName:

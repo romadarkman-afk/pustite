@@ -14,6 +14,9 @@ const SH_CLOUDS := "res://shaders/cloud_shadow.gdshader"
 const SH_GRASS := "res://shaders/grass_sway.gdshader"
 
 const MAX_TUFTS := 150
+## Трава выключена, пока нет настоящих картинок: заглушки выглядят как жёлтые палки.
+## Когда ChatGPT-листы grass_green_sheet и grass_dry_sheet лягут на место, поставить true.
+static var grass_enabled := false
 const TUFT_W := 40.0                   ## ширина пучка на переднем плане, пиксели посёлка
 const GRASS_FRAMES := 8
 
@@ -56,6 +59,27 @@ func setup(v: VillageView, k: String) -> void:
 	_rect.material = _mat
 	add_child(_rect)
 	visible = false
+
+
+## Другая карта (set_village): область, картинка земли, лужи и трава берутся заново.
+## Без этого шейдер держал землю первой загруженной карты: лужи и рельеф чужие, 6 МиБ видеопамяти зря (TASK-095).
+func refresh() -> void:
+	area_rect = view.def.ground_rect
+	_rect.position = area_rect.position
+	_rect.size = area_rect.size
+	_mat.set_shader_parameter("area_size", area_rect.size)
+	if kind == "ground":
+		_mat.set_shader_parameter("ground_tex", view.ground_texture())
+		_set_puddles()
+		if _grass != null:
+			remove_child(_grass)
+			_grass.queue_free()
+			_grass = null
+
+
+## Картинка земли, которую сейчас держит шейдер (для самотеста).
+func bound_ground() -> Texture2D:
+	return _mat.get_shader_parameter("ground_tex") as Texture2D
 
 
 ## Бесшовный шум движка: один на запуск, 256×256.
@@ -121,7 +145,7 @@ func set_simplified(on: bool) -> void:
 # Трава: пучки по зелёным местам земли, качает шейдер
 # =============================================================
 func _update_grass(s: Dictionary, night: float, active: bool, cover: float) -> void:
-	if not active:
+	if not active or not grass_enabled:
 		if _grass != null:
 			_grass.visible = false
 		return

@@ -8,6 +8,8 @@ const NIGHT := Color("110e1c")
 const PANEL := Color(0.10, 0.09, 0.16, 0.9)
 const PANEL_2 := Color("2a2440")
 const EDGE := Color(1, 1, 1, 0.14)
+const PAGE := Color(0.15, 0.12, 0.09, 0.97)
+const PAGE_EDGE := Color(0.72, 0.56, 0.32, 0.5)
 const BONE := Color("f6f1e8")
 const FROST := Color("a3a8c6")
 const LAMP := Color("ffb54d")
@@ -30,9 +32,10 @@ static func fs(n: float) -> int:
 
 
 ## Шрифт Nunito нужной толщины: 600 — текст, 800 — кнопки и имена, 900 — заголовки.
-## Запасные шрифты письменностей, которых нет в Nunito: иероглифы (урезаны до ~3900 частых)
-## и деванагари. Подключены к самому Nunito, поэтому работают во всех надписях и списке языков.
-const FALLBACKS: PackedStringArray = ["res://fonts/NotoSansSC.ttf", "res://fonts/NotoSansDevanagari.ttf"]
+## Запасные шрифты письменностей, которых нет в Nunito: иероглифы (урезаны до ~3900 частых),
+## деванагари и знаки ★ ☆ ✓ ✗ (Symbols.ttf: 7 знаков из DejaVu Sans, лицензия fonts/DejaVu-LICENSE.txt).
+## Подключены к самому Nunito, поэтому работают во всех надписях и списке языков.
+const FALLBACKS: PackedStringArray = ["res://fonts/NotoSansSC.ttf", "res://fonts/NotoSansDevanagari.ttf", "res://fonts/Symbols.ttf"]
 
 
 static func _base() -> FontFile:
@@ -110,6 +113,8 @@ static func build() -> Theme:
 	_panel(t, "BubbleMine", MINE, MINE_EDGE)
 	_panel(t, "Card", PANEL, EDGE)
 	_panel(t, "Sheet", Color(0.08, 0.07, 0.13, 0.97), EDGE, 22)
+	# страница книги (TASK-088): тетрадь улик, память, рассказы Книги посёлка; тёплая бумага вместо холодной синевы
+	_panel(t, "Page", PAGE, PAGE_EDGE, 16)
 
 	var le_normal := _box(Color(1, 1, 1, 0.06), EDGE, RADIUS)
 	var le_focus := _box(Color(1, 1, 1, 0.08), LAMP_D, RADIUS)

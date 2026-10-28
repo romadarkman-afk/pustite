@@ -8,6 +8,10 @@ var reset_hints: bool = false
 var difficulty: String = "custom"
 var _chips: Dictionary = {}
 var _tab := "sound"
+var _about_open := false
+## Авторы записей звука и музыки с OpenGameArt.org (docs/sound-sources.md). Имена не переводятся.
+const AUDIO_AUTHORS := "rubberduck, Robin Lamb, Kistol, isaiah658, Ted Kerr, SketchMan3, RandomMind, AuraVoice, Nocturnal_Vanguard, HaelDB, marcelofg55, GboxMikeFozzy, Ogrebane."
+var _taps := DebugScreen.TapCounter.new()
 
 
 func screen_id() -> String:
@@ -41,12 +45,58 @@ func build() -> void:
 		"controls": _build_controls_tab()
 		_: _build_game_tab()
 
-	var go := W.button(L.t("settings.start"))
+	body.add_child(_about_block())
+	body.add_child(_version_row())
+	var go := W.wrap(W.button(L.t("settings.start")))
 	go.pressed.connect(func() -> void: emit_intent(Intent.START, {"cfg": cfg, "haptics": haptics, "reset_hints": reset_hints, "difficulty": difficulty}))
 	footer.add_child(go)
 	var back := W.button(L.t("ui.back"), &"Ghost")
 	back.pressed.connect(func() -> void: emit_intent(Intent.BACK, {"cfg": cfg, "haptics": haptics, "reset_hints": reset_hints, "difficulty": difficulty}))
 	footer.add_child(back)
+
+
+## «Об игре»: авторы записей звука и шрифтов раскрываются по нажатию (аудит F-17).
+func _about_block() -> Control:
+	var box := VBoxContainer.new()
+	box.name = "About"
+	var toggle := W.button(L.t("about.title"), &"RowOn" if _about_open else &"Row")
+	toggle.name = "AboutToggle"
+	toggle.pressed.connect(func() -> void:
+		_about_open = not _about_open
+		build())
+	box.add_child(toggle)
+	if _about_open:
+		var text := W.label("%s %s\n%s\n%s" % [L.t("about.audio"), AUDIO_AUTHORS, L.t("about.own"), L.t("about.fonts")], &"Small")
+		text.name = "AboutText"
+		box.add_child(text)
+	return box
+
+
+## Строка про экран под номером версии: окно в пикселях, размер поля в единицах интерфейса, масштаб, отступы.
+## Тестер присылает скриншот настроек, и по нему видно, как телефон отдал размеры (Poco F5 Pro, TASK-100.2).
+func screen_info() -> String:
+	var win := DisplayServer.window_get_size()
+	var vp := Nav.get_viewport().get_visible_rect().size
+	var ins := Nav.frame.insets if Nav.frame != null else Vector4.ZERO
+	return "%d×%d px · %d×%d u · ×%.2f · safe %d/%d/%d/%d" % [win.x, win.y, int(vp.x), int(vp.y), Nav.get_tree().root.content_scale_factor,
+		int(ins.x), int(ins.y), int(ins.z), int(ins.w)]
+
+
+## Строка версии внизу. Пять быстрых тапов в отладочной сборке открывают скрытое меню (TASK-096).
+func _version_row() -> Label:
+	var v := W.label("v%s\n%s" % [ProjectSettings.get_setting("application/config/version", "?"), screen_info()], &"Small")
+	v.name = "Version"
+	v.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.modulate = Color(1, 1, 1, 0.5)
+	v.custom_minimum_size = Vector2(0, 40)
+	v.mouse_filter = Control.MOUSE_FILTER_STOP
+	if DebugScreen.available():
+		v.gui_input.connect(func(e: InputEvent) -> void:
+			if e is InputEventMouseButton and (e as InputEventMouseButton).pressed and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+				if _taps.hit(Time.get_ticks_msec()):
+					emit_intent(Intent.OPEN_DEBUG, {}))
+	return v
 
 
 func _build_sound_tab() -> void:
@@ -57,6 +107,19 @@ func _build_sound_tab() -> void:
 
 
 func _build_display_tab() -> void:
+	var comics := W.button(L.t("settings.comics_on" if Save.comics_on else "settings.comics_off"), &"RowOn" if Save.comics_on else &"Row")
+	comics.name = "Comics"
+	comics.pressed.connect(func() -> void:
+		Save.set_comics(not Save.comics_on, Save.comics_skip_seen)
+		build())
+	body.add_child(comics)
+	if Save.comics_on:
+		var once := W.button(L.t("settings.comics_once_on" if Save.comics_skip_seen else "settings.comics_once_off"), &"RowOn" if Save.comics_skip_seen else &"Row")
+		once.name = "ComicsOnce"
+		once.pressed.connect(func() -> void:
+			Save.set_comics(Save.comics_on, not Save.comics_skip_seen)
+			build())
+		body.add_child(once)
 	var simple := W.button(L.t("settings.simplified_graphics"), &"RowOn" if Save.simplified_graphics else &"Row")
 	simple.name = "SimplifiedGraphics"
 	simple.pressed.connect(func() -> void:
@@ -87,12 +150,23 @@ func _build_display_tab() -> void:
 
 func _build_controls_tab() -> void:
 	body.add_child(W.label(L.t("settings.input_help"), &"Tale"))
-	var hb := W.button(L.t("settings.haptics_on" if haptics else "settings.haptics_off"), &"Row")
-	hb.pressed.connect(func() -> void:
-		haptics = not haptics
-		Juice.haptics_enabled = haptics
-		hb.text = L.t("settings.haptics_on" if haptics else "settings.haptics_off"))
-	body.add_child(hb)
+	body.add_child(W.label(L.t("settings.haptics"), &"Hint"))
+	var levels := W.hbox(8)
+	levels.name = "HapticLevels"
+	var level_keys := ["settings.haptic_off", "settings.haptic_weak", "settings.haptic_strong"]
+	for i in range(3):
+		var lb := W.button(L.t(level_keys[i]), &"RowOn" if i == Save.haptic_level else &"Row")
+		lb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lb.name = "Haptic_%d" % i
+		var lvl := i
+		lb.pressed.connect(func() -> void:
+			Save.set_haptic_level(lvl)
+			haptics = lvl > 0
+			Juice.haptic(Juice.Haptic.KNOCK)           # сразу чувствуешь, какая ступень
+			for k in range(levels.get_child_count()):
+				(levels.get_child(k) as Button).theme_type_variation = &"RowOn" if k == lvl else &"Row")
+		levels.add_child(lb)
+	body.add_child(levels)
 
 
 func _build_game_tab() -> void:

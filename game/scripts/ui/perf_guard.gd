@@ -46,6 +46,10 @@ static func counter_wanted() -> bool:
 	return OS.is_debug_build() and DisplayServer.get_name() != "headless"
 
 
+func counter_visible() -> bool:
+	return _label != null and _label.visible
+
+
 func set_counter_visible(on: bool) -> void:
 	if _label != null:
 		_label.visible = on

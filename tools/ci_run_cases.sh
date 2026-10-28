@@ -36,6 +36,10 @@ if [ "$failed" -ne 0 ]; then
     tail -n 80 "/tmp/pustite-$label.log"
     echo "::endgroup::"
   done < <(sort -u /tmp/pustite-failures)
+  while read -r label; do
+    short=$(grep -E "✗|ПРОВАЛ|НАРУШЕНИЙ|SCRIPT ERROR|ТАЙМАУТ" "/tmp/pustite-$label.log" | head -6 | cut -c1-300 | paste -sd'|' -)
+    echo "::error title=Провал $label::${short:-нет строк с причиной, смотри хвост лога}"
+  done < <(sort -u /tmp/pustite-failures)
   echo "::error title=Самотесты не пройдены::Упавшие: $(sort -u /tmp/pustite-failures | tr '\n' ' ')"
   exit 1
 fi

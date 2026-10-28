@@ -10,6 +10,11 @@ extends Node2D
 const MAX_PARTICLES := 60
 const AREA := Rect2(-120, 100, 960, 460)            ## где идёт осадок, в координатах посёлка
 const FALL_H := 440.0                               ## высота падения осадка
+const SPLASH_AREA := Rect2(-70, 250, 860, 300)        ## где на земле видны брызги
+const SPLASH_SPOTS := 160                           ## сколько мест для брызг выбирается на карте
+const SPLASH_CLEARANCE := 24.0                      ## половина самого крупного кадра брызг
+const RIPPLE_CLEARANCE := 32.0                      ## половина самого крупного кадра ряби
+const OFF_FIELD := Vector2(-10000, -10000)
 const DIR := "res://assets/weather/"
 
 ## Сколько частиц у эмиттера при полной силе. Все числа не больше MAX_PARTICLES.
@@ -17,7 +22,7 @@ const DIR := "res://assets/weather/"
 const FULL := {
 	"rain_far": 60, "rain_back": 60, "rain_mid": 60, "rain_near": 40, "splash": 48, "ripples": 6,
 	"flakes_far": 60, "flakes_mid": 60, "flakes_near": 40, "drift": 24, "grains": 40,
-	"fluff": 40, "ash": 40, "midges": 6, "leaves": 30, "drip": 40, "mist": 16,
+	"fluff": 40, "ash": 40, "midges": 6, "leaves": 12, "drip": 40, "mist": 16,
 }
 
 ## Атласы: файл, столбцов, строк. Настоящие картинки ChatGPT ложатся на место заглушек.
@@ -202,20 +207,74 @@ func refresh_geometry() -> void:
 			spots.append(Vector2(360, 300))
 		midges.emission_points = spots
 		_set_amount("midges", float(wanted(state).get("midges", 0.0)))
+
+	var splash: CPUParticles2D = _nodes.get("splash")
+	if splash != null:
+		_set_surface_points(splash, splash_points())
 	var ripples: CPUParticles2D = _nodes.get("ripples")
 	if ripples != null:
-		var rp := PackedVector2Array()
-		var rng := RandomNumberGenerator.new()
-		rng.seed = 91
-		for s: Vector3 in view.def.puddle_spots:
-			for _k in range(8):
-				var a := rng.randf() * TAU
-				var d := sqrt(rng.randf())
-				rp.append(Vector2(s.x + cos(a) * d * s.z * 0.8, s.y + sin(a) * d * s.z * 0.8 * 0.36))
-		if rp.is_empty():
-			rp.append(Vector2(360, 460))
-		ripples.emission_points = rp
+		_set_surface_points(ripples, ripple_points())
 		_set_amount("ripples", float(wanted(state).get("ripples", 0.0)))
+
+
+## Пустой набор нельзя заменять точкой на площади: она может лежать на доме.
+func _set_surface_points(emitter: CPUParticles2D, points: PackedVector2Array) -> void:
+	var has_points := not points.is_empty()
+	emitter.set_meta("ground_points_valid", has_points)
+	emitter.emission_points = points if has_points else PackedVector2Array([OFF_FIELD])
+	emitter.visible = has_points
+	if not has_points:
+		emitter.emitting = false
+
+
+func _surface_clear(at: Vector2, blocked: Array[Rect2], clearance: float) -> bool:
+	for r: Rect2 in blocked:
+		if r.grow(clearance).has_point(at):
+			return false
+	return true
+
+
+## Брызги рисуются поверх домов, поэтому исключаем весь силуэт и радиус кадра.
+func splash_points() -> PackedVector2Array:
+	var blocked: Array[Rect2] = []
+	var area := SPLASH_AREA
+	if view != null and view.def != null:
+		blocked = view.rain_blocked_zones()
+		area = area.intersection(view.def.ground_rect)
+	var out := PackedVector2Array()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 6113
+	var tries := 0
+	while out.size() < SPLASH_SPOTS and tries < SPLASH_SPOTS * 40:
+		tries += 1
+		var at := Vector2(area.position.x + rng.randf() * area.size.x,
+			area.position.y + rng.randf() * area.size.y)
+		if _surface_clear(at, blocked, SPLASH_CLEARANCE):
+			out.append(at)
+	return out
+
+
+## Рябь выбирается на лужах, но целый кадр должен оставаться вне построек.
+func ripple_points() -> PackedVector2Array:
+	var out := PackedVector2Array()
+	if view == null or view.def == null:
+		return out
+	var blocked := view.rain_blocked_zones()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 91
+	for spot: Vector3 in view.def.puddle_spots:
+		var accepted := 0
+		for _attempt in range(64):
+			var a := rng.randf() * TAU
+			var d := sqrt(rng.randf())
+			var at := Vector2(spot.x + cos(a) * d * spot.z * 0.8,
+				spot.y + sin(a) * d * spot.z * 0.8 * 0.36)
+			if _surface_clear(at, blocked, RIPPLE_CLEARANCE):
+				out.append(at)
+				accepted += 1
+				if accepted >= 8:
+					break
+	return out
 
 
 func _process(delta: float) -> void:
@@ -234,7 +293,8 @@ func _tick(delta: float) -> void:
 		var vis := vis_for(key, n)
 		var tint := Color.WHITE if _emissive(key) else (snowy if _is_snow(key) else cold)
 		p.modulate = Color(tint, vis)
-		var on := vis > 0.02
+		var on := vis > 0.02 and bool(p.get_meta("ground_points_valid", true))
+		p.visible = on
 		if p.emitting != on:
 			p.emitting = on
 		if _is_snow(key):
@@ -378,8 +438,9 @@ func _splash() -> CPUParticles2D:
 	_play_frames(p)
 	p.lifetime = 0.5
 	p.preprocess = 0.5
-	p.position = Vector2(360, 400)
-	p.emission_rect_extents = Vector2(430, 150)
+	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_POINTS
+	p.emission_points = PackedVector2Array([Vector2(360, 480)])
+	p.position = Vector2.ZERO
 	p.spread = 0.0
 	p.initial_velocity_min = 0.0
 	p.initial_velocity_max = 0.0
@@ -556,8 +617,8 @@ func _leaves() -> CPUParticles2D:
 	p.angular_velocity_min = -160.0
 	p.angular_velocity_max = 160.0
 	p.angle_max = 360.0
-	p.scale_amount_min = 0.12
-	p.scale_amount_max = 0.2
+	p.scale_amount_min = 0.05
+	p.scale_amount_max = 0.09
 	return p
 
 
