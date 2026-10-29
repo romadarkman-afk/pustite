@@ -102,7 +102,7 @@ static func _check_day(tag: String, problems: PackedStringArray) -> int:
 	var left_edge := Nav.village.to_global(Vector2(bounds.position.x, 0)).x
 	var right_edge := Nav.village.to_global(Vector2(bounds.end.x, 0)).x
 	if left_edge > -1.0 or right_edge < vp.x + 1.0:
-		problems.append("%s: виден край земли карты (%d…%d из %d)" % [tag, int(left_edge), int(right_edge), int(vp.x)])
+		problems.append("%s: виден край земли карты (%d…%d из %d; масштаб %.3f, камера %.1f)" % [tag, int(left_edge), int(right_edge), int(vp.x), Nav.village.scale.x, Nav.village.cam_x])
 	for c: Control in SelfTest._controls(screen):
 		if not c.is_visible_in_tree():
 			continue
@@ -156,13 +156,13 @@ static func _check_all_map_bounds(tag: String, problems: PackedStringArray) -> i
 		var visible_left := vp_w * 0.5 + (bounds.position.x - view._clamp_cam(view.cam_x, view.scale.x)) * view.scale.x
 		var visible_right := vp_w * 0.5 + (bounds.end.x - view._clamp_cam(view.cam_x, view.scale.x)) * view.scale.x
 		if visible_left > -1.0 or visible_right < vp_w + 1.0:
-			problems.append("%s: край карты %s виден из текущего положения камеры" % [tag, map_id])
+			problems.append("%s: край карты %s виден (земля %.1f…%.1f, полуширина %.1f, масштаб %.3f, камера %.1f)" % [tag, map_id, bounds.position.x, bounds.end.x, half, view.scale.x, view._clamp_cam(view.cam_x, view.scale.x)])
 			count += 1
 		if left_camera - half < bounds.position.x + VillageView.GROUND_BLEED - 1.0:
-			problems.append("%s: карта %s открывает левую подложку" % [tag, map_id])
+			problems.append("%s: карта %s открывает левую подложку (камера %.1f, полуширина %.1f, край %.1f)" % [tag, map_id, left_camera, half, bounds.position.x])
 			count += 1
 		if right_camera + half > bounds.end.x - VillageView.GROUND_BLEED + 1.0:
-			problems.append("%s: карта %s открывает правую подложку" % [tag, map_id])
+			problems.append("%s: карта %s открывает правую подложку (камера %.1f, полуширина %.1f, край %.1f)" % [tag, map_id, right_camera, half, bounds.end.x])
 			count += 1
 	view.def = saved_def
 	return count

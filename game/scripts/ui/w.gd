@@ -121,6 +121,8 @@ static func fit_row(buttons: Array, sep: int = 8) -> Container:
 	for b: Button in buttons:
 		b.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		# Размер контейнера должен учитывать длину целого слова, иначе кнопка обрежет подпись.
+		b.custom_minimum_size.x = maxf(b.custom_minimum_size.x, button_need(b))
 		# узкая кнопка (SHRINK_BEGIN) в строке остаётся узкой; в сетке и столбике все одной ширины
 		if b.size_flags_horizontal != Control.SIZE_SHRINK_BEGIN:
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL

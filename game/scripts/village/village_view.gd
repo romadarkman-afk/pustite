@@ -13,7 +13,7 @@ const SIDE_VISIBLE := 0.88
 const SKY_SHARE := 0.50                   ## горизонт не уходит за верх поля на вытянутых экранах
 const BUBBLE_HEADROOM := 210.0             ## место над верхним жителем для пузыря на планшетах
 const SAFE_X := Vector2(84, 624)          ## куда можно ставить жителей: слева половина имени, справа колонка отметок
-const GROUND_BLEED := 18.0                 ## картинка земли выступает за край кадра и не открывает подложку
+const GROUND_BLEED := 4.0                 ## картинка земли выступает за край кадра и не открывает подложку
 static var _shadow_outline_cache: Dictionary = {}
 static var _water_cache: Dictionary = {}   ## земля -> Image маски воды или null
 
@@ -402,10 +402,12 @@ func _apply_parallax() -> void:
 func _clamp_cam(x: float, s: float) -> float:
 	var bounds: Rect2 = def.ground_rect if def != null else GROUND_RECT
 	var half := _vp_w / (2.0 * s)
-	var lo := maxf(bounds.position.x + GROUND_BLEED + half, half - 20.0)
-	var hi := minf(bounds.end.x - GROUND_BLEED - half, LOGICAL.x - half + 20.0)
+	# Карты шире логической сцены и у разных регионов разный центр. Камеру ограничивают
+	# реальные границы фоновой земли, иначе на широком окне открывается соседний фон.
+	var lo := bounds.position.x + GROUND_BLEED + half
+	var hi := bounds.end.x - GROUND_BLEED - half
 	if lo >= hi:
-		return LOGICAL.x * 0.5
+		return bounds.get_center().x
 	return clampf(x, lo, hi)
 
 

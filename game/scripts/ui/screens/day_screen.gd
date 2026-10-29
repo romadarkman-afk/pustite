@@ -108,8 +108,6 @@ func build() -> void:
 	if m.can_meeting(m.player()):
 		var bell := W.button(L.t("day.bell"), &"Ghost")
 		bell.name = "Meeting"
-		bell.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-		bell.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 		bell.pressed.connect(_meeting_flow)
 		rb.append(bell)
 	var ready_btn := W.button(L.t("day.ready"), &"Ghost")
