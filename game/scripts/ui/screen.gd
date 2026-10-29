@@ -47,6 +47,13 @@ func setup(match_ref: Match, director_ref: Director) -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_chrome()
 	build()
+	if screen_id() == "day":
+		var inset := Control.new()
+		inset.name = "FooterBottomInset"
+		inset.custom_minimum_size = Vector2(0, 16)
+		inset.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inset.focus_mode = Control.FOCUS_NONE
+		footer.add_child(inset)
 
 
 func refresh_locale() -> void:

@@ -49,17 +49,21 @@ static func run() -> void:
 
 
 static func _check_menu_music(tree: SceneTree, problems: PackedStringArray) -> void:
+	Nav.show_menu()
+	await SelfTest._settle(tree)
 	var available: Array[StringName] = []
-	var looping: PackedStringArray = PackedStringArray()
+	var invalid_menu_streams: PackedStringArray = PackedStringArray()
 	for k: StringName in Sfx.SONGS:
 		if not Sfx.has_sound(k):
 			continue
 		available.append(k)
 		var st := Sfx._streams[k] as AudioStream
+		if st.get_length() <= 0.0:
+			invalid_menu_streams.append("%s: неверная длительность %.1f с" % [k, st.get_length()])
 		var is_loop := st is AudioStreamOggVorbis and (st as AudioStreamOggVorbis).loop
 		is_loop = is_loop or (st is AudioStreamWAV and (st as AudioStreamWAV).loop_mode != AudioStreamWAV.LOOP_DISABLED)
 		if is_loop:
-			looping.append(String(k))
+			invalid_menu_streams.append("%s: поток зациклен" % k)
 	var missing_story_loops := PackedStringArray()
 	for k: StringName in available:
 		var story_stream := Sfx._song_loop_streams.get(k) as AudioStream
@@ -69,18 +73,38 @@ static func _check_menu_music(tree: SceneTree, problems: PackedStringArray) -> v
 			missing_story_loops.append(String(k))
 	_expect(problems, available.size() >= 2, "для смены песни в меню загружено меньше двух треков")
 	_expect(problems, missing_story_loops.is_empty(), "песни для финальных сцен потеряли зацикливание: %s" % ", ".join(missing_story_loops))
-	_expect(problems, looping.is_empty(), "песни меню зациклены и могут начинаться заново: %s" % ", ".join(looping))
+	_expect(problems, invalid_menu_streams.is_empty(), "ошибка потоков песен меню: %s" % ", ".join(invalid_menu_streams))
 	var first := Sfx.menu_music()
 	_expect(problems, available.has(first), "меню не выбрало загруженную песню: %s" % first)
 	_expect(problems, Sfx.menu_music() == first, "переход между меню и вкладками меняет песню")
+	var saved_bag: Array[StringName] = []
+	saved_bag.append_array(Sfx._menu_song_bag)
+	var saved_last := Sfx._last_menu_song
+	Sfx._menu_song_bag.clear()
+	Sfx._last_menu_song = &""
+	var cycle: Array[StringName] = []
+	for i in range(available.size()):
+		cycle.append(Sfx._pick_menu_song())
+	var unique_songs: Dictionary = {}
+	var cycle_names := PackedStringArray()
+	for song: StringName in cycle:
+		unique_songs[song] = true
+		cycle_names.append(String(song))
+	Sfx._menu_song_bag.clear()
+	Sfx._menu_song_bag.append_array(saved_bag)
+	Sfx._last_menu_song = saved_last
+	_expect(problems, cycle.size() == available.size() and unique_songs.size() == available.size(),
+		"плейлист меню повторяет песню до конца очереди: %s" % ", ".join(cycle_names))
 	if available.size() < 2:
 		return
 	Sfx.set_music(first, 0.0)
+	await SelfTest._frames(tree, 3)
+	_expect(problems, Sfx.music_name == first and Sfx._music_p.playing and Sfx._music_p.stream == Sfx._streams[first], "меню не запустило полный, незацикленный трек")
 	Sfx._music_p.stop()
 	Sfx._on_music_finished()
 	await SelfTest._frames(tree, 3)
 	var next := Sfx.menu_music()
-	_expect(problems, next != first and Sfx._music_p.playing, "после окончания песни не включился другой трек")
+	_expect(problems, next != first and Sfx._music_p.playing and Sfx._music_p.stream == Sfx._streams[next], "после окончания песни не включился другой, незацикленный трек")
 	Nav.show_settings()
 	await SelfTest._settle(tree)
 	_expect(problems, Sfx.music_name == next, "песня прерывается при открытии настроек")
@@ -98,11 +122,18 @@ static func _check_day(tag: String, problems: PackedStringArray) -> int:
 	var footer := screen.footer.get_global_rect()
 	if footer.end.y > vp.y + 1.0:
 		problems.append("%s: нижняя панель выходит за экран (%d > %d)" % [tag, int(footer.end.y), int(vp.y)])
-	var bounds: Rect2 = Nav.village.def.ground_rect
-	var left_edge := Nav.village.to_global(Vector2(bounds.position.x, 0)).x
-	var right_edge := Nav.village.to_global(Vector2(bounds.end.x, 0)).x
-	if left_edge > -1.0 or right_edge < vp.x + 1.0:
-		problems.append("%s: виден край земли карты (%d…%d из %d; масштаб %.3f, камера %.1f)" % [tag, int(left_edge), int(right_edge), int(vp.x), Nav.village.scale.x, Nav.village.cam_x])
+	var last_button_bottom := 0.0
+	for control: Control in SelfTest._controls(screen):
+		if control is BaseButton and control.is_visible_in_tree():
+			last_button_bottom = maxf(last_button_bottom, control.get_global_rect().end.y)
+	if last_button_bottom > vp.y - 12.0:
+		problems.append("%s: нижние кнопки слишком близко к краю экрана (%d из %d)" % [tag, int(last_button_bottom), int(vp.y)])
+	var bounds := Nav.village._ground_draw_rect()
+	var left_edge := Nav.village.position.x + bounds.position.x * Nav.village.scale.x
+	var right_edge := Nav.village.position.x + bounds.end.x * Nav.village.scale.x
+	var field_width := Nav.village._vp_w
+	if left_edge > -1.0 or right_edge < field_width + 1.0:
+		problems.append("%s: виден край земли карты (%d…%d из %d; масштаб %.3f, камера %.1f)" % [tag, int(left_edge), int(right_edge), int(field_width), Nav.village.scale.x, Nav.village.cam_x])
 	for c: Control in SelfTest._controls(screen):
 		if not c.is_visible_in_tree():
 			continue
@@ -140,7 +171,7 @@ static func _check_all_map_bounds(tag: String, problems: PackedStringArray) -> i
 		problems.append("%s: поле посёлка не готово для проверки границ карты" % tag)
 		return 1
 	var saved_def := view.def
-	var vp_w := Nav.frame.get_viewport_rect().size.x
+	var vp_w := view._vp_w
 	var half := vp_w / (2.0 * view.scale.x)
 	var count := 0
 	for map_id: String in Campaign.SOLO_MAP_IDS:
@@ -150,18 +181,19 @@ static func _check_all_map_bounds(tag: String, problems: PackedStringArray) -> i
 			count += 1
 			continue
 		view.def = def
-		var bounds := def.ground_rect
+		var bounds := view._ground_draw_rect()
 		var left_camera := view._clamp_cam(-100000.0, view.scale.x)
 		var right_camera := view._clamp_cam(100000.0, view.scale.x)
-		var visible_left := vp_w * 0.5 + (bounds.position.x - view._clamp_cam(view.cam_x, view.scale.x)) * view.scale.x
-		var visible_right := vp_w * 0.5 + (bounds.end.x - view._clamp_cam(view.cam_x, view.scale.x)) * view.scale.x
+		var camera := view._clamp_cam(view.cam_x, view.scale.x)
+		var visible_left := vp_w * 0.5 + (bounds.position.x - camera) * view.scale.x
+		var visible_right := vp_w * 0.5 + (bounds.end.x - camera) * view.scale.x
 		if visible_left > -1.0 or visible_right < vp_w + 1.0:
-			problems.append("%s: край карты %s виден (земля %.1f…%.1f, полуширина %.1f, масштаб %.3f, камера %.1f)" % [tag, map_id, bounds.position.x, bounds.end.x, half, view.scale.x, view._clamp_cam(view.cam_x, view.scale.x)])
+			problems.append("%s: край карты %s виден (земля %.1f…%.1f, полуширина %.1f, масштаб %.3f, камера %.1f)" % [tag, map_id, bounds.position.x, bounds.end.x, half, view.scale.x, camera])
 			count += 1
-		if left_camera - half < bounds.position.x + VillageView.GROUND_BLEED - 1.0:
+		if left_camera - half < bounds.position.x - 1.0:
 			problems.append("%s: карта %s открывает левую подложку (камера %.1f, полуширина %.1f, край %.1f)" % [tag, map_id, left_camera, half, bounds.position.x])
 			count += 1
-		if right_camera + half > bounds.end.x - VillageView.GROUND_BLEED + 1.0:
+		if right_camera + half > bounds.end.x + 1.0:
 			problems.append("%s: карта %s открывает правую подложку (камера %.1f, полуширина %.1f, край %.1f)" % [tag, map_id, right_camera, half, bounds.end.x])
 			count += 1
 	view.def = saved_def

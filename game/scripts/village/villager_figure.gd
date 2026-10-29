@@ -27,6 +27,7 @@ var _eye_pop: float = 0.0
 var highlight: bool = false        ## метка «Вы»: стрелка над головой и кольцо под ногами
 
 const MARK_X := 33.0       ## колонка отметок справа от головы
+const MARK_SCALE := 0.9     ## метки чуть компактнее; зона выбора жителя остаётся прежней
 const S := 0.62            ## масштаб рисунка жителя (Folk) в единицах посёлка
 const FIG_TOP := 88.0      ## высота жителя с шапкой, логических единиц
 
@@ -1258,7 +1259,7 @@ func _draw_marks() -> void:
 	if pact:
 		paint_pact(tag, Vector2(0, 2))
 	if eye_level > 0:
-		drawn_strokes = paint_eye(tag, Vector2(MARK_X, -66), eye_level, 1.0 + 0.5 * _eye_pop)
+		drawn_strokes = paint_eye(tag, Vector2(MARK_X, -66), eye_level, MARK_SCALE * (1.0 + 0.5 * _eye_pop))
 	var y := -46.0
 	for b: String in badges.slice(0, 2):
 		drawn_frames.append(paint_badge(tag, b, Vector2(MARK_X, y)))
@@ -1303,6 +1304,7 @@ static func paint_eye(ci: CanvasItem, c: Vector2, level: int, s: float = 1.0) ->
 
 ## Значок улики в своей рамке; возвращает число вершин рамки (для самотеста силуэтов).
 static func paint_badge(ci: CanvasItem, b: String, c: Vector2) -> int:
+	ci.draw_set_transform(c * (1.0 - MARK_SCALE), 0.0, Vector2.ONE * MARK_SCALE)
 	var x := c.x
 	var y := c.y
 	var accent := ThemeFactory.LAMP
@@ -1334,6 +1336,7 @@ static func paint_badge(ci: CanvasItem, b: String, c: Vector2) -> int:
 			ci.draw_circle(Vector2(x + 3, y + 1), 1.4, ThemeFactory.BONE)
 		"sabotage":   # трещина
 			ci.draw_polyline(PackedVector2Array([Vector2(x - 1, y - 7), Vector2(x + 3, y - 2), Vector2(x - 2.5, y + 1.5), Vector2(x + 2, y + 7)]), accent, 2.0)
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	return frame.size()
 
 

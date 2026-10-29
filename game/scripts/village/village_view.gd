@@ -43,6 +43,7 @@ var _lamp_lights: Array[PointLight2D] = []
 var _tex: Dictionary = {}                  ## имя картинки -> Texture2D
 var _realistic: Dictionary = {}             ## новые спрайты уже содержат мягкую контактную тень
 var _ground_is_composite := false          ## старые картинки земли уже содержат небо и лес
+var _ground_cover_scale := 1.0             ## минимальный масштаб текущего перехода кадра, чтобы край земли не открыл фон
 var _props: Array[VillageProp] = []        ## дома, колодец, фонари и реквизит — в слое толпы
 var _labels: Node2D                        ## таблички убежищ — над толпой
 var _occluders: Array[LightOccluder2D] = []
@@ -360,6 +361,8 @@ func frame_to(rect: Rect2, vp_w: float, dur: float, zoom: float = 1.0, focus_x: 
 		# приближенная камера не показывает пустоту за краями посёлка: посёлок (с запасом 18 ед. с каждой стороны) не уже экрана
 		s = maxf(s, minf(rect.size.y / BAND.size.y, vp_w / (LOGICAL.x + 36.0)))
 	_vp_w = vp_w
+	_ground_cover_scale = minf(scale.x if scale.x > 0.01 else s, s)
+	queue_redraw()
 	if focus_x >= 0.0:
 		cam_x = focus_x
 	elif zoom <= 1.0:
@@ -374,13 +377,19 @@ func frame_to(rect: Rect2, vp_w: float, dur: float, zoom: float = 1.0, focus_x: 
 	if dur <= 0.0:
 		position = target
 		scale = Vector2(s, s)
+		_ground_cover_scale = s
 		_framing = false
+		queue_redraw()
 		return
 	_framing = true
 	_tw_frame = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_tw_frame.tween_property(self, "position", target, dur)
 	_tw_frame.tween_property(self, "scale", Vector2(s, s), dur)
-	_tw_frame.chain().tween_callback(func() -> void: _framing = false)
+	_tw_frame.chain().tween_callback(func() -> void:
+		_framing = false
+		_ground_cover_scale = scale.x
+		queue_redraw()
+	)
 
 
 ## Слои стоят там, куда их двигает камера: слой со скоростью k смещается относительно посёлка на (1 - k) от ухода камеры.
@@ -396,6 +405,20 @@ func _apply_parallax() -> void:
 	if _branches != null:
 		var hang := _branches.hang()
 		_branches.position.x = clampf(-(SPEED_BRANCHES - 1.0) * d * scale.x, -hang, hang)
+
+
+## Фоновые картинки закрывают окно с небольшим запасом, даже если их исходная ширина короче кадра.
+## Добавляется только недостающая ширина, симметрично с обоих краёв.
+func _ground_draw_rect() -> Rect2:
+	var bounds: Rect2 = def.ground_rect if def != null else GROUND_RECT
+	if _vp_w <= 0.0 or _ground_cover_scale <= 0.01:
+		return bounds
+	var needed := _vp_w / _ground_cover_scale + GROUND_BLEED * 2.0 + 2.0
+	if needed > bounds.size.x:
+		var extra := needed - bounds.size.x
+		bounds.position.x -= extra * 0.5
+		bounds.size.x += extra
+	return bounds
 
 
 ## Центр кадра не уводит камеру за края посёлка.
@@ -706,18 +729,19 @@ func _draw() -> void:
 	# Небо и дальний лес рисует Backdrop (он за посёлком и сдвигается медленнее камеры).
 	# Земля содержит площадку и окружение. Варианты актов сохраняют те же ориентиры.
 	var gr := def.ground_rect
+	var ground_draw := _ground_draw_rect()
 	var forest := Backdrop.FOREST_DAY.lerp(Backdrop.FOREST_NIGHT, n)
 	draw_rect(Rect2(-2000, gr.position.y + 40.0, 4720, 3000), Color("4a4636").lerp(Color("1c2430"), n))
 	var place_grade: Color = Color.WHITE.lerp(def.color_grade, 0.2) * season_mod()
-	draw_texture_rect(_tex.ground_day, gr, false, place_grade)
+	draw_texture_rect(_tex.ground_day, ground_draw, false, place_grade)
 	if n > 0.0:
-		draw_texture_rect(_tex.ground_night, gr, false, Color(place_grade, n))
+		draw_texture_rect(_tex.ground_night, ground_draw, false, Color(place_grade, n))
 	if not _tex.has("real_sky_day"):
-		Art.vgrad(self, Rect2(gr.position.x, gr.position.y, gr.size.x, 40.0), Color(forest, 0.75), Color(forest, 0.0))
-	# На реалистичных фонах стык закрывает лёгкая приземная дымка.
+		Art.vgrad(self, Rect2(ground_draw.position.x, gr.position.y, ground_draw.size.x, 40.0), Color(forest, 0.75), Color(forest, 0.0))
+	# Широкая дымка растворяет горизонт в фоне, не оставляя резкой полосы над землёй.
 	var mist := Color8(118, 128, 140).lerp(Color8(44, 54, 76), n)
-	Art.vgrad(self, Rect2(-2000, gr.position.y - 34.0, 4720, 36.0), Color(mist, 0.0), Color(mist, 0.6))
-	Art.vgrad(self, Rect2(-2000, gr.position.y + 2.0, 4720, 48.0), Color(mist, 0.6), Color(mist, 0.0))
+	Art.vgrad(self, Rect2(-2000, gr.position.y - 52.0, 4720, 64.0), Color(mist, 0.0), Color(mist, 0.46))
+	Art.vgrad(self, Rect2(-2000, gr.position.y + 12.0, 4720, 104.0), Color(mist, 0.46), Color(mist, 0.0))
 
 	# дома, колодец, фонари, поленница и бочка — предметы в слое толпы (VillageProp):
 	# кто стоит за домом, того дом закрывает. Здесь только то, что лежит на земле.

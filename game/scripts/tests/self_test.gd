@@ -4430,14 +4430,17 @@ static func village() -> void:
 	await _frames(tree, 4)
 	ok += _expect(fails, me.position.distance_to(cr.walk_clamp(Vector2(150, 420))) < 2.0, "тап по земле не увёл игрока (%s)" % me.position)
 	var mx := me.get_global_transform_with_canvas().origin.x
-	var left_edge := v.to_global(Vector2(0, 0)).x
+	var draw_bounds := v._ground_draw_rect()
+	var left_edge := v.position.x + draw_bounds.position.x * v.scale.x
 	var at_left := absf(v.cam_x - v._clamp_cam(-9999.0, v.scale.x)) < 0.5
 	ok += _expect(fails, (mx > vp.x * 0.25 and mx < vp.x * 0.75) or at_left, "камера не пошла за игроком (игрок на x=%d)" % int(mx))
-	ok += _expect(fails, left_edge <= 20.0 * v.scale.x + 1.0, "камера ушла за левый край посёлка")
+	ok += _expect(fails, left_edge <= 1.0, "камера открыла левый край подложки посёлка")
 	Nav.handle_intent(Intent.FIELD_TAP, {"pos": v.to_global(Vector2(900, 380))}, day)
 	await _frames(tree, 4)
 	ok += _expect(fails, me.position.x <= VillageView.SAFE_X.y + 0.5, "игрок ушёл за край посёлка (x=%d)" % int(me.position.x))
-	ok += _expect(fails, v.to_global(Vector2(VillageView.LOGICAL.x, 0)).x >= vp.x - 20.0 * v.scale.x - 1.0, "камера ушла за правый край посёлка")
+	var draw_bounds_right := v._ground_draw_rect()
+	var right_edge := v.position.x + draw_bounds_right.end.x * v.scale.x
+	ok += _expect(fails, right_edge >= v._vp_w - 1.0, "камера открыла правый край подложки посёлка")
 
 	# 4. Дело игрока: дошёл, поработал, запасы выросли
 	var ji := m.job_index(&"water")

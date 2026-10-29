@@ -132,6 +132,7 @@ var played: Array[StringName] = []
 var music_name: StringName = &""
 var _menu_song_pick: StringName = &""
 var _last_menu_song: StringName = &""
+var _menu_song_bag: Array[StringName] = []
 var ambience_name: StringName = &""
 var _ambience_level_db := -4.0
 var heart_on := false
@@ -493,11 +494,18 @@ func _pick_menu_song() -> StringName:
 	for k: StringName in SONGS:
 		if has_sound(k):
 			choices.append(k)
-	if choices.size() > 1:
-		choices.erase(_last_menu_song)
 	if choices.is_empty():
+		_menu_song_bag.clear()
 		return &""
-	var picked: StringName = choices[randi_range(0, choices.size() - 1)]
+	if _menu_song_bag.is_empty():
+		_menu_song_bag.append_array(choices)
+		_menu_song_bag.shuffle()
+		if _menu_song_bag.size() > 1 and _menu_song_bag[0] == _last_menu_song:
+			var swap_index := randi_range(1, _menu_song_bag.size() - 1)
+			var swap_song: StringName = _menu_song_bag[0]
+			_menu_song_bag[0] = _menu_song_bag[swap_index]
+			_menu_song_bag[swap_index] = swap_song
+	var picked: StringName = _menu_song_bag.pop_front()
 	_last_menu_song = picked
 	return picked
 
@@ -804,7 +812,7 @@ func _apply_pace() -> void:
 
 
 ## Уровень каждой темы относительно канала: днём музыка тише, чтобы не перекрывать реплики и фон.
-const MUSIC_LEVEL := {&"day": -8.0, &"night": -6.0, &"song": -1.5, &"song_pustite": -1.5}   # игровая музыка поднята на 3 дБ, все песни меню звучат на одном уровне
+const MUSIC_LEVEL := {&"day": -4.0, &"night": -2.0, &"song": 0.0, &"song_pustite": 0.0, &"menu": -1.5}   # игровые темы +4 дБ; песни меню выровнены
 
 
 func _music_target_db() -> float:
