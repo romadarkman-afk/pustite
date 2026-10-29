@@ -175,6 +175,29 @@ jobs:
           ls -la build/
           test -s build/pustite.apk || { echo "APK не создан"; exit 1; }
 
+      - name: Проверка APK, подписи и версии
+        run: |
+          set -euo pipefail
+          APK="build/pustite.apk"
+          TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n1)"
+          VERSION="$(awk -F '"' '$1 == "config/version=" { print $2; exit }' game/project.godot)"
+          VERSION_CODE="$(awk -F= '$1 == "version/code" { print $2; exit }' game/export_presets.cfg)"
+          NAME_COUNT="$(awk -F '"' -v v="$VERSION" '$1 == "version/name=" && $2 == v { n++ } END { print n+0 }' game/export_presets.cfg)"
+          CODE_COUNT="$(awk -F= '$1 == "version/code" { n++ } END { print n+0 }' game/export_presets.cfg)"
+          if [ "$NAME_COUNT" -ne 2 ] || [ "$CODE_COUNT" -ne 2 ]; then
+            echo "::error title=Версия экспорта не совпадает::Обе Android-настройки должны использовать $VERSION, code $VERSION_CODE."
+            exit 1
+          fi
+          unzip -tq "$APK"
+          "$TOOLS/zipalign" -c 4 "$APK"
+          "$TOOLS/apksigner" verify --verbose --print-certs "$APK"
+          BADGING="$("$TOOLS/aapt" dump badging "$APK")"
+          echo "$BADGING" | sed -n '1,2p'
+          EXPECTED="package: name='com.vladi.pustite' versionCode='$VERSION_CODE' versionName='$VERSION'"
+          if ! grep -Fq "$EXPECTED" <<< "$BADGING"; then
+            echo "::error title=Метаданные APK неверны::Ожидалось: $EXPECTED"
+            exit 1
+          fi
       - name: Бюджет веса APK
         run: |
           size=$(stat -c %s build/pustite.apk)
