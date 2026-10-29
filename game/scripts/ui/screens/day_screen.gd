@@ -67,7 +67,7 @@ func build() -> void:
 	legend.name = "MarksLegend"
 	legend.tooltip_text = L.t("legend.btn")
 	legend.accessibility_name = L.t("legend.btn")
-	legend.custom_minimum_size = Vector2(84, 84)
+	legend.custom_minimum_size = Vector2(ThemeFactory.TOUCH, ThemeFactory.TOUCH)
 	legend.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	legend.pressed.connect(marks_legend)
 	jr.add_child(legend)

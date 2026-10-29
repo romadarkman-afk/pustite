@@ -94,7 +94,7 @@ const COMIC_THEMES := {
 	&"theme_grief": "res://assets/music/theme_grief.ogg",
 }
 ## Песни (как в Alan Wake: песня в меню и в конце эпизода). Делаются в Lyria по промптам из «Пульта» (tools/pult), кладутся в assets/music/.
-## Нет файла: играет прежняя музыка. Песня идёт петлёй, пока играет экран.
+## В меню песня играет целиком, затем без повтора подряд включается следующая.
 const SONGS := {
 	&"song_pustite": "res://assets/music/song_pustite.ogg",    # меню и концовка «упырь»
 	&"song_lullaby": "res://assets/music/song_lullaby.ogg",    # итог акта I
@@ -130,11 +130,14 @@ const LOG_MAX := 64
 ## Последние сыгранные звуки — для самотеста и бортового самописца.
 var played: Array[StringName] = []
 var music_name: StringName = &""
+var _menu_song_pick: StringName = &""
+var _last_menu_song: StringName = &""
 var ambience_name: StringName = &""
 var _ambience_level_db := -4.0
 var heart_on := false
 
 var _streams: Dictionary = {}
+var _song_loop_streams: Dictionary = {}
 var _pool: Array[AudioStreamPlayer] = []
 var _next := 0
 ## Длинных потоков не больше шести: музыка, фон, место, погода, жизнь, сердцебиение — по одному.
@@ -205,7 +208,15 @@ func _ready() -> void:
 		if ResourceLoader.exists(SONGS[k]):
 			var song_stream := load(SONGS[k]) as AudioStream
 			if song_stream is AudioStreamOggVorbis:
-				(song_stream as AudioStreamOggVorbis).loop = true
+				(song_stream as AudioStreamOggVorbis).loop = false
+				var looped_song := (song_stream as AudioStreamOggVorbis).duplicate() as AudioStreamOggVorbis
+				looped_song.loop = true
+				_song_loop_streams[k] = looped_song
+			elif song_stream is AudioStreamWAV:
+				(song_stream as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_DISABLED
+				var looped_wave := (song_stream as AudioStreamWAV).duplicate() as AudioStreamWAV
+				looped_wave.loop_mode = AudioStreamWAV.LOOP_FORWARD
+				_song_loop_streams[k] = looped_wave
 			_streams[k] = song_stream
 	for kind: String in ["day", "night"]:
 		for key: String in STAGE_KEYS:
@@ -221,6 +232,7 @@ func _ready() -> void:
 		add_child(p)
 		_pool.append(p)
 	_music_p = _player(&"Music")
+	_music_p.finished.connect(_on_music_finished)
 	_amb_p = _player(&"Ambience")
 	_place = _player(&"Ambience")
 	_weather_p = _player(&"Ambience")
@@ -467,9 +479,51 @@ func pause_voice_line(on: bool) -> void:
 		_vo_p.stream_paused = on
 
 
-## Музыка меню: главная песня, если файл есть.
+## Меню и его вкладки держат одну песню. Новый заход в меню выбирает новую,
+## а после полного проигрывания включает следующую, не повторяя предыдущую.
 func menu_music() -> StringName:
-	return &"song_pustite" if has_sound(&"song_pustite") else &"menu"
+	if _menu_song_pick != &"" and has_sound(_menu_song_pick):
+		return _menu_song_pick
+	_menu_song_pick = _pick_menu_song()
+	return _menu_song_pick if _menu_song_pick != &"" else &"menu"
+
+
+func _pick_menu_song() -> StringName:
+	var choices: Array[StringName] = []
+	for k: StringName in SONGS:
+		if has_sound(k):
+			choices.append(k)
+	if choices.size() > 1:
+		choices.erase(_last_menu_song)
+	if choices.is_empty():
+		return &""
+	var picked: StringName = choices[randi_range(0, choices.size() - 1)]
+	_last_menu_song = picked
+	return picked
+
+
+func _music_stream(n: StringName) -> AudioStream:
+	if SONGS.has(n) and n != _menu_song_pick and _song_loop_streams.has(n):
+		return _song_loop_streams[n] as AudioStream
+	return _streams[n] as AudioStream
+
+
+func _on_music_finished() -> void:
+	if _menu_song_pick == &"" or music_name != _menu_song_pick or _music_p == null:
+		return
+	var next := _pick_menu_song()
+	if next == &"":
+		_menu_song_pick = &""
+		set_music(&"menu", 1.6)
+		return
+	_menu_song_pick = next
+	if next == music_name:
+		_music_p.stream = _music_stream(next)
+		_music_p.volume_db = -80.0
+		_music_p.play()
+		_fade(_music_p, _music_target_db(), 1.6, false)
+		return
+	set_music(next, 1.6)
 
 
 ## Фон: «amb_day», «amb_night» или "" (тишина). Плавная смена за fade секунд.
@@ -495,7 +549,7 @@ func _dip(p: AudioStreamPlayer, n: StringName, level_db: float, fade: float, gen
 	if n == &"" or not has_sound(n):
 		return
 	p.stop()
-	p.stream = _streams[n]
+	p.stream = _music_stream(n) if which == &"music" else _streams[n]
 	p.volume_db = -80.0
 	p.play()
 	_fade(p, level_db, half, false)
@@ -700,7 +754,14 @@ func _process(delta: float) -> void:
 
 ## Музыка: «menu», «day», «night» или "" (тишина).
 func set_music(n: StringName, fade: float = 2.8) -> void:
+	if n != _menu_song_pick:
+		_menu_song_pick = &""
 	if n == music_name:
+		if n != &"" and _music_p != null and not _music_p.playing and has_sound(n):
+			_music_p.stream = _music_stream(n)
+			_music_p.volume_db = -80.0
+			_music_p.play()
+			_fade(_music_p, _music_target_db(), fade, false)
 		return
 	music_name = n
 	_note(StringName("музыка:" + String(n)))
@@ -743,7 +804,7 @@ func _apply_pace() -> void:
 
 
 ## Уровень каждой темы относительно канала: днём музыка тише, чтобы не перекрывать реплики и фон.
-const MUSIC_LEVEL := {&"day": -11.0, &"night": -9.0, &"song": -4.0, &"song_pustite": -2.0}   # песни (song_*) нормированы тише старых тем, поэтому громче на 4 дБ
+const MUSIC_LEVEL := {&"day": -8.0, &"night": -6.0, &"song": -1.5, &"song_pustite": -1.5}   # игровая музыка поднята на 3 дБ, все песни меню звучат на одном уровне
 
 
 func _music_target_db() -> float:

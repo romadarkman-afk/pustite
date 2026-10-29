@@ -13,6 +13,7 @@ const SIDE_VISIBLE := 0.88
 const SKY_SHARE := 0.50                   ## горизонт не уходит за верх поля на вытянутых экранах
 const BUBBLE_HEADROOM := 210.0             ## место над верхним жителем для пузыря на планшетах
 const SAFE_X := Vector2(84, 624)          ## куда можно ставить жителей: слева половина имени, справа колонка отметок
+const GROUND_BLEED := 18.0                 ## картинка земли выступает за край кадра и не открывает подложку
 static var _shadow_outline_cache: Dictionary = {}
 static var _water_cache: Dictionary = {}   ## земля -> Image маски воды или null
 
@@ -399,9 +400,10 @@ func _apply_parallax() -> void:
 
 ## Центр кадра не уводит камеру за края посёлка.
 func _clamp_cam(x: float, s: float) -> float:
+	var bounds: Rect2 = def.ground_rect if def != null else GROUND_RECT
 	var half := _vp_w / (2.0 * s)
-	var lo := half - 20.0
-	var hi := LOGICAL.x - half + 20.0
+	var lo := maxf(bounds.position.x + GROUND_BLEED + half, half - 20.0)
+	var hi := minf(bounds.end.x - GROUND_BLEED - half, LOGICAL.x - half + 20.0)
 	if lo >= hi:
 		return LOGICAL.x * 0.5
 	return clampf(x, lo, hi)

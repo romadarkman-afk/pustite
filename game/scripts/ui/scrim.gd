@@ -3,7 +3,8 @@ extends Control
 ## Затемнение под игровым полем: текст и кнопки внизу читаются поверх земли посёлка.
 ## Верхний край — мягкий градиент, чтобы поле не обрезалось жёсткой линией.
 
-const FADE := 80.0
+const TOP_FADE := 140.0
+const BOTTOM_FADE := 80.0
 
 var top: float = 0.0: set = _set_top
 var field_top: float = -1.0: set = _set_field_top
@@ -37,11 +38,11 @@ func _draw() -> void:
 	if field_top >= 0.0:
 		var y := clampf(field_top, 0.0, size.y)
 		draw_rect(Rect2(0, 0, size.x, y), c)
-		var fade_end := minf(size.y, y + FADE)
+		var fade_end := minf(size.y, y + TOP_FADE)
 		if fade_end > y:
 			draw_polygon(PackedVector2Array([Vector2(0, y), Vector2(size.x, y), Vector2(size.x, fade_end), Vector2(0, fade_end)]),
 				PackedColorArray([c, c, clear, clear]))
-	var y0 := top - FADE
+	var y0 := top - BOTTOM_FADE
 	draw_polygon(PackedVector2Array([Vector2(0, y0), Vector2(size.x, y0), Vector2(size.x, top), Vector2(0, top)]),
 		PackedColorArray([clear, clear, c, c]))
 	draw_rect(Rect2(0, top, size.x, maxf(0.0, size.y - top)), c)
