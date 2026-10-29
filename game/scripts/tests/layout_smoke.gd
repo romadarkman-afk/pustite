@@ -9,6 +9,9 @@ static func run() -> void:
 	checks += _expect(problems, Nav.host.current is MenuScreen, "перед тестом раскладки открылось не меню")
 	Nav.start_match()
 	await SelfTest._settle(tree)
+	if Game.m != null and Game.m.phase == Match.Phase.PROLOGUE:
+		Game.proceed()
+		await SelfTest._settle(tree)
 	checks += _expect(problems, Nav.host.current is DayScreen, "одиночная партия не открыла дневной экран")
 	if not (Nav.host.current is DayScreen):
 		_report(tree, checks, problems)
