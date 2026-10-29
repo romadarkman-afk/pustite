@@ -130,6 +130,15 @@ jobs:
           EOF
           cat "$HOME/.config/godot/editor_settings-${GODOT_VERSION}.tres"
 
+      - name: Загрузить записанные звуки с проверкой контрольных сумм
+        if: (github.event_name == 'push' && contains(github.event.head_commit.message, '[sound-refresh]')) || github.event_name == 'pull_request'
+        run: |
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+          python3 game/tools/refresh_sound_assets.py
+
       - name: Проверка комплектности папки game
         run: |
           cd game
@@ -156,6 +165,19 @@ jobs:
       - name: Импорт ресурсов
         run: |
           godot --headless --path game --import
+
+      - name: Сохранить обновлённые аудиофайлы в main
+        if: github.event_name == 'push' && contains(github.event.head_commit.message, '[sound-refresh]')
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A game/assets/sfx
+          if git diff --cached --quiet; then
+            echo "Звуковые файлы уже совпадают с проверенными источниками."
+          else
+            git commit -m "Refresh recorded sound assets"
+            git push origin HEAD:main
+          fi
 
       - name: Быстрая проверка запуска
         run: |
@@ -227,14 +249,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="build-$(date +%Y%m%d-%H%M%S)"
+          COMMIT="$(git rev-parse HEAD)"
           VER=$(grep -oP 'config/version="\K[^"]+' game/project.godot || echo "?")
           {
-            echo "Отладочная сборка. Коммит ${GITHUB_SHA::7}, ветка ${GITHUB_REF_NAME}. Скачайте pustite.apk и установите на телефон."
+            echo "Отладочная сборка. Коммит ${COMMIT::7}, ветка ${GITHUB_REF_NAME}. Скачайте pustite.apk и установите на телефон."
             echo
             awk -v v="## $VER" 'index($0, v) == 1 {f = 1; next} f && /^## / {exit} f' CHANGELOG.md
           } > release-notes.md
           gh release create "$TAG" "build/pustite.apk" \
-            --target "$GITHUB_SHA" \
+            --target "$COMMIT" \
             --title "v$VER · $TAG" \
             --notes-file release-notes.md \
             --latest

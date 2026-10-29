@@ -1,6 +1,6 @@
 extends Node
-## Звук: одиночные звуки, фон (ветер, сверчки), музыка и сердцебиение.
-## Основные фоновые дорожки и голоса взяты из записей CC0 (см. docs/sound-sources.md).
+## Звук: одиночные эффекты, фоновые слои, музыка и сердцебиение.
+## Записанные источники и лицензии перечислены в docs/sound-sources.md.
 ##
 ## Каналы громкости: Music, Sfx, Ambience и Voice отдельно в настройках.
 ## Свёрнута игра — все каналы заглушены, вернулась — звук возвращается.
@@ -21,12 +21,11 @@ const SOUNDS := {
 	&"win": "res://assets/sfx/win.ogg",
 	&"lose": "res://assets/sfx/lose.ogg",
 	&"reveal": "res://assets/sfx/reveal.ogg",
-	&"reveal_2": "res://assets/sfx/reveal_2.ogg",   # пролог: варианты раскрытия роли (tools/make_prologue_sfx.py)
+	&"reveal_2": "res://assets/sfx/reveal_2.ogg",
 	&"reveal_3": "res://assets/sfx/reveal_3.ogg",
 	&"dawn": "res://assets/sfx/dawn.ogg",
 	&"job_done": "res://assets/sfx/job_done.ogg",
 	&"job_fail": "res://assets/sfx/job_fail.ogg",
-	# звуки страха (Dread, tools/make_dread.py)
 	&"scratch": "res://assets/sfx/scratch.ogg",
 	&"whisper": "res://assets/sfx/whisper.ogg",
 	&"roof_steps": "res://assets/sfx/roof_steps.ogg",
@@ -37,48 +36,42 @@ const SOUNDS := {
 	&"call_far": "res://assets/sfx/call_far.ogg",
 	&"scare": "res://assets/sfx/scare.ogg",
 	&"weep": "res://assets/sfx/weep.ogg",
-	# сцены (TASK-012–014, tools/make_scene_sfx.py)
 	&"breath": "res://assets/sfx/breath.ogg",
-	&"breath_2": "res://assets/sfx/breath_2.ogg",        # прерывистое дыхание за дверью (tools/make_dread.py)
-	&"breath_3": "res://assets/sfx/breath_3.ogg",        # тяжёлое, со свистом
+	&"breath_2": "res://assets/sfx/breath_2.ogg",
+	&"breath_3": "res://assets/sfx/breath_3.ogg",
 	&"cup_break": "res://assets/sfx/cup_break.ogg",
 	&"hammer": "res://assets/sfx/hammer.ogg",
 	&"latch": "res://assets/sfx/latch.ogg",
 	&"floorboard": "res://assets/sfx/floorboard.ogg",
-	# жизнь посёлка (TASK-069, tools/make_weather_sfx.py)
 	&"life_dog": "res://assets/sfx/life_dog.ogg",
 	&"life_hens": "res://assets/sfx/life_hens.ogg",
-	# гром (0.70.0, tools/make_rain.py): раскаты из записи ливня, нижние частоты с гармониками для динамика телефона
 	&"thunder": "res://assets/sfx/thunder.ogg",
 	&"thunder_2": "res://assets/sfx/thunder_2.ogg",
-	&"thunder_3": "res://assets/sfx/thunder_3.ogg",
-	&"thunder_4": "res://assets/sfx/thunder_4.ogg",
-	&"thunder_far": "res://assets/sfx/thunder_far.ogg",   # глухой, как через стену: для сцен в доме
+	&"thunder_far": "res://assets/sfx/thunder_far.ogg",
 }
 const LOOPS := {
 	&"amb_day": "res://assets/sfx/amb_day.ogg",
 	&"amb_night": "res://assets/sfx/amb_night.ogg",
-	&"amb_dusk": "res://assets/sfx/amb_dusk.ogg",       # пролог: ветер без сверчков
-	&"amb_river": "res://assets/sfx/amb_river.ogg",     # сцена у реки (глава «Стук»)
-	&"whistle": "res://assets/sfx/whistle.ogg",         # станция (TASK-031): гудок вдали
-	&"rails": "res://assets/sfx/rails.ogg",             # лязг рельсов
-	&"typewriter": "res://assets/sfx/typewriter.ogg",   # список на поезд (TASK-033)
-	&"train": "res://assets/sfx/train.ogg",             # подходящий поезд (TASK-034, 035)
+	&"amb_dusk": "res://assets/sfx/amb_dusk.ogg",
+	&"amb_river": "res://assets/sfx/amb_river.ogg",
+	&"whistle": "res://assets/sfx/whistle.ogg",
+	&"rails": "res://assets/sfx/rails.ogg",
+	&"typewriter": "res://assets/sfx/typewriter.ogg",
+	&"train": "res://assets/sfx/train.ogg",
 	&"heartbeat": "res://assets/sfx/heartbeat.ogg",
 	&"menu": "res://assets/music/menu_theme.ogg",
 	&"day": "res://assets/music/day.ogg",
 	&"night": "res://assets/music/night.ogg",
-	&"end_dawn": "res://assets/music/end_dawn.ogg",     # итог: люди дожили (tools/make_end_music.py)
-	&"end_dark": "res://assets/music/end_dark.ogg",     # итог: посёлок пал
+	&"end_dawn": "res://assets/music/end_dawn.ogg",
+	&"end_dark": "res://assets/music/end_dark.ogg",
 	&"river_theme": "res://assets/music/river_theme.ogg",
-	# слои погоды, жизни и места (TASK-069, tools/make_weather_sfx.py)
 	&"amb_wind": "res://assets/sfx/amb_wind.ogg",
-	&"amb_rain": "res://assets/sfx/amb_rain.ogg",                  # средний ровный дождь (0.70.0: живая запись вместо синтеза)
-	&"amb_rain_light": "res://assets/sfx/amb_rain_light.ogg",      # морось
-	&"amb_rain_heavy": "res://assets/sfx/amb_rain_heavy.ogg",      # ливень
-	&"amb_rain_roof": "res://assets/sfx/amb_rain_roof.ogg",        # дождь по крыше, сверху
-	&"amb_rain_drops": "res://assets/sfx/amb_rain_drops.ogg",      # капли с листвы и карниза
-	&"amb_rain_inside": "res://assets/sfx/amb_rain_inside.ogg",    # дождь за стеной, глухой
+	&"amb_rain": "res://assets/sfx/amb_rain.ogg",
+	&"amb_rain_light": "res://assets/sfx/amb_rain_light.ogg",
+	&"amb_rain_heavy": "res://assets/sfx/amb_rain_heavy.ogg",
+	&"amb_rain_roof": "res://assets/sfx/amb_rain_roof.ogg",
+	&"amb_rain_drops": "res://assets/sfx/amb_rain_drops.ogg",
+	&"amb_rain_inside": "res://assets/sfx/amb_rain_inside.ogg",
 	&"amb_blizzard": "res://assets/sfx/amb_blizzard.ogg",
 	&"life_murmur": "res://assets/sfx/life_murmur.ogg",
 	&"mill_wheel": "res://assets/sfx/mill_wheel.ogg",
@@ -126,7 +119,7 @@ const STAGE_BY_GROUND := {"ground_mill": "a2c1", "ground_monastery": "a3c1", "gr
 const VARIANTS := {
 	&"reveal": [&"reveal", &"reveal_2", &"reveal_3"],
 	&"breath": [&"breath", &"breath_2", &"breath_3"],   # за дверью дышат по-разному (TASK-081)
-	&"thunder": [&"thunder", &"thunder_2", &"thunder_3", &"thunder_4"],
+	&"thunder": [&"thunder", &"thunder_2"],
 }
 const BUSES := [&"Music", &"Sfx", &"Ambience", &"Voice"]
 const HORROR_LEFT := &"NightHorrorLeft"
@@ -349,26 +342,10 @@ func stop_panned(fade: float = 0.12) -> void:
 
 ## Голос жителя: 2–4 слога-писка с высотой, своей у каждого. Слышно, кто говорит.
 ## mood — состояние говорящего (TASK-009): в горе ниже и медленнее, в страхе выше и чаще.
-func voice(speaker_id: int, female: bool, text_len: int, mood: String = "", age: int = 34) -> void:
-	if bark(speaker_id, female, age, mood):
-		return
-	var base := (1.35 if female else 0.95) + 0.06 * float((speaker_id * 37) % 7)
-	var gap := 0.085
-	match mood:
-		"grief", "despair", "guilt", "exhaustion":
-			base *= 0.86
-			gap = 0.13
-		"fear":
-			base *= 1.12
-			gap = 0.06
-		"rage":
-			base *= 0.95
-			gap = 0.07
-	var n := clampi(text_len / 12, 2, 4)
-	for i in range(n):
-		if i > 0:
-			await get_tree().create_timer(gap).timeout
-		play(&"blip", base * (1.0 + 0.09 * sin(float(i) * 2.3 + speaker_id)), -15.0)
+## Реплика жителя: проигрывается записанный возглас, если для этого голоса есть файл.
+## Пока набора записей нет, текст остаётся без звукового писка.
+func voice(speaker_id: int, female: bool, _text_len: int, mood: String = "", age: int = 34) -> void:
+	bark(speaker_id, female, age, mood)
 
 
 ## Тип голоса по полу и возрасту: f_old, f_mid, f_young, m_old, m_mid, m_young, boy. Совпадает с именами файлов в assets/voice/bark.
@@ -394,7 +371,7 @@ func _barks(vtype: String, mood: String) -> Array:
 	return arr
 
 
-## Записанный возглас жителя: набор по полу, возрасту и настроению, не повторяет предыдущий. false: файлов нет, играют писки.
+## Записанный возглас жителя: набор по полу, возрасту и настроению, не повторяет предыдущий. false означает, что файла нет.
 func bark(speaker_id: int, female: bool, age: int, mood: String = "") -> bool:
 	var vtype := voice_type(female, age)
 	var m := String(BARK_MOOD.get(mood, "calm"))
@@ -522,7 +499,7 @@ func set_place_layer(ground: String, river: bool, primary: StringName, fade: flo
 			n = &"rails"
 			level = -24.0
 		elif ground == "ground_mill":
-			n = &"mill_wheel" # вода, скрип оси и глухой стук жернова
+			n = &"mill_wheel" # запись текущей воды; отдельной записи мельничного колеса нет
 			level = -20.0
 		elif river:
 			n = &"amb_river"
@@ -698,7 +675,7 @@ func _process(delta: float) -> void:
 		if _place_ground == "ground_monastery":
 			for k in range(3):
 				await get_tree().create_timer(0.001 if Juice.instant else 2.4 * float(k)).timeout
-				play(&"bell", 0.55, -26.0)
+				play(&"bell", 1.0, -26.0)
 
 
 ## Музыка: «menu», «day», «night» или "" (тишина).

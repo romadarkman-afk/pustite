@@ -100,12 +100,16 @@ static func voice(fails: PackedStringArray) -> int:
 		for f in [false, true]:
 			types[Sfx.voice_type(f, age)] = true
 	ok += SelfTest._expect(fails, types.size() == 7, "типов голоса %d, ждали 7" % types.size())
-	# возглас: без файлов false, а писк играет; с файлами true и не повторяется подряд
+	# Без записи реплики остаются без звуковых писков; при наличии файла возглас играет.
 	var keep_cache: Dictionary = Sfx._bark_cache.duplicate()
 	Sfx._bark_cache.clear()
 	Sfx._bark_cache["f_old_calm"] = []
 	ok += SelfTest._expect(fails, not Sfx.bark(7, true, 70, ""), "возглас без файлов вернул true")
+	var played_before: Array[StringName] = Sfx.played.duplicate()
+	Sfx.played.clear()
 	Sfx.voice(7, true, 24, "", 70)
+	ok += SelfTest._expect(fails, Sfx.played.is_empty(), "без записи реплики проигрался звуковой писк")
+	Sfx.played = played_before
 	Sfx._bark_cache["f_old_calm"] = [AudioStreamWAV.new(), AudioStreamWAV.new(), AudioStreamWAV.new()]
 	Sfx._bark_cache["f_old_fear"] = []
 	var last := -1
