@@ -4,14 +4,14 @@ extends Node
 ## остаются в Sfx; здесь выбираются короткие события и их сторона стереополя.
 
 const EVENTS: Array[Dictionary] = [
-	{"id": &"scratch", "pitch": Vector2(0.86, 1.02), "gain": -15.0},
-	{"id": &"scratch", "pitch": Vector2(0.93, 1.08), "gain": -18.0},
-	{"id": &"roof_steps", "pitch": Vector2(0.88, 1.0), "gain": -18.0},
-	{"id": &"creak", "pitch": Vector2(0.9, 1.04), "gain": -18.0},
-	{"id": &"whisper", "pitch": Vector2(0.78, 0.94), "gain": -21.0},
-	{"id": &"call_far", "pitch": Vector2(0.84, 0.98), "gain": -20.0},
-	{"id": &"cry_far", "pitch": Vector2(0.9, 1.02), "gain": -21.0},
-	{"id": &"growl", "pitch": Vector2(0.78, 0.92), "gain": -20.0},
+	{"id": &"scratch", "pitch": Vector2(0.86, 1.02), "gain": -32.0},
+	{"id": &"scratch", "pitch": Vector2(0.93, 1.08), "gain": -36.0},
+	{"id": &"roof_steps", "pitch": Vector2(0.88, 1.0), "gain": -35.0},
+	{"id": &"creak", "pitch": Vector2(0.9, 1.04), "gain": -35.0},
+	{"id": &"whisper", "pitch": Vector2(0.78, 0.94), "gain": -38.0},
+	{"id": &"call_far", "pitch": Vector2(0.84, 0.98), "gain": -37.0},
+	{"id": &"cry_far", "pitch": Vector2(0.9, 1.02), "gain": -38.0},
+	{"id": &"growl", "pitch": Vector2(0.78, 0.92), "gain": -38.0},
 ]
 
 var _rng := RandomNumberGenerator.new()
@@ -29,7 +29,7 @@ func set_menu_active(active: bool) -> void:
 		return
 	_active = active
 	if active:
-		_wait = _rng.randf_range(3.5, 6.0)
+		_wait = _rng.randf_range(16.0, 24.0)
 	else:
 		_wait = 0.0
 		Sfx.stop_panned()
@@ -46,7 +46,7 @@ func _process(delta: float) -> void:
 	if _wait > 0.0:
 		return
 	_play_event()
-	_wait = _rng.randf_range(8.0, 20.0)
+	_wait = _rng.randf_range(28.0, 45.0)
 
 
 func _play_event() -> void:

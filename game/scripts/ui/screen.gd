@@ -115,6 +115,11 @@ func ambience() -> StringName:
 	return &""
 
 
+## Уровень фонового шума для этого экрана; меню приглушает его ради заглавной песни.
+func ambience_volume_db() -> float:
+	return -4.0
+
+
 func music() -> StringName:
 	return Sfx.menu_music() if Game.m == null else &""
 

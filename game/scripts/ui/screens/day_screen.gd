@@ -157,6 +157,10 @@ func hint_target() -> Rect2:
 	return Rect2(Vector2(f.get_center().x, f.end.y - 30.0), Vector2.ZERO)
 
 
+func hint_below() -> bool:
+	return false
+
+
 func on_clock_expired() -> void:
 	commit(Intent.END_DAY)
 

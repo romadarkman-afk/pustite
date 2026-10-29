@@ -131,6 +131,7 @@ const LOG_MAX := 64
 var played: Array[StringName] = []
 var music_name: StringName = &""
 var ambience_name: StringName = &""
+var _ambience_level_db := -4.0
 var heart_on := false
 
 var _streams: Dictionary = {}
@@ -295,6 +296,24 @@ func play(n: StringName, pitch: float = 1.0, vol_db: float = 0.0) -> void:
 	p.play()
 
 
+## Короткий траурный аккорд из внутренней темы, без длинного нарастающего эффекта.
+func play_grief_cue() -> void:
+	if not has_sound(&"theme_grief"):
+		return
+	var stream: AudioStream = _streams[&"theme_grief"]
+	var p := _pool[_next]
+	_next = (_next + 1) % POOL
+	p.bus = &"Sfx"
+	p.stream = stream
+	p.pitch_scale = 1.0
+	p.volume_db = -10.0
+	p.play(2.6)
+	_note(&"траурный_аккорд")
+	await get_tree().create_timer(1.55).timeout
+	if is_instance_valid(p) and p.stream == stream and p.playing:
+		_fade(p, -80.0, 1.15, true)
+
+
 var _one_shots: Dictionary = {}
 
 
@@ -454,13 +473,14 @@ func menu_music() -> StringName:
 
 
 ## Фон: «amb_day», «amb_night» или "" (тишина). Плавная смена за fade секунд.
-func set_ambience(n: StringName, fade: float = 2.8) -> void:
-	if n == ambience_name:
+func set_ambience(n: StringName, fade: float = 2.8, level_db: float = -4.0) -> void:
+	if n == ambience_name and is_equal_approx(level_db, _ambience_level_db):
 		return
 	ambience_name = n
+	_ambience_level_db = level_db
 	_note(StringName("фон:" + String(n)))
 	_amb_gen += 1
-	_dip(_amb_p, n, -4.0, fade, _amb_gen, &"amb")
+	_dip(_amb_p, n, level_db, fade, _amb_gen, &"amb")
 
 
 ## Смена звука одного слоя «нырком»: старый затихает за половину времени, потом входит новый.
@@ -723,7 +743,7 @@ func _apply_pace() -> void:
 
 
 ## Уровень каждой темы относительно канала: днём музыка тише, чтобы не перекрывать реплики и фон.
-const MUSIC_LEVEL := {&"day": -11.0, &"night": -9.0, &"song": -4.0}   # песни (song_*) нормированы тише старых тем, поэтому громче на 4 дБ
+const MUSIC_LEVEL := {&"day": -11.0, &"night": -9.0, &"song": -4.0, &"song_pustite": -2.0}   # песни (song_*) нормированы тише старых тем, поэтому громче на 4 дБ
 
 
 func _music_target_db() -> float:

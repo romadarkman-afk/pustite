@@ -48,7 +48,7 @@ func build() -> void:
 	if you_died():
 		body.add_child(you_dead_card(r))
 		Sfx.set_music(&"", 0.3)
-		Sfx.play(Dread.death_sound(m.player_death.kind), 1.0, -4.0)
+
 	bell_lines()
 	_scene_then_reveal(r)
 
@@ -273,11 +273,17 @@ func _reveal(r: NightReport) -> void:
 			await Juice.wait(LOSS_HOLD)
 		elif l[2]:
 			Juice.haptic(Juice.Haptic.DEATH)
-			Sfx.play(&"death")
-			Sfx.play(&"human_cry_f" if m.player().female else &"human_cry_m", 0.96 + randf() * 0.08, -8.0)
+			var player_loss := lost != null and lost.is_player
+			if player_loss:
+				Sfx.play_grief_cue()
+			else:
+				Sfx.play(&"death")
+				Sfx.play(&"human_cry_f" if m.player().female else &"human_cry_m", 0.96 + randf() * 0.08, -8.0)
+				Sfx.play(Dread.death_sound(l[5]), 1.0, -9.0)
 			death_fx.emit()
-			Juice.shake(self, 8.0, 0.25)
-			await Juice.wait(0.7)
+			if not player_loss:
+				Juice.shake(self, 8.0, 0.25)
+			await Juice.wait(1.3 if player_loss else 0.7)
 		else:
 			await Juice.wait(0.32)
 

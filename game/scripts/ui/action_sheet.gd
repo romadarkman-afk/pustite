@@ -24,7 +24,7 @@ func _build(title: String, options: PackedStringArray) -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.55)
+	dim.color = Color(0, 0, 0, 0.38)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_cover_screen(dim)
 	dim.gui_input.connect(func(e: InputEvent) -> void:

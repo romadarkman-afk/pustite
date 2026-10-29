@@ -112,7 +112,7 @@ static func build() -> Theme:
 	_panel(t, "Bubble", PANEL, EDGE)
 	_panel(t, "BubbleMine", MINE, MINE_EDGE)
 	_panel(t, "Card", PANEL, EDGE)
-	_panel(t, "Sheet", Color(0.08, 0.07, 0.13, 0.97), EDGE, 22)
+	_panel(t, "Sheet", Color(0.08, 0.07, 0.13, 0.86), EDGE, 18)
 	# страница книги (TASK-088): тетрадь улик, память, рассказы Книги посёлка; тёплая бумага вместо холодной синевы
 	_panel(t, "Page", PAGE, PAGE_EDGE, 16)
 

@@ -285,7 +285,7 @@ func show(s: Screen) -> void:
 	if perf != null:
 		perf.reset_stats()
 	_menu_horror.call("set_menu_active", s is MenuScreen)
-	Sfx.set_ambience(s.ambience())
+	Sfx.set_ambience(s.ambience(), 2.8, s.ambience_volume_db())
 	Sfx.set_place_layer(Game.m.village.ground if Game.m != null else "",
 		Game.m.village.river if Game.m != null else false, s.ambience())
 	Sfx.set_music(s.music())

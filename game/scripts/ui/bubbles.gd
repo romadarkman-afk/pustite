@@ -4,13 +4,13 @@ extends Control
 ## был одного читаемого размера на любом телефоне. Пузыри не налезают друг на друга:
 ## новый поднимается над старыми, а если места в поле нет — уходит самый старый.
 
-const FONT_SIZE := 17        ## при обычном размере текста; крупнее — по настройке (ThemeFactory.fs)
-const NAME_SIZE := 13
-const PAD := Vector2(11, 7)
-const MAX_ON_SCREEN := 3
+const FONT_SIZE := 16        ## компактнее, но учитывает настройку масштаба текста
+const NAME_SIZE := 12
+const PAD := Vector2(9, 6)
+const MAX_ON_SCREEN := 2
 const GAP := 6.0
-const MAX_SHARE := 0.2      ## выше этой доли поля пузырь не растёт вверх, а расширяется
-const WIDE_SHARE := 0.78     ## и занимает до этой доли ширины поля
+const MAX_SHARE := 0.17     ## длинная реплика расширяется, чтобы занимать меньше высоты
+const WIDE_SHARE := 0.68     ## ограничивает площадь карты под пузырями
 const FADE_IN := 0.18
 const FADE_OUT := 0.2
 
@@ -64,7 +64,7 @@ func say(who: String, text: String, head: Vector2, mine: bool, fig: Node2D = nul
 			_kill(b)
 	var fsz := ThemeFactory.fs(FONT_SIZE)
 	var nsz := ThemeFactory.fs(NAME_SIZE)
-	var maxw := minf(290.0 * ThemeFactory.text_scale, field.size.x * minf(0.64, 0.5 * ThemeFactory.text_scale))
+	var maxw := minf(270.0 * ThemeFactory.text_scale, field.size.x * minf(0.56, 0.46 * ThemeFactory.text_scale))
 	var inner := maxw - PAD.x * 2.0
 	var ts := _font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, inner, fsz)
 	# Узкий экран (телефон с большой плотностью даёт всего ~590 единиц): длинная реплика в узком столбце
@@ -99,7 +99,7 @@ func say(who: String, text: String, head: Vector2, mine: bool, fig: Node2D = nul
 	b.rect = r
 	b.anchor = head
 	b.tail_x = clampf(head.x, r.position.x + 14.0, r.end.x - 14.0)
-	b.life = clampf(2.2 + 0.055 * text.length(), 3.0, 7.0)
+	b.life = clampf(1.8 + 0.045 * text.length(), 2.6, 5.2)
 	b.text_w = inner
 	b.fsize = fsz
 	b.nsize = nsz
@@ -197,7 +197,7 @@ func _draw() -> void:
 		var tip0 := Vector2(b.tail_x, b.rect.end.y + 9.0)
 		if b.alpha > 0.0 and b.anchor.y - tip0.y > 10.0:
 			var edge0 := ThemeFactory.LAMP_D if b.mine else ThemeFactory.EDGE
-			draw_line(tip0, Vector2(b.tail_x + (b.anchor.x - b.tail_x) * 0.2, b.anchor.y - 4.0), Color(edge0, 0.7 * b.alpha), 1.5)
+			draw_line(tip0, Vector2(b.tail_x + (b.anchor.x - b.tail_x) * 0.2, b.anchor.y - 4.0), Color(edge0, 0.52 * b.alpha), 1.5)
 	for b: Bubble in bubbles:
 		var a := b.alpha
 		if a <= 0.0:
@@ -208,12 +208,12 @@ func _draw() -> void:
 		var bg := Color("20302a") if b.mine else ThemeFactory.PANEL_2
 		var edge := ThemeFactory.LAMP_D if b.mine else ThemeFactory.EDGE
 		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(bg, 0.96 * a)
-		sb.border_color = Color(edge, a)
+		sb.bg_color = Color(bg, 0.78 * a)
+		sb.border_color = Color(edge, 0.82 * a)
 		sb.set_border_width_all(1)
 		sb.set_corner_radius_all(10)
 		var tip := Vector2(b.tail_x, b.rect.end.y + 9.0)
-		draw_colored_polygon(PackedVector2Array([Vector2(b.tail_x - 7, b.rect.end.y - 1), Vector2(b.tail_x + 7, b.rect.end.y - 1), tip]), Color(bg, 0.96 * a))
+		draw_colored_polygon(PackedVector2Array([Vector2(b.tail_x - 7, b.rect.end.y - 1), Vector2(b.tail_x + 7, b.rect.end.y - 1), tip]), Color(bg, 0.78 * a))
 		draw_style_box(sb, b.rect)
 		# говорящий за краем кадра — стрелка в его сторону
 		if b.anchor.x < field.position.x or b.anchor.x > field.end.x:

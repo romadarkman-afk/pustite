@@ -6,10 +6,10 @@ extends Control
 ## считается их размер. Контейнер и Label с переносом считали высоту при нулевой
 ## ширине и раздувались на два экрана.
 
-const PAD := Vector2(18, 14)
-const ARROW := 14.0
+const PAD := Vector2(14, 10)
+const ARROW := 12.0
 
-const FONT_SIZE := 22
+const FONT_SIZE := 18
 
 var text: String = ""
 var card_rect: Rect2 = Rect2()
@@ -22,6 +22,7 @@ var _t := 0.0
 
 func setup(t: String) -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clip_contents = true
 	text = t
 	_font = ThemeFactory.font(700)
 	if not Juice.instant:
@@ -31,17 +32,36 @@ func setup(t: String) -> void:
 
 ## Встать над прямоугольником target (координаты родителя) или под ним, стрелкой к нему.
 func place(target: Rect2, width: float, below: bool) -> void:
-	var inner := width - PAD.x * 2.0
+	var host := get_parent() as Control
+	if host == null or width <= 0.0:
+		return
+	var side := minf(12.0, maxf(4.0, (host.size.x - 120.0) * 0.5))
+	var card_w := minf(width, maxf(0.0, host.size.x - side * 2.0))
+	if card_w <= 0.0:
+		return
+	var inner := card_w - PAD.x * 2.0
 	_text_size = _font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, inner, ThemeFactory.fs(FONT_SIZE))
 	var h := ceilf(_text_size.y) + PAD.y * 2.0
-	var parent_w := (get_parent() as Control).size.x
-	var x := clampf(target.get_center().x - width * 0.5, 0.0, maxf(0.0, parent_w - width))
-	var y := (target.end.y + ARROW) if below else (target.position.y - ARROW - h)
-	position = Vector2(x, y - (ARROW if below else 0.0))
-	size = Vector2(width, h + ARROW)
-	card_rect = Rect2(Vector2(0, ARROW if below else 0.0), Vector2(width, h))
-	_arrow_up = below
-	_arrow_x = clampf(target.get_center().x - x, 24.0, width - 24.0)
+	var total_h := h + ARROW
+	var safe_top := 8.0
+	var safe_bottom := host.size.y - 8.0
+	var footer := host.get("footer") as Control
+	if footer != null and footer.is_visible_in_tree():
+		var footer_top := footer.global_position.y - host.global_position.y
+		safe_bottom = minf(safe_bottom, footer_top - 10.0)
+	var x := clampf(target.get_center().x - card_w * 0.5, side, maxf(side, host.size.x - card_w - side))
+	var place_below := below
+	var y := (target.end.y + ARROW) if place_below else (target.position.y - ARROW - total_h)
+	if place_below and y + total_h > safe_bottom:
+		place_below = false
+		y = target.position.y - ARROW - total_h
+	var max_y := maxf(safe_top, safe_bottom - total_h)
+	y = clampf(y, safe_top, max_y)
+	position = Vector2(x, y)
+	size = Vector2(card_w, total_h)
+	card_rect = Rect2(Vector2(0, ARROW if place_below else 0.0), Vector2(card_w, h))
+	_arrow_up = place_below
+	_arrow_x = clampf(target.get_center().x - x, 24.0, card_w - 24.0)
 	queue_redraw()
 
 
@@ -62,9 +82,9 @@ func _draw() -> void:
 	if card_rect.size.x <= 0.0:
 		return
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("0f171b")
-	sb.border_color = ThemeFactory.LAMP
-	sb.set_border_width_all(2)
+	sb.bg_color = Color("0f171b", 0.80)
+	sb.border_color = Color(ThemeFactory.LAMP, 0.82)
+	sb.set_border_width_all(1)
 	sb.set_corner_radius_all(10)
 	draw_style_box(sb, card_rect)
 	draw_multiline_string(_font, card_rect.position + PAD + Vector2(0, _font.get_ascent(ThemeFactory.fs(FONT_SIZE))), text,

@@ -37,6 +37,10 @@ func ambience() -> StringName:
 	return &"amb_night"
 
 
+func ambience_volume_db() -> float:
+	return -28.0
+
+
 func music() -> StringName:
 	return Sfx.menu_music()
 
