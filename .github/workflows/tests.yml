@@ -6,7 +6,9 @@ on:
     paths-ignore:
       - ".github/workflows/android.yml"
       - ".github/workflows/tests.yml"
-      - ".github/workflows/gemini-tts.yml"
+      - ".github/workflows/elevenlabs-tts.yml"
+      - ".github/workflows/voiceover-check.yml"
+      - "docs/voiceover-setup.md"
       - ".github/run-full-voiceover"
       - "tools/generate_voiceover.py"
   pull_request:

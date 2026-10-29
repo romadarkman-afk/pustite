@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: gemini-tts-${{ github.ref }}
+  group: elevenlabs-tts-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -23,7 +23,7 @@ jobs:
        (github.event_name == 'push' &&
         contains(github.event.head_commit.message, '[voiceover-run]')))
     runs-on: ubuntu-24.04
-    timeout-minutes: 300
+    timeout-minutes: 60
 
     steps:
       - name: Забрать код
@@ -32,12 +32,12 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Проверить секрет Gemini
+      - name: Проверить секрет ElevenLabs
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
         run: |
-          if [ -z "${GEMINI_API_KEY:-}" ]; then
-            echo "::error title=Не задан GEMINI_API_KEY::Добавьте ключ в Settings → Secrets and variables → Actions."
+          if [ -z "${ELEVENLABS_API_KEY:-}" ]; then
+            echo "::error title=Не задан ELEVENLABS_API_KEY::Добавьте ключ в Settings → Secrets and variables → Actions."
             exit 1
           fi
 
@@ -48,6 +48,9 @@ jobs:
             sudo apt-get install -y ffmpeg
           fi
 
+      - name: Проверить план пакета
+        run: python3 tools/generate_voiceover.py --self-test
+
       - name: Настроить запись результатов в main
         run: |
           git config user.name "github-actions[bot]"
@@ -55,5 +58,6 @@ jobs:
 
       - name: Создать и проверить полный пакет озвучки
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_MAX_WORKERS: "3"
         run: python3 tools/generate_voiceover.py

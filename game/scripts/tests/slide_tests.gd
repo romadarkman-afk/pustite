@@ -72,10 +72,19 @@ static func voice_asset_checks(fails: PackedStringArray) -> int:
 static func voice_smoke() -> void:
 	var fails := PackedStringArray()
 	var ok := voice_asset_checks(fails)
-	var settings := SettingsScreen.new()
-	ok += SelfTest._expect(fails, settings.music() == Sfx.menu_music(), "главная песня не продолжается на экране настроек")
-	settings.free()
-	SelfTest._finish(fails, ok, "Голосовые вступления", "три вступительных OGG запускаются в игре, настройки сохраняют меню-музыку")
+	var menu_screens: Array[Screen] = [
+		MenuScreen.new(),
+		SettingsScreen.new(),
+		HowToScreen.new(),
+		BookScreen.new(),
+		CampaignScreen.new(),
+		WardrobeScreen.new(),
+	]
+	for screen: Screen in menu_screens:
+		ok += SelfTest._expect(fails, screen.music() == Sfx.menu_music(),
+			"%s прерывает песню меню" % screen.screen_id())
+		screen.free()
+	SelfTest._finish(fails, ok, "Голосовые вступления", "все экраны меню держат общую песню; партия переключает музыку")
 
 
 static func voice(fails: PackedStringArray) -> int:

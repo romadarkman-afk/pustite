@@ -167,4 +167,4 @@ func _ask_reset() -> void:
 
 
 func music() -> StringName:
-	return &""
+	return Sfx.menu_music()

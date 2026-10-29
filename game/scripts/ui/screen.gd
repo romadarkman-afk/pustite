@@ -116,7 +116,7 @@ func ambience() -> StringName:
 
 
 func music() -> StringName:
-	return &""
+	return Sfx.menu_music() if Game.m == null else &""
 
 
 func heart() -> bool:

@@ -1,0 +1,36 @@
+name: Быстрая проверка генератора озвучки
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tools/generate_voiceover.py"
+      - "game/config/slides.json"
+      - "game/config/slides_text.json"
+      - ".github/workflows/elevenlabs-tts.yml"
+      - ".github/workflows/voiceover-check.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "tools/generate_voiceover.py"
+      - "game/config/slides.json"
+      - "game/config/slides_text.json"
+      - ".github/workflows/elevenlabs-tts.yml"
+      - ".github/workflows/voiceover-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Забрать код
+        uses: actions/checkout@v5
+
+      - name: Проверить синтаксис и полный план пакета
+        run: |
+          python3 -m py_compile tools/generate_voiceover.py
+          python3 tools/generate_voiceover.py --self-test
