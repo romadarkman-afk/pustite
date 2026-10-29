@@ -83,6 +83,7 @@ scripts/tests/perf_tests.gd
 scripts/tests/sim_chapters.gd
 scripts/tests/slide_tests.gd
 scripts/tests/story_tests.gd
+scripts/tests/layout_smoke.gd
 tests/light_benchmark.gd
 tests/light_benchmark.tscn
 scripts/ui/action_sheet.gd
