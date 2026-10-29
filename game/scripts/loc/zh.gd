@@ -509,6 +509,8 @@ func data() -> Dictionary:
 		"settings.input_help": "键盘和手柄：用方向键或 WASD 选择，Enter 确认，Esc 或 B 返回。手机上请点击屏幕按钮。",
 		"settings.music": "音乐",
 		"settings.sfx": "音效",
+		"settings.voice": "人声",
+		"settings.voice_test": "试听人声",
 		"settings.ambience": "环境音",
 		"settings.haptics_on": "振动：开",
 		"settings.haptics_off": "振动：关",

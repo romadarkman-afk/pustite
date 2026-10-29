@@ -501,6 +501,8 @@ func data() -> Dictionary:
 		"settings.input_help": "Teclado y mando: flechas o WASD para elegir, Enter para confirmar, Esc o B para volver. En móviles, toca los botones de pantalla.",
 		"settings.music": "Música",
 		"settings.sfx": "Efectos",
+		"settings.voice": "Voz",
+		"settings.voice_test": "Probar voz",
 		"settings.ambience": "Ambiente",
 		"settings.haptics_on": "Vibración: activada",
 		"settings.haptics_off": "Vibración: desactivada",

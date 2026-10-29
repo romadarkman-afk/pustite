@@ -499,6 +499,8 @@ func data() -> Dictionary:
 		"settings.input_help": "Bàn phím và tay cầm: phím mũi tên hoặc WASD để chọn, Enter để xác nhận, Esc hoặc B để quay lại. Trên điện thoại, chạm nút trên màn hình.",
 		"settings.music": "Nhạc",
 		"settings.sfx": "Hiệu ứng",
+		"settings.voice": "Giọng nói",
+		"settings.voice_test": "Nghe thử giọng",
 		"settings.ambience": "Không khí",
 		"settings.haptics_on": "Rung: bật",
 		"settings.haptics_off": "Rung: tắt",

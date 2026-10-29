@@ -505,6 +505,8 @@ func data() -> Dictionary:
 		"settings.input_help": "Keyboard and gamepad: arrows or WASD to move, Enter to choose, Esc or B to go back. On phones, tap the on-screen buttons.",
 		"settings.music": "Music",
 		"settings.sfx": "Effects",
+		"settings.voice": "Voice",
+		"settings.voice_test": "Test voice",
 		"settings.ambience": "Ambience",
 		"settings.haptics_on": "Vibration: on",
 		"settings.haptics_off": "Vibration: off",

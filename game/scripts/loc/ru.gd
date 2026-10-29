@@ -553,6 +553,8 @@ func data() -> Dictionary:
 		"settings.input_help": "Клавиатура и геймпад: стрелки или WASD для выбора, Enter для действия, Esc или B для возврата. На телефоне нажимайте экранные кнопки.",
 		"settings.music": "Музыка",
 		"settings.sfx": "Звуки",
+		"settings.voice": "Голоса",
+		"settings.voice_test": "Проверить голос",
 		"settings.ambience": "Атмосфера",
 		"settings.haptics_on": "Вибрация: включена",
 		"settings.haptics_off": "Вибрация: выключена",

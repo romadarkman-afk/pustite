@@ -543,6 +543,8 @@ func data() -> Dictionary:
 		"settings.input_help": "Klavye ve kumanda: seçim için oklar veya WASD, onay için Enter, geri dönmek için Esc veya B. Telefonda ekrandaki düğmelere dokunun.",
 		"settings.music": "Müzik",
 		"settings.sfx": "Efektler",
+		"settings.voice": "Ses",
+		"settings.voice_test": "Sesi dene",
 		"settings.ambience": "Ortam",
 		"settings.haptics_on": "Titreşim: açık",
 		"settings.haptics_off": "Titreşim: kapalı",

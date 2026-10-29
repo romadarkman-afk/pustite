@@ -506,6 +506,8 @@ func data() -> Dictionary:
 		"settings.input_help": "Tastatur und Controller: Pfeile oder WASD zur Auswahl, Enter zum Bestätigen, Esc oder B zurück. Auf dem Smartphone die Bildschirmtasten antippen.",
 		"settings.music": "Musik",
 		"settings.sfx": "Effekte",
+		"settings.voice": "Stimme",
+		"settings.voice_test": "Stimme testen",
 		"settings.ambience": "Atmosphäre",
 		"settings.haptics_on": "Vibration: an",
 		"settings.haptics_off": "Vibration: aus",

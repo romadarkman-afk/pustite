@@ -516,6 +516,8 @@ func data() -> Dictionary:
 		"settings.input_help": "Clavier et manette : flèches ou WASD pour choisir, Entrée pour valider, Échap ou B pour revenir. Sur téléphone, touchez les boutons à l'écran.",
 		"settings.music": "Musique",
 		"settings.sfx": "Effets",
+		"settings.voice": "Voix",
+		"settings.voice_test": "Tester la voix",
 		"settings.ambience": "Ambiance",
 		"settings.haptics_on": "Vibration : activée",
 		"settings.haptics_off": "Vibration : désactivée",

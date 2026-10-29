@@ -499,6 +499,8 @@ func data() -> Dictionary:
 		"settings.input_help": "Teclado e controle: setas ou WASD para escolher, Enter para confirmar, Esc ou B para voltar. No celular, toque nos botões da tela.",
 		"settings.music": "Música",
 		"settings.sfx": "Efeitos",
+		"settings.voice": "Voz",
+		"settings.voice_test": "Testar voz",
 		"settings.ambience": "Ambiente",
 		"settings.haptics_on": "Vibração: ligada",
 		"settings.haptics_off": "Vibração: desligada",

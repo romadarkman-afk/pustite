@@ -37,33 +37,45 @@ static func run() -> void:
 ## Озвучка кадров, живые возгласы и песни. Файлов может не быть: тогда всё идёт как раньше. Недостающее подставляем в памяти.
 static func voice_asset_checks(fails: PackedStringArray) -> int:
 	var ok := 0
+	var keep_lang := L.code
+	L.use("ru")
 	var voice_samples: Array[Array] = [
-		["sl.prologue.01.0", "res://assets/voice/prologue/01_0.ogg"],
-		["sl.act1_intro.03.0", "res://assets/voice/act1_intro/03_0.ogg"],
-		["sl.a1c1_intro.03.0", "res://assets/voice/a1c1_intro/03_0.ogg"],
+		["prologue", 0, "sl.prologue.01.0", "res://assets/voice/prologue/01_0.ogg"],
+		["act1_intro", 2, "sl.act1_intro.03.0", "res://assets/voice/act1_intro/03_0.ogg"],
+		["a1c1_intro", 2, "sl.a1c1_intro.03.0", "res://assets/voice/a1c1_intro/03_0.ogg"],
 	]
 	for sample: Array in voice_samples:
-		var voice_key := String(sample[0])
-		var expected_path := String(sample[1])
+		var deck_id := String(sample[0])
+		var panel_i := int(sample[1])
+		var voice_key := String(sample[2])
+		var expected_path := String(sample[3])
 		var voice_path := Slides.voice_file(voice_key)
 		ok += SelfTest._expect(fails, voice_path == expected_path, "%s: файл голоса %s, ожидался %s" % [voice_key, voice_path, expected_path])
-		var stream: AudioStream = null
-		if not voice_path.is_empty():
-			stream = load(voice_path) as AudioStream
+		var panels := Slides.panels(deck_id)
+		var panel_path := Slides.panel_voice(panels[panel_i] as Dictionary) if panel_i < panels.size() else ""
+		ok += SelfTest._expect(fails, panel_path == expected_path, "%s: кадр %d не связан с голосом %s" % [deck_id, panel_i + 1, expected_path])
+		var stream: AudioStream = load(voice_path) as AudioStream if not voice_path.is_empty() else null
 		ok += SelfTest._expect(fails, stream != null and stream.get_length() > 0.2, "%s: OGG не загружается" % expected_path)
+		var duration := Sfx.play_voice_line(voice_path)
+		ok += SelfTest._expect(fails, duration > 0.2 and Sfx.voice_line_playing(), "%s: реальный проигрыватель не запустил голос" % expected_path)
+		Sfx.stop_voice_line()
+	ok += SelfTest._expect(fails, AudioServer.get_bus_index(&"Voice") >= 0 and Sfx._vo_p != null and Sfx._vo_p.bus == &"Voice", "озвучка не направлена в отдельный канал Voice")
 	var old_save := ConfigFile.new()
 	old_save.set_value("progress", "slides_seen", "prologue,act1_intro,a1c1_intro,a1c2_intro")
 	Save._migrate_3_to_4(old_save)
 	var remaining_seen := String(old_save.get_value("progress", "slides_seen", "")).split(",", false)
 	ok += SelfTest._expect(fails, not remaining_seen.has("prologue") and not remaining_seen.has("act1_intro") and not remaining_seen.has("a1c1_intro"), "миграция не открыла озвученные вступления")
 	ok += SelfTest._expect(fails, remaining_seen.has("a1c2_intro"), "миграция изменила отметки других глав")
+	L.use(keep_lang)
 	return ok
-
 
 static func voice_smoke() -> void:
 	var fails := PackedStringArray()
 	var ok := voice_asset_checks(fails)
-	SelfTest._finish(fails, ok, "Голосовые вступления", "миграция сбрасывает отметки трёх вступлений, три OGG загружаются")
+	var settings := SettingsScreen.new()
+	ok += SelfTest._expect(fails, settings.music() == Sfx.menu_music(), "главная песня не продолжается на экране настроек")
+	settings.free()
+	SelfTest._finish(fails, ok, "Голосовые вступления", "три вступительных OGG запускаются в игре, настройки сохраняют меню-музыку")
 
 
 static func voice(fails: PackedStringArray) -> int:
@@ -112,13 +124,16 @@ static func voice(fails: PackedStringArray) -> int:
 	var pcm := PackedByteArray()
 	pcm.resize(22050 * 2)
 	wav.data = pcm
+	var music_before_voice := Sfx._music_target_db()
 	var len_s := Sfx.play_voice_stream(wav)
 	ok += SelfTest._expect(fails, absf(len_s - 1.0) < 0.05, "длина озвучки %.2f с, ждали 1" % len_s)
 	ok += SelfTest._expect(fails, Sfx.voice_line_playing() and Sfx.voice_line_left() > 0.0, "озвучка не играет")
+	ok += SelfTest._expect(fails, absf((music_before_voice - Sfx._music_target_db()) - Sfx.DUCK_DB) < 0.05, "музыка не приглушается, пока звучит голос")
 	Sfx.pause_voice_line(true)
 	Sfx.pause_voice_line(false)
 	Sfx.stop_voice_line()
 	ok += SelfTest._expect(fails, not Sfx.voice_line_playing() and Sfx.voice_line_left() == 0.0, "озвучка не остановилась")
+	ok += SelfTest._expect(fails, absf(Sfx._music_target_db() - music_before_voice) < 0.05, "громкость музыки не вернулась после голоса")
 	ok += SelfTest._expect(fails, Sfx.play_voice_line("res://assets/voice/нет/нет.ogg") < 0.0, "несуществующий файл озвучки вернул длину")
 	# скорость печати под голос
 	ok += SelfTest._expect(fails, absf(SlidePlayer.voice_cps(100, 5.0) - 100.0 / 4.65) < 0.01, "скорость печати под голос")
@@ -217,7 +232,9 @@ static func voice_flow(fails: PackedStringArray) -> int:
 	pl._typed = 0.0
 	pl._t = 5.0
 	ok += SelfTest._expect(fails, pl.tap() and pl._typed >= float(pl._text_len), "первый тап не допечатал подпись")
-	ok += SelfTest._expect(fails, pl.tap() and pl.panel_i == 2 and not Sfx.voice_line_playing(), "второй тап не пролистал и не заглушил голос")
+	var moved_to_next_panel := pl.tap()
+	var next_panel_has_voice := not Slides.panel_voice(pl.panel()).is_empty()
+	ok += SelfTest._expect(fails, moved_to_next_panel and pl.panel_i == 2 and (Sfx.voice_line_playing() == next_panel_has_voice), "второй тап не перешёл к кадру и его ожидаемому состоянию голоса")
 	pl.skip()
 	await Nav.get_tree().process_frame
 	ok += SelfTest._expect(fails, not Sfx.voice_line_playing(), "голос остался после закрытия колоды")

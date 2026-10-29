@@ -2,7 +2,7 @@ extends Node
 ## Звук: одиночные звуки, фон (ветер, сверчки), музыка и сердцебиение.
 ## Основные фоновые дорожки и голоса взяты из записей CC0 (см. docs/sound-sources.md).
 ##
-## Каналы громкости: Music, Sfx, Ambience — каждый отдельно в настройках.
+## Каналы громкости: Music, Sfx, Ambience и Voice отдельно в настройках.
 ## Свёрнута игра — все каналы заглушены, вернулась — звук возвращается.
 
 const SOUNDS := {
@@ -128,7 +128,7 @@ const VARIANTS := {
 	&"breath": [&"breath", &"breath_2", &"breath_3"],   # за дверью дышат по-разному (TASK-081)
 	&"thunder": [&"thunder", &"thunder_2", &"thunder_3", &"thunder_4"],
 }
-const BUSES := [&"Music", &"Sfx", &"Ambience"]
+const BUSES := [&"Music", &"Sfx", &"Ambience", &"Voice"]
 const HORROR_LEFT := &"NightHorrorLeft"
 const HORROR_RIGHT := &"NightHorrorRight"
 const POOL := 8
@@ -235,7 +235,7 @@ func _ready() -> void:
 	_amb_filter.cutoff_hz = 20500.0
 	AudioServer.add_bus_effect(AudioServer.get_bus_index(&"Ambience"), _amb_filter)
 	_heart = _player(&"Sfx")
-	_vo_p = _player(&"Sfx")
+	_vo_p = _player(&"Voice")
 	_panned_player = _player(HORROR_LEFT)
 	_heart.stream = _streams[&"heartbeat"]
 
@@ -295,6 +295,7 @@ func play(n: StringName, pitch: float = 1.0, vol_db: float = 0.0) -> void:
 		stream_name = opts[randi() % opts.size()]
 	var p := _pool[_next]
 	_next = (_next + 1) % POOL
+	p.bus = &"Sfx"
 	p.stream = _one_shot(stream_name, n)
 	p.pitch_scale = clampf(pitch, 0.25, 4.0)
 	p.volume_db = vol_db
@@ -410,6 +411,7 @@ func bark(speaker_id: int, female: bool, age: int, mood: String = "") -> bool:
 	_note(StringName("голос:%s_%s" % [vtype, m]))
 	var p := _pool[_next]
 	_next = (_next + 1) % POOL
+	p.bus = &"Voice"
 	p.stream = set[i]
 	p.pitch_scale = 0.95 + 0.012 * float((speaker_id * 37) % 9)
 	p.volume_db = -3.0
@@ -435,11 +437,12 @@ func play_voice_stream(stream: AudioStream, vol_db: float = 0.0) -> float:
 	_vo_p.play()
 	_note(&"озвучка")
 	var len_s := stream.get_length()
-	if _music_p != null and _music_p.playing and music_name != &"":
-		_fade(_music_p, _music_target_db() - DUCK_DB, 0.3, false)
+	if music_name != &"":
+		if _music_p != null and _music_p.playing:
+			_fade(_music_p, _music_target_db(), 0.3, false)
 		if not Juice.instant:
 			get_tree().create_timer(len_s + 0.2).timeout.connect(func() -> void:
-				if gen == _vo_gen and _music_p != null and _music_p.playing and music_name != &"":
+				if gen == _vo_gen and _music_p != null and music_name != &"":
 					_fade(_music_p, _music_target_db(), 0.9, false))
 	return len_s
 
@@ -748,7 +751,11 @@ const MUSIC_LEVEL := {&"day": -11.0, &"night": -9.0, &"song": -4.0}   # песн
 
 func _music_target_db() -> float:
 	var base: float = MUSIC_LEVEL.get(music_name, MUSIC_LEVEL.get(StringName(String(music_name).get_slice("_", 0)), -8.0))
-	return base - 5.0 if heart_on else base
+	if heart_on:
+		base -= 5.0
+	if voice_line_playing():
+		base -= DUCK_DB
+	return base
 
 
 ## Громкость канала, 0..1. 0 — канал заглушён полностью.

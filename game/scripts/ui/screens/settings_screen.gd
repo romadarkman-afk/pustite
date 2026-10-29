@@ -22,6 +22,11 @@ func title() -> String:
 	return L.t("settings.title")
 
 
+## Настройки остаются частью меню, поэтому песня не прерывается при переключении вкладок.
+func music() -> StringName:
+	return Sfx.menu_music()
+
+
 func mood() -> Vector2:
 	return Vector2(0.8, 0.6)
 
@@ -101,8 +106,18 @@ func _version_row() -> Label:
 
 func _build_sound_tab() -> void:
 	body.add_child(W.label(L.t("settings.sound"), &"Hint"))
-	for row: Array in [[&"Master", L.t("settings.master")], [&"Music", L.t("settings.music")], [&"Sfx", L.t("settings.sfx")], [&"Ambience", L.t("settings.ambience")]]:
+	for row: Array in [[&"Master", L.t("settings.master")], [&"Music", L.t("settings.music")], [&"Sfx", L.t("settings.sfx")], [&"Voice", L.t("settings.voice")], [&"Ambience", L.t("settings.ambience")]]:
 		body.add_child(_volume_row(row[0], row[1]))
+	var voice_path := Slides.voice_file("sl.prologue.01.0")
+	var voice_test := W.button(L.t("settings.voice_test"), &"Row")
+	voice_test.name = "VoiceTest"
+	voice_test.disabled = voice_path.is_empty()
+	voice_test.pressed.connect(func() -> void:
+		if Sfx.voice_line_playing():
+			Sfx.stop_voice_line()
+		else:
+			Sfx.play_voice_line(voice_path))
+	body.add_child(voice_test)
 	body.add_child(W.label(L.t("settings.sound_note"), &"Small"))
 
 

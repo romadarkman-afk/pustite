@@ -500,6 +500,8 @@ func data() -> Dictionary:
 		"settings.input_help": "कीबोर्ड और गेमपैड: चुनने के लिए तीर या WASD, पुष्टि के लिए Enter, वापस जाने के लिए Esc या B। फ़ोन पर स्क्रीन बटन दबाएँ।",
 		"settings.music": "संगीत",
 		"settings.sfx": "इफ़ेक्ट",
+		"settings.voice": "आवाज़",
+		"settings.voice_test": "आवाज़ सुनें",
 		"settings.ambience": "माहौल",
 		"settings.haptics_on": "कंपन: चालू",
 		"settings.haptics_off": "कंपन: बंद",
