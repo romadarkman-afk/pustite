@@ -21,7 +21,7 @@ func is_busy() -> bool:
 
 
 func field_ratio() -> float:
-	return 0.42
+	return 0.54
 
 
 func title() -> String:
@@ -34,16 +34,17 @@ func mood() -> Vector2:
 
 func build() -> void:
 	_beat = 0
+	body.add_theme_constant_override("separation", 8)
 	_beat_card = W.panel(&"Sheet")
 	_beat_card.custom_minimum_size.x = 0.0
 	_beat_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var beat_box := W.vbox(10)
 	beat_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_beat_title = W.label("", &"Title")
-	_beat_title.add_theme_font_size_override("font_size", ThemeFactory.fs(28))
+	_beat_title.add_theme_font_size_override("font_size", ThemeFactory.fs(22))
 	_beat_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_beat_text = W.label("", &"Tale")
-	_beat_text.add_theme_font_size_override("font_size", ThemeFactory.fs(18))
+	_beat_text.add_theme_font_size_override("font_size", ThemeFactory.fs(15))
 	_beat_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	beat_box.add_child(_beat_title)
 	beat_box.add_child(_beat_text)
@@ -55,7 +56,7 @@ func build() -> void:
 	_show_beat()
 	var you := m.player()
 	var role := W.label(L.t("prologue.upyr" if you.is_upyr else "prologue.human"), &"Title")
-	role.add_theme_font_size_override("font_size", ThemeFactory.fs(27))
+	role.add_theme_font_size_override("font_size", ThemeFactory.fs(22))
 	if you.is_upyr:
 		role.add_theme_color_override("font_color", ThemeFactory.BLOOD)
 	role.modulate.a = 0.0
@@ -64,7 +65,7 @@ func build() -> void:
 	var story := W.label(
 		L.t("prologue.upyr_text" if you.is_upyr else "prologue.human_text"),
 		&"Tale")
-	story.add_theme_font_size_override("font_size", ThemeFactory.fs(17))
+	story.add_theme_font_size_override("font_size", ThemeFactory.fs(15))
 	story.modulate.a = 0.0
 	_cast.add_child(story)
 
@@ -99,6 +100,9 @@ func build() -> void:
 	_go.pressed.connect(_advance)
 	_skip = W.button(L.t("ui.skip"), &"Ghost", 48)
 	_skip.name = "SkipIntro"
+	_skip.add_theme_font_size_override("font_size", ThemeFactory.fs(12))
+	_skip.custom_minimum_size.x = maxf(96.0, W.button_need(_skip))
+	_skip.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_skip.pressed.connect(_skip_intro)
 	var actions := W.hbox(8)
 	actions.add_child(_skip)

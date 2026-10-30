@@ -6,9 +6,12 @@ static func run() -> void:
 	var problems: PackedStringArray = []
 	var checks := 0
 	await _check_menu_music(tree, problems)
+	checks += await _check_menu_layout(tree, problems)
 	checks += _expect(problems, Nav.host.current is MenuScreen, "перед тестом раскладки открылось не меню")
 	Nav.start_match()
 	await SelfTest._settle(tree)
+	if Nav.host.current is PrologueScreen:
+		checks += _check_prologue_layout(Nav.host.current as PrologueScreen, problems)
 	if Game.m != null and Game.m.phase == Match.Phase.PROLOGUE:
 		Game.proceed()
 		await SelfTest._settle(tree)
@@ -49,6 +52,48 @@ static func run() -> void:
 	tree.root.content_scale_factor = 1.0
 	Nav.frame.debug_insets = Vector4(-1, -1, -1, -1)
 	_report(tree, checks, problems)
+
+
+static func _check_menu_layout(tree: SceneTree, problems: PackedStringArray) -> int:
+	Nav.frame.debug_insets = Vector4(-1, -1, -1, -1)
+	tree.root.size = Vector2i(720, 1280)
+	tree.root.content_scale_factor = 1.0
+	await SelfTest._settle(tree)
+	var screen := Nav.host.current as MenuScreen
+	if screen == null:
+		problems.append("720×1280: главное меню не открыто")
+		return 1
+	var vp := Nav.frame.get_viewport_rect().size
+	var modes := screen.find_child("ModeCards", true, false) as GridContainer
+	var more := screen.find_child("More", true, false) as Button
+	var scroll_max := screen.scroll.get_v_scroll_bar().max_value if screen.scroll != null else INF
+	var checks := 0
+	checks += _expect(problems, screen.field_spacer != null and screen.field_spacer.size.y >= vp.y * 0.58,
+		"720×1280: живая деревня занимает только %.0f%% экрана" % (100.0 * screen.field_spacer.size.y / maxf(vp.y, 1.0)))
+	checks += _expect(problems, modes != null and modes.columns == 2 and modes.get_child_count() == 4,
+		"720×1280: плитки режимов не собраны в сетку 2×2")
+	checks += _expect(problems, more != null and more.get_global_rect().end.y <= screen.scroll.get_global_rect().end.y + 1.0,
+		"720×1280: кнопка «Ещё» уехала из области меню")
+	checks += _expect(problems, scroll_max <= 1.0,
+		"720×1280: главное меню требует прокрутки (%.1f px)" % scroll_max)
+	return checks
+
+
+static func _check_prologue_layout(screen: PrologueScreen, problems: PackedStringArray) -> int:
+	var vp := Nav.frame.get_viewport_rect().size
+	var skip := screen.find_child("SkipIntro", true, false) as Button
+	var next := screen.find_child("PrologueNext", true, false) as Button
+	var checks := 0
+	checks += _expect(problems, screen.field_spacer != null and screen.field_spacer.size.y >= vp.y * 0.46,
+		"720×1280: вступление оставляет игре меньше 46% экрана")
+	checks += _expect(problems, skip != null and skip.is_visible_in_tree() and skip.get_global_rect().size.x >= 96.0,
+		"720×1280: кнопка пропуска вступления не видна или слишком узкая")
+	checks += _expect(problems, next != null and next.is_visible_in_tree(),
+		"720×1280: кнопка продолжения вступления не видна")
+	if screen.footer != null:
+		checks += _expect(problems, screen.footer.get_global_rect().end.y <= vp.y + 1.0,
+			"720×1280: нижняя панель вступления уехала за край экрана")
+	return checks
 
 
 static func _check_compact_day_ui(tree: SceneTree, screen: DayScreen, problems: PackedStringArray) -> int:

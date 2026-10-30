@@ -1,6 +1,6 @@
 class_name DayScreen
 extends Screen
-## День. Поле занимает около половины экрана, разговор идёт пузырями
+## День. Посёлок занимает большую часть экрана, разговор идёт пузырями
 ## над головами, жители выбираются тапом по полю. Журнал свёрнут в одну строку
 ## и раскрывается по касанию — чтобы перечитать, кто что говорил.
 
@@ -10,7 +10,7 @@ var journal_preview: Label
 var _question_prompt_open := false
 var _contact_hint: Label
 
-const ACTION_HEIGHT := 60
+const ACTION_HEIGHT := 52
 
 
 func screen_id() -> String:
@@ -18,7 +18,7 @@ func screen_id() -> String:
 
 
 func field_ratio() -> float:
-	return 0.82
+	return 0.86
 
 
 ## Под полем остаётся только строка журнала.
@@ -26,7 +26,7 @@ func min_content_ratio() -> float:
 	return 0.04
 
 
-## Поле занимает до 72% экрана. Подвал и строка журнала остаются на экране, а свободная высота уходит карте.
+## Поле занимает до 86% экрана. Кнопки и строка журнала остаются на экране, а свободная высота уходит карте.
 func field_height(h: float) -> float:
 	var sep := float(chrome.get_theme_constant("separation")) if chrome != null else 18.0
 	var bar := 0.0
@@ -34,7 +34,7 @@ func field_height(h: float) -> float:
 		bar = (chrome.get_child(0) as Control).get_combined_minimum_size().y
 	# шапка, строка журнала (одна кнопка), подвал и три промежутка колонки
 	var reserved := bar + footer.get_combined_minimum_size().y + float(ThemeFactory.COMPACT_TOUCH) + 3.0 * sep + 8.0
-	return maxf(h * 0.34, minf(h * 0.82, h - reserved))
+	return maxf(h * 0.34, minf(h * 0.86, h - reserved))
 
 
 func title() -> String:
@@ -49,13 +49,13 @@ func build() -> void:
 	Diag.step("день-экран: сборка")
 	footer.add_theme_constant_override("separation", 6)
 	if _title_label != null:
-		_title_label.add_theme_font_size_override("font_size", ThemeFactory.fs(17))
+		_title_label.add_theme_font_size_override("font_size", ThemeFactory.fs(15))
 	if _clock != null:
 		_clock.add_theme_font_size_override("font_size", ThemeFactory.fs(17))
 	var back := find_child("BackToMenu", true, false) as Button
 	if back != null:
 		back.custom_minimum_size.y = ACTION_HEIGHT
-		back.add_theme_font_size_override("font_size", ThemeFactory.fs(14))
+		back.add_theme_font_size_override("font_size", ThemeFactory.fs(12))
 	enable_field_taps()
 	if field_spacer != null:
 		supplies = SuppliesBadge.new()
@@ -88,7 +88,7 @@ func build() -> void:
 	journal_preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	journal_preview.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	journal_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	journal_preview.add_theme_font_size_override("font_size", ThemeFactory.fs(14))
+	journal_preview.add_theme_font_size_override("font_size", ThemeFactory.fs(12))
 	jr.add_child(journal_preview)
 	body.add_child(jr)
 	_update_journal()

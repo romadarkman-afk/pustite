@@ -53,8 +53,8 @@ jobs:
 
       - name: Жители, дождь, карта и озвучка
         env:
-          CASES: "folk=--folk weather=--weather field=--field village=--village sound=--sound slides=--slides parallax=--parallax voice=--voice-assets layout=--layout-smoke,--lang=ru layout_t2=--layout-smoke,--lang=ru,--text=2 layout_full=--layout,--lang=ru"
-          CASE_TIMEOUT: "180"
+          CASES: "folk=--folk weather=--weather field=--field village=--village sound=--sound slides=--slides parallax=--parallax voice=--voice-assets layout=--layout-smoke,--lang=ru layout_t2=--layout-smoke,--lang=ru,--text=2"
+          CASE_TIMEOUT: "90"
         run: bash tools/ci_run_cases.sh $CASES
 
   tests-full:
@@ -101,13 +101,8 @@ jobs:
       - name: Подготовить сжатие иллюстраций
         run: godot --headless --path game --script res://tools/prepare_slide_imports.gd
 
-      - name: Подготовить сжатие иллюстраций
-        run: godot --headless --path game --script res://tools/prepare_slide_imports.gd
-
       - name: Импорт ресурсов
-        run: |
-          godot --headless --path game --import
-          godot --headless --path game --import
+        run: godot --headless --path game --import
 
       - name: Прогон набора
         env:

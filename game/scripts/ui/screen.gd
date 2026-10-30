@@ -49,13 +49,19 @@ func setup(match_ref: Match, director_ref: Director) -> void:
 	build()
 
 
+func _navigation_label() -> String:
+	return L.t("ui.menu") if m != null else "← " + L.t("ui.back")
+
+
 func refresh_locale() -> void:
 	if _title_label != null:
 		_title_label.text = title()
 	var menu := find_child("BackToMenu", true, false) as Button
 	if menu != null:
-		menu.text = L.t("ui.menu") if m != null else L.t("ui.back")
-		menu.tooltip_text = menu.text
+		menu.text = _navigation_label()
+		menu.custom_minimum_size.x = maxf(float(ThemeFactory.COMPACT_TOUCH), W.button_need(menu))
+		menu.tooltip_text = L.t("ui.menu") if m != null else L.t("ui.back")
+		menu.accessibility_name = menu.tooltip_text
 
 
 ## Переопределяется: наполнение экрана.
@@ -376,7 +382,9 @@ func _chrome() -> void:
 		_clock_capsule.visible = false
 		bar.add_child(_clock_capsule)
 		if screen_id() != "menu":
-			var menu := W.button(L.t("ui.menu") if m != null else L.t("ui.back"), &"Compact", ThemeFactory.COMPACT_TOUCH)
+			var menu := W.button(_navigation_label(), &"Compact", ThemeFactory.COMPACT_TOUCH)
+			menu.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
+			menu.accessibility_name = L.t("ui.menu") if m != null else L.t("ui.back")
 			menu.name = "BackToMenu"
 			menu.size_flags_horizontal = Control.SIZE_SHRINK_END
 			menu.custom_minimum_size.x = maxf(float(ThemeFactory.COMPACT_TOUCH), W.button_need(menu))
