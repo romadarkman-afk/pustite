@@ -4123,17 +4123,13 @@ static func sound() -> void:
 		and main_menu.find_child("OnlineSoon", true, false) == null,
 		"в главном меню нет кампании, одиночной игры или настроек, либо осталась кнопка «Онлайн · скоро»")
 	var mode_cards := main_menu.find_child("ModeCards", true, false) as GridContainer if main_menu != null else null
-	ok += _expect(fails, mode_cards != null and mode_cards.columns == 2 and mode_cards.get_child_count() == 2,
-		"кампания и одиночная игра не показаны двумя карточками")
-	ok += _expect(fails, main_menu != null and main_menu.field_ratio() == 0.0
-		and main_menu._menu_art_nodes.size() == 2 and is_instance_valid(main_menu._menu_backdrop)
-		and Nav.ui.find_child("MenuBackdropShade", true, false) != null,
-		"фон меню не занимает весь экран или иллюстрации не переключаются")
-	if main_menu != null:
-		var previous_art := main_menu._menu_art_nodes[main_menu._menu_art_front].texture
-		main_menu._advance_menu_art()
-		ok += _expect(fails, main_menu._menu_art_nodes[1 - main_menu._menu_art_front].texture != previous_art,
-			"смена фоновой сцены не установила следующий кадр")
+	ok += _expect(fails, mode_cards != null and mode_cards.columns == 2 and mode_cards.get_child_count() == 4,
+		"на главном экране нет четырёх плиток режимов")
+	var online := main_menu.find_child("Online", true, false) as Button if main_menu != null else null
+	ok += _expect(fails, online != null and online.disabled, "плитка «Онлайн» не помечена как будущий режим")
+	ok += _expect(fails, main_menu != null and main_menu.field_ratio() >= 0.30
+		and Nav.ui.find_child("MenuBackdropShade", true, false) == null,
+		"главное меню скрывает деревню или перекрывает её слайд-шоу")
 	ok += _expect(fails, Nav.village.crowd.figures.size() == 5 and bool(Nav._menu_horror.call("is_menu_active")),
 		"в меню нет живой толпы или ночной звуковой контроллер выключен")
 	var menu_idle_ok := true
@@ -4143,11 +4139,16 @@ static func sound() -> void:
 	Sfx.play_panned(&"scratch", -1, 0.95, -20.0)
 	ok += _expect(fails, Sfx._panned_player.bus == Sfx.HORROR_LEFT and Sfx.played.has(&"scratch"), "ночной звук не панорамируется в левый канал")
 	Sfx.stop_panned()
+	var menu_song_before := Sfx.music_name
 	Sfx.played.clear()
-	_find_button(Nav.host.current, "Обычная").pressed.emit()
-	await _frames(tree, 2)
-	ok += _expect(fails, Sfx.played.has(&"tap"), "кнопка нажалась без щелчка")
-	ok += _expect(fails, bool(Nav._menu_horror.call("is_menu_active")), "смена сложности неожиданно выключила звук меню")
+	_find_button(Nav.host.current, "Settings").pressed.emit()
+	await _settle(tree)
+	ok += _expect(fails, Sfx.played.has(&"tap"), "нажатие плитки настроек не воспроизвело отклик")
+	ok += _expect(fails, Nav.host.current is SettingsScreen and Sfx.music_name == menu_song_before,
+		"открытие настроек оборвало песню меню")
+	Nav.show_menu()
+	await _settle(tree)
+	ok += _expect(fails, bool(Nav._menu_horror.call("is_menu_active")), "возврат из настроек не восстановил режим меню")
 	Sfx.played.clear()
 	Nav._new_game_audio_cue()
 	ok += _expect(fails, Sfx.played.has(&"latch") and Sfx.music_name == &"" and Sfx.ambience_name == &"",
