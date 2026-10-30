@@ -66,7 +66,10 @@ static func _check_menu_layout(tree: SceneTree, problems: PackedStringArray) -> 
 	var vp := Nav.frame.get_viewport_rect().size
 	var modes := screen.find_child("ModeCards", true, false) as GridContainer
 	var more := screen.find_child("More", true, false) as Button
-	var scroll_max := screen.scroll.get_v_scroll_bar().max_value if screen.scroll != null else INF
+	var scroll_max := INF
+	if screen.scroll != null:
+		var menu_scrollbar := screen.scroll.get_v_scroll_bar()
+		scroll_max = maxf(0.0, menu_scrollbar.max_value - menu_scrollbar.page)
 	var checks := 0
 	checks += _expect(problems, screen.field_spacer != null and screen.field_spacer.size.y >= vp.y * 0.58,
 		"720×1280: живая деревня занимает только %.0f%% экрана" % (100.0 * screen.field_spacer.size.y / maxf(vp.y, 1.0)))
