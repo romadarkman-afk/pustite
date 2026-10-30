@@ -6,9 +6,12 @@ static func run() -> void:
 	var problems: PackedStringArray = []
 	var checks := 0
 	await _check_menu_music(tree, problems)
+	checks += await _check_menu_layout(tree, problems)
 	checks += _expect(problems, Nav.host.current is MenuScreen, "перед тестом раскладки открылось не меню")
 	Nav.start_match()
 	await SelfTest._settle(tree)
+	if Nav.host.current is PrologueScreen:
+		checks += _check_prologue_layout(Nav.host.current as PrologueScreen, problems)
 	if Game.m != null and Game.m.phase == Match.Phase.PROLOGUE:
 		Game.proceed()
 		await SelfTest._settle(tree)
@@ -38,7 +41,10 @@ static func run() -> void:
 		if prof.size() > 3:
 			tag = "%s %s" % [String(prof[3]), tag]
 		if Nav.host.current is DayScreen:
+			var day := Nav.host.current as DayScreen
 			checks += _check_day(tag, problems)
+			if sz == Vector2i(720, 1280) and cut.x < 0.0 and Save.text_size == 0:
+				checks += await _check_compact_day_ui(tree, day, problems)
 		else:
 			problems.append("%s: после изменения размера сменился экран партии" % tag)
 		checks += _check_all_map_bounds(tag, problems)
@@ -46,6 +52,83 @@ static func run() -> void:
 	tree.root.content_scale_factor = 1.0
 	Nav.frame.debug_insets = Vector4(-1, -1, -1, -1)
 	_report(tree, checks, problems)
+
+
+static func _check_menu_layout(tree: SceneTree, problems: PackedStringArray) -> int:
+	Nav.frame.debug_insets = Vector4(-1, -1, -1, -1)
+	tree.root.size = Vector2i(720, 1280)
+	tree.root.content_scale_factor = 1.0
+	await SelfTest._settle(tree)
+	var screen := Nav.host.current as MenuScreen
+	if screen == null:
+		problems.append("720×1280: главное меню не открыто")
+		return 1
+	var vp := Nav.frame.get_viewport_rect().size
+	var modes := screen.find_child("ModeCards", true, false) as GridContainer
+	var more := screen.find_child("More", true, false) as Button
+	var scroll_max := INF
+	if screen.scroll != null:
+		var menu_scrollbar := screen.scroll.get_v_scroll_bar()
+		scroll_max = maxf(0.0, menu_scrollbar.max_value - menu_scrollbar.page)
+	var checks := 0
+	checks += _expect(problems, screen.field_spacer != null and screen.field_spacer.size.y >= vp.y * 0.58,
+		"720×1280: живая деревня занимает только %.0f%% экрана" % (100.0 * screen.field_spacer.size.y / maxf(vp.y, 1.0)))
+	checks += _expect(problems, modes != null and modes.columns == 2 and modes.get_child_count() == 4,
+		"720×1280: плитки режимов не собраны в сетку 2×2")
+	checks += _expect(problems, more != null and more.get_global_rect().end.y <= screen.scroll.get_global_rect().end.y + 1.0,
+		"720×1280: кнопка «Ещё» уехала из области меню")
+	checks += _expect(problems, scroll_max <= 1.0,
+		"720×1280: главное меню требует прокрутки (%.1f px)" % scroll_max)
+	return checks
+
+
+static func _check_prologue_layout(screen: PrologueScreen, problems: PackedStringArray) -> int:
+	var vp := Nav.frame.get_viewport_rect().size
+	var skip := screen.find_child("SkipIntro", true, false) as Button
+	var next := screen.find_child("PrologueNext", true, false) as Button
+	var checks := 0
+	checks += _expect(problems, screen.field_spacer != null and screen.field_spacer.size.y >= vp.y * 0.46,
+		"720×1280: вступление оставляет игре меньше 46% экрана")
+	checks += _expect(problems, skip != null and skip.is_visible_in_tree() and skip.get_global_rect().size.x >= 96.0,
+		"720×1280: кнопка пропуска вступления не видна или слишком узкая")
+	checks += _expect(problems, next != null and next.is_visible_in_tree(),
+		"720×1280: кнопка продолжения вступления не видна")
+	if screen.footer != null:
+		checks += _expect(problems, screen.footer.get_global_rect().end.y <= vp.y + 1.0,
+			"720×1280: нижняя панель вступления уехала за край экрана")
+	return checks
+
+
+static func _check_compact_day_ui(tree: SceneTree, screen: DayScreen, problems: PackedStringArray) -> int:
+	var checks := 0
+	var vp := Nav.frame.get_viewport_rect().size
+	var primary := screen.find_child("PrimaryActions", true, false) as GridContainer
+	var phase := screen.find_child("PhaseActions", true, false) as GridContainer
+	checks += _expect(problems, primary != null and primary.columns == 3
+		and primary.get_child_count() == 3 and phase != null and phase.columns <= 3
+		and phase.get_child_count() >= 2,
+		"720×1280: действия дня не собраны в две компактные строки")
+	checks += _expect(problems, screen.field_spacer.size.y >= vp.y * 0.50,
+		"720×1280: игровому полю осталось только %.0f%% высоты" % (100.0 * screen.field_spacer.size.y / maxf(vp.y, 1.0)))
+
+	var diary := DiarySheet.open(screen, Game.m, Game.director)
+	await SelfTest._settle(tree)
+	var panel := diary.find_child("DiaryPanel", true, false) as Control
+	var scroll := diary.find_child("DiaryScroll", true, false) as ScrollContainer
+	var close_button := diary.find_child("DiaryClose", true, false) as Button
+	if panel != null:
+		var rect := panel.get_global_rect()
+		checks += _expect(problems, rect.position.y >= -1.0 and rect.end.y <= vp.y + 1.0 and rect.size.y <= vp.y * 0.84,
+			"720×1280: дневник занимает %.0f%% экрана или выходит за край" % (100.0 * rect.size.y / maxf(vp.y, 1.0)))
+	else:
+		checks += _expect(problems, false, "720×1280: панель дневника не найдена")
+	checks += _expect(problems, scroll != null and scroll.size.y >= vp.y * 0.28,
+		"720×1280: область записей дневника слишком мала")
+	checks += _expect(problems, panel != null and close_button != null and panel.get_global_rect().encloses(close_button.get_global_rect()),
+		"720×1280: кнопка закрытия дневника уехала за панель")
+	diary.close()
+	await SelfTest._settle(tree)
+	return checks
 
 
 static func _check_menu_music(tree: SceneTree, problems: PackedStringArray) -> void:

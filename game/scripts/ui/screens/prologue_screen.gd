@@ -8,6 +8,7 @@ var _beat_text: Label
 var _beat_card: Control
 var _cast: VBoxContainer
 var _go: Button
+var _skip: Button
 var _reveal_nodes: Array = []
 
 
@@ -20,7 +21,7 @@ func is_busy() -> bool:
 
 
 func field_ratio() -> float:
-	return 0.30
+	return 0.54
 
 
 func title() -> String:
@@ -33,15 +34,17 @@ func mood() -> Vector2:
 
 func build() -> void:
 	_beat = 0
+	body.add_theme_constant_override("separation", 8)
 	_beat_card = W.panel(&"Sheet")
 	_beat_card.custom_minimum_size.x = 0.0
 	_beat_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var beat_box := W.vbox(16)
+	var beat_box := W.vbox(10)
 	beat_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_beat_title = W.label("", &"Title")
-	_beat_title.add_theme_font_size_override("font_size", ThemeFactory.fs(34))
+	_beat_title.add_theme_font_size_override("font_size", ThemeFactory.fs(22))
 	_beat_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_beat_text = W.label("", &"Tale")
+	_beat_text.add_theme_font_size_override("font_size", ThemeFactory.fs(15))
 	_beat_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	beat_box.add_child(_beat_title)
 	beat_box.add_child(_beat_text)
@@ -52,35 +55,35 @@ func build() -> void:
 	body.add_child(_cast)
 	_show_beat()
 	var you := m.player()
-	var pre := W.label(L.t("prologue.pre"), &"Small")
-	_cast.add_child(pre)
-	var arrival := W.panel(&"Card")
-	arrival.name = "ArrivalStory"
-	arrival.add_child(W.label(SocialContent.village_intro(m), &"Small"))
-	_cast.add_child(arrival)
 	var role := W.label(L.t("prologue.upyr" if you.is_upyr else "prologue.human"), &"Title")
+	role.add_theme_font_size_override("font_size", ThemeFactory.fs(22))
 	if you.is_upyr:
 		role.add_theme_color_override("font_color", ThemeFactory.BLOOD)
 	role.modulate.a = 0.0
 	_cast.add_child(role)
+
 	var story := W.label(
 		L.t("prologue.upyr_text" if you.is_upyr else "prologue.human_text"),
 		&"Tale")
+	story.add_theme_font_size_override("font_size", ThemeFactory.fs(15))
 	story.modulate.a = 0.0
 	_cast.add_child(story)
+
 	var role_l := W.label(_role_text(you), &"Hint")
 	role_l.modulate.a = 0.0
 	if role_l.text.is_empty():
 		role_l.visible = false
 	_cast.add_child(role_l)
+
 	var case_card := W.panel(&"Card")
 	case_card.name = "CaseFile"
-	var case_text := W.vbox(4)
-	case_text.add_child(W.label(SocialContent.case_title(m.case_id), &"Body"))
+	var case_text := W.vbox(3)
+	case_text.add_child(W.label(SocialContent.case_title(m.case_id), &"Speaker"))
 	case_text.add_child(W.label(SocialContent.case_hook(m.case_id), &"Small"))
 	case_card.add_child(case_text)
 	case_card.modulate.a = 0.0
 	_cast.add_child(case_card)
+
 	if m.rule != "":
 		var dl := W.icon_line(MorningScreen.event_glyph(Challenge.night_event(m.rule)) if Challenge.night_event(m.rule) != Match.Event.NONE else "bell",
 			L.t("daily.title") + ": " + Challenge.title(m.rule) + ". " + Challenge.text(m.rule), &"Hint")
@@ -88,49 +91,23 @@ func build() -> void:
 		_cast.add_child(dl)
 	var facts := W.label(L.t("prologue.facts", {"p": m.config.players, "u": m.config.monsters,
 		"s": m.config.shelters, "c": m.config.capacity, "n": m.config.nights}), &"Small")
+	facts.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
 	facts.modulate.a = 0.0
 	_cast.add_child(facts)
-	if not Game.chapter.is_empty():
-		_cast.add_child(goals_card(m, Game.chapter, {}))
-	_cast.add_child(people_strip())
-	_cast.add_child(W.label(SocialContent.narrative_ui("cast"), &"Speaker"))
-	for v: Villager in m.villagers:
-		if v.is_player:
-			continue
-		var card := W.panel(&"Card")
-		card.name = "Cast_%d" % v.id
-		var row := W.hbox(14)
-		var portrait := TextureRect.new()
-		var figure: VillagerFigure = Nav.village.crowd.figures.get(v.id) if Nav.village != null else null
-		if figure != null:
-			portrait.texture = VillagerFigure.folk_tex(figure.sprite_id)
-		portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		portrait.custom_minimum_size = Vector2(76, 140)
-		row.add_child(portrait)
-		var info := W.vbox(5)
-		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		info.add_child(W.label(v.name, &"Speaker"))
-		info.add_child(W.label(SocialContent.person_title(v), &"Small"))
-		info.add_child(W.label(SocialContent.story(v.story_id, v), &"Small"))
-		var bond := SocialContent.bond_text(v, m)
-		if not bond.is_empty():
-			info.add_child(W.label(bond, &"Hint"))
-		# память кампании (TASK-002): последнее, что было между вами
-		if not Game.chapter.is_empty() and v.guest_id.is_empty():
-			var mem := Campaign.memory_lines(v.story_id, 1)
-			if not mem.is_empty():
-				var ml := W.label(mem[0], &"Hint")
-				ml.name = "Memory"
-				info.add_child(ml)
-		row.add_child(info)
-		card.add_child(row)
-		_cast.add_child(card)
-
-	_go = W.button((String((StoryLoc.get_v("misc") as Array)[2]) if StoryLoc.has("misc") else ("Дальше" if L.code == "ru" else "Continue")))
+	_go = W.button(L.t("ui.next"), &"Primary", 58)
+	_go.name = "PrologueNext"
 	_go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_go.pressed.connect(_advance)
-	footer.add_child(_go)
+	_skip = W.button(L.t("ui.skip"), &"Ghost", 48)
+	_skip.name = "SkipIntro"
+	_skip.add_theme_font_size_override("font_size", ThemeFactory.fs(12))
+	_skip.custom_minimum_size.x = maxf(96.0, W.button_need(_skip))
+	_skip.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_skip.pressed.connect(_skip_intro)
+	var actions := W.hbox(8)
+	actions.add_child(_skip)
+	actions.add_child(_go)
+	footer.add_child(actions)
 	_reveal_nodes = [role, story, role_l, case_card, facts]
 	if _comics_due() or _act_prologue_due():
 		_play_intros.call_deferred()
@@ -165,8 +142,12 @@ func _play_intros() -> void:
 		var act := int(Game.chapter.get("act", 0))
 		if id == "a1c1":
 			await SlidePlayer.play(self, "prologue")
+			if not is_inside_tree():
+				return
 		if id.ends_with("c1"):
 			await SlidePlayer.play(self, "act%d_intro" % act)
+			if not is_inside_tree():
+				return
 		await SlidePlayer.play(self, "%s_intro" % id)
 		if not is_inside_tree():
 			return
@@ -190,7 +171,7 @@ func _show_beat() -> void:
 			art.texture = tex
 			art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-			art.custom_minimum_size = Vector2(0, 320)
+			art.custom_minimum_size = Vector2(0, clampf(size.y * 0.22, 130.0, 220.0) if size.y > 0.0 else 170.0)
 			(_beat_card.get_child(0) as Control).add_child(art)
 			(_beat_card.get_child(0) as Control).move_child(art, 0)
 	var art_node := _beat_card.find_child("Art", true, false) as Control
@@ -275,6 +256,26 @@ static func goals_card(mm: Match, ch: Dictionary, result: Dictionary) -> PanelCo
 	return card
 
 
+func _remember_cast() -> void:
+	if m == null:
+		return
+	var changed := false
+	for resident: Villager in m.villagers:
+		if not resident.is_player:
+			changed = Save.remember_story(Progress.story_key(resident), 0, false) or changed
+	if changed:
+		Save.flush()
+
+
+func _skip_intro() -> void:
+	if is_locked():
+		return
+	# Сцена и комикс умеют завершаться через handle_back; затем сразу открываем день.
+	handle_back()
+	_remember_cast()
+	commit(Intent.CONTINUE)
+
+
 func _advance() -> void:
 	var last := _beats().size() - 1
 	if _beat < last:
@@ -287,12 +288,7 @@ func _advance() -> void:
 		_beat = last + 1
 		_beat_card.visible = false
 		_cast.visible = true
-		var changed := false
-		for resident: Villager in m.villagers:
-			if not resident.is_player:
-				changed = Save.remember_story(Progress.story_key(resident), 0, false) or changed
-		if changed:
-			Save.flush()
+		_remember_cast()
 		_go.text = L.t("prologue.go")
 		_go.disabled = true
 		_reveal(_reveal_nodes)

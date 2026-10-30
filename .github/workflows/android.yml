@@ -162,6 +162,9 @@ jobs:
           done
           echo "Комплект совпадает с описью: $(wc -l < /tmp/expected.txt) файлов"
 
+      - name: Подготовить сжатие иллюстраций
+        run: godot --headless --path game --script res://tools/prepare_slide_imports.gd
+
       - name: Импорт ресурсов
         run: |
           godot --headless --path game --import

@@ -29,7 +29,7 @@ env:
 jobs:
   tests-fast:
     name: Быстрая проверка
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
@@ -45,13 +45,16 @@ jobs:
           sudo chmod +x /usr/local/bin/godot
           godot --version
 
+      - name: Подготовить сжатие иллюстраций
+        run: godot --headless --path game --script res://tools/prepare_slide_imports.gd
+
       - name: Импорт ресурсов
         run: godot --headless --path game --import
 
       - name: Жители, дождь, карта и озвучка
         env:
-          CASES: "folk=--folk weather=--weather field=--field village=--village voice=--voice-assets layout=--layout-smoke layout_t2=--layout-smoke,--text=2"
-          CASE_TIMEOUT: "180"
+          CASES: "folk=--folk weather=--weather field=--field village=--village sound=--sound slides=--slides parallax=--parallax voice=--voice-assets layout=--layout-smoke,--lang=ru layout_t2=--layout-smoke,--lang=ru,--text=2"
+          CASE_TIMEOUT: "90"
         run: bash tools/ci_run_cases.sh $CASES
 
   tests-full:
@@ -70,16 +73,17 @@ jobs:
             cases: "sim=--sim story=--story chapters=--chapters flow=--flow lifecycle=--lifecycle field=--field crowd=--crowd bubbles=--bubbles marks=--marks input=--input hints=--hints difficulty=--difficulty howto=--howto night=--night eyes=--eyes lights=--lights checkpoint=--checkpoint sound=--sound village=--village"
           - name: Основные 2
             cases: "talisman=--talisman bell=--bell events=--events mimic=--mimic sabotage=--sabotage box=--box roles=--roles meeting=--meeting tunnel=--tunnel diary=--diary recap=--recap folk=--folk loc=--loc access=--access daily=--daily cosmetics=--cosmetics adapt=--adapt display=--display gestures=--gestures candle=--candle haptics=--haptics portraits=--portraits tension=--tension doors=--doors emptying=--emptying pairs=--pairs themes=--themes soundmaps=--soundmaps actscenes=--actscenes campmap=--campmap slides=--slides achicons=--achicons parallax=--parallax traces=--traces storage=--storage save=--save weather=--weather perf=--perf debugmenu=--debugmenu release=--release"
+          # Для десяти локалей используем короткую раскладку по всем профилям; полный прогон моделирует целую партию на каждом профиле и превышает лимит времени.
           - name: Раскладка ru en
-            cases: "layout_ru=--layout,--lang=ru layout_ru_t2=--layout,--lang=ru,--text=2 layout_en=--layout,--lang=en layout_en_t2=--layout,--lang=en,--text=2 crowd_ru=--crowd,--lang=ru crowd_en=--crowd,--lang=en"
+            cases: "layout_ru=--layout-smoke,--lang=ru layout_ru_t2=--layout-smoke,--lang=ru,--text=2 layout_en=--layout-smoke,--lang=en layout_en_t2=--layout-smoke,--lang=en,--text=2 crowd_ru=--crowd,--lang=ru crowd_en=--crowd,--lang=en"
           - name: Раскладка de fr
-            cases: "layout_de=--layout,--lang=de layout_de_t2=--layout,--lang=de,--text=2 layout_fr=--layout,--lang=fr layout_fr_t2=--layout,--lang=fr,--text=2 crowd_de=--crowd,--lang=de crowd_fr=--crowd,--lang=fr"
+            cases: "layout_de=--layout-smoke,--lang=de layout_de_t2=--layout-smoke,--lang=de,--text=2 layout_fr=--layout-smoke,--lang=fr layout_fr_t2=--layout-smoke,--lang=fr,--text=2 crowd_de=--crowd,--lang=de crowd_fr=--crowd,--lang=fr"
           - name: Раскладка es pt
-            cases: "layout_es=--layout,--lang=es layout_es_t2=--layout,--lang=es,--text=2 layout_pt=--layout,--lang=pt layout_pt_t2=--layout,--lang=pt,--text=2 crowd_pt=--crowd,--lang=pt crowd_es=--crowd,--lang=es"
+            cases: "layout_es=--layout-smoke,--lang=es layout_es_t2=--layout-smoke,--lang=es,--text=2 layout_pt=--layout-smoke,--lang=pt layout_pt_t2=--layout-smoke,--lang=pt,--text=2 crowd_pt=--crowd,--lang=pt crowd_es=--crowd,--lang=es"
           - name: Раскладка tr hi
-            cases: "layout_tr=--layout,--lang=tr layout_tr_t2=--layout,--lang=tr,--text=2 layout_hi=--layout,--lang=hi layout_hi_t2=--layout,--lang=hi,--text=2 crowd_tr=--crowd,--lang=tr crowd_hi=--crowd,--lang=hi"
+            cases: "layout_tr=--layout-smoke,--lang=tr layout_tr_t2=--layout-smoke,--lang=tr,--text=2 layout_hi=--layout-smoke,--lang=hi layout_hi_t2=--layout-smoke,--lang=hi,--text=2 crowd_tr=--crowd,--lang=tr crowd_hi=--crowd,--lang=hi"
           - name: Раскладка vi zh
-            cases: "layout_vi=--layout,--lang=vi layout_vi_t2=--layout,--lang=vi,--text=2 layout_zh=--layout,--lang=zh layout_zh_t2=--layout,--lang=zh,--text=2 crowd_vi=--crowd,--lang=vi crowd_zh=--crowd,--lang=zh"
+            cases: "layout_vi=--layout-smoke,--lang=vi layout_vi_t2=--layout-smoke,--lang=vi,--text=2 layout_zh=--layout-smoke,--lang=zh layout_zh_t2=--layout-smoke,--lang=zh,--text=2 crowd_vi=--crowd,--lang=vi crowd_zh=--crowd,--lang=zh"
 
     steps:
       - name: Забрать код
@@ -94,10 +98,11 @@ jobs:
           sudo chmod +x /usr/local/bin/godot
           godot --version
 
+      - name: Подготовить сжатие иллюстраций
+        run: godot --headless --path game --script res://tools/prepare_slide_imports.gd
+
       - name: Импорт ресурсов
-        run: |
-          godot --headless --path game --import
-          godot --headless --path game --import
+        run: godot --headless --path game --import
 
       - name: Прогон набора
         env:

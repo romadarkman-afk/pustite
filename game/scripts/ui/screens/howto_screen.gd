@@ -57,8 +57,13 @@ func build() -> void:
 		resized.connect(_size_art)
 	art.gui_input.connect(_on_art_input)
 	body.add_child(art)
-	body.add_child(W.label(L.t(String(card[0])), &"Title"))
-	body.add_child(W.label(L.t(String(card[1])), &"Tale"))
+
+	var heading := W.label(L.t(String(card[0])), &"Title")
+	heading.add_theme_font_size_override("font_size", ThemeFactory.fs(28))
+	body.add_child(heading)
+	var description := W.label(L.t(String(card[1])), &"Tale")
+	description.add_theme_font_size_override("font_size", ThemeFactory.fs(17))
+	body.add_child(description)
 	for row: Array in card[3]:
 		var line := W.icon_line(String(row[0]), L.t(String(row[1])), &"Small", 40.0)
 		line.name = "Row_" + String(row[0])
@@ -66,24 +71,37 @@ func build() -> void:
 	var last := page == page_count() - 1
 	if last and then_play:
 		body.add_child(W.label(L.t("howto.more"), &"Hint"))
-	var next := W.button(L.t(("menu.play" if then_play else "howto.got_it") if last else "ui.next"))
+
+	var controls := W.hbox(8)
+	if page > 0:
+		var previous := W.button(L.t("ui.back"), &"Ghost", 50)
+		previous.name = "PreviousPage"
+		previous.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		previous.add_theme_font_size_override("font_size", ThemeFactory.fs(15))
+		previous.pressed.connect(prev_page)
+		controls.add_child(previous)
+	var next := W.button(L.t(("menu.play" if then_play else "howto.got_it") if last else "ui.next"), &"Primary", 56)
+	next.name = "NextPage"
+	next.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	next.add_theme_font_size_override("font_size", ThemeFactory.fs(16))
 	next.pressed.connect(next_page)
-	footer.add_child(next)
+	controls.add_child(next)
+	footer.add_child(controls)
+
 	if not last:
-		var skip := W.button(L.t("ui.skip"), &"Ghost")
+		var skip := W.button(L.t("ui.skip"), &"Ghost", 48)
+		skip.name = "SkipHowTo"
+		skip.add_theme_font_size_override("font_size", ThemeFactory.fs(14))
 		skip.pressed.connect(func() -> void: commit(Intent.HOWTO_DONE, {"play": then_play}))
 		footer.add_child(skip)
-	if _clock != null:
-		pass
 
 
-## Картинка: 42% высоты экрана, но не больше трети при длинной карточке со значками. Пересчёт при каждом
-## изменении размера: первая карточка строится раньше, чем экран узнаёт свою высоту.
+## Иллюстрация занимает меньше места, чтобы текст и навигация оставались видны.
 func _size_art() -> void:
 	if is_instance_valid(art):
 		var rows: int = (PAGES[page][3] as Array).size()
-		var share := 0.42 if rows <= 3 else 0.32
-		art.custom_minimum_size = Vector2(0, maxf(240.0, size.y * share) if size.y > 0.0 else 420.0)
+		var share := 0.32 if rows <= 3 else 0.24
+		art.custom_minimum_size = Vector2(0, clampf(size.y * share, 140.0, 230.0) if size.y > 0.0 else 180.0)
 
 
 func next_page() -> void:

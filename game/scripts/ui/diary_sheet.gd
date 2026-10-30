@@ -92,7 +92,10 @@ func _build(m: Match, d: Director) -> void:
 	dim.gui_input.connect(func(e: InputEvent) -> void:
 		if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
 			close())
+	var host := get_parent() as Control
 	var sheet := W.panel(&"Sheet")
+	sheet.name = "DiaryPanel"
+	sheet.custom_minimum_size.y = host.size.y * 0.72
 	add_child(sheet)
 	sheet.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	sheet.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -109,8 +112,10 @@ func _build(m: Match, d: Director) -> void:
 	box.add_child(clues_b)
 	box.add_child(W.label(SocialContent.case_title(m.case_id), &"Body"))
 	var sc := TouchScroll.new()
+	sc.name = "DiaryScroll"
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	sc.custom_minimum_size = Vector2(0, maxf(200.0, (get_parent() as Control).size.y * 0.66))
+	sc.custom_minimum_size = Vector2(0, maxf(160.0, host.size.y * 0.32))
 	list = W.vbox(10)
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sc.add_child(list)
@@ -137,6 +142,7 @@ func _build(m: Match, d: Director) -> void:
 		list.add_child(card)
 		cards[v.id] = card
 	var close_b := W.button(L.t("ui.close"), &"Ghost")
+	close_b.name = "DiaryClose"
 	close_b.pressed.connect(close)
 	box.add_child(close_b)
 

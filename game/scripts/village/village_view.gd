@@ -363,11 +363,17 @@ func frame_to(rect: Rect2, vp_w: float, dur: float, zoom: float = 1.0, focus_x: 
 	_vp_w = vp_w
 	_ground_cover_scale = minf(scale.x if scale.x > 0.01 else s, s)
 	queue_redraw()
+	var camera_is_framed := focus_x >= 0.0 or zoom > 1.0
 	if focus_x >= 0.0:
 		cam_x = focus_x
 	elif zoom <= 1.0:
 		cam_x = LOGICAL.x * 0.5
-	cam_x = _clamp_cam(cam_x, s)
+	if camera_is_framed:
+		cam_x = _clamp_cam(cam_x, s)
+	else:
+		# При полном обзоре центрируем логическую полосу по экрану. Границы разных карт
+		# имеют разные смещения и не должны сдвигать посёлок в сторону.
+		cam_x = LOGICAL.x * 0.5
 	_apply_parallax()
 	# Полоса с домами остаётся в поле, лишняя высота делится между небом и передним планом.
 	var extra := maxf(0.0, rect.size.y - BAND.size.y * s)
@@ -1852,7 +1858,7 @@ class Backdrop extends Node2D:
 		var half := view._vp_w / maxf(view.scale.x, 0.5) * 0.5
 		var half_zoomed := view._vp_w / (2.0 * ZOOM_LIMIT)
 		var d_max := maxf(0.0, VillageView.LOGICAL.x * 0.5 + 20.0 - minf(half, half_zoomed))
-		return maxf(w, 2.0 * half + maxf(320.0, 2.0 * speed * d_max + 40.0))
+		return maxf(w, 2.0 * half + maxf(352.0, 2.0 * speed * d_max + 64.0))
 
 	## Полоса картинки по всей ширине, копии через одну отражены — шов не виден.
 	func _strip(tex: Texture2D, y: float, w: float, h: float, mod: Color) -> void:

@@ -158,17 +158,27 @@ static func voice(fails: PackedStringArray) -> int:
 		ok += SelfTest._expect(fails, Sfx.SONGS.has(StringName(String(e[0]))), "%s: песни %s нет в Sfx.SONGS" % [deck_id, e[0]])
 		ok += SelfTest._expect(fails, int(e[1]) >= 0 and int(e[1]) < Slides.panels(deck_id).size(), "%s: кадр песни %d вне колоды" % [deck_id, e[1]])
 	var keep_songs := {}
-	for sn: StringName in [&"song_mill", &"song_train", &"song_pustite"]:
+	for sn: StringName in Sfx.SONGS:
 		keep_songs[sn] = Sfx._streams.get(sn)
 		Sfx._streams.erase(sn)
+	var keep_menu_pick: StringName = Sfx._menu_song_pick
+	var keep_menu_last: StringName = Sfx._last_menu_song
+	var keep_menu_bag: Array[StringName] = Sfx._menu_song_bag.duplicate()
+	Sfx._menu_song_pick = &""
+	Sfx._last_menu_song = &""
+	Sfx._menu_song_bag.clear()
 	ok += SelfTest._expect(fails, Slides.song_for("act2_out_all", 0) == &"", "песня без файла должна быть пустой")
-	ok += SelfTest._expect(fails, Sfx.menu_music() == &"menu", "без песни меню играет не прежнюю музыку")
-	for sn: StringName in keep_songs:
+	ok += SelfTest._expect(fails, Sfx.menu_music() == &"menu", "без песен меню включает резервную тему")
+	for sn: StringName in [&"song_mill", &"song_train", &"song_pustite"]:
 		Sfx._streams[sn] = AudioStreamWAV.new()
+	Sfx._menu_song_pick = &""
+	Sfx._last_menu_song = &""
+	Sfx._menu_song_bag.clear()
+	Sfx._menu_song_bag.append(&"song_pustite")
 	ok += SelfTest._expect(fails, Slides.song_for("act2_out_all", 0) == &"song_mill", "песня акта II на первом кадре итога")
 	ok += SelfTest._expect(fails, Slides.song_for("final_many", 1) == &"" and Slides.song_for("final_many", 2) == &"song_train", "песня финала со второго кадра")
 	ok += SelfTest._expect(fails, Slides.song_for("a1c1_win", 0) == &"" and Slides.song_for("нет", 0) == &"", "песня у колоды без песни")
-	ok += SelfTest._expect(fails, Sfx.menu_music() == &"song_pustite", "меню не играет главную песню")
+	ok += SelfTest._expect(fails, Sfx.menu_music() == &"song_pustite", "меню не выбирает главную песню из заданной колоды")
 	# плеер: на кадре песни музыка колоды не перебивает песню
 	var host := Nav.host.current
 	var pl := SlidePlayer.new()
@@ -188,6 +198,9 @@ static func voice(fails: PackedStringArray) -> int:
 		else:
 			Sfx._streams[sn] = keep_songs[sn]
 	Sfx.set_music(&"", 0.0)
+	Sfx._menu_song_pick = keep_menu_pick
+	Sfx._last_menu_song = keep_menu_last
+	Sfx._menu_song_bag = keep_menu_bag
 	return ok
 
 
@@ -449,7 +462,7 @@ static func images(fails: PackedStringArray) -> int:
 			ok += SelfTest._expect(fails, tex != null, "%s: картинка не читается" % path)
 			# без файла .import со сжатием «с потерями» (compress/mode=1) кадр уходит в APK без сжатия: 1,5 МиБ вместо 0,2
 			var imp := FileAccess.get_file_as_string(path + ".import")
-			ok += SelfTest._expect(fails, imp.contains("compress/mode=1"), "%s: нет .import со сжатием с потерями (git add -f ...webp.import)" % path)
+			ok += SelfTest._expect(fails, imp.contains("compress/mode=1"), "%s: для WebP не применилось сжатие с потерями (compress/mode=1)" % path)
 			if tex != null:
 				var tall := tex.get_height() > tex.get_width()
 				var want_tall := String(p.get("size", "")) == "t"

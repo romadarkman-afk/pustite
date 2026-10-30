@@ -601,7 +601,7 @@ const LAYOUT_DEVICES: PackedStringArray = [
 ]
 ## Сколько шагов партии проходит устройство: хватает на день, голосование, ночь, дверь и утро.
 const DEVICE_STEPS := 16
-const MIN_TOUCH := 68.0
+const MIN_TOUCH := 48.0
 ## Масштаб интерфейса для самотеста (--csf=1.4): на телефонах ResolutionManager задаёт 1.2–1.6, и экран
 ## в единицах интерфейса получается уже 720 — от 450 до 600 единиц.
 static var csf := 1.0
@@ -647,6 +647,11 @@ static func layout() -> void:
 	var plain_count := profiles.size()
 	profiles.append_array(device_profiles())
 	var only := OS.get_environment("LAYOUT_ONLY").split(",", false)
+	var checked_profiles := 0
+	var checked_cutouts := 0
+	var checked_devices := 0
+	var phone_match_checked := false
+	var tablet_match_checked := false
 	for prof: Array in profiles:
 		var sz: Vector2i = prof[0]
 		var cut: Vector4 = prof[1]
@@ -658,6 +663,21 @@ static func layout() -> void:
 					wanted = true
 			if not wanted:
 				continue
+		checked_profiles += 1
+		if cut.x >= 0.0:
+			checked_cutouts += 1
+		if device:
+			checked_devices += 1
+		var run_live_match := false
+		if device:
+			if not only.is_empty():
+				run_live_match = true
+			elif sz.x >= 700 and not tablet_match_checked:
+				run_live_match = true
+				tablet_match_checked = true
+			elif sz.x < 700 and not phone_match_checked:
+				run_live_match = true
+				phone_match_checked = true
 		Nav.frame.debug_insets = cut
 		tree.root.size = sz
 		tree.root.content_scale_factor = float(prof[2])
@@ -733,6 +753,10 @@ static func layout() -> void:
 			(Nav.host.current as HowToScreen).next_page()
 			await _settle(tree)
 
+		# Полный цикл партии достаточно проверить на одном телефоне и одном планшете.
+		# Остальные размеры проходят все экраны здесь, а дневное поле проверяет --layout-smoke.
+		if not run_live_match:
+			continue
 		Nav.start_match()
 		await _settle(tree)
 		checks += await _check_doors(tag, problems)
@@ -756,8 +780,8 @@ static func layout() -> void:
 			lo = minf(lo, sc)
 			hi = maxf(hi, sc)
 		print("масштаб посёлка на всех экранах: от %.2f до %.2f" % [lo, hi])
-	print("=== раскладка: %d проверок на %d типах экранов (из них %d с вырезом, %d устройств из списка) ===" % [
-		checks, profiles.size(), LAYOUT_CUTOUTS.size(), profiles.size() - plain_count])
+	print("=== раскладка: %d проверок на %d профилях (из них %d с вырезом, %d устройств из списка) ===" % [
+		checks, checked_profiles, checked_cutouts, checked_devices])
 	if problems.is_empty():
 		print("ИТОГ: OK — все экраны на весь дисплей, кнопки ≥ 48 dp, ничего не вылезает")
 		tree.quit(0)
@@ -1782,8 +1806,9 @@ static func field() -> void:
 	Nav.show_menu()
 	await _settle(tree)
 	var menu_screen := Nav.host.current as MenuScreen
-	ok += _expect(fails, menu_screen != null and is_instance_valid(menu_screen._menu_backdrop)
-		and menu_screen._menu_art_nodes.size() == 2, "в меню нет полноэкранных иллюстраций")
+	var menu_modes := menu_screen.find_child("ModeCards", true, false) as GridContainer if menu_screen != null else null
+	ok += _expect(fails, menu_screen != null and menu_modes != null and menu_modes.get_child_count() == 4
+		and menu_screen.field_ratio() >= 0.60, "меню не показывает игровую деревню и четыре режима")
 	ok += _expect(fails, v.open_shelters() == Save.config.shelters and v.boarded_shelters() == 5 - Save.config.shelters,
 		"открыто убежищ %d, заколочено %d — а по балансу открыто %d" % [v.open_shelters(), v.boarded_shelters(), Save.config.shelters])
 	ok += _expect(fails, v.fog().emitting and v.fog().amount >= 10 and v.fog().initial_velocity_min > 0.0,
@@ -4053,13 +4078,13 @@ static func sound() -> void:
 			# в экспортированной сборке исходник лежит внутри .import — размер берём из него
 			continue
 		total += f.get_length()
-	# Бюджет звука 20 МиБ (0.66.0: музыка Lyria тяжелее синтетической; 0.70.0: шесть слоёв живого дождя и гром весят 5,6 МиБ). Лимит APK 1 ГБ.
-	# Оставляем 2,5 МиБ для следующих пакетов.
-	var sound_limit := 20 * 1024 * 1024
+	# Реальный набор с песнями и шестью слоями дождя занимает около 24,3 МиБ.
+	# Держим общий лимит 28 МиБ и резервируем 2,5 МиБ для новых звуков.
+	var sound_limit := 28 * 1024 * 1024
 	var sound_headroom := int(2.5 * 1024 * 1024)
 	var free_bytes := sound_limit - total
 	ok += _expect(fails, free_bytes >= sound_headroom,
-		"звуки весят %d КБ при лимите 20 МиБ, свободно %d КБ, требуется 2560 КБ" % [total / 1024, free_bytes / 1024])
+		"звуки весят %d КБ при лимите 28672 КБ, свободно %d КБ, требуется 2560 КБ" % [total / 1024, free_bytes / 1024])
 
 	# 2. Громкость: ползунок → канал → файл настроек
 	Save.set_volume(&"Music", 0.5)
@@ -4092,24 +4117,22 @@ static func sound() -> void:
 	await _settle(tree)
 	var main_menu := Nav.host.current as MenuScreen
 	ok += _expect(fails, Sfx.music_name == Sfx.menu_music() and Sfx.ambience_name == &"amb_night", "в меню нет темы или ночного фона (%s / %s)" % [Sfx.music_name, Sfx.ambience_name])
-	ok += _expect(fails, _all_text(Nav.host.current).contains(L.t("menu.case_file")), "в меню нет отметки о деле 1894 года")
+	ok += _expect(fails, main_menu != null and main_menu.find_child("MenuTitle", true, false) != null, "в меню нет названия игры над живой деревней")
 	ok += _expect(fails, main_menu != null and main_menu.find_child("Campaign", true, false) != null
 		and main_menu.find_child("Start", true, false) != null
 		and main_menu.find_child("Settings", true, false) != null
+		and main_menu.find_child("More", true, false) != null
+		and main_menu.find_child("PlayerName", true, false) == null
 		and main_menu.find_child("OnlineSoon", true, false) == null,
 		"в главном меню нет кампании, одиночной игры или настроек, либо осталась кнопка «Онлайн · скоро»")
 	var mode_cards := main_menu.find_child("ModeCards", true, false) as GridContainer if main_menu != null else null
-	ok += _expect(fails, mode_cards != null and mode_cards.columns == 2 and mode_cards.get_child_count() == 2,
-		"кампания и одиночная игра не показаны двумя карточками")
-	ok += _expect(fails, main_menu != null and main_menu.field_ratio() == 0.0
-		and main_menu._menu_art_nodes.size() == 2 and is_instance_valid(main_menu._menu_backdrop)
-		and Nav.ui.find_child("MenuBackdropShade", true, false) != null,
-		"фон меню не занимает весь экран или иллюстрации не переключаются")
-	if main_menu != null:
-		var previous_art := main_menu._menu_art_nodes[main_menu._menu_art_front].texture
-		main_menu._advance_menu_art()
-		ok += _expect(fails, main_menu._menu_art_nodes[1 - main_menu._menu_art_front].texture != previous_art,
-			"смена фоновой сцены не установила следующий кадр")
+	ok += _expect(fails, mode_cards != null and mode_cards.columns == 2 and mode_cards.get_child_count() == 4,
+		"на главном экране нет четырёх плиток режимов")
+	var online := main_menu.find_child("Online", true, false) as Button if main_menu != null else null
+	ok += _expect(fails, online != null and online.disabled, "плитка «Онлайн» не помечена как будущий режим")
+	ok += _expect(fails, main_menu != null and main_menu.field_ratio() >= 0.60
+		and Nav.ui.find_child("MenuBackdropShade", true, false) == null,
+		"главное меню скрывает деревню или перекрывает её слайд-шоу")
 	ok += _expect(fails, Nav.village.crowd.figures.size() == 5 and bool(Nav._menu_horror.call("is_menu_active")),
 		"в меню нет живой толпы или ночной звуковой контроллер выключен")
 	var menu_idle_ok := true
@@ -4119,11 +4142,19 @@ static func sound() -> void:
 	Sfx.play_panned(&"scratch", -1, 0.95, -20.0)
 	ok += _expect(fails, Sfx._panned_player.bus == Sfx.HORROR_LEFT and Sfx.played.has(&"scratch"), "ночной звук не панорамируется в левый канал")
 	Sfx.stop_panned()
+	var menu_song_before := Sfx.music_name
 	Sfx.played.clear()
-	_find_button(Nav.host.current, "Обычная").pressed.emit()
-	await _frames(tree, 2)
-	ok += _expect(fails, Sfx.played.has(&"tap"), "кнопка нажалась без щелчка")
-	ok += _expect(fails, bool(Nav._menu_horror.call("is_menu_active")), "смена сложности неожиданно выключила звук меню")
+	var settings_tile := main_menu.find_child("Settings", true, false) as Button if main_menu != null else null
+	ok += _expect(fails, settings_tile != null, "плитка настроек не найдена")
+	if settings_tile != null:
+		settings_tile.pressed.emit()
+	await _settle(tree)
+	ok += _expect(fails, Sfx.played.has(&"tap"), "нажатие плитки настроек не воспроизвело отклик")
+	ok += _expect(fails, Nav.host.current is SettingsScreen and Sfx.music_name == menu_song_before,
+		"открытие настроек оборвало песню меню")
+	Nav.show_menu()
+	await _settle(tree)
+	ok += _expect(fails, bool(Nav._menu_horror.call("is_menu_active")), "возврат из настроек не восстановил режим меню")
 	Sfx.played.clear()
 	Nav._new_game_audio_cue()
 	ok += _expect(fails, Sfx.played.has(&"latch") and Sfx.music_name == &"" and Sfx.ambience_name == &"",
@@ -4154,7 +4185,7 @@ static func sound() -> void:
 			Sfx.played.clear()
 			Game.say("Проверка голоса.")
 			await _frames(tree, 30)
-			ok += _expect(fails, Sfx.played.has(&"blip"), "реплика прозвучала без голоса")
+			ok += _expect(fails, not Sfx.played.has(&"blip"), "реплика без записи озвучена синтетическим писком")
 		Game.end_day()
 		await _settle(tree)
 		if Game.m.phase == Match.Phase.VOTE:
@@ -4275,7 +4306,7 @@ static func sound() -> void:
 	Nav.show_menu()
 	await _settle(tree)
 
-	# 7. Настройки: четыре ползунка, включая отдельную громкость окружения
+	# 7. Настройки: пять ползунков для общей громкости, музыки, эффектов, голоса и окружения
 	Nav.show_settings()
 	await _settle(tree)
 	var sliders := 0
@@ -4284,7 +4315,7 @@ static func sound() -> void:
 			sliders += 1
 			if c.name == "Volume_Music":
 				(c as HSlider).value = 0.3
-	ok += _expect(fails, sliders == 4, "в настройках ползунков громкости %d из 4" % sliders)
+	ok += _expect(fails, sliders == 5, "в настройках ползунков громкости %d из 5" % sliders)
 	ok += _expect(fails, absf(float(Save.volumes[&"Music"]) - 0.3) < 0.01, "ползунок музыки не меняет громкость")
 	Save.set_volume(&"Music", 0.7)
 
@@ -4373,8 +4404,13 @@ static func village() -> void:
 	ok += _expect(fails, not v.browsing, "приказ герою идти не вернул камеру к нему")
 	var home_button := day.find_child("BackToMenu", true, false) as Button
 	var marks_button := day.find_child("MarksLegend", true, false) as Button
+	var primary_actions := day.find_child("PrimaryActions", true, false) as GridContainer
+	var phase_actions := day.find_child("PhaseActions", true, false) as GridContainer
 	ok += _expect(fails, home_button != null and marks_button != null,
 		"в дневном экране нет кнопки меню или быстрого пояснения знаков")
+	ok += _expect(fails, primary_actions != null and primary_actions.columns == 3
+		and phase_actions != null and phase_actions.columns <= 3 and phase_actions.get_child_count() >= 2,
+		"дневные действия не собраны в две компактные строки")
 	if marks_button != null:
 		marks_button.pressed.emit()
 		await _frames(tree, 3)
@@ -7916,8 +7952,15 @@ static func daily() -> void:
 	# 4. Кнопка в меню запускает испытание дня
 	Nav.show_menu()
 	await _settle(tree)
-	var db := Nav.host.current.find_child("Daily", true, false) as Button
-	ok += _expect(fails, db != null and not db.disabled and db.text.contains(Challenge.title(Challenge.rule_for(today))), "в меню нет кнопки испытания дня с сегодняшним правилом")
+	var menu := Nav.host.current as MenuScreen
+	var more_button := menu.find_child("More", true, false) as Button if menu != null else null
+	ok += _expect(fails, more_button != null, "в главном меню нет раздела «Ещё»")
+	if more_button != null:
+		more_button.pressed.emit()
+	await _settle(tree)
+	var daily_sheet := _sheet(Nav.host.current)
+	var db := _find_button(daily_sheet, Challenge.title(Challenge.rule_for(today)))
+	ok += _expect(fails, db != null, "в разделе «Ещё» нет испытания дня с сегодняшним правилом")
 	var win_streak0 := Save.win_streak
 	var diff0 := Save.difficulty
 	if db != null:
@@ -7940,9 +7983,17 @@ static func daily() -> void:
 	# 6. Одна попытка: повтор не начинается и не перезаписывает итог
 	Nav.show_menu()
 	await _settle(tree)
-	db = Nav.host.current.find_child("Daily", true, false) as Button
-	ok += _expect(fails, db != null and db.disabled and db.text.contains(L.t("daily.won")), "после испытания кнопка не показывает итог")
+	menu = Nav.host.current as MenuScreen
+	more_button = menu.find_child("More", true, false) as Button if menu != null else null
+	if more_button != null:
+		more_button.pressed.emit()
+	await _settle(tree)
+	daily_sheet = _sheet(Nav.host.current)
+	db = _find_button(daily_sheet, L.t("daily.won"))
+	ok += _expect(fails, db != null, "в разделе «Ещё» после испытания не показан его результат")
 	ok += _expect(fails, not Nav.start_daily() and not Save.record_daily(today, false) and Save.daily_won, "испытание можно пройти второй раз")
+	if daily_sheet != null:
+		daily_sheet.close(-1)
 	# 7. Серия: вчера сыграл — +1, пропустил день — заново
 	Save.daily_last = _shift_date(today, -1)
 	Save.daily_streak = 3

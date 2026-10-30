@@ -130,8 +130,8 @@ static func fit_row(buttons: Array, sep: int = 8) -> Container:
 	return box
 
 
-const _BTN_SIZE := {&"Primary": 22, &"Quick": 18, &"Ghost": 20, &"Danger": 20, &"Row": 20, &"RowOn": 20, &"Chip": 17, &"ChipYou": 17, &"ChipDead": 17, &"ChipUpyr": 17}
-const _BTN_PAD := {&"Quick": 12, &"Chip": 12, &"ChipYou": 12, &"ChipDead": 12, &"ChipUpyr": 12}
+const _BTN_SIZE := {&"Primary": 22, &"Quick": 18, &"Compact": 15, &"Ghost": 20, &"Danger": 20, &"Row": 20, &"RowOn": 20, &"Chip": 17, &"ChipYou": 17, &"ChipDead": 17, &"ChipUpyr": 17}
+const _BTN_PAD := {&"Quick": 12, &"Compact": 8, &"Chip": 12, &"ChipYou": 12, &"ChipDead": 12, &"ChipUpyr": 12}
 
 
 ## Ширина кнопки по надписи — ещё до того, как она попала в дерево и получила тему.
