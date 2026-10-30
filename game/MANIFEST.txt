@@ -165,3 +165,4 @@ scripts/ui/widgets/candle_toggle.gd
 scripts/ui/widgets/talisman_reveal.gd
 scripts/ui/widgets/living_portrait.gd
 tools/check_pair.gd
+tools/prepare_slide_imports.gd
