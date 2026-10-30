@@ -21,7 +21,7 @@ const MENU_PRELOAD: Array[String] = [
 var _title: Label
 var _subtitle: Label
 var _shade: GradientTexture2D
-var _done := falsevar _done := false
+var _done := false
 
 
 func _ready() -> void:
