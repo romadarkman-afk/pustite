@@ -647,6 +647,11 @@ static func layout() -> void:
 	var plain_count := profiles.size()
 	profiles.append_array(device_profiles())
 	var only := OS.get_environment("LAYOUT_ONLY").split(",", false)
+	var checked_profiles := 0
+	var checked_cutouts := 0
+	var checked_devices := 0
+	var phone_match_checked := false
+	var tablet_match_checked := false
 	for prof: Array in profiles:
 		var sz: Vector2i = prof[0]
 		var cut: Vector4 = prof[1]
@@ -658,6 +663,21 @@ static func layout() -> void:
 					wanted = true
 			if not wanted:
 				continue
+		checked_profiles += 1
+		if cut.x >= 0.0:
+			checked_cutouts += 1
+		if device:
+			checked_devices += 1
+		var run_live_match := false
+		if device:
+			if not only.is_empty():
+				run_live_match = true
+			elif sz.x >= 700 and not tablet_match_checked:
+				run_live_match = true
+				tablet_match_checked = true
+			elif sz.x < 700 and not phone_match_checked:
+				run_live_match = true
+				phone_match_checked = true
 		Nav.frame.debug_insets = cut
 		tree.root.size = sz
 		tree.root.content_scale_factor = float(prof[2])
@@ -733,6 +753,10 @@ static func layout() -> void:
 			(Nav.host.current as HowToScreen).next_page()
 			await _settle(tree)
 
+		# Полный цикл партии достаточно проверить на одном телефоне и одном планшете.
+		# Остальные размеры проходят все экраны здесь, а дневное поле проверяет --layout-smoke.
+		if not run_live_match:
+			continue
 		Nav.start_match()
 		await _settle(tree)
 		checks += await _check_doors(tag, problems)
@@ -756,8 +780,8 @@ static func layout() -> void:
 			lo = minf(lo, sc)
 			hi = maxf(hi, sc)
 		print("масштаб посёлка на всех экранах: от %.2f до %.2f" % [lo, hi])
-	print("=== раскладка: %d проверок на %d типах экранов (из них %d с вырезом, %d устройств из списка) ===" % [
-		checks, profiles.size(), LAYOUT_CUTOUTS.size(), profiles.size() - plain_count])
+	print("=== раскладка: %d проверок на %d профилях (из них %d с вырезом, %d устройств из списка) ===" % [
+		checks, checked_profiles, checked_cutouts, checked_devices])
 	if problems.is_empty():
 		print("ИТОГ: OK — все экраны на весь дисплей, кнопки ≥ 48 dp, ничего не вылезает")
 		tree.quit(0)
