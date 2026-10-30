@@ -38,7 +38,10 @@ static func run() -> void:
 		if prof.size() > 3:
 			tag = "%s %s" % [String(prof[3]), tag]
 		if Nav.host.current is DayScreen:
+			var day := Nav.host.current as DayScreen
 			checks += _check_day(tag, problems)
+			if sz == Vector2i(720, 1280) and cut.x < 0.0 and Save.text_size == 0:
+				checks += await _check_compact_day_ui(tree, day, problems)
 		else:
 			problems.append("%s: после изменения размера сменился экран партии" % tag)
 		checks += _check_all_map_bounds(tag, problems)
@@ -46,6 +49,38 @@ static func run() -> void:
 	tree.root.content_scale_factor = 1.0
 	Nav.frame.debug_insets = Vector4(-1, -1, -1, -1)
 	_report(tree, checks, problems)
+
+
+static func _check_compact_day_ui(tree: SceneTree, screen: DayScreen, problems: PackedStringArray) -> int:
+	var checks := 0
+	var vp := Nav.frame.get_viewport_rect().size
+	var rows: Array[FitRow] = []
+	for child: Node in screen.footer.get_children():
+		if child is FitRow:
+			rows.append(child as FitRow)
+	checks += _expect(problems, rows.size() >= 2 and rows[1]._mode == FitRow.Mode.ROW,
+		"720×1280: действия дня не помещаются в два ряда")
+	checks += _expect(problems, screen.field_spacer.size.y >= vp.y * 0.50,
+		"720×1280: игровому полю осталось только %.0f%% высоты" % (100.0 * screen.field_spacer.size.y / maxf(vp.y, 1.0)))
+
+	var diary := DiarySheet.open(screen, Game.m, Game.director)
+	await SelfTest._settle(tree)
+	var panel := diary.find_child("DiaryPanel", true, false) as Control
+	var scroll := diary.find_child("DiaryScroll", true, false) as ScrollContainer
+	var close_button := diary.find_child("DiaryClose", true, false) as Button
+	if panel != null:
+		var rect := panel.get_global_rect()
+		checks += _expect(problems, rect.position.y >= -1.0 and rect.end.y <= vp.y + 1.0 and rect.size.y <= vp.y * 0.84,
+			"720×1280: дневник занимает %.0f%% экрана или выходит за край" % (100.0 * rect.size.y / maxf(vp.y, 1.0)))
+	else:
+		checks += _expect(problems, false, "720×1280: панель дневника не найдена")
+	checks += _expect(problems, scroll != null and scroll.size.y >= vp.y * 0.28,
+		"720×1280: область записей дневника слишком мала")
+	checks += _expect(problems, panel != null and close_button != null and panel.get_global_rect().encloses(close_button.get_global_rect()),
+		"720×1280: кнопка закрытия дневника уехала за панель")
+	diary.close()
+	await SelfTest._settle(tree)
+	return checks
 
 
 static func _check_menu_music(tree: SceneTree, problems: PackedStringArray) -> void:

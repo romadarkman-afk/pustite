@@ -16,7 +16,7 @@ func screen_id() -> String:
 
 
 func field_ratio() -> float:
-	return 0.68
+	return 0.72
 
 
 ## Под полем остаётся только строка журнала.
@@ -24,8 +24,7 @@ func min_content_ratio() -> float:
 	return 0.04
 
 
-## Поле занимает до 68% экрана, но не меньше 44%, пока под него хватает места. Подвал с кнопками и строка
-## журнала обязаны остаться на экране, поэтому на низком экране поле сжимается (до 30%), а не выталкивает кнопки.
+## Поле занимает до 72% экрана. Подвал и строка журнала остаются на экране, а свободная высота уходит карте.
 func field_height(h: float) -> float:
 	var sep := float(chrome.get_theme_constant("separation")) if chrome != null else 18.0
 	var bar := 0.0
@@ -33,7 +32,7 @@ func field_height(h: float) -> float:
 		bar = (chrome.get_child(0) as Control).get_combined_minimum_size().y
 	# шапка, строка журнала (одна кнопка), подвал и три промежутка колонки
 	var reserved := bar + footer.get_combined_minimum_size().y + float(ThemeFactory.TOUCH) + 3.0 * sep + 8.0
-	return maxf(h * 0.30, minf(h * 0.68, h - reserved))
+	return maxf(h * 0.30, minf(h * 0.72, h - reserved))
 
 
 func title() -> String:
@@ -46,6 +45,7 @@ func mood() -> Vector2:
 
 func build() -> void:
 	Diag.step("день-экран: сборка")
+	footer.add_theme_constant_override("separation", 8)
 	enable_field_taps()
 	if field_spacer != null:
 		supplies = SuppliesBadge.new()
@@ -53,21 +53,21 @@ func build() -> void:
 		supplies.position = Vector2(20, 64)
 		update_supplies()
 	var jr := W.hbox(10)
-	journal_button = W.button(L.t("day.journal"), &"Quick")
+	journal_button = W.button(L.t("day.journal"), &"Compact", ThemeFactory.COMPACT_TOUCH)
 	journal_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	journal_button.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	journal_button.pressed.connect(open_journal)
 	jr.add_child(journal_button)
-	var diary := W.button(L.t("day.diary"), &"Quick")
+	var diary := W.button(L.t("day.diary"), &"Compact", ThemeFactory.COMPACT_TOUCH)
 	diary.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	diary.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	diary.pressed.connect(open_diary)
 	jr.add_child(diary)
-	var legend := W.button("?", &"Quick")
+	var legend := W.button("?", &"Compact", ThemeFactory.COMPACT_TOUCH)
 	legend.name = "MarksLegend"
 	legend.tooltip_text = L.t("legend.btn")
 	legend.accessibility_name = L.t("legend.btn")
-	legend.custom_minimum_size = Vector2(ThemeFactory.TOUCH, ThemeFactory.TOUCH)
+	legend.custom_minimum_size = Vector2(ThemeFactory.COMPACT_TOUCH, ThemeFactory.COMPACT_TOUCH)
 	legend.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	legend.pressed.connect(marks_legend)
 	jr.add_child(legend)
@@ -95,25 +95,25 @@ func build() -> void:
 	Diag.step("день-экран: чат готов, кнопки")
 	var qb: Array[Button] = []
 	for spec: Array in [[L.t("day.defend"), _defend], [L.t("day.invite"), _invite_flow], [L.t("day.accuse"), _accuse_flow]]:
-		var q := W.button(spec[0], &"Quick")
+		var q := W.button(spec[0], &"Compact", ThemeFactory.COMPACT_TOUCH)
 		var cb: Callable = spec[1]
 		q.pressed.connect(func() -> void: cb.call())
 		qb.append(q)
-	footer.add_child(W.fit_row(qb))
+	footer.add_child(W.fit_row(qb, 6))
 
 	var rb: Array[Button] = []
-	var write := W.button(L.t("day.say"), &"Row")
+	var write := W.button(L.t("day.say"), &"Compact", ThemeFactory.COMPACT_TOUCH)
 	write.pressed.connect(_write_flow)
 	rb.append(write)
 	if m.can_meeting(m.player()):
-		var bell := W.button(L.t("day.bell"), &"Ghost")
+		var bell := W.button(L.t("day.bell"), &"Compact", ThemeFactory.COMPACT_TOUCH)
 		bell.name = "Meeting"
 		bell.pressed.connect(_meeting_flow)
 		rb.append(bell)
-	var ready_btn := W.button(L.t("day.ready"), &"Ghost")
+	var ready_btn := W.button(L.t("day.ready"), &"Compact", ThemeFactory.COMPACT_TOUCH)
 	ready_btn.pressed.connect(_ready_flow)
 	rb.append(ready_btn)
-	var row := W.fit_row(rb)
+	var row := W.fit_row(rb, 6)
 	footer.add_child(row)
 
 
@@ -134,7 +134,7 @@ func contact_done() -> void:
 
 ## Днём камера ближе: жители крупнее, камера идёт за тобой.
 func field_zoom() -> float:
-	return 1.3
+	return 1.4
 
 
 func update_supplies() -> void:

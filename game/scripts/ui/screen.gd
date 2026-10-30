@@ -325,11 +325,11 @@ func _capsule(inner: Control) -> Control:
 	sb.bg_color = Color(0.06, 0.05, 0.1, 0.6)
 	sb.border_color = Color(1, 1, 1, 0.16)
 	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(22)
-	sb.content_margin_left = 18
-	sb.content_margin_right = 18
-	sb.content_margin_top = 5
-	sb.content_margin_bottom = 5
+	sb.set_corner_radius_all(18)
+	sb.content_margin_left = 12
+	sb.content_margin_right = 12
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
 	p.add_theme_stylebox_override("panel", sb)
 	p.add_child(inner)
 	return p
@@ -338,7 +338,7 @@ func _capsule(inner: Control) -> Control:
 
 
 func _chrome() -> void:
-	var col := W.vbox(18)
+	var col := W.vbox(12 if field_ratio() > 0.0 else 18)
 	chrome = col
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(col)
@@ -376,10 +376,10 @@ func _chrome() -> void:
 		_clock_capsule.visible = false
 		bar.add_child(_clock_capsule)
 		if screen_id() != "menu":
-			var menu := W.button(L.t("ui.menu"), &"Quick")
+			var menu := W.button(L.t("ui.menu"), &"Compact", ThemeFactory.COMPACT_TOUCH)
 			menu.name = "BackToMenu"
 			menu.size_flags_horizontal = Control.SIZE_SHRINK_END
-			menu.custom_minimum_size.x = W.button_need(menu)
+			menu.custom_minimum_size.x = maxf(float(ThemeFactory.COMPACT_TOUCH), W.button_need(menu))
 			menu.tooltip_text = L.t("ui.menu")
 			menu.pressed.connect(Nav._on_back)
 			bar.add_child(menu)
