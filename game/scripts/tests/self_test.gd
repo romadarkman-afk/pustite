@@ -1808,7 +1808,8 @@ static func field() -> void:
 	var menu_screen := Nav.host.current as MenuScreen
 	var menu_modes := menu_screen.find_child("ModeCards", true, false) as GridContainer if menu_screen != null else null
 	ok += _expect(fails, menu_screen != null and menu_modes != null and menu_modes.get_child_count() == 4
-		and menu_screen.field_ratio() >= 0.60, "меню не показывает игровую деревню и четыре режима")
+		and menu_screen.field_ratio() == 0.0 and Nav.ui.find_child("MenuBackdrop0", true, false) != null,
+		"меню показывает игровое поле вместо заставок или не содержит четыре режима")
 	ok += _expect(fails, v.open_shelters() == Save.config.shelters and v.boarded_shelters() == 5 - Save.config.shelters,
 		"открыто убежищ %d, заколочено %d — а по балансу открыто %d" % [v.open_shelters(), v.boarded_shelters(), Save.config.shelters])
 	ok += _expect(fails, v.fog().emitting and v.fog().amount >= 10 and v.fog().initial_velocity_min > 0.0,
@@ -4117,7 +4118,7 @@ static func sound() -> void:
 	await _settle(tree)
 	var main_menu := Nav.host.current as MenuScreen
 	ok += _expect(fails, Sfx.music_name == Sfx.menu_music() and Sfx.ambience_name == &"amb_night", "в меню нет темы или ночного фона (%s / %s)" % [Sfx.music_name, Sfx.ambience_name])
-	ok += _expect(fails, main_menu != null and main_menu.find_child("MenuTitle", true, false) != null, "в меню нет названия игры над живой деревней")
+	ok += _expect(fails, main_menu != null and main_menu.find_child("MenuTitle", true, false) != null, "в меню нет названия игры")
 	ok += _expect(fails, main_menu != null and main_menu.find_child("Campaign", true, false) != null
 		and main_menu.find_child("Start", true, false) != null
 		and main_menu.find_child("Settings", true, false) != null
@@ -4130,9 +4131,11 @@ static func sound() -> void:
 		"на главном экране нет четырёх плиток режимов")
 	var online := main_menu.find_child("Online", true, false) as Button if main_menu != null else null
 	ok += _expect(fails, online != null and online.disabled, "плитка «Онлайн» не помечена как будущий режим")
-	ok += _expect(fails, main_menu != null and main_menu.field_ratio() >= 0.60
-		and Nav.ui.find_child("MenuBackdropShade", true, false) == null,
-		"главное меню скрывает деревню или перекрывает её слайд-шоу")
+	ok += _expect(fails, main_menu != null and main_menu.field_ratio() == 0.0
+		and Nav.ui.find_child("MenuBackdrop0", true, false) != null
+		and Nav.ui.find_child("MenuBackdrop1", true, false) != null
+		and Nav.ui.find_child("MenuBackdropShade", true, false) != null,
+		"главное меню показывает игровое поле или не создаёт фоновое слайд-шоу")
 	ok += _expect(fails, Nav.village.crowd.figures.size() == 5 and bool(Nav._menu_horror.call("is_menu_active")),
 		"в меню нет живой толпы или ночной звуковой контроллер выключен")
 	var menu_idle_ok := true

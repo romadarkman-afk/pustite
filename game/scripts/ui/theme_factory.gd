@@ -17,18 +17,19 @@ const LAMP_D := Color("e0a050")
 const BLOOD := Color("ff6b6b")
 const MINE := Color("2d2618")
 const MINE_EDGE := Color("e0a050")
-const RADIUS := 24
+const RADIUS := 18
 
 static var _fonts: Dictionary = {}
 
 ## Размер текста из настроек: обычный, крупный, самый крупный.
 const TEXT_SCALES: Array[float] = [1.0, 1.08, 1.16]
+const UI_TEXT_SCALE := 0.86
 static var text_scale := 1.0
 
 
 ## Размер шрифта с поправкой на настройку игрока.
 static func fs(n: float) -> int:
-	return roundi(n * text_scale)
+	return roundi(n * text_scale * UI_TEXT_SCALE)
 
 
 ## Шрифт Nunito нужной толщины: 600 — текст, 800 — кнопки и имена, 900 — заголовки.
@@ -102,12 +103,12 @@ static func build() -> Theme:
 	_button(t, "Danger", Color(BLOOD, 0.12), BLOOD, BLOOD, 20)
 	_button(t, "Row", PANEL, BONE, EDGE, 20)
 	_button(t, "RowOn", Color("3a2f22"), BONE, LAMP, 20)
-	_button(t, "Chip", Color(1, 1, 1, 0.05), FROST, EDGE, 17, 12)
-	_button(t, "ChipYou", Color(LAMP, 0.12), LAMP, LAMP_D, 17, 12)
-	_button(t, "ChipDead", CLEAR, Color("6a5a68"), Color(1, 1, 1, 0.08), 17, 12)
-	_button(t, "ChipUpyr", Color(BLOOD, 0.12), BLOOD, BLOOD, 17, 12)
-	_button(t, "Quick", PANEL, LAMP, EDGE, 18, 12)
-	_button(t, "Compact", PANEL, LAMP, EDGE, 15, 8)
+	_button(t, "Chip", Color(1, 1, 1, 0.05), FROST, EDGE, 17, 10)
+	_button(t, "ChipYou", Color(LAMP, 0.12), LAMP, LAMP_D, 17, 10)
+	_button(t, "ChipDead", CLEAR, Color("6a5a68"), Color(1, 1, 1, 0.08), 17, 10)
+	_button(t, "ChipUpyr", Color(BLOOD, 0.12), BLOOD, BLOOD, 17, 10)
+	_button(t, "Quick", PANEL, LAMP, EDGE, 18, 10)
+	_button(t, "Compact", PANEL, LAMP, EDGE, 15, 7)
 	for bn: StringName in [&"Primary", &"Ghost", &"Danger", &"Row", &"RowOn", &"Chip", &"ChipYou", &"ChipDead", &"ChipUpyr", &"Quick", &"Compact"]:
 		t.set_font("font", bn, bold)
 
@@ -167,7 +168,7 @@ static func _label(t: Theme, name: StringName, font: Font, size: int, col: Color
 	t.set_constant("line_spacing", name, spacing)
 
 
-static func _box(bg: Color, border: Color, radius: int = 4, pad: int = 20) -> StyleBoxFlat:
+static func _box(bg: Color, border: Color, radius: int = 4, pad: int = 14) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = bg
 	s.border_color = border
@@ -180,7 +181,7 @@ static func _box(bg: Color, border: Color, radius: int = 4, pad: int = 20) -> St
 	return s
 
 
-static func _button(t: Theme, name: StringName, bg: Color, fg: Color, edge: Color, size: int, pad: int = 20) -> void:
+static func _button(t: Theme, name: StringName, bg: Color, fg: Color, edge: Color, size: int, pad: int = 14) -> void:
 	t.set_type_variation(name, "Button")
 	t.set_stylebox("normal", name, _box(bg, edge, RADIUS, pad))
 	t.set_stylebox("hover", name, _box(bg, edge, RADIUS, pad))
@@ -197,7 +198,7 @@ static func _button(t: Theme, name: StringName, bg: Color, fg: Color, edge: Colo
 	t.set_font_size("font_size", name, fs(size))
 
 
-static func _panel(t: Theme, name: StringName, bg: Color, edge: Color, pad: int = 18) -> void:
+static func _panel(t: Theme, name: StringName, bg: Color, edge: Color, pad: int = 14) -> void:
 	t.set_type_variation(name, "PanelContainer")
 	t.set_stylebox("panel", name, _box(bg, edge, RADIUS, pad))
 
