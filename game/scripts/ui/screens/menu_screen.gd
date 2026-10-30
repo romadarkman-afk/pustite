@@ -2,8 +2,21 @@ class_name MenuScreen
 extends Screen
 
 
+## Фоновые заставки главного меню. Две картинки держим в памяти для плавного перехода.
+const MENU_ART: PackedStringArray = [
+	"res://assets/scenes/end_upyri.jpg",
+	"res://assets/scenes/end_people.jpg",
+	"res://assets/scenes/a2c1.jpg",
+	"res://assets/scenes/a1c1.jpg",
+	"res://assets/scenes/river.jpg",
+]
+
 var difficulty: String = "easy"
 var cfg: GameConfig
+var _menu_art_nodes: Array[TextureRect] = []
+var _menu_art_front := 0
+var _menu_art_index := 0
+var _menu_backdrop: Control
 
 
 func screen_id() -> String:
@@ -11,12 +24,7 @@ func screen_id() -> String:
 
 
 func field_ratio() -> float:
-	# Живая деревня с жителями остаётся на экране над плитками.
-	return 0.62
-
-
-func min_content_ratio() -> float:
-	return 0.27
+	return 0.0
 
 
 func mood() -> Vector2:
@@ -36,8 +44,20 @@ func music() -> StringName:
 
 
 func build() -> void:
-	body.add_theme_constant_override("separation", 4)
-	_add_menu_title()
+	_install_menu_art()
+	body.add_theme_constant_override("separation", 6)
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.alignment = BoxContainer.ALIGNMENT_CENTER
+
+	var brand := W.label(L.t("game.title"), &"Title")
+	brand.name = "MenuTitle"
+	brand.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	brand.add_theme_font_size_override("font_size", ThemeFactory.fs(31))
+	body.add_child(brand)
+	var case_file := W.label(L.t("menu.case_file"), &"Speaker")
+	case_file.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	case_file.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
+	body.add_child(case_file)
 
 	var modes := GridContainer.new()
 	modes.name = "ModeCards"
@@ -82,25 +102,79 @@ func build() -> void:
 	refresh(difficulty, cfg)
 
 
-func _add_menu_title() -> void:
-	if field_spacer == null:
+func _install_menu_art() -> void:
+	if not is_instance_valid(Nav.ui) or MENU_ART.is_empty():
 		return
-	var brand := W.label(L.t("game.title"), &"Title")
-	brand.name = "MenuTitle"
-	brand.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	brand.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	brand.add_theme_font_size_override("font_size", ThemeFactory.fs(25))
-	brand.add_theme_color_override("font_outline_color", Color(0.015, 0.02, 0.04, 0.9))
-	brand.add_theme_constant_override("outline_size", 4)
-	brand.anchor_left = 0.0
-	brand.anchor_right = 1.0
-	brand.anchor_top = 0.0
-	brand.anchor_bottom = 0.0
-	brand.offset_left = 12.0
-	brand.offset_right = -12.0
-	brand.offset_top = 8.0
-	brand.offset_bottom = 44.0
-	field_spacer.add_child(brand)
+	_menu_backdrop = Control.new()
+	_menu_backdrop.name = "MenuBackdrop"
+	_menu_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_menu_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	Nav.ui.add_child(_menu_backdrop)
+	Nav.ui.move_child(_menu_backdrop, 0)
+	for i in range(2):
+		var art := TextureRect.new()
+		art.name = "MenuBackdrop%d" % i
+		art.texture = load(MENU_ART[i % MENU_ART.size()]) as Texture2D
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		art.modulate.a = 1.0 if i == 0 else 0.0
+		art.visible = i == 0
+		_menu_backdrop.add_child(art)
+		_menu_art_nodes.append(art)
+
+	var gradient := Gradient.new()
+	gradient.offsets = PackedFloat32Array([0.0, 0.56, 1.0])
+	gradient.colors = PackedColorArray([
+		Color(ThemeFactory.NIGHT, 0.12),
+		Color(ThemeFactory.NIGHT, 0.48),
+		Color(ThemeFactory.NIGHT, 1.0),
+	])
+	var gradient_texture := GradientTexture2D.new()
+	gradient_texture.gradient = gradient
+	gradient_texture.fill_from = Vector2(0.0, 0.0)
+	gradient_texture.fill_to = Vector2(0.0, 1.0)
+	var shade := TextureRect.new()
+	shade.name = "MenuBackdropShade"
+	shade.texture = gradient_texture
+	shade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	shade.stretch_mode = TextureRect.STRETCH_SCALE
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_menu_backdrop.add_child(shade)
+
+	var timer := Timer.new()
+	timer.name = "MenuBackdropTimer"
+	timer.wait_time = 6.5
+	timer.autostart = true
+	timer.timeout.connect(_advance_menu_art)
+	add_child(timer)
+
+
+func _exit_tree() -> void:
+	if is_instance_valid(_menu_backdrop):
+		_menu_backdrop.queue_free()
+
+
+func _advance_menu_art() -> void:
+	if _menu_art_nodes.size() != 2 or not is_inside_tree():
+		return
+	var back_index := 1 - _menu_art_front
+	var incoming := _menu_art_nodes[back_index]
+	var outgoing := _menu_art_nodes[_menu_art_front]
+	_menu_art_index = (_menu_art_index + 1) % MENU_ART.size()
+	incoming.texture = load(MENU_ART[_menu_art_index]) as Texture2D
+	incoming.visible = true
+	incoming.modulate.a = 0.0
+	var tween := create_tween().set_parallel(true).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(incoming, "modulate:a", 1.0, 1.15)
+	tween.tween_property(outgoing, "modulate:a", 0.0, 1.15)
+	tween.finished.connect(func() -> void:
+		if not is_instance_valid(outgoing):
+			return
+		outgoing.visible = false
+		_menu_art_front = back_index)
 
 
 func _open_more() -> void:

@@ -331,11 +331,11 @@ func _capsule(inner: Control) -> Control:
 	sb.bg_color = Color(0.06, 0.05, 0.1, 0.6)
 	sb.border_color = Color(1, 1, 1, 0.16)
 	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(18)
-	sb.content_margin_left = 12
-	sb.content_margin_right = 12
-	sb.content_margin_top = 4
-	sb.content_margin_bottom = 4
+	sb.set_corner_radius_all(14)
+	sb.content_margin_left = 9
+	sb.content_margin_right = 9
+	sb.content_margin_top = 3
+	sb.content_margin_bottom = 3
 	p.add_theme_stylebox_override("panel", sb)
 	p.add_child(inner)
 	return p
@@ -344,7 +344,7 @@ func _capsule(inner: Control) -> Control:
 
 
 func _chrome() -> void:
-	var col := W.vbox(12 if field_ratio() > 0.0 else 18)
+	var col := W.vbox(10 if field_ratio() > 0.0 else 14)
 	chrome = col
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(col)
@@ -352,9 +352,9 @@ func _chrome() -> void:
 	if title() != "":
 		# над полем шапка лежит на небе — днём оно светлое, поэтому заголовок и часы в тёмных капсулах
 		var over_sky := field_ratio() > 0.0
-		var bar := W.hbox(10)
+		var bar := W.hbox(8)
 		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var left := W.hbox(12)
+		var left := W.hbox(8)
 		left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var t := W.label(title(), &"Body")
 		_title_label = t
@@ -363,11 +363,11 @@ func _chrome() -> void:
 		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		left.add_child(t)
 		if m != null and m.config != null:
-			var marks := W.hbox(7)
+			var marks := W.hbox(5)
 			marks.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			for i in range(m.config.nights):
 				var dot := ColorRect.new()
-				dot.custom_minimum_size = Vector2(10, 10)
+				dot.custom_minimum_size = Vector2(8, 8)
 				dot.color = ThemeFactory.LAMP_D if i + 1 < m.day else (ThemeFactory.LAMP if i + 1 == m.day else Color(1, 1, 1, 0.3))
 				marks.add_child(dot)
 			left.add_child(marks)
@@ -377,7 +377,7 @@ func _chrome() -> void:
 		_clock = W.label("", &"Clock")
 		_clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		_clock.autowrap_mode = TextServer.AUTOWRAP_OFF
-		_clock.custom_minimum_size = Vector2(62, 0)
+		_clock.custom_minimum_size = Vector2(56, 0)
 		_clock_capsule = _capsule(_clock) if over_sky else _clock
 		_clock_capsule.visible = false
 		bar.add_child(_clock_capsule)
@@ -405,11 +405,11 @@ func _chrome() -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	col.add_child(scroll)
 
-	body = W.vbox(18)
+	body = W.vbox(14)
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(body)
 
-	footer = W.vbox(10)
+	footer = W.vbox(8)
 	col.add_child(footer)
 	# ряд кнопок внизу может перестроиться (строка → сетка) после первой раскладки: поле подстраиваем под него
 	if field_spacer != null:

@@ -71,14 +71,27 @@ static func _check_menu_layout(tree: SceneTree, problems: PackedStringArray) -> 
 		var menu_scrollbar := screen.scroll.get_v_scroll_bar()
 		scroll_max = maxf(0.0, menu_scrollbar.max_value - menu_scrollbar.page)
 	var checks := 0
-	checks += _expect(problems, screen.field_spacer != null and screen.field_spacer.size.y >= vp.y * 0.58,
-		"720×1280: живая деревня занимает только %.0f%% экрана" % (100.0 * screen.field_spacer.size.y / maxf(vp.y, 1.0)))
+	checks += _expect(problems, screen.field_ratio() == 0.0 and screen.field_spacer == null,
+		"720×1280: главное меню показывает игровое поле вместо заставок")
+	var art_a := Nav.ui.find_child("MenuBackdrop0", true, false) as TextureRect
+	var art_b := Nav.ui.find_child("MenuBackdrop1", true, false) as TextureRect
+	var shade := Nav.ui.find_child("MenuBackdropShade", true, false) as TextureRect
+	var title := screen.find_child("MenuTitle", true, false) as Label
+	checks += _expect(problems, title != null and title.is_visible_in_tree(),
+		"720×1280: заголовок меню не виден")
+	checks += _expect(problems, art_a != null and art_a.texture != null and art_b != null and art_b.texture != null
+		and shade != null and shade.get_global_rect().size.x >= vp.x - 1.0,
+		"720×1280: слайд-шоу заставок не заполнило фон экрана")
 	checks += _expect(problems, modes != null and modes.columns == 2 and modes.get_child_count() == 4,
 		"720×1280: плитки режимов не собраны в сетку 2×2")
+	checks += _expect(problems, ThemeFactory.fs(20) <= roundi(18.0 * ThemeFactory.text_scale),
+		"720×1280: базовый размер игрового текста снова увеличен")
 	checks += _expect(problems, more != null and more.get_global_rect().end.y <= screen.scroll.get_global_rect().end.y + 1.0,
 		"720×1280: кнопка «Ещё» уехала из области меню")
 	checks += _expect(problems, scroll_max <= 1.0,
 		"720×1280: главное меню требует прокрутки (%.1f px)" % scroll_max)
+	checks += _expect(problems, screen.footer.get_global_rect().end.y <= vp.y + 1.0,
+		"720×1280: нижние кнопки меню вышли за экран")
 	return checks
 
 
