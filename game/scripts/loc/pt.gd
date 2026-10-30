@@ -467,6 +467,7 @@ func data() -> Dictionary:
 		"menu.mode_campaign_desc": "Capítulos com história e consequências",
 		"menu.mode_solo": "Um jogador contra bots",
 		"menu.mode_solo_desc": "Uma partida livre contra os moradores",
+		"menu.online": "Online",
 		"menu.settings_desc": "Som, gráficos, idioma e controles",
 		"menu.howto": "Como jogar",
 		"menu.play": "Jogar",

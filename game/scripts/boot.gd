@@ -10,7 +10,7 @@ const TEST_FLAGS: PackedStringArray = ["--sim", "--simchapters", "--chapters", "
 const TEST_TIMEOUT_SEC := 240.0
 const LONG_TEST_TIMEOUT_SEC := 3600.0      ## полная таблица баланса глав
 const LAYOUT_TEST_TIMEOUT_SEC := 720.0     ## раскладка: 23 типа экранов и 11 устройств из списка проекта
-const LOGO_SEC := 2.2
+const LOGO_SEC := 2.4
 const SPLASH: Texture2D = preload("res://assets/splash.png")
 const MENU_PRELOAD: Array[String] = [
 	"res://scripts/ui/screens/menu_screen.gd",
@@ -18,10 +18,10 @@ const MENU_PRELOAD: Array[String] = [
 	"res://assets/music/menu_theme.ogg",
 ]
 
-var open: float = 0.0          ## насколько приоткрыта щель, 0..1
-var flash: float = 0.0         ## короткая вспышка фонаря, открывающая силуэт за дверью
 var _title: Label
-var _done := false
+var _subtitle: Label
+var _shade: GradientTexture2D
+var _done := falsevar _done := false
 
 
 func _ready() -> void:
@@ -308,44 +308,66 @@ func _run_test(flag: String) -> void:
 
 # ---------------------------------------------------------------
 func _play_logo() -> void:
-	Sfx.set_ambience(&"amb_dusk", 0.35)
-	Sfx.play(&"scratch", randf_range(0.86, 0.98), -16.0)
+	# Музыка запускается вместе с заставкой. Меню продолжит тот же трек без нового старта.
+	Sfx.set_ambience(&"amb_night", 0.25, -32.0)
 	for path: String in MENU_PRELOAD:
 		if ResourceLoader.exists(path):
 			ResourceLoader.load_threaded_request(path)
+	Sfx.set_music(Sfx.menu_music(), 0.0)
+
+	var gradient := Gradient.new()
+	gradient.offsets = PackedFloat32Array([0.0, 0.52, 1.0])
+	gradient.colors = PackedColorArray([
+		Color(0.035, 0.045, 0.085, 0.0),
+		Color(0.035, 0.03, 0.075, 0.42),
+		Color(0.035, 0.025, 0.065, 0.94),
+	])
+	_shade = GradientTexture2D.new()
+	_shade.gradient = gradient
+	_shade.fill_from = Vector2(0.0, 0.0)
+	_shade.fill_to = Vector2(0.0, 1.0)
+
 	_title = Label.new()
 	_title.text = L.t("game.title")
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var f := ThemeFactory.font(900)
-	_title.add_theme_font_override("font", f)
-	_title.add_theme_font_size_override("font_size", 64)
+	_title.add_theme_font_override("font", ThemeFactory.font(900))
+	_title.add_theme_font_size_override("font_size", ThemeFactory.fs(48))
 	_title.add_theme_color_override("font_color", ThemeFactory.BONE)
 	_title.modulate.a = 0.0
 	add_child(_title)
+
+	_subtitle = Label.new()
+	_subtitle.text = L.t("menu.case_file")
+	_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_subtitle.add_theme_font_override("font", ThemeFactory.font(700))
+	_subtitle.add_theme_font_size_override("font_size", ThemeFactory.fs(15))
+	_subtitle.add_theme_color_override("font_color", ThemeFactory.LAMP)
+	_subtitle.modulate.a = 0.0
+	add_child(_subtitle)
+
 	_title.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	_subtitle.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	resized.connect(_place_title)
 	_place_title()
 
 	var t := create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	t.tween_property(self, "open", 1.0, LOGO_SEC * 0.55)
-	t.parallel().tween_callback(func() -> void:
-		Juice.haptic(Juice.Haptic.KNOCK)
-		Sfx.play(&"knock")).set_delay(LOGO_SEC * 0.15)
-	t.parallel().tween_property(self, "flash", 1.0, 0.06).set_delay(LOGO_SEC * 0.36)
-	t.parallel().tween_property(self, "flash", 0.0, 0.46).set_delay(LOGO_SEC * 0.39)
-	t.parallel().tween_callback(func() -> void: Sfx.play(&"breath", 0.82, -17.0)).set_delay(LOGO_SEC * 0.56)
-	t.parallel().tween_property(_title, "modulate:a", 1.0, LOGO_SEC * 0.4).set_delay(LOGO_SEC * 0.3)
-	t.tween_interval(LOGO_SEC * 0.25)
+	t.tween_property(_title, "modulate:a", 1.0, 0.6)
+	t.parallel().tween_property(_subtitle, "modulate:a", 1.0, 0.55).set_delay(0.18)
+	t.tween_interval(maxf(0.0, LOGO_SEC - 0.75))
 	t.tween_callback(_finish)
 
 
 func _place_title() -> void:
-	if _title == null:
+	if _title == null or _subtitle == null:
 		return
-	_title.offset_left = -size.x * 0.5
-	_title.offset_right = size.x * 0.5
-	_title.offset_top = -size.y * 0.17
-	_title.offset_bottom = -size.y * 0.17 + 90
+	var top := -size.y * 0.20
+	for label: Label in [_title, _subtitle]:
+		label.offset_left = -size.x * 0.46
+		label.offset_right = size.x * 0.46
+	_title.offset_top = top
+	_title.offset_bottom = top + ThemeFactory.fs(60)
+	_subtitle.offset_top = top + ThemeFactory.fs(62)
+	_subtitle.offset_bottom = top + ThemeFactory.fs(86)
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -375,53 +397,19 @@ func _process(_delta: float) -> void:
 	queue_redraw()
 
 
-## Фон — та же ночная деревня, что на заставке при запуске; дверь и щель света рисуются кодом.
+## Полноэкранная зимняя сцена. Дверь, люди и силуэты упырей уже в иллюстрации.
 func _draw() -> void:
+	if size.x <= 0.0 or size.y <= 0.0:
+		return
 	draw_rect(Rect2(Vector2.ZERO, size), ThemeFactory.NIGHT)
-	var sk := maxf(size.x / SPLASH.get_width(), size.y / SPLASH.get_height())
-	var ss := SPLASH.get_size() * sk
-	draw_texture_rect(SPLASH, Rect2((size - ss) * 0.5, ss), false)
+	var scale_factor := maxf(size.x / SPLASH.get_width(), size.y / SPLASH.get_height())
+	var image_size := SPLASH.get_size() * scale_factor
+	draw_texture_rect(SPLASH, Rect2((size - image_size) * 0.5, image_size), false)
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.035, 0.055, 0.10, 0.10))
+	if _shade != null:
+		draw_texture_rect(_shade, Rect2(0.0, size.y * 0.58, size.x, size.y * 0.42), false)
 	var tick := Time.get_ticks_msec() * 0.001
-	var sx := size.x * 0.78
-	var sy := size.y * 0.58
-	var fw := minf(size.x * 0.12, 92.0)
-	var fh := minf(size.y * 0.36, 270.0)
-	var shadow_alpha := (0.04 + 0.7 * flash) * open
-	# На вспышке в просвете леса на секунду проступает неподвижная фигура.
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(sx - fw * 0.31, sy - fh * 0.2), Vector2(sx - fw * 0.52, sy + fh * 0.02),
-		Vector2(sx - fw * 0.42, sy + fh * 0.48), Vector2(sx - fw * 0.62, sy + fh * 0.5),
-		Vector2(sx - fw * 0.48, sy + fh * 0.55), Vector2(sx + fw * 0.5, sy + fh * 0.55),
-		Vector2(sx + fw * 0.65, sy + fh * 0.5), Vector2(sx + fw * 0.4, sy + fh * 0.44),
-		Vector2(sx + fw * 0.47, sy + fh * 0.02), Vector2(sx + fw * 0.24, sy - fh * 0.2),
-	]), Color(0.015, 0.018, 0.03, shadow_alpha))
-	draw_circle(Vector2(sx, sy - fh * 0.23), fw * 0.28, Color(0.015, 0.018, 0.03, shadow_alpha))
-	draw_circle(Vector2(sx - fw * 0.09, sy - fh * 0.23), maxf(1.5, fw * 0.035), Color(ThemeFactory.BLOOD, flash * 0.9))
-	draw_circle(Vector2(sx + fw * 0.09, sy - fh * 0.23), maxf(1.5, fw * 0.035), Color(ThemeFactory.BLOOD, flash * 0.9))
-	if flash > 0.01:
-		draw_rect(Rect2(Vector2.ZERO, size), Color(ThemeFactory.LAMP, flash * 0.045))
-	var w := minf(size.x * 0.3, 230.0)
-	var h := w * 1.7
-	var c := Vector2(size.x * 0.5, size.y * 0.6)
-	var door := Rect2(c - Vector2(w, h) * 0.5, Vector2(w, h))
-	var flick := 0.92 + 0.08 * sin(Time.get_ticks_msec() * 0.011)
-
-	for i in range(14):
-		var k := 1.0 - i / 14.0
-		var r := (w * 0.15 + i * w * 0.07) * open
-		draw_rect(Rect2(c.x - r, door.position.y, r * 2.0, h),
-			Color(ThemeFactory.LAMP, 0.035 * k * open * flick))
-
-	draw_rect(door, ThemeFactory.PANEL)
-	var gap := 3.0 + 9.0 * open
-	draw_rect(Rect2(c.x - gap * 0.5, door.position.y, gap, h), Color(ThemeFactory.LAMP, open * flick))
-	draw_rect(Rect2(c.x - gap * 1.6, door.position.y, gap * 3.2, h), Color(ThemeFactory.LAMP, 0.25 * open * flick))
-	draw_rect(door, ThemeFactory.EDGE, false, 3.0)
-	draw_circle(Vector2(c.x + w * 0.32, c.y + h * 0.06), w * 0.035, ThemeFactory.LAMP_D)
-	for i in range(18):
-		var phase := tick * (0.18 + float(i % 5) * 0.025) + float(i) * 1.71
-		var px := c.x + sin(phase) * w * (0.08 + float(i % 4) * 0.045)
-		var py := door.position.y + fposmod(float(i) * h / 18.0 - tick * 10.0, h)
-		var alpha := (0.12 + 0.18 * (0.5 + 0.5 * sin(phase * 1.6))) * open
-		draw_circle(Vector2(px, py), 1.2 + float(i % 3) * 0.35, Color(ThemeFactory.LAMP, alpha))
-
+	for i in range(22):
+		var x := fposmod(float(i * 131) + tick * float(5 + i % 4), size.x)
+		var y := fposmod(float(i * 83) + tick * float(8 + i % 5), size.y)
+		draw_circle(Vector2(x, y), 1.0 + float(i % 3) * 0.35, Color(0.88, 0.93, 1.0, 0.18))

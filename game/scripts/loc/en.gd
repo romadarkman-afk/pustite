@@ -473,6 +473,7 @@ func data() -> Dictionary:
 		"menu.mode_campaign_desc": "Story chapters with lasting consequences",
 		"menu.mode_solo": "Single-player vs bots",
 		"menu.mode_solo_desc": "A free match against village residents",
+		"menu.online": "Online",
 		"menu.settings_desc": "Sound, graphics, language and controls",
 		"menu.howto": "How to play",
 		"menu.play": "Play",

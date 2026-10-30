@@ -54,8 +54,8 @@ func refresh_locale() -> void:
 		_title_label.text = title()
 	var menu := find_child("BackToMenu", true, false) as Button
 	if menu != null:
-		menu.text = L.t("ui.menu")
-		menu.tooltip_text = L.t("ui.menu")
+		menu.text = L.t("ui.menu") if m != null else L.t("ui.back")
+		menu.tooltip_text = menu.text
 
 
 ## Переопределяется: наполнение экрана.
@@ -376,11 +376,11 @@ func _chrome() -> void:
 		_clock_capsule.visible = false
 		bar.add_child(_clock_capsule)
 		if screen_id() != "menu":
-			var menu := W.button(L.t("ui.menu"), &"Compact", ThemeFactory.COMPACT_TOUCH)
+			var menu := W.button(L.t("ui.menu") if m != null else L.t("ui.back"), &"Compact", ThemeFactory.COMPACT_TOUCH)
 			menu.name = "BackToMenu"
 			menu.size_flags_horizontal = Control.SIZE_SHRINK_END
 			menu.custom_minimum_size.x = maxf(float(ThemeFactory.COMPACT_TOUCH), W.button_need(menu))
-			menu.tooltip_text = L.t("ui.menu")
+			menu.tooltip_text = menu.text
 			menu.pressed.connect(Nav._on_back)
 			bar.add_child(menu)
 		col.add_child(bar)

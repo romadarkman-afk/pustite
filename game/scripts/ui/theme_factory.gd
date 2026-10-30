@@ -72,7 +72,7 @@ const CLEAR := Color(0, 0, 0, 0)
 ## Вьюпорт 720 по ширине → на телефоне 1080 px масштаб 1.5 → 72 px ≈ 41 dp. Это ниже рекомендации Android
 ## (48 dp), выбрано сознательно: кнопки должны занимать меньше места, а не больше.
 const TOUCH := 72
-const COMPACT_TOUCH := 68
+const COMPACT_TOUCH := 60
 
 
 static func build() -> Theme:
@@ -107,7 +107,7 @@ static func build() -> Theme:
 	_button(t, "ChipDead", CLEAR, Color("6a5a68"), Color(1, 1, 1, 0.08), 17, 12)
 	_button(t, "ChipUpyr", Color(BLOOD, 0.12), BLOOD, BLOOD, 17, 12)
 	_button(t, "Quick", PANEL, LAMP, EDGE, 18, 12)
-	_button(t, "Compact", PANEL, LAMP, EDGE, 16, 8)
+	_button(t, "Compact", PANEL, LAMP, EDGE, 15, 8)
 	for bn: StringName in [&"Primary", &"Ghost", &"Danger", &"Row", &"RowOn", &"Chip", &"ChipYou", &"ChipDead", &"ChipUpyr", &"Quick", &"Compact"]:
 		t.set_font("font", bn, bold)
 

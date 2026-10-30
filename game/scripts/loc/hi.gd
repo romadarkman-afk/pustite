@@ -468,6 +468,7 @@ func data() -> Dictionary:
 		"menu.mode_campaign_desc": "कहानी के अध्याय, जिनके फैसलों के नतीजे होंगे",
 		"menu.mode_solo": "बॉट्स के खिलाफ अकेले",
 		"menu.mode_solo_desc": "गाँव वालों के खिलाफ एक सामान्य मैच",
+		"menu.online": "ऑनलाइन",
 		"menu.settings_desc": "ध्वनि, ग्राफ़िक्स, भाषा और नियंत्रण",
 		"menu.howto": "कैसे खेलें",
 		"menu.play": "खेलो",

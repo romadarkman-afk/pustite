@@ -521,6 +521,7 @@ func data() -> Dictionary:
 		"menu.mode_campaign_desc": "Главы с общей историей и последствиями",
 		"menu.mode_solo": "Одиночная игра с ботами",
 		"menu.mode_solo_desc": "Свободная партия против жителей посёлка",
+		"menu.online": "Онлайн",
 		"menu.settings_desc": "Звук, графика, язык и управление",
 		"menu.howto": "Как играть",
 		"menu.play": "Играть",

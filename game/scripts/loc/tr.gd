@@ -511,6 +511,7 @@ func data() -> Dictionary:
 		"menu.mode_campaign_desc": "Sonuçları olan hikâye bölümleri",
 		"menu.mode_solo": "Botlara karşı tek oyunculu",
 		"menu.mode_solo_desc": "Köylülere karşı serbest maç",
+		"menu.online": "Çevrimiçi",
 		"menu.settings_desc": "Ses, grafikler, dil ve kontroller",
 		"menu.howto": "Nasıl oynanır",
 		"menu.play": "Oyna",

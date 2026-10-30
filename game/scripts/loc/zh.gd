@@ -477,6 +477,7 @@ func data() -> Dictionary:
 		"menu.mode_campaign_desc": "有连续剧情和后果的章节",
 		"menu.mode_solo": "单人对战机器人",
 		"menu.mode_solo_desc": "与村民进行自由对局",
+		"menu.online": "在线",
 		"menu.settings_desc": "声音、画面、语言和控制",
 		"menu.howto": "玩法",
 		"menu.play": "开始",
