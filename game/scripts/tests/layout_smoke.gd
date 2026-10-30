@@ -54,12 +54,12 @@ static func run() -> void:
 static func _check_compact_day_ui(tree: SceneTree, screen: DayScreen, problems: PackedStringArray) -> int:
 	var checks := 0
 	var vp := Nav.frame.get_viewport_rect().size
-	var rows: Array[FitRow] = []
-	for child: Node in screen.footer.get_children():
-		if child is FitRow:
-			rows.append(child as FitRow)
-	checks += _expect(problems, rows.size() >= 2 and rows[1]._mode == FitRow.Mode.ROW,
-		"720×1280: действия дня не помещаются в два ряда")
+	var primary := screen.find_child("PrimaryActions", true, false) as GridContainer
+	var phase := screen.find_child("PhaseActions", true, false) as GridContainer
+	checks += _expect(problems, primary != null and primary.columns == 3
+		and primary.get_child_count() == 3 and phase != null and phase.columns <= 3
+		and phase.get_child_count() >= 2,
+		"720×1280: действия дня не собраны в две компактные строки")
 	checks += _expect(problems, screen.field_spacer.size.y >= vp.y * 0.50,
 		"720×1280: игровому полю осталось только %.0f%% высоты" % (100.0 * screen.field_spacer.size.y / maxf(vp.y, 1.0)))
 

@@ -10,7 +10,7 @@ var journal_preview: Label
 var _question_prompt_open := false
 var _contact_hint: Label
 
-const ACTION_HEIGHT := 54
+const ACTION_HEIGHT := 60
 
 
 func screen_id() -> String:
