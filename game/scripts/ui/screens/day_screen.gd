@@ -127,7 +127,6 @@ func build() -> void:
 	ready_btn.name = "Ready"
 	ready_btn.pressed.connect(_ready_flow)
 	rb.append(ready_btn)
-	var row := W.fit_row(rb, 6)
 	footer.add_child(_action_grid(rb, mini(rb.size(), 3), "PhaseActions"))
 
 
