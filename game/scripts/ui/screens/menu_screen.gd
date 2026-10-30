@@ -12,7 +12,7 @@ func screen_id() -> String:
 
 func field_ratio() -> float:
 	# Живая деревня с жителями остаётся на экране над плитками.
-	return 0.36
+	return 0.40
 
 
 func mood() -> Vector2:
@@ -32,23 +32,23 @@ func music() -> StringName:
 
 
 func build() -> void:
-	body.add_theme_constant_override("separation", 6)
+	body.add_theme_constant_override("separation", 4)
 
 	var title_label := W.label(L.t("game.title"), &"Title")
-	title_label.add_theme_font_size_override("font_size", ThemeFactory.fs(34))
+	title_label.add_theme_font_size_override("font_size", ThemeFactory.fs(29))
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.add_child(title_label)
 
 	var case_file := W.label(L.t("menu.case_file"), &"Speaker")
-	case_file.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
+	case_file.add_theme_font_size_override("font_size", ThemeFactory.fs(12))
 	case_file.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.add_child(case_file)
 
-	var name_button := W.button(SocialContent.player_name_label(Save.player_display_name()), &"Compact", 50)
+	var name_button := W.button(SocialContent.player_name_label(Save.player_display_name()), &"Compact", 46)
 	name_button.name = "PlayerName"
 	name_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	name_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_button.add_theme_font_size_override("font_size", ThemeFactory.fs(15))
+	name_button.add_theme_font_size_override("font_size", ThemeFactory.fs(14))
 	name_button.pressed.connect(func() -> void: emit_intent(Intent.SET_PLAYER_NAME))
 	body.add_child(name_button)
 
@@ -97,14 +97,14 @@ func build() -> void:
 	var footer_actions: Array[Button] = []
 	if not Campaign.is_new():
 		var chapter := Campaign.current()
-		var resume := W.button(L.t("camp.continue", {"title": L.t("camp.%s.title" % chapter)}), &"RowOn", 50)
+		var resume := W.button(L.t("camp.continue", {"title": L.t("camp.%s.title" % chapter)}), &"RowOn", 44)
 		resume.name = "Continue"
-		resume.add_theme_font_size_override("font_size", ThemeFactory.fs(14))
+		resume.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
 		resume.pressed.connect(func() -> void: emit_intent(Intent.PLAY_CHAPTER, {"id": chapter}))
 		footer_actions.append(resume)
-	var exit := W.button(L.t("ui.exit"), &"Ghost", 50)
+	var exit := W.button(L.t("ui.exit"), &"Ghost", 44)
 	exit.name = "Exit"
-	exit.add_theme_font_size_override("font_size", ThemeFactory.fs(14))
+	exit.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
 	exit.pressed.connect(func() -> void:
 		var choice: int = await ActionSheet.ask(self, L.t("menu.exit_confirm"), PackedStringArray([L.t("ui.exit"), L.t("ui.back")]))
 		if choice == 0:
@@ -116,7 +116,7 @@ func build() -> void:
 
 func _mode_tile(heading: String, detail: String, node_name: String, variation: StringName,
 		action: StringName, disabled: bool = false) -> Button:
-	var button := W.button("", variation, 76)
+	var button := W.button("", variation, 64)
 	button.name = node_name
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.disabled = disabled
@@ -129,12 +129,12 @@ func _mode_tile(heading: String, detail: String, node_name: String, variation: S
 	text_box.offset_right = -9.0
 	var title_label := W.label(heading, &"Speaker")
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_label.add_theme_font_size_override("font_size", ThemeFactory.fs(16))
+	title_label.add_theme_font_size_override("font_size", ThemeFactory.fs(15))
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text_box.add_child(title_label)
 	var detail_label := W.label(detail, &"Small")
 	detail_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	detail_label.add_theme_font_size_override("font_size", ThemeFactory.fs(12))
+	detail_label.add_theme_font_size_override("font_size", ThemeFactory.fs(11))
 	detail_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text_box.add_child(detail_label)
 	button.add_child(text_box)
@@ -144,10 +144,10 @@ func _mode_tile(heading: String, detail: String, node_name: String, variation: S
 
 
 func _small_button(text: String, node_name: String) -> Button:
-	var button := W.button(text, &"Compact", 48)
+	var button := W.button(text, &"Compact", 42)
 	button.name = node_name
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.add_theme_font_size_override("font_size", ThemeFactory.fs(14))
+	button.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
 	return button
 
 
@@ -161,10 +161,10 @@ func daily_button() -> Button:
 		txt = L.t("daily.won" if Save.daily_won else "daily.lost") + ". " + L.t("daily.tomorrow")
 	if streak > 0:
 		txt += " · " + L.t("daily.streak", {"n": streak})
-	var b := W.wrap(W.button(txt, &"RowOn" if not done else &"Row", 50))
+	var b := W.wrap(W.button(txt, &"RowOn" if not done else &"Row", 44))
 	b.name = "Daily"
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	b.add_theme_font_size_override("font_size", ThemeFactory.fs(14))
+	b.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
 	b.disabled = done
 	b.pressed.connect(func() -> void: emit_intent(Intent.DAILY))
 	return b
@@ -172,11 +172,11 @@ func daily_button() -> Button:
 
 ## Кнопка языка: название на самом языке, чтобы его нашёл тот, кто не читает текущий.
 static func lang_button(s: Screen) -> Button:
-	var b := W.button(String(L.NATIVE.get(L.code, L.code)), &"Row", 48)
+	var b := W.button(String(L.NATIVE.get(L.code, L.code)), &"Row", 42)
 	b.name = "Lang"
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-	b.add_theme_font_size_override("font_size", ThemeFactory.fs(14))
+	b.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
 	b.pressed.connect(func() -> void:
 		var names := PackedStringArray()
 		for c: String in L.LANGS:

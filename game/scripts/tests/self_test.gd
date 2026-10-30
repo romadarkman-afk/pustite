@@ -4398,8 +4398,13 @@ static func village() -> void:
 	ok += _expect(fails, not v.browsing, "приказ герою идти не вернул камеру к нему")
 	var home_button := day.find_child("BackToMenu", true, false) as Button
 	var marks_button := day.find_child("MarksLegend", true, false) as Button
+	var primary_actions := day.find_child("PrimaryActions", true, false) as GridContainer
+	var phase_actions := day.find_child("PhaseActions", true, false) as GridContainer
 	ok += _expect(fails, home_button != null and marks_button != null,
 		"в дневном экране нет кнопки меню или быстрого пояснения знаков")
+	ok += _expect(fails, primary_actions != null and primary_actions.columns == 3
+		and phase_actions != null and phase_actions.columns <= 3 and phase_actions.get_child_count() >= 2,
+		"дневные действия не собраны в две компактные строки")
 	if marks_button != null:
 		marks_button.pressed.emit()
 		await _frames(tree, 3)

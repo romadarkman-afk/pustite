@@ -10,13 +10,15 @@ var journal_preview: Label
 var _question_prompt_open := false
 var _contact_hint: Label
 
+const ACTION_HEIGHT := 54
+
 
 func screen_id() -> String:
 	return "day"
 
 
 func field_ratio() -> float:
-	return 0.72
+	return 0.82
 
 
 ## Под полем остаётся только строка журнала.
@@ -31,8 +33,8 @@ func field_height(h: float) -> float:
 	if chrome != null and chrome.get_child_count() > 0 and title() != "":
 		bar = (chrome.get_child(0) as Control).get_combined_minimum_size().y
 	# шапка, строка журнала (одна кнопка), подвал и три промежутка колонки
-	var reserved := bar + footer.get_combined_minimum_size().y + float(ThemeFactory.TOUCH) + 3.0 * sep + 8.0
-	return maxf(h * 0.30, minf(h * 0.72, h - reserved))
+	var reserved := bar + footer.get_combined_minimum_size().y + float(ThemeFactory.COMPACT_TOUCH) + 3.0 * sep + 8.0
+	return maxf(h * 0.34, minf(h * 0.82, h - reserved))
 
 
 func title() -> String:
@@ -45,29 +47,37 @@ func mood() -> Vector2:
 
 func build() -> void:
 	Diag.step("день-экран: сборка")
-	footer.add_theme_constant_override("separation", 8)
+	footer.add_theme_constant_override("separation", 6)
+	if _title_label != null:
+		_title_label.add_theme_font_size_override("font_size", ThemeFactory.fs(17))
+	if _clock != null:
+		_clock.add_theme_font_size_override("font_size", ThemeFactory.fs(17))
+	var back := find_child("BackToMenu", true, false) as Button
+	if back != null:
+		back.custom_minimum_size.y = ACTION_HEIGHT
+		back.add_theme_font_size_override("font_size", ThemeFactory.fs(14))
 	enable_field_taps()
 	if field_spacer != null:
 		supplies = SuppliesBadge.new()
 		field_spacer.add_child(supplies)
-		supplies.position = Vector2(20, 64)
+		supplies.position = Vector2(20, 54)
 		update_supplies()
 	var jr := W.hbox(10)
-	journal_button = W.button(L.t("day.journal"), &"Compact", ThemeFactory.COMPACT_TOUCH)
+	journal_button = W.button(L.t("day.journal"), &"Compact", ACTION_HEIGHT)
 	journal_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	journal_button.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	journal_button.pressed.connect(open_journal)
 	jr.add_child(journal_button)
-	var diary := W.button(L.t("day.diary"), &"Compact", ThemeFactory.COMPACT_TOUCH)
+	var diary := W.button(L.t("day.diary"), &"Compact", ACTION_HEIGHT)
 	diary.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	diary.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	diary.pressed.connect(open_diary)
 	jr.add_child(diary)
-	var legend := W.button("?", &"Compact", ThemeFactory.COMPACT_TOUCH)
+	var legend := W.button("?", &"Compact", ACTION_HEIGHT)
 	legend.name = "MarksLegend"
 	legend.tooltip_text = L.t("legend.btn")
 	legend.accessibility_name = L.t("legend.btn")
-	legend.custom_minimum_size = Vector2(ThemeFactory.COMPACT_TOUCH, ThemeFactory.COMPACT_TOUCH)
+	legend.custom_minimum_size = Vector2(ACTION_HEIGHT, ACTION_HEIGHT)
 	legend.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	legend.pressed.connect(marks_legend)
 	jr.add_child(legend)
@@ -78,6 +88,7 @@ func build() -> void:
 	journal_preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	journal_preview.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	journal_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	journal_preview.add_theme_font_size_override("font_size", ThemeFactory.fs(14))
 	jr.add_child(journal_preview)
 	body.add_child(jr)
 	_update_journal()
@@ -95,26 +106,46 @@ func build() -> void:
 	Diag.step("день-экран: чат готов, кнопки")
 	var qb: Array[Button] = []
 	for spec: Array in [[L.t("day.defend"), _defend], [L.t("day.invite"), _invite_flow], [L.t("day.accuse"), _accuse_flow]]:
-		var q := W.button(spec[0], &"Compact", ThemeFactory.COMPACT_TOUCH)
+		var q := W.button(spec[0], &"Compact", ACTION_HEIGHT)
+		q.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
 		var cb: Callable = spec[1]
 		q.pressed.connect(func() -> void: cb.call())
 		qb.append(q)
-	footer.add_child(W.fit_row(qb, 6))
+	footer.add_child(_action_grid(qb, 3, "PrimaryActions"))
 
 	var rb: Array[Button] = []
-	var write := W.button(L.t("day.say"), &"Compact", ThemeFactory.COMPACT_TOUCH)
+	var write := W.button(L.t("day.say"), &"Compact", ACTION_HEIGHT)
+	write.name = "Say"
 	write.pressed.connect(_write_flow)
 	rb.append(write)
 	if m.can_meeting(m.player()):
-		var bell := W.button(L.t("day.bell"), &"Compact", ThemeFactory.COMPACT_TOUCH)
+		var bell := W.button(L.t("day.bell"), &"Compact", ACTION_HEIGHT)
 		bell.name = "Meeting"
 		bell.pressed.connect(_meeting_flow)
 		rb.append(bell)
-	var ready_btn := W.button(L.t("day.ready"), &"Compact", ThemeFactory.COMPACT_TOUCH)
+	var ready_btn := W.button(L.t("day.ready"), &"Compact", ACTION_HEIGHT)
+	ready_btn.name = "Ready"
 	ready_btn.pressed.connect(_ready_flow)
 	rb.append(ready_btn)
 	var row := W.fit_row(rb, 6)
-	footer.add_child(row)
+	footer.add_child(_action_grid(rb, mini(rb.size(), 3), "PhaseActions"))
+
+
+func _action_grid(buttons: Array[Button], columns: int, node_name: String) -> GridContainer:
+	var grid := GridContainer.new()
+	grid.name = node_name
+	grid.columns = columns
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 6)
+	for button: Button in buttons:
+		button.custom_minimum_size = Vector2(0, ACTION_HEIGHT)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
+		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		button.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+		button.tooltip_text = button.text
+		grid.add_child(button)
+	return grid
 
 
 func _ready_flow() -> void:
