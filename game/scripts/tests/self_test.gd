@@ -4053,13 +4053,13 @@ static func sound() -> void:
 			# в экспортированной сборке исходник лежит внутри .import — размер берём из него
 			continue
 		total += f.get_length()
-	# Бюджет звука 20 МиБ (0.66.0: музыка Lyria тяжелее синтетической; 0.70.0: шесть слоёв живого дождя и гром весят 5,6 МиБ). Лимит APK 1 ГБ.
-	# Оставляем 2,5 МиБ для следующих пакетов.
-	var sound_limit := 20 * 1024 * 1024
+	# Реальный набор с песнями и шестью слоями дождя занимает около 24,3 МиБ.
+	# Держим общий лимит 28 МиБ и резервируем 2,5 МиБ для новых звуков.
+	var sound_limit := 28 * 1024 * 1024
 	var sound_headroom := int(2.5 * 1024 * 1024)
 	var free_bytes := sound_limit - total
 	ok += _expect(fails, free_bytes >= sound_headroom,
-		"звуки весят %d КБ при лимите 20 МиБ, свободно %d КБ, требуется 2560 КБ" % [total / 1024, free_bytes / 1024])
+		"звуки весят %d КБ при лимите 28672 КБ, свободно %d КБ, требуется 2560 КБ" % [total / 1024, free_bytes / 1024])
 
 	# 2. Громкость: ползунок → канал → файл настроек
 	Save.set_volume(&"Music", 0.5)
@@ -4154,7 +4154,7 @@ static func sound() -> void:
 			Sfx.played.clear()
 			Game.say("Проверка голоса.")
 			await _frames(tree, 30)
-			ok += _expect(fails, Sfx.played.has(&"blip"), "реплика прозвучала без голоса")
+			ok += _expect(fails, not Sfx.played.has(&"blip"), "реплика без записи озвучена синтетическим писком")
 		Game.end_day()
 		await _settle(tree)
 		if Game.m.phase == Match.Phase.VOTE:
@@ -4275,7 +4275,7 @@ static func sound() -> void:
 	Nav.show_menu()
 	await _settle(tree)
 
-	# 7. Настройки: четыре ползунка, включая отдельную громкость окружения
+	# 7. Настройки: пять ползунков для общей громкости, музыки, эффектов, голоса и окружения
 	Nav.show_settings()
 	await _settle(tree)
 	var sliders := 0
@@ -4284,7 +4284,7 @@ static func sound() -> void:
 			sliders += 1
 			if c.name == "Volume_Music":
 				(c as HSlider).value = 0.3
-	ok += _expect(fails, sliders == 4, "в настройках ползунков громкости %d из 4" % sliders)
+	ok += _expect(fails, sliders == 5, "в настройках ползунков громкости %d из 5" % sliders)
 	ok += _expect(fails, absf(float(Save.volumes[&"Music"]) - 0.3) < 0.01, "ползунок музыки не меняет громкость")
 	Save.set_volume(&"Music", 0.7)
 

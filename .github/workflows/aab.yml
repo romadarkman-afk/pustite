@@ -147,6 +147,9 @@ jobs:
           grep -n "version/code\|version/name\|target_sdk" game/export_presets.cfg
           echo "VERSION_CODE=$CODE" >> "$GITHUB_ENV"
 
+      - name: Подготовить сжатие иллюстраций
+        run: godot --headless --path game --script res://tools/prepare_slide_imports.gd
+
       - name: Импорт ресурсов
         run: godot --headless --path game --import
 

@@ -29,7 +29,7 @@ env:
 jobs:
   tests-fast:
     name: Быстрая проверка
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
@@ -44,6 +44,9 @@ jobs:
           sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
           sudo chmod +x /usr/local/bin/godot
           godot --version
+
+      - name: Подготовить сжатие иллюстраций
+        run: godot --headless --path game --script res://tools/prepare_slide_imports.gd
 
       - name: Импорт ресурсов
         run: godot --headless --path game --import
@@ -93,6 +96,12 @@ jobs:
           sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
           sudo chmod +x /usr/local/bin/godot
           godot --version
+
+      - name: Подготовить сжатие иллюстраций
+        run: godot --headless --path game --script res://tools/prepare_slide_imports.gd
+
+      - name: Подготовить сжатие иллюстраций
+        run: godot --headless --path game --script res://tools/prepare_slide_imports.gd
 
       - name: Импорт ресурсов
         run: |
