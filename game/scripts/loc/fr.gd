@@ -1180,7 +1180,7 @@ func data() -> Dictionary:
 		"sc.m1.close.1": "Avant l'aube, une latte grince. Quelqu'un se tient près de ton banc.",
 		"sc.m1.close.2": "Derrière le mur, un voisin tousse. Les pas repartent vers le poêle.",
 		"sc.m1.close.3": "Au matin, {who} dit ne pas s'être levé de la nuit.",
-		"sc.m1.refuse.1": "Des traces dans la neige devant la porte. Quelqu'un est resté longtemps sur le seuil.",
+		"sc.m1.refuse.1": "Des traces au sol devant la porte. Quelqu'un est resté longtemps sur le seuil.",
 		"sc.m1.refuse.2": "J'ai frappé. La porte ne s'est jamais ouverte. Je m'en souviendrai.",
 		"sc.m1.refuse.3": "Les traces s'arrêtent à la route. {who} n'est pas revenu.",
 		"door.ask": "Qui est là ?",

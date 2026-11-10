@@ -1169,7 +1169,7 @@ func data() -> Dictionary:
 		"sc.m1.close.1": "Before dawn a floorboard creaks. Someone is standing by your bench.",
 		"sc.m1.close.2": "A neighbor coughs behind the wall. The footsteps move back to the stove.",
 		"sc.m1.close.3": "In the morning {who} says they never got up in the night.",
-		"sc.m1.refuse.1": "Tracks in the snow by the door. Someone stood on the step for a long time.",
+		"sc.m1.refuse.1": "Footprints on the ground by the door. Someone stood on the step for a long time.",
 		"sc.m1.refuse.2": "I knocked. The door never opened. I'll remember.",
 		"sc.m1.refuse.3": "The tracks end at the road. {who} didn't come back.",
 		"door.ask": "Who's there?",

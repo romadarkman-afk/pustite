@@ -53,7 +53,7 @@ jobs:
 
       - name: Жители, дождь, карта и озвучка
         env:
-          CASES: "folk=--folk weather=--weather field=--field village=--village sound=--sound slides=--slides parallax=--parallax voice=--voice-assets layout=--layout-smoke,--lang=ru layout_t2=--layout-smoke,--lang=ru,--text=2"
+          CASES: "folk=--folk weather=--weather field=--field village=--village bubbles=--bubbles lights=--lights sound=--sound slides=--slides parallax=--parallax voice=--voice-assets layout=--layout-smoke,--lang=ru layout_t2=--layout-smoke,--lang=ru,--text=2"
           CASE_TIMEOUT: "90"
         run: bash tools/ci_run_cases.sh $CASES
 
@@ -161,12 +161,12 @@ jobs:
         run: |
           mkdir -p build/shots
           RES=720x1280 SHOT_TIMEOUT=900 GODOT=godot bash tools/store_shots.sh build/shots ru \
-            r1_menu:menu r2_day:day:a1c3 r3_door:door:a3c1 r4_camp:camp 2>&1 | tee build/shots.log
+            r1_menu:menu r2_day:day:a1c3 r3_door:door:a3c1 r4_camp:camp r5_stuk:slide:a1c1_intro:2:55 2>&1 | tee build/shots.log
 
       - name: Проверка кадров
         run: |
           python3 tools/check_render.py --self-test
-          python3 tools/check_render.py build/shots build/shots.log 720 1280 r1_menu r2_day r3_door r4_camp
+          python3 tools/check_render.py build/shots build/shots.log 720 1280 r1_menu r2_day r3_door r4_camp r5_stuk
 
       - name: Кадры в артефакты
         if: always()

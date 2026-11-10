@@ -1207,7 +1207,7 @@ func data() -> Dictionary:
 		"sc.m1.close.1": "Şafaktan önce bir tahta gıcırdıyor. Biri sedirinin yanında duruyor.",
 		"sc.m1.close.2": "Duvarın ardında bir komşu öksürüyor. Adımlar sobaya geri gidiyor.",
 		"sc.m1.close.3": "Sabah {who} gece hiç kalkmadığını söylüyor.",
-		"sc.m1.refuse.1": "Kapının önünde karda izler var. Biri eşikte uzun süre durmuş.",
+		"sc.m1.refuse.1": "Kapının önünde yerde izler var. Biri eşikte uzun süre durmuş.",
 		"sc.m1.refuse.2": "Kapıyı çaldım. Hiç açılmadı. Unutmayacağım.",
 		"sc.m1.refuse.3": "İzler yolda bitiyor. {who} geri dönmedi.",
 		"door.ask": "Kim o?",

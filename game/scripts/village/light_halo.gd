@@ -39,12 +39,16 @@ func _process(delta: float) -> void:
 	_sync_alpha()
 
 
+## Один и тот же плавный ритм используют ореол и настоящий свет фонаря.
+func flicker_factor() -> float:
+	return 1.0 - flicker * 0.5 + flicker * 0.5 * sin(_phase)
+
+
 func _sync_alpha() -> void:
 	if _sprite == null:
 		return
 	_sprite.visible = intensity > 0.005
-	var wave := 1.0 - flicker * 0.5 + flicker * 0.5 * sin(_phase)
-	_sprite.modulate = Color(color, intensity * wave)
+	_sprite.modulate = Color(color, intensity * flicker_factor())
 
 
 func _sync_sprite() -> void:

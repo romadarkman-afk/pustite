@@ -11,7 +11,7 @@ const BAND := Rect2(0, 120, 720, 400)    ## полоса с домами — е�
 ## их можно подрезать, а фигурки от этого крупнее.
 const SIDE_VISIBLE := 0.88
 const SKY_SHARE := 0.50                   ## горизонт не уходит за верх поля на вытянутых экранах
-const BUBBLE_HEADROOM := 210.0             ## место над верхним жителем для пузыря на планшетах
+const BUBBLE_HEADROOM := 128.0             ## место над верхним жителем для пузыря на планшетах
 const SAFE_X := Vector2(84, 624)          ## куда можно ставить жителей: слева половина имени, справа колонка отметок
 const GROUND_BLEED := 4.0                 ## картинка земли выступает за край кадра и не открывает подложку
 static var _shadow_outline_cache: Dictionary = {}
@@ -692,13 +692,12 @@ func _process(delta: float) -> void:
 		b.region_rect.position.x = fposmod(b.region_rect.position.x + delta * (9.0 if i == 0 else -6.0) / b.scale.x, 4096.0)
 	for i in range(_lamp_lights.size()):
 		var on_l := _lamp_on(i, night) * _lamp_fuel(i)
+		var flicker := 1.0
+		if i < _lamp_glows.size():
+			_lamp_glows[i].set_intensity(on_l * 0.72)
+			flicker = _lamp_glows[i].flicker_factor()
 		_lamp_lights[i].visible = on_l > 0.01
-		_lamp_lights[i].energy = 0.46 * on_l
-	for i in range(_lamp_glows.size()):
-		var on := _lamp_on(i, night) * _lamp_fuel(i)
-		if on > 0.0 and on < 1.0 and randf() < 0.35:
-			on *= 0.15               # включение: лампа пару раз мигает
-		_lamp_glows[i].set_intensity(on * 0.72)
+		_lamp_lights[i].energy = 0.46 * on_l * flicker
 	_ajar_step(delta)
 	for i in range(_house_glows.size()):
 		var house_index := int(i / 2)
@@ -1450,7 +1449,7 @@ func _build_lights() -> void:
 		l.shadow_enabled = true
 		l.shadow_color = Color(0.01, 0.012, 0.02, 0.3)
 		l.shadow_filter = Light2D.SHADOW_FILTER_PCF5
-		l.shadow_filter_smooth = 7.0
+		l.shadow_filter_smooth = 1.5
 		add_child(l)
 		_lamp_lights.append(l)
 	for h: HouseDef in def.shelters + def.decor:
@@ -1539,13 +1538,13 @@ func _build_glows() -> void:
 	_lamp_glows.clear()
 	_house_glows.clear()
 	for p: Vector2 in def.lamps:
-		_lamp_glows.append(_add_halo(p + Vector2(12, -61), 34.0, Color("ff9e2c")))
+		_lamp_glows.append(_add_halo(p + Vector2(12, -61), 34.0, def.lamp_color))
 	for i in range(open_count):
 		var h: HouseDef = def.shelters[i]
 		var hr := house_rect(h)
 		var y := hr.position.y + hr.size.y * 0.53
-		_house_glows.append(_add_halo(Vector2(hr.position.x + hr.size.x * 0.24, y), 20.0, Color("ff9e2c")))
-		_house_glows.append(_add_halo(Vector2(hr.position.x + hr.size.x * 0.76, y), 20.0, Color("ff9e2c")))
+		_house_glows.append(_add_halo(Vector2(hr.position.x + hr.size.x * 0.24, y), 20.0, def.lamp_color))
+		_house_glows.append(_add_halo(Vector2(hr.position.x + hr.size.x * 0.76, y), 20.0, def.lamp_color))
 
 
 func _add_halo(at: Vector2, radius: float, tint: Color) -> LightHalo:
