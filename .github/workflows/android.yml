@@ -14,6 +14,8 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: '17 4 */2 * *'
   workflow_run:
     workflows: ["Полная русская озвучка"]
     types: [completed]
@@ -23,15 +25,44 @@ permissions:
 
 # Новая загрузка отменяет ещё идущую старую сборку.
 concurrency:
-  group: build-${{ github.ref }}
+  group: build-${{ github.event_name == 'schedule' && 'signing-cache' || github.ref }}
   cancel-in-progress: true
 
 env:
   GODOT_VERSION: "4.6"
+  SIGNING_CERT_SHA256: "38c762a288554dc131760444407ad063a5f8e6278d53cdfccb2ce2d01de0a6be"
 
 jobs:
+  keep-signing:
+    name: Проверка ключа обновлений
+    if: github.event_name == 'schedule' || github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Восстановить ключ
+        id: keepkey
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/debug.keystore
+          key: pustite-debug-keystore-v1
+          fail-on-cache-miss: true
+      - name: Проверить отпечаток ключа
+        run: |
+          set -euo pipefail
+          actual="$(keytool -exportcert -alias androiddebugkey -keystore "$HOME/debug.keystore" -storepass android 2>/dev/null | openssl dgst -sha256 | awk '{print $NF}')"
+          if [ "$actual" != "$SIGNING_CERT_SHA256" ]; then
+            echo "::error title=Ключ подписи изменился::Обновление поверх предыдущего APK невозможно. Проверьте ключ."
+            exit 1
+          fi
+          echo "Ключ подписи совпадает с v0.71.17."
+
   build:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name != 'schedule' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
     # Версия сервера закреплена: ubuntu-latest с 19.10.2026 переезжает на Ubuntu 26.
     runs-on: ubuntu-24.04
     # Короткая проверка запуска и сборка APK.
@@ -107,13 +138,19 @@ jobs:
           path: ~/debug.keystore
           key: pustite-debug-keystore-v1
 
-      - name: Отладочный ключ подписи (создаётся один раз)
-        if: steps.keycache.outputs.cache-hit != 'true'
+      - name: Проверка ключа подписи
         run: |
-          keytool -keyalg RSA -genkeypair -alias androiddebugkey \
-            -keypass android -keystore "$HOME/debug.keystore" -storepass android \
-            -dname "CN=Android Debug,O=Android,C=US" -validity 9999 \
-            -deststoretype pkcs12 -noprompt
+          set -euo pipefail
+          if [ "${{ steps.keycache.outputs.cache-hit }}" != "true" ] || [ ! -s "$HOME/debug.keystore" ]; then
+            echo "::error title=Ключ подписи отсутствует::Сборка остановлена, чтобы не выпустить несовместимое обновление."
+            exit 1
+          fi
+          actual="$(keytool -exportcert -alias androiddebugkey -keystore "$HOME/debug.keystore" -storepass android 2>/dev/null | openssl dgst -sha256 | awk '{print $NF}')"
+          if [ "$actual" != "$SIGNING_CERT_SHA256" ]; then
+            echo "::error title=Ключ подписи изменился::Сборка остановлена, чтобы не выпустить несовместимое обновление."
+            exit 1
+          fi
+          echo "Ключ подписи совпадает с v0.71.17."
 
       - name: Настройки редактора Godot
         run: |
