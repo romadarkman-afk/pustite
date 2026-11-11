@@ -199,7 +199,9 @@ func campaign_records(m: Match, limit: int = 40) -> Array[Dictionary]:
 					rec = {"kind": "listened", "who": e.target}
 			Kind.CHOICE:
 				# выбор в сюжетной сцене (TASK-019): помнится без привязки к жителю
-				if String(e.info.get("scene", "")) == "a1c1_river" and String(e.info.get("choice", "")) in ["answer", "silent"]:
+				if String(e.info.get("scene", "")) == "personal_story" and int(e.info.get("step", 0)) in [1, 2]:
+					rec = {"kind": "story_%d" % int(e.info.step), "who": e.target}
+				elif String(e.info.get("scene", "")) == "a1c1_river" and String(e.info.get("choice", "")) in ["answer", "silent"]:
 					out.append({"kind": "river_" + String(e.info.choice), "who": -1, "day": e.day, "knew": []})
 				elif String(e.info.get("scene", "")) == "a1c3_board":
 					out.append({"kind": "board_" + String(e.info.get("choice", "silent")), "who": -1, "day": e.day, "knew": []})
@@ -209,7 +211,8 @@ func campaign_records(m: Match, limit: int = 40) -> Array[Dictionary]:
 					out.append({"kind": "betray_" + String(e.info.get("choice", "cover")), "who": -1, "day": e.day, "knew": []})
 				elif String(e.info.get("scene", "")) == "a3c3_trial":      # суд в крипте (TASK-029)
 					out.append({"kind": "trial_" + String(e.info.get("choice", "won")), "who": -1, "day": e.day, "knew": []})
-				continue
+				if rec.is_empty():
+					continue
 			Kind.REACTION:
 				# реакция близкого на гибель у двери игрока (TASK-010): помнится до конца кампании
 				if e.target == me:
@@ -241,5 +244,5 @@ func campaign_records(m: Match, limit: int = 40) -> Array[Dictionary]:
 
 ## Порядок важности записей памяти кампании: при переполнении отрезается конец.
 const RANK: PackedStringArray = ["react_revenge", "react_accuse", "react_defend", "react_withdraw", "refused_died",
-	"broken", "exiled_by_you", "broke_you", "refused", "refused_you", "kept", "admitted", "listened",
+	"story_1", "story_2", "broken", "exiled_by_you", "broke_you", "refused", "refused_you", "kept", "admitted", "listened",
 	"river_answer", "river_silent"]

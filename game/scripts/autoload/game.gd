@@ -113,6 +113,10 @@ func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = 
 	elif daily_date == "" and randf() < Guests.QUICK_P:
 		m.guests = PackedStringArray([Guests.IDS[randi() % Guests.IDS.size()]])
 	m.start(cfg, Challenge.seed_for(daily) if daily != "" else 0)
+	if not chapter.is_empty():
+		for v: Villager in m.villagers:
+			if not v.is_player and v.guest_id.is_empty():
+				v.story_step = Campaign.story_before(String(chapter.id), v.story_id)
 	match String(chapter.get("event", "")):
 		"fog": m.force_event = Match.Event.FOG
 		"rain": m.force_event = Match.Event.RAIN

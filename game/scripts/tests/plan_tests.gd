@@ -285,6 +285,13 @@ static func campaign_memory(fails: PackedStringArray) -> int:
 	m.begin_day()
 	var lost: Villager = m.alive_bots()[0]
 	var kept: Villager = m.alive_bots()[1]
+	var talk_dir := Director.new()
+	talk_dir.attach(m)
+	talk_dir.chapter_id = "a1c2"
+	ok += SelfTest._expect(fails, talk_dir._question_topic() != "arrival",
+		"следующая глава: вопрос снова о прибытии")
+	talk_dir.chapter_id = "a1c3"
+	talk_dir.personal_talk(kept.id, 1)
 	m.promise(m.player(), kept, "come")
 	m.phase = Match.Phase.DOOR
 	var s := Match.Seat.new()
@@ -312,6 +319,9 @@ static func campaign_memory(fails: PackedStringArray) -> int:
 	ok += SelfTest._expect(fails, Save.loaded_schema == Save.SCHEMA and str(Save.campaign_memory) == str(before)
 		and before.size() == recs.size() + 2,
 		"память: после перезапуска записи другие (%d и %d)" % [Save.campaign_memory.size(), before.size()])
+	ok += SelfTest._expect(fails, kinds.has("story_1") and Campaign.story_before("a2c1", kept.story_id) == 1
+		and Campaign.story_before("a1c3", kept.story_id) == 0,
+		"история жителя: прогресс не сохранился или повтор главы видит будущие события")
 	var lines := Campaign.memory_lines(lost.story_id)
 	ok += SelfTest._expect(fails, not lines.is_empty() and lines[0].contains(lost.name) and lines[0].contains("3"),
 		"память: нет строки о жителе: %s" % str(lines))
