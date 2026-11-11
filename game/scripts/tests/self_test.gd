@@ -6655,7 +6655,8 @@ static func chapter_one() -> void:
 	await _frames(tree, 3)
 	Nav.frame.refresh()
 	var fails: PackedStringArray = []
-	var ok := await PlanTests.chapter_one(tree, fails)
+	var ok := PlanTests.campaign_memory(fails)
+	ok += await PlanTests.chapter_one(tree, fails)
 	_finish(fails, ok, "глава «Стук»", "выборы, память и первое утро")
 
 

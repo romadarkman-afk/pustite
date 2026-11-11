@@ -1397,6 +1397,9 @@ func personal_talk(vid: int, choice: int) -> Array[ChatLine]:
 	if not m.story_pages_found.has(page_key):
 		m.story_pages_found.append(page_key)
 	Save.remember_story(Progress.story_key(v), v.story_step)
+	if not chapter_id.is_empty() and v.guest_id.is_empty():
+		m.world.add(WorldLog.Kind.CHOICE, m.day, m.player().id, v.id, -1, [m.player().id, v.id], false,
+			{"scene": "personal_story", "step": v.story_step})
 	if choice == 0:
 		m.world.add(WorldLog.Kind.LISTENED, m.day, m.player().id, v.id, -1, [m.player().id, v.id])
 	m.feelings.on_talk(v.id, choice == 0)
@@ -1443,7 +1446,7 @@ func player_question() -> ChatLine:
 
 
 func _question_topic() -> String:
-	if m.day <= 1:
+	if m.day <= 1 and (chapter_id.is_empty() or chapter_id == "a1c1"):
 		return "arrival"
 	var ev: Dictionary = evidence.get(m.player().id, {})
 	var topics := PackedStringArray()

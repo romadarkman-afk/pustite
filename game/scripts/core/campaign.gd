@@ -307,6 +307,27 @@ static func lost_before(id: String) -> Dictionary:
 	return {"n": names, "g": guests}
 
 
+## Личные истории до начала главы. Старые записи «выслушал» дают осторожную оценку.
+static func story_before(chapter_id: String, story_id: int) -> int:
+	var chapter_index := ORDER.find(chapter_id)
+	if chapter_index < 0 or story_id < 0:
+		return 0
+	var step := 0
+	var old_listens := 0
+	var has_explicit := false
+	for rec: Dictionary in Save.campaign_memory:
+		var prev := ORDER.find(String(rec.get("ch", "")))
+		if prev < 0 or prev >= chapter_index or int(rec.get("who", -1)) != story_id:
+			continue
+		var kind := String(rec.get("kind", ""))
+		if kind in ["story_1", "story_2"]:
+			has_explicit = true
+			step = maxi(step, int(kind.substr(6)))
+		elif kind == "listened":
+			old_listens += 1
+	return step if has_explicit else mini(old_listens, 2)
+
+
 ## Открыта ли глава: первая — всегда, остальные — после прохождения предыдущей.
 static func unlocked(id: String) -> bool:
 	var i := ORDER.find(id)
@@ -523,7 +544,7 @@ static func act_one_memory(limit: int = 3) -> Array[Dictionary]:
 	var best: Dictionary = {}
 	for rec: Dictionary in Save.campaign_memory:
 		var who := int(rec.who)
-		if who < 0 or Save.campaign_dead.has(who) or not String(rec.ch).begins_with("a1"):
+		if who < 0 or Save.campaign_dead.has(who) or not String(rec.ch).begins_with("a1") or String(rec.kind).begins_with("story_"):
 			continue
 		var rank := WorldLog.RANK.find(String(rec.kind))
 		if rank < 0:
