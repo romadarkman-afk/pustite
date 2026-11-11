@@ -6564,6 +6564,9 @@ static func diary() -> void:
 		m0.admit(s, none)
 	var r := m0.resolve_night()
 	d0.read_report(r)
+	var signature_before := DiarySheet.signature(m0, d0)
+	liar.story_step = 1
+	ok += _expect(fails, DiarySheet.signature(m0, d0) != signature_before, "дневник: новая история не меняет отметку")
 	var f := "\n".join(DiarySheet.facts(m0, d0, liar))
 	var where := "улица" if liar.night_house < 0 else m0.house_name(liar.night_house)
 	ok += _expect(fails, f.contains("Ночи: 1 — %s" % where), "в дневнике нет, где житель ночевал: «%s»" % f)

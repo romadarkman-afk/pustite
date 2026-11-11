@@ -5,6 +5,7 @@ extends Screen
 ## и раскрывается по касанию — чтобы перечитать, кто что говорил.
 
 var journal_button: Button
+var diary_button: Button
 var supplies: SuppliesBadge
 var journal_preview: Label
 var _question_prompt_open := false
@@ -68,11 +69,18 @@ func build() -> void:
 	journal_button.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	journal_button.pressed.connect(open_journal)
 	jr.add_child(journal_button)
-	var diary := W.button(L.t("day.diary"), &"Compact", ACTION_HEIGHT)
-	diary.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	diary.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-	diary.pressed.connect(open_diary)
-	jr.add_child(diary)
+	diary_button = W.button(L.t("day.diary"), &"Compact", ACTION_HEIGHT)
+	diary_button.name = "DiaryButton"
+	diary_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	diary_button.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	diary_button.pressed.connect(open_diary)
+	jr.add_child(diary_button)
+	var diary_timer := Timer.new()
+	diary_timer.wait_time = 1.0
+	diary_timer.autostart = true
+	diary_timer.timeout.connect(_refresh_diary_badge)
+	add_child(diary_timer)
+	_refresh_diary_badge()
 	var legend := W.button("?", &"Compact", ACTION_HEIGHT)
 	legend.name = "MarksLegend"
 	legend.tooltip_text = L.t("legend.btn")
@@ -206,10 +214,11 @@ func _answer_npc_question(line: ChatLine) -> void:
 		return
 	Game.hold(&"dialog")
 	# после утраты — свои ответы: оправдаться, извиниться, промолчать (TASK-010)
-	var quick := L.arr("react.answers") if line.question_kind == "grief" else SocialContent.question_answers()
+	var quick := L.arr("react.answers") if line.question_kind == "grief" else SocialContent.question_answers(line.question_kind)
 	var prompt := SocialContent.question_title(line.speaker.name) + "\n" + line.text
 	var answer := await TextSheet.ask(self, prompt, quick)
 	Game.release(&"dialog")
+	_question_prompt_open = false
 	if answer.is_empty() or not is_inside_tree() or m == null or m.phase != Match.Phase.DAY:
 		return
 	var answer_kind := quick.find(answer)
@@ -217,12 +226,21 @@ func _answer_npc_question(line: ChatLine) -> void:
 		"answer": answer, "answer_kind": answer_kind})
 
 
+func _refresh_diary_badge() -> void:
+	if not is_instance_valid(diary_button) or m == null:
+		return
+	var unread := DiarySheet.signature(m, director) != Game.diary_seen_signature
+	diary_button.text = L.t("day.diary") + (" •" if unread else "")
+
+
 func open_journal() -> void:
 	JournalSheet.open(self, m.chat)
 
 
 func open_diary() -> DiarySheet:
-	return DiarySheet.open(self, m, director)
+	var sheet := DiarySheet.open(self, m, director)
+	_refresh_diary_badge()
+	return sheet
 
 
 ## Экстренный сбор: удар в колокол днём. Спросить, точно ли — он один на партию.
