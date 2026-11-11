@@ -7,13 +7,66 @@ extends Control
 var list: VBoxContainer
 var cards: Dictionary[int, Control] = {}     ## для самотестов: карточка жителя по id
 var _closed := false
+var _hold_key: StringName
 
 
 static func open(parent: Control, m: Match, d: Director) -> DiarySheet:
 	var s := DiarySheet.new()
 	parent.add_child(s)
 	s._build(m, d)
+	Game.diary_seen_signature = signature(m, d)
 	return s
+
+
+## Только вступления уже достигнутых глав. Будущие главы не раскрываются.
+static func story_lines(m: Match) -> PackedStringArray:
+	var out := PackedStringArray()
+	var current := Campaign.ORDER.find(m.chapter_id)
+	if current < 0:
+		return out
+	_append_seen_deck(out, "prologue")
+	for i in range(current + 1):
+		var id := Campaign.ORDER[i]
+		if i != current and not Save.campaign_stars.has(id):
+			continue
+		if id.ends_with("c1"):
+			_append_seen_deck(out, "act%d_intro" % int(id.substr(1, 1)))
+		out.append(L.t("camp.%s.title" % id))
+		out.append(L.t("camp.%s.beat1" % id))
+		out.append(L.t("camp.%s.beat2" % id))
+		_append_seen_deck(out, id + "_intro")
+		if i < current:
+			_append_seen_deck(out, id + "_win")
+	return out
+
+
+static func _append_seen_deck(out: PackedStringArray, id: String) -> void:
+	if not Slides.seen(id):
+		return
+	for panel: Dictionary in Slides.panels(id):
+		for line: Dictionary in panel.get("lines", []):
+			var text := Slides.text(String(line.get("key", "")))
+			if not text.is_empty():
+				out.append(text)
+
+
+## Сравниваем только информацию, доступную игроку, не скрытые роли.
+static func signature(m: Match, d: Director) -> String:
+	var parts := story_lines(m)
+	for v: Villager in m.villagers:
+		if not v.is_player:
+			parts.append(v.name)
+			parts.append_array(facts(m, d, v))
+	for clue in m.clues.shown():
+		parts.append(str(clue))
+	return "\n".join(parts)
+
+
+static func story_heading() -> String:
+	var titles := {"ru": "История кампании", "en": "Campaign story", "de": "Geschichte der Kampagne",
+		"fr": "Histoire de la campagne", "es": "Historia de la campaña", "pt": "História da campanha",
+		"tr": "Seferin hikâyesi", "hi": "अभियान की कहानी", "vi": "Câu chuyện chiến dịch", "zh": "战役故事"}
+	return String(titles.get(L.code, titles.en))
 
 
 ## Строки о жителе — чистые данные, их проверяет самотест.
@@ -22,6 +75,19 @@ static func facts(m: Match, d: Director, v: Villager) -> PackedStringArray:
 	if not v.is_player and v.story_id >= 0:
 		out.append(SocialContent.person_title(v))
 		out.append(SocialContent.story(v.story_id, v))
+		var current_chapter := Campaign.ORDER.find(m.chapter_id)
+		if current_chapter >= 0:
+			var count := 0
+			var memories := Save.memory_of(v.story_id)
+			memories.reverse()
+			for rec: Dictionary in memories:
+				var rec_chapter := Campaign.ORDER.find(String(rec.get("ch", "")))
+				var key := "book.mem_" + String(rec.get("kind", ""))
+				if rec_chapter >= 0 and rec_chapter < current_chapter and L.has(key):
+					out.append(L.t(key, {"who": v, "n": rec_chapter + 1}))
+					count += 1
+					if count >= 3:
+						break
 		for step in range(1, v.story_step + 1):
 			out.append(SocialContent.personal_chapter(v, step))
 		var bond := SocialContent.bond_text(v, m)
@@ -79,6 +145,8 @@ static func facts(m: Match, d: Director, v: Villager) -> PackedStringArray:
 
 func _build(m: Match, d: Director) -> void:
 	Diag.step("дневник: открыт")
+	_hold_key = StringName("diary_%d" % get_instance_id())
+	Game.hold(_hold_key)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var dim := ColorRect.new()
@@ -102,6 +170,9 @@ func _build(m: Match, d: Director) -> void:
 	var box := W.vbox(10)
 	sheet.add_child(box)
 	box.add_child(W.label(L.t("diary.head"), &"Hint"))
+	if not Save.hint_seen("diary_clues"):
+		box.add_child(W.label(L.t("clue.hint"), &"Small"))
+		Save.mark_hint("diary_clues")
 	# тетрадь улик (TASK-017): записи и противоречия
 	var clues_b := W.button(L.t("clue.btn", {"n": m.clues.shown().size()}), &"Ghost")
 	clues_b.name = "Clues"
@@ -120,6 +191,16 @@ func _build(m: Match, d: Director) -> void:
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sc.add_child(list)
 	box.add_child(sc)
+	var story := story_lines(m)
+	if not story.is_empty():
+		var history_card := W.panel(&"Page")
+		history_card.name = "CampaignStory"
+		var history_box := W.vbox(5)
+		history_box.add_child(W.label(story_heading(), &"Speaker"))
+		for line: String in story:
+			history_box.add_child(W.label(line, &"Small"))
+		history_card.add_child(history_box)
+		list.add_child(history_card)
 	# сначала живые (подозрительные выше), потом ушедшие
 	var people: Array[Villager] = []
 	for v: Villager in m.villagers:
@@ -151,5 +232,12 @@ func close() -> void:
 	if _closed:
 		return
 	_closed = true
+	Game.release(_hold_key)
 	Diag.step("дневник: закрыт")
 	queue_free()
+
+
+func _exit_tree() -> void:
+	if not _closed and _hold_key != &"":
+		_closed = true
+		Game.release(_hold_key)

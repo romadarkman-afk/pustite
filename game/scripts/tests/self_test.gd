@@ -6564,6 +6564,16 @@ static func diary() -> void:
 		m0.admit(s, none)
 	var r := m0.resolve_night()
 	d0.read_report(r)
+	m0.chapter_id = "a1c1"
+	var chapter_story := DiarySheet.story_lines(m0)
+	ok += _expect(fails, chapter_story.has(L.t("camp.a1c1.title")) and not chapter_story.has(L.t("camp.a1c2.title")),
+		"дневник: начало главы отсутствует или следующая глава раскрыта")
+	ok += _expect(fails, SocialContent.question_answers("night") != SocialContent.question_answers("trust")
+		and SocialContent.question_answers("family").size() == 3 and SocialContent.question_answers("escape").size() == 3,
+		"диалог: быстрые ответы не зависят от темы")
+	var signature_before := DiarySheet.signature(m0, d0)
+	liar.story_step = 1
+	ok += _expect(fails, DiarySheet.signature(m0, d0) != signature_before, "дневник: новая история не меняет отметку")
 	var f := "\n".join(DiarySheet.facts(m0, d0, liar))
 	var where := "улица" if liar.night_house < 0 else m0.house_name(liar.night_house)
 	ok += _expect(fails, f.contains("Ночи: 1 — %s" % where), "в дневнике нет, где житель ночевал: «%s»" % f)
@@ -6604,6 +6614,8 @@ static func diary() -> void:
 	var m := Game.m
 	var day := Nav.host.current as DayScreen
 	var btn := _find_button(day, "Дневник")
+	day._refresh_diary_badge()
+	ok += _expect(fails, btn != null and btn.text.ends_with("•"), "дневник: новые сведения не отмечены")
 	ok += _expect(fails, btn != null, "на экране дня нет кнопки «Дневник»")
 	if btn != null:
 		btn.pressed.emit()
@@ -6614,6 +6626,8 @@ static func diary() -> void:
 				ds = ch2
 		ok += _expect(fails, ds != null and ds.cards.size() == m.villagers.size() - 1, "в дневнике не все жители")
 		if ds != null:
+			ok += _expect(fails, Game.held_by(ds._hold_key) and not btn.text.ends_with("•"),
+				"дневник: чтение не остановило время или отметка не исчезла")
 			var vp := Nav.frame.get_viewport_rect().size
 			var inside := true
 			for card: Control in ds.cards.values():
@@ -6621,8 +6635,16 @@ static func diary() -> void:
 				if cr.position.x < -1.0 or cr.end.x > vp.x + 1.0:
 					inside = false
 			ok += _expect(fails, inside, "карточки дневника вылезают за экран")
+			var diary_hold := ds._hold_key
 			ds.close()
 			await _frames(tree, 2)
+			ok += _expect(fails, not Game.held_by(diary_hold), "дневник: время осталось на паузе")
+			var resident: Villager = m.alive_bots()[0]
+			var old_step := resident.story_step
+			resident.story_step = 1
+			day._refresh_diary_badge()
+			ok += _expect(fails, btn.text.ends_with("•"), "дневник: новая история не отмечена")
+			resident.story_step = old_step
 	# обещание из карточки жителя (TASK-004): пункт в шторке, фраза игрока, ответ жителя
 	var pt: Villager = m.alive_bots()[0]
 	day.person_actions(pt)

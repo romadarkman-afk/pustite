@@ -157,6 +157,11 @@ func _build_host() -> void:
 	_tal.level_of = func() -> int: return m.talisman[seat.house] if seat.house >= 0 and seat.house < m.talisman.size() else Match.TALISMAN_MAX
 	_tal.revealed.connect(func(_lvl: int) -> void: _touched = true)
 	_box.add_child(_tal)
+	if not Save.hint_seen("door_tools"):
+		var help := W.label(L.t("door.candle_info") + "\n" + L.t("door.tal_hint"), &"Small")
+		help.name = "DoorToolsGuide"
+		_box.add_child(help)
+		Save.mark_hint("door_tools")
 	if not dilemma.is_empty():
 		_box.add_child(dilemma_card(m, dilemma))
 

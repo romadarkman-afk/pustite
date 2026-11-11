@@ -97,6 +97,12 @@ func _event_label() -> void:
 		var l := W.icon_line(MorningScreen.event_glyph(m.night_event), Match.event_title(m.night_event), &"Hint")
 		l.name = "Event"
 		body.add_child(l)
+		var help_id := "night_event_%d" % int(m.night_event)
+		if not Save.hint_seen(help_id):
+			var guide := W.label(Match.event_text(m.night_event), &"Small")
+			guide.name = "EventGuide"
+			body.add_child(guide)
+			Save.mark_hint(help_id)
 
 
 ## После изгнания из леса зовут тебя по имени. Изгнанный человек зовёт почти всегда, упырь — иногда.

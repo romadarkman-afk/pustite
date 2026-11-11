@@ -36,6 +36,7 @@ var _preserve_checkpoint_on_abandon := false
 
 ## Дела дня. Время дня идёт вместе с часами фазы: пауза — стоят и дела.
 var tasks: Array[Director.JobTask] = []
+var diary_seen_signature: String = ""
 var chapter: Dictionary = {}        ## глава кампании (Campaign.chapter) или {} — обычная партия
 var chapter_result: Dictionary = {}
 var progress_result: Dictionary = {} ## опыт и достижения этой партии (Progress.record) ## итог главы: пройдена, звёзды, цели
@@ -82,6 +83,7 @@ func active() -> bool:
 func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = {}, varied_solo_map: bool = false) -> void:
 	abandon()
 	chapter = chapter_data
+	diary_seen_signature = ""
 	chapter_result = {}
 	progress_result = {}
 	Dread.reset()
