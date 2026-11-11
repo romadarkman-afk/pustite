@@ -141,6 +141,9 @@ func _build(m: Match, d: Director) -> void:
 	var box := W.vbox(10)
 	sheet.add_child(box)
 	box.add_child(W.label(L.t("diary.head"), &"Hint"))
+	if not Save.hint_seen("diary_clues"):
+		box.add_child(W.label(L.t("clue.hint"), &"Small"))
+		Save.mark_hint("diary_clues")
 	# тетрадь улик (TASK-017): записи и противоречия
 	var clues_b := W.button(L.t("clue.btn", {"n": m.clues.shown().size()}), &"Ghost")
 	clues_b.name = "Clues"
