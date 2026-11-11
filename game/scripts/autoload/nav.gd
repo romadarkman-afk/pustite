@@ -844,8 +844,10 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			if Game.m == null:
 				return
 			var day_play: bool = sender is DayScreen and Game.m.player().alive and Game.m.phase == Match.Phase.DAY
+			var ji := village.jobs_layer.job_at(data.pos) if day_play else -1
+			var on_job_icon := ji >= 0 and village.jobs_layer.icon_rect_global(ji).has_point(data.pos)
 			var bubble: Bubbles.Bubble = bubbles.bubble_at(data.pos) if day_play else null
-			if bubble != null and bubble.entry != null:
+			if bubble != null and bubble.entry != null and not on_job_icon:
 				var selected: Array[ChatLine] = [bubble.entry]
 				JournalSheet.open(sender, selected)
 				return
@@ -857,7 +859,6 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 				(sender as DayScreen).npc_actions(nid)
 				return
 			# значок дела нарисован поверх жителей: палец на значке — это дело, даже если под ним кто-то стоит
-			var ji := village.jobs_layer.job_at(data.pos) if day_play else -1
 			if ji >= 0 and (vid < 0 or village.jobs_layer.icon_rect_global(ji).has_point(data.pos)):
 				_hint_done(sender, action)
 				if Game.m.player().is_upyr and Game.m.can_sabotage(ji):

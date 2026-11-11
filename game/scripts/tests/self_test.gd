@@ -2567,7 +2567,19 @@ static func bubbles() -> void:
 			else:
 				if preview.full_text != long_text or preview.text == long_text or not preview.text.ends_with("…"):
 					problems.append("%s: короткая реплика не сохраняет полный текст" % tag)
-				Nav.handle_intent(Intent.FIELD_TAP, {"pos": preview.rect.get_center()}, Nav.host.current)
+				var open_pos := preview.rect.get_center()
+				var found_open_pos := false
+				for yy in range(4):
+					for xx in range(4):
+						var sample := preview.rect.position + preview.rect.size * Vector2((xx + 0.5) / 4.0, (yy + 0.5) / 4.0)
+						var job_at_sample := Nav.village.jobs_layer.job_at(sample)
+						if job_at_sample < 0 or not Nav.village.jobs_layer.icon_rect_global(job_at_sample).has_point(sample):
+							open_pos = sample
+							found_open_pos = true
+							break
+					if found_open_pos:
+						break
+				Nav.handle_intent(Intent.FIELD_TAP, {"pos": open_pos}, Nav.host.current)
 				await tree.process_frame
 				var sheet := Nav.host.current.find_child("JournalSheet", true, false) as JournalSheet
 				if sheet == null:
@@ -2579,6 +2591,20 @@ static func bubbles() -> void:
 					sheet.close()
 					if Game.held_by(held_key):
 						problems.append("%s: таймер не продолжился после закрытия реплики" % tag)
+			Nav.bubbles.clear()
+			await _frames(tree, 2)
+			var wood := Game.m.job_index(&"wood")
+			var icon_pos := Nav.village.jobs_layer.icon_rect_global(wood).get_center()
+			var over_icon := Bubbles.Bubble.new()
+			over_icon.rect = Rect2(icon_pos - Vector2(24, 24), Vector2(48, 48))
+			over_icon.entry = original
+			Nav.bubbles.bubbles.append(over_icon)
+			Nav.handle_intent(Intent.FIELD_TAP, {"pos": icon_pos}, Nav.host.current)
+			await tree.process_frame
+			checks += 1
+			if Game.player_job != wood or Nav.host.current.find_child("JournalSheet", true, false) != null:
+				problems.append("%s: пузырь перекрыл нажатие на значок дела" % tag)
+			Game.cancel_player_job()
 			Nav.bubbles.clear()
 		for k in range(14):
 			var who: Villager = speakers[rng.randi_range(0, speakers.size() - 1)]
