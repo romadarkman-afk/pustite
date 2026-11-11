@@ -24,20 +24,30 @@ static func story_lines(m: Match) -> PackedStringArray:
 	var current := Campaign.ORDER.find(m.chapter_id)
 	if current < 0:
 		return out
-	if Slides.seen("prologue"):
-		for panel: Dictionary in Slides.panels("prologue"):
-			for line: Dictionary in panel.get("lines", []):
-				var text := Slides.text(String(line.get("key", "")))
-				if not text.is_empty():
-					out.append(text)
+	_append_seen_deck(out, "prologue")
 	for i in range(current + 1):
 		var id := Campaign.ORDER[i]
 		if i != current and not Save.campaign_stars.has(id):
 			continue
+		if id.ends_with("c1"):
+			_append_seen_deck(out, "act%d_intro" % int(id.substr(1, 1)))
 		out.append(L.t("camp.%s.title" % id))
 		out.append(L.t("camp.%s.beat1" % id))
 		out.append(L.t("camp.%s.beat2" % id))
+		_append_seen_deck(out, id + "_intro")
+		if i < current:
+			_append_seen_deck(out, id + "_win")
 	return out
+
+
+static func _append_seen_deck(out: PackedStringArray, id: String) -> void:
+	if not Slides.seen(id):
+		return
+	for panel: Dictionary in Slides.panels(id):
+		for line: Dictionary in panel.get("lines", []):
+			var text := Slides.text(String(line.get("key", "")))
+			if not text.is_empty():
+				out.append(text)
 
 
 ## Сравниваем только информацию, доступную игроку, не скрытые роли.
