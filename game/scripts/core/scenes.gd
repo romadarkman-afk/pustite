@@ -134,15 +134,17 @@ static func river(m: Match) -> Dictionary:
 
 ## Сразу после выбора у реки: темнота и стук. Длинный звук тишины перед первым ударом.
 static func first_knock(answered: bool) -> Dictionary:
-	return {
-		"id": "a1c1_knock",
-		"frames": [
-			{"art": art("door_inside_night"), "zoom": [1.0, 1.06], "light": "night",
-			 "lines": [{"text": L.t("sc.river.4" if not answered else "sc.river.4b")}, {"text": L.t("sc.river.5"), "hold": 1.6}],
-			 "sound": [snd_silence(0.0, 0.6), snd_start("amb", "amb_night", 0.4, 1.5),
-				snd_play("floorboard", 1.5, -16.0), snd_play("knock", 2.4, -2.0)]},
-		],
-	}
+	var frames: Array = [
+		{"art": art("door_inside_night"), "zoom": [1.0, 1.06], "light": "night",
+		 "lines": [{"text": L.t("sc.river.4" if not answered else "sc.river.4b")}, {"text": L.t("sc.river.5"), "hold": 1.6}],
+		 "sound": [snd_silence(0.0, 0.6), snd_start("amb", "amb_night", 0.4, 1.5),
+			snd_play("floorboard", 1.5, -16.0), snd_play("knock", 2.4, -2.0)]},
+	]
+	if answered:
+		frames.append({"art": art("door_inside_night"), "light": "night",
+			"lines": [{"text": L.t("sc.river.echo")}],
+			"sound": [snd_keep(), snd_play("breath_2", 0.6, -16.0)]})
+	return {"id": "a1c1_knock", "frames": frames, "compact_subtitles": true}
 
 
 ## Сцена 3 главы «Стук»: первое утро. Три исхода первой ночи — три разных утра (TASK-013).
@@ -179,7 +181,24 @@ static func first_morning(m: Match) -> Dictionary:
 				else:
 					frames.append({"light": "dawn", "lines": [{"text": L.t("sc.m1.refuse.3", {"who": who})}],
 						"sound": [snd_start("amb", "amb_dusk", 0.0, 2.0)]})
-	return {"id": "a1c1_morning_" + String(kind.kind), "frames": frames}
+	var result := {"id": "a1c1_morning_" + String(kind.kind), "frames": frames,
+		"person_id": who.id if who != null else -1, "show_world": true, "compact_subtitles": true}
+	if who != null and who.alive:
+		result["choice"] = {"prompt": L.t("sc.m1.choice"), "options": [
+			{"id": "warm", "text": L.t("sc.m1.warm")}, {"id": "wary", "text": L.t("sc.m1.wary")}]}
+	return result
+
+
+## Житель отвечает после выбора. Его портрет и поселок остаются на экране.
+static func first_morning_reply(m: Match, sc: Dictionary, choice: String) -> Dictionary:
+	if not String(sc.get("id", "")).begins_with("a1c1_morning_") or choice not in ["warm", "wary"]:
+		return {}
+	var who := m.get_villager(int(sc.get("person_id", -1)))
+	if who == null or not who.alive:
+		return {}
+	return {"id": "a1c1_morning_reply", "show_world": true, "compact_subtitles": true,
+		"frames": [{"portrait": who, "light": "dawn",
+			"lines": [{"who": who.name, "text": L.t("sc.m1.reply_" + choice)}], "sound": [snd_keep()]}]}
 
 
 ## Чем кончилась первая ночь у двери игрока: {"kind": admit | close | refuse, "who": id}.

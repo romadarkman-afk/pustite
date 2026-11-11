@@ -6623,6 +6623,16 @@ static func diary() -> void:
 # =============================================================
 # Разбор партии (Task 38): почему ты погиб, что решило партию, лента по ночам.
 # =============================================================
+static func chapter_one() -> void:
+	var tree := Nav.get_tree()
+	tree.root.size = Vector2i(1080, 2340)
+	await _frames(tree, 3)
+	Nav.frame.refresh()
+	var fails: PackedStringArray = []
+	var ok := await PlanTests.chapter_one(tree, fails)
+	_finish(fails, ok, "глава «Стук»", "выборы, память и первое утро")
+
+
 static func recap() -> void:
 	var tree := Nav.get_tree()
 	var fails: PackedStringArray = []

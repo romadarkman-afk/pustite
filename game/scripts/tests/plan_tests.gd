@@ -772,10 +772,22 @@ static func chapter_one(tree: SceneTree, fails: PackedStringArray) -> int:
 	var outcome := Scenes.first_night_outcome(Game.m)
 	ok += SelfTest._expect(fails, mo != null and mo.scene_shown == "a1c1_morning_" + String(outcome.kind) and int(outcome.who) == g.id,
 		"глава «Стук»: сцена утра не та, что вышла ночью")
+	var morning_choice := false
 	for i in range(400):
 		if mo == null or mo.revealed:
 			break
+		for node: Node in mo.find_children("*", "ScenePlayer", true, false):
+			var player := node as ScenePlayer
+			if player._in_choice and String(player.scene.get("id", "")).begins_with("a1c1_morning_"):
+				player.choose("warm")
+				morning_choice = true
 		await tree.process_frame
+	if g.alive:
+		var morning_event := Game.m.world.last(WorldLog.Kind.CHOICE, 0)
+		ok += SelfTest._expect(fails, morning_choice and mo.revealed and morning_event != null
+			and String(morning_event.info.get("choice", "")) == "warm", "глава «Стук»: выбор утром не завершился")
+	ok += SelfTest._expect(fails, (Scenes.first_knock(true).frames as Array).size() == (Scenes.first_knock(false).frames as Array).size() + 1,
+		"глава «Стук»: ответ у реки не меняет сцену стука")
 	# три исхода — три разных утра
 	var kinds := {}
 	for sd in range(1, 40):
@@ -827,6 +839,44 @@ static func chapter_one(tree: SceneTree, fails: PackedStringArray) -> int:
 	ok += SelfTest._expect(fails, not mem.is_empty() and mem.size() <= 4, "итог главы: нет строк «Их память»")
 	Game.m.winner = Match.Team.PEOPLE
 	Game.chapter_result = Campaign.finish(Game.m, Game.chapter, Game.director)
+	ok += SelfTest._expect(fails, Campaign.river_choice() == "answer", "глава «Стук»: ответ у реки не сохранился")
+	Save.load_all()
+	ok += SelfTest._expect(fails, Campaign.river_choice() == "answer", "глава «Стук»: ответ у реки пропал после чтения сохранения")
+	var saved_mem := Save.campaign_memory.duplicate(true)
+	var cm := Match.new()
+	cm.cast.assign([0, 1, 2, 3, 4, 5, 6])
+	cm.start(Campaign.config("a1c2"), 9182)
+	cm.begin_day()
+	var cd := Director.new()
+	cd.attach(cm)
+	cd.chapter_id = "a1c2"
+	var anchor: Villager = null
+	for v: Villager in cm.alive_bots():
+		if v.story_id == 0 and v.guest_id.is_empty():
+			anchor = v
+			break
+	if anchor != null:
+		var before_trust: float = cd.brains[anchor.id].private_delta.get(0, 0.0)
+		cd.first_morning_answer(anchor, "warm")
+		var after_warm: float = cd.brains[anchor.id].private_delta.get(0, 0.0)
+		cd.first_morning_answer(anchor, "wary")
+		ok += SelfTest._expect(fails, after_warm < before_trust
+			and is_equal_approx(cd.brains[anchor.id].private_delta.get(0, 0.0), before_trust),
+			"глава «Стук»: утренний разговор не меняет доверие")
+		var recalled := cd.chapter_lines()
+		ok += SelfTest._expect(fails, recalled.any(func(l: ChatLine) -> bool: return l.speaker == anchor and l.text == L.t("sc.river.carry_answer")),
+			"глава «Туман»: перевозчица не вспомнила ответ у реки")
+		Save.campaign_memory.assign([{"ch": "a1c1", "kind": "river_silent", "who": -1, "day": 1, "knew": []}])
+		recalled = cd.chapter_lines()
+		ok += SelfTest._expect(fails, recalled.any(func(l: ChatLine) -> bool: return l.speaker == anchor and l.text == L.t("sc.river.carry_silent")),
+			"глава «Туман»: перевозчица не вспомнила молчание у реки")
+		anchor.alive = false
+		recalled = cd.chapter_lines()
+		ok += SelfTest._expect(fails, not recalled.any(func(l: ChatLine) -> bool: return l.speaker == anchor),
+			"глава «Туман»: погибшая перевозчица говорит")
+	Save.campaign_memory.clear()
+	ok += SelfTest._expect(fails, Campaign.river_choice().is_empty(), "старое сохранение выдумало ответ у реки")
+	Save.campaign_memory.assign(saved_mem)
 	Game.m.phase = Match.Phase.OVER
 	Nav.show(EndScreen.new())
 	await SelfTest._frames(tree, 4)

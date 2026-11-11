@@ -120,6 +120,8 @@ func _build() -> void:
 	box.add_child(_who)
 	_text = W.label("", &"Tale")
 	_text.name = "Line"
+	if bool(scene.get("compact_subtitles", false)):
+		_text.add_theme_font_size_override("font_size", ThemeFactory.fs(19))
 	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(_text)
 	_choices = W.vbox(10)
@@ -166,7 +168,7 @@ func _next_frame() -> void:
 		tex = load(art_path) as Texture2D
 	_art.texture = tex
 	_art.visible = tex != null
-	_dim.color.a = 1.0 if tex != null else 0.92        # без картинки: экран под сценой едва виден
+	_dim.color.a = 1.0 if tex != null else (0.62 if bool(scene.get("show_world", false)) else 0.92)
 	var zoom: Array = f.get("zoom", [1.0, 1.08])
 	_art.pivot_offset = get_viewport_rect().size * 0.5
 	_art.scale = Vector2.ONE * float(zoom[0])
@@ -253,6 +255,8 @@ func _end_frames() -> void:
 		c.queue_free()
 	for o: Dictionary in opts:
 		var b := W.button(String(o.text), &"Row")
+		if bool(scene.get("compact_subtitles", false)):
+			b.add_theme_font_size_override("font_size", ThemeFactory.fs(17))
 		b.name = "Choice_" + String(o.id)
 		var oid := String(o.id)
 		b.pressed.connect(func() -> void: choose(oid))
