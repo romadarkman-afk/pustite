@@ -24,6 +24,12 @@ static func story_lines(m: Match) -> PackedStringArray:
 	var current := Campaign.ORDER.find(m.chapter_id)
 	if current < 0:
 		return out
+	if Slides.seen("prologue"):
+		for panel: Dictionary in Slides.panels("prologue"):
+			for line: Dictionary in panel.get("lines", []):
+				var text := Slides.text(String(line.get("key", "")))
+				if not text.is_empty():
+					out.append(text)
 	for i in range(current + 1):
 		var id := Campaign.ORDER[i]
 		if i != current and not Save.campaign_stars.has(id):
@@ -59,6 +65,19 @@ static func facts(m: Match, d: Director, v: Villager) -> PackedStringArray:
 	if not v.is_player and v.story_id >= 0:
 		out.append(SocialContent.person_title(v))
 		out.append(SocialContent.story(v.story_id, v))
+		var current_chapter := Campaign.ORDER.find(m.chapter_id)
+		if current_chapter >= 0:
+			var count := 0
+			var memories := Save.memory_of(v.story_id)
+			memories.reverse()
+			for rec: Dictionary in memories:
+				var rec_chapter := Campaign.ORDER.find(String(rec.get("ch", "")))
+				var key := "book.mem_" + String(rec.get("kind", ""))
+				if rec_chapter >= 0 and rec_chapter < current_chapter and L.has(key):
+					out.append(L.t(key, {"who": v, "n": rec_chapter + 1}))
+					count += 1
+					if count >= 3:
+						break
 		for step in range(1, v.story_step + 1):
 			out.append(SocialContent.personal_chapter(v, step))
 		var bond := SocialContent.bond_text(v, m)
