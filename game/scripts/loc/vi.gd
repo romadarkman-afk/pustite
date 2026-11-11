@@ -1163,7 +1163,7 @@ func data() -> Dictionary:
 		"sc.m1.close.1": "Gần sáng, một tấm ván kêu cót két. Có ai đứng cạnh giường bạn.",
 		"sc.m1.close.2": "Sau vách, hàng xóm ho. Tiếng bước chân lùi về phía bếp.",
 		"sc.m1.close.3": "Sáng ra, {who} nói đêm qua không hề dậy.",
-		"sc.m1.refuse.1": "Dấu chân trên tuyết trước cửa. Có người đã đứng rất lâu ở ngưỡng cửa.",
+		"sc.m1.refuse.1": "Dấu chân trên đất trước cửa. Có người đã đứng rất lâu ở ngưỡng cửa.",
 		"sc.m1.refuse.2": "Tôi đã gõ. Cửa không bao giờ mở. Tôi sẽ nhớ.",
 		"sc.m1.refuse.3": "Dấu chân dừng ở con đường. {who} không trở về.",
 		"door.ask": "Ai đó?",

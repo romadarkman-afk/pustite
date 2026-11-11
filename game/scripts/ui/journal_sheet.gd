@@ -5,10 +5,12 @@ extends Control
 
 var list: VBoxContainer
 var _closed := false
+var _hold_key: StringName
 
 
 static func open(parent: Control, lines: Array[ChatLine]) -> JournalSheet:
 	var s := JournalSheet.new()
+	s.name = "JournalSheet"
 	parent.add_child(s)
 	s._build(lines)
 	return s
@@ -33,6 +35,8 @@ static func line_row(line: ChatLine) -> Control:
 
 func _build(lines: Array[ChatLine]) -> void:
 	Diag.step("журнал: открыт")
+	_hold_key = StringName("journal_%d" % get_instance_id())
+	Game.hold(_hold_key)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var dim := ColorRect.new()
@@ -75,5 +79,12 @@ func close() -> void:
 	if _closed:
 		return
 	_closed = true
+	Game.release(_hold_key)
 	Diag.step("журнал: закрыт")
 	queue_free()
+
+
+func _exit_tree() -> void:
+	if not _closed and _hold_key != &"":
+		_closed = true
+		Game.release(_hold_key)

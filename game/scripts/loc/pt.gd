@@ -1163,7 +1163,7 @@ func data() -> Dictionary:
 		"sc.m1.close.1": "Antes do amanhecer uma tábua range. Alguém está ao lado do seu banco.",
 		"sc.m1.close.2": "Atrás da parede um vizinho tosse. Os passos voltam ao fogão.",
 		"sc.m1.close.3": "De manhã {who} diz que não se levantou à noite.",
-		"sc.m1.refuse.1": "Pegadas na neve junto à porta. Alguém ficou muito tempo na soleira.",
+		"sc.m1.refuse.1": "Pegadas no chão junto à porta. Alguém ficou muito tempo na soleira.",
 		"sc.m1.refuse.2": "Eu bati. A porta nunca abriu. Vou lembrar.",
 		"sc.m1.refuse.3": "As pegadas acabam na estrada. {who} não voltou.",
 		"door.ask": "Quem é?",

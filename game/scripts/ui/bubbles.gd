@@ -8,6 +8,8 @@ const FONT_SIZE := 14        ## компактнее, но учитывает н
 const NAME_SIZE := 11
 const PAD := Vector2(9, 6)
 const MAX_ON_SCREEN := 2
+const PREVIEW_LINES := 2
+const BREAK_FLAGS := TextServer.BREAK_MANDATORY | TextServer.BREAK_WORD_BOUND | TextServer.BREAK_ADAPTIVE
 const GAP := 6.0
 const MAX_SHARE := 0.15     ## длинная реплика расширяется, чтобы занимать меньше высоты
 const WIDE_SHARE := 0.68     ## ограничивает площадь карты под пузырями
@@ -16,7 +18,9 @@ const FADE_OUT := 0.2
 
 class Bubble:
 	var who: String
-	var text: String
+	var text: String          ## короткая видимая часть
+	var full_text: String     ## полная реплика для чтения
+	var entry: ChatLine       ## исходная строка журнала
 	var mine: bool
 	var rect: Rect2
 	var anchor: Vector2
@@ -56,7 +60,7 @@ func alive() -> Array[Bubble]:
 
 
 ## Новая реплика. head — точка над головой говорящего в координатах экрана.
-func say(who: String, text: String, head: Vector2, mine: bool, fig: Node2D = null) -> Bubble:
+func say(who: String, text: String, head: Vector2, mine: bool, fig: Node2D = null, entry: ChatLine = null) -> Bubble:
 	if field.size.x <= 0.0:
 		return null
 	for b: Bubble in bubbles:
@@ -65,17 +69,12 @@ func say(who: String, text: String, head: Vector2, mine: bool, fig: Node2D = nul
 	var fsz := ThemeFactory.fs(FONT_SIZE)
 	var nsz := ThemeFactory.fs(NAME_SIZE)
 	var maxw := minf(270.0 * ThemeFactory.text_scale, field.size.x * minf(0.56, 0.46 * ThemeFactory.text_scale))
-	var inner := maxw - PAD.x * 2.0
-	var ts := _font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, inner, fsz)
-	# Узкий экран (телефон с большой плотностью даёт всего ~590 единиц): длинная реплика в узком столбце
-	# занимала треть поля. Пока пузырь выше MAX_SHARE поля, он расширяется до WIDE_SHARE ширины.
-	var cap_w := minf(field.size.x - 8.0, field.size.x * WIDE_SHARE)
-	while maxw < cap_w and ts.y + nsz + 4.0 + PAD.y * 2.0 > field.size.y * MAX_SHARE:
-		maxw = minf(cap_w, maxw + 32.0)
-		inner = maxw - PAD.x * 2.0
-		ts = _font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, inner, fsz)
+	var inner := maxf(1.0, maxw - PAD.x * 2.0)
+	# На карте показываем до двух строк; целая реплика остаётся в журнале и открывается по нажатию.
+	var preview := _preview(text, inner, fsz)
+	var ts := _font.get_multiline_string_size(preview, HORIZONTAL_ALIGNMENT_LEFT, inner, fsz, -1, BREAK_FLAGS)
 	var nw := _font.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, nsz).x
-	var w := ceilf(maxf(ts.x, nw)) + PAD.x * 2.0
+	var w := minf(field.size.x - 8.0, ceilf(maxf(ts.x, nw)) + PAD.x * 2.0)
 	var h := ceilf(ts.y) + nsz + 4.0 + PAD.y * 2.0
 	var x := clampf(head.x - w * 0.5, field.position.x + 4.0, field.end.x - 4.0 - w)
 	var y0 := minf(head.y - 12.0 - h, field.end.y - h - 4.0)
@@ -94,7 +93,9 @@ func say(who: String, text: String, head: Vector2, mine: bool, fig: Node2D = nul
 		hit2 = _first_overlap(r)
 	var b := Bubble.new()
 	b.who = who
-	b.text = text
+	b.text = preview
+	b.full_text = text
+	b.entry = entry
 	b.mine = mine
 	b.rect = r
 	b.anchor = head
@@ -111,6 +112,38 @@ func say(who: String, text: String, head: Vector2, mine: bool, fig: Node2D = nul
 		_kill(_oldest())
 	queue_redraw()
 	return b
+
+
+## Подбирает границу по реальной ширине шрифта, учитывая переносы и крупный текст.
+func _preview(text: String, width: float, font_size: int) -> String:
+	var full := _font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, width, font_size, -1, BREAK_FLAGS)
+	var two_lines := _font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, width, font_size, PREVIEW_LINES, BREAK_FLAGS)
+	if full.y <= two_lines.y + 0.5 and full.x <= width + 0.5:
+		return text
+	var low := 0
+	var high := text.length()
+	while low < high:
+		var middle: int = (low + high + 1) >> 1
+		var sample := text.substr(0, middle).strip_edges() + "…"
+		var measured := _font.get_multiline_string_size(sample, HORIZONTAL_ALIGNMENT_LEFT, width, font_size, -1, BREAK_FLAGS)
+		if measured.y <= two_lines.y + 0.5 and measured.x <= width + 0.5:
+			low = middle
+		else:
+			high = middle - 1
+	var shown := text.substr(0, low).strip_edges()
+	var boundary := maxi(shown.rfind(" "), shown.rfind("\n"))
+	if boundary > 0 and shown.length() - boundary <= 10:
+		shown = shown.left(boundary).strip_edges()
+	return shown + "…"
+
+
+## Экранные координаты совпадают с координатами поля в Nav.
+func bubble_at(point: Vector2) -> Bubble:
+	for i in range(bubbles.size() - 1, -1, -1):
+		var bubble := bubbles[i]
+		if not bubble.dying and bubble.rect.has_point(point):
+			return bubble
+	return null
 
 
 ## Пузырь сдвинулся за говорящим и наехал на соседа — встать над ним.
@@ -208,12 +241,12 @@ func _draw() -> void:
 		var bg := Color("20302a") if b.mine else ThemeFactory.PANEL_2
 		var edge := ThemeFactory.LAMP_D if b.mine else ThemeFactory.EDGE
 		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(bg, 0.78 * a)
+		sb.bg_color = Color(bg, 0.72 * a)
 		sb.border_color = Color(edge, 0.82 * a)
 		sb.set_border_width_all(1)
 		sb.set_corner_radius_all(10)
 		var tip := Vector2(b.tail_x, b.rect.end.y + 9.0)
-		draw_colored_polygon(PackedVector2Array([Vector2(b.tail_x - 7, b.rect.end.y - 1), Vector2(b.tail_x + 7, b.rect.end.y - 1), tip]), Color(bg, 0.78 * a))
+		draw_colored_polygon(PackedVector2Array([Vector2(b.tail_x - 7, b.rect.end.y - 1), Vector2(b.tail_x + 7, b.rect.end.y - 1), tip]), Color(bg, 0.72 * a))
 		draw_style_box(sb, b.rect)
 		# говорящий за краем кадра — стрелка в его сторону
 		if b.anchor.x < field.position.x or b.anchor.x > field.end.x:
@@ -227,5 +260,5 @@ func _draw() -> void:
 		draw_string(_font, Vector2(x, y + _font.get_ascent(b.nsize)), b.who, HORIZONTAL_ALIGNMENT_LEFT, -1, b.nsize,
 			Color(ThemeFactory.LAMP if b.mine else ThemeFactory.LAMP_D, a))
 		draw_multiline_string(_font, Vector2(x, y + b.nsize + 4.0 + _font.get_ascent(b.fsize)), b.text,
-			HORIZONTAL_ALIGNMENT_LEFT, b.text_w, b.fsize, -1, Color(ThemeFactory.BONE, a))
+			HORIZONTAL_ALIGNMENT_LEFT, b.text_w, b.fsize, -1, Color(ThemeFactory.BONE, a), BREAK_FLAGS)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

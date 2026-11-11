@@ -635,11 +635,11 @@ func _on_chat(line: ChatLine) -> void:
 		var npc: Npc = village.crowd.npcs.get(line.npc_id) if not line.npc_id.is_empty() else null
 		if npc != null and npc.visible:
 			npc.poke()
-			bubbles.say(npc.who, line.npc_text, npc.get_global_transform_with_canvas() * Vector2(0, -VillagerFigure.FIG_TOP), false, npc)
+			bubbles.say(npc.who, line.npc_text, npc.get_global_transform_with_canvas() * Vector2(0, -VillagerFigure.FIG_TOP), false, npc, line)
 		if line.speaker != null and village.crowd.figures.has(line.speaker.id):
 			var f: VillagerFigure = village.crowd.figures[line.speaker.id]
 			village.crowd.turn_to(f.position.x, [line.speaker.id] as Array[int], 260.0, 2.2)
-			var b := bubbles.say(line.speaker.name, line.text, f.head_global(), line.speaker.is_player, f)
+			var b := bubbles.say(line.speaker.name, line.text, f.head_global(), line.speaker.is_player, f, line)
 			f.talk(b.life if b != null else 2.5)
 			if not line.emotion.is_empty():
 				f.set_emotion(line.emotion, b.life if b != null else 4.0)
@@ -844,6 +844,11 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			if Game.m == null:
 				return
 			var day_play: bool = sender is DayScreen and Game.m.player().alive and Game.m.phase == Match.Phase.DAY
+			var bubble: Bubbles.Bubble = bubbles.bubble_at(data.pos) if day_play else null
+			if bubble != null and bubble.entry != null:
+				var selected: Array[ChatLine] = [bubble.entry]
+				JournalSheet.open(sender, selected)
+				return
 			var nid := village.crowd.npc_at(data.pos) if vid < 0 and day_play else ""
 			if not nid.is_empty():
 				village.crowd.npcs[nid].poke()          # хозяин места: один вопрос в день (TASK-021, 027)

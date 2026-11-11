@@ -2550,6 +2550,36 @@ static func bubbles() -> void:
 		if fld.size.y < 150.0:
 			problems.append("%s: поле для пузырей не задано или мало (%s)" % [tag, fld])
 			continue
+		if sz == Vector2i(720, 1280):
+			Nav.bubbles.clear()
+			var speaker: Villager = speakers[1]
+			var long_text := "Мы собирались уехать вместе после свадьбы. Теперь прошу только об одном: оставьте нам два места рядом. В темноте я больше никому не верю."
+			var original := ChatLine.say(speaker, long_text)
+			Game.m.post(original)
+			await tree.process_frame
+			var preview: Bubbles.Bubble = null
+			for candidate: Bubbles.Bubble in Nav.bubbles.alive():
+				if candidate.entry == original:
+					preview = candidate
+			checks += 3
+			if preview == null:
+				problems.append("%s: длинная реплика не показана" % tag)
+			else:
+				if preview.full_text != long_text or preview.text == long_text or not preview.text.ends_with("…"):
+					problems.append("%s: короткая реплика не сохраняет полный текст" % tag)
+				Nav.handle_intent(Intent.FIELD_TAP, {"pos": preview.rect.get_center()}, Nav.host.current)
+				await tree.process_frame
+				var sheet := Nav.host.current.find_child("JournalSheet", true, false) as JournalSheet
+				if sheet == null:
+					problems.append("%s: нажатие на реплику не открыло полный текст" % tag)
+				else:
+					var held_key := sheet._hold_key
+					if sheet.list.get_child_count() != 1 or not Game.held_by(held_key):
+						problems.append("%s: полная реплика не показана или таймер не остановлен" % tag)
+					sheet.close()
+					if Game.held_by(held_key):
+						problems.append("%s: таймер не продолжился после закрытия реплики" % tag)
+			Nav.bubbles.clear()
 		for k in range(14):
 			var who: Villager = speakers[rng.randi_range(0, speakers.size() - 1)]
 			var text: String = Phrases.fill(texts[rng.randi_range(0, texts.size() - 1)], {"who": "Тимур", "house": "Сарай", "me_f": who.female})
@@ -3761,11 +3791,26 @@ static func lights() -> void:
 	view.set_simplified_graphics(false)
 	view.night = 0.0
 	for halo: LightHalo in view._lamp_glows + view._house_glows:
-		ok += _expect(fails, halo.color == Color("ff9e2c"), "ореол не янтарный: %s" % halo.color)
+		ok += _expect(fails, halo.color == view.def.lamp_color, "ореол не совпадает с цветом фонаря карты: %s" % halo.color)
 		ok += _expect(fails, halo._sprite != null and halo._sprite.material is CanvasItemMaterial \
 			and (halo._sprite.material as CanvasItemMaterial).blend_mode == CanvasItemMaterial.BLEND_MODE_ADD, "ореол не использует аддитивный материал")
 	view.set_night(1.0)
 	ok += _expect(fails, Nav._grade_material.get_shader_parameter("strength") > 0.99, "ночной цветовой слой не включён")
+	# На переходе в сумерки свет и ореол плавно меняются вместе, не вспыхивая случайно.
+	if not view._lamp_lights.is_empty() and not view._lamp_glows.is_empty():
+		var saved_fuel := view.lamps_fueled
+		view.set_lamps_fueled(view.def.lamps.size())
+		view.set_night(minf(1.0, view._lamp_th[0] + 0.04))
+		view._process(0.0)
+		var initial := view._lamp_glows[0].intensity
+		var stable := initial > 0.0
+		for tick_index in range(30):
+			view._process(0.0)
+			stable = stable and absf(view._lamp_glows[0].intensity - initial) < 0.0001
+		var expected_energy := 0.46 * view._lamp_on(0, view.night) * view._lamp_glows[0].flicker_factor()
+		ok += _expect(fails, stable and absf(view._lamp_lights[0].energy - expected_energy) < 0.0001,
+			"фонарь в сумерках мигает случайно или свет расходится с ореолом")
+		view.set_lamps_fueled(saved_fuel)
 	view.set_simplified_graphics(true)
 	Save.set_simplified_graphics(true)
 	Nav.set_simplified_graphics(true)
