@@ -6568,7 +6568,8 @@ static func diary() -> void:
 	var chapter_story := DiarySheet.story_lines(m0)
 	ok += _expect(fails, chapter_story.has(L.t("camp.a1c1.title")) and not chapter_story.has(L.t("camp.a1c2.title")),
 		"дневник: начало главы отсутствует или следующая глава раскрыта")
-	ok += _expect(fails, SocialContent.question_answers("night") != SocialContent.question_answers("trust"),
+	ok += _expect(fails, SocialContent.question_answers("night") != SocialContent.question_answers("trust")
+		and SocialContent.question_answers("family").size() == 3 and SocialContent.question_answers("escape").size() == 3,
 		"диалог: быстрые ответы не зависят от темы")
 	var signature_before := DiarySheet.signature(m0, d0)
 	liar.story_step = 1

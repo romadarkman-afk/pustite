@@ -1466,6 +1466,8 @@ func _question_topic() -> String:
 	if topics.is_empty():
 		topics.append("trust")
 		topics.append("rumor")
+		topics.append("family")
+		topics.append("escape")
 	var previous := topics.find(last_question_topic)
 	if topics.size() > 1 and previous >= 0:
 		topics.remove_at(previous)
