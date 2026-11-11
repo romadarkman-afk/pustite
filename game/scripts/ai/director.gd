@@ -1392,12 +1392,13 @@ func personal_talk(vid: int, choice: int) -> Array[ChatLine]:
 	if v == null or v.is_player or not v.alive or not brains.has(vid) or v.personal_day == m.day or choice < 0 or choice > 1:
 		return out
 	v.personal_day = m.day
+	var previous_story_step := v.story_step
 	v.story_step = mini(v.story_step + 1, 2)
 	var page_key := "%s:%d" % [Progress.story_key(v), v.story_step]
 	if not m.story_pages_found.has(page_key):
 		m.story_pages_found.append(page_key)
 	Save.remember_story(Progress.story_key(v), v.story_step)
-	if not chapter_id.is_empty() and v.guest_id.is_empty():
+	if not chapter_id.is_empty() and v.guest_id.is_empty() and v.story_step > previous_story_step:
 		m.world.add(WorldLog.Kind.CHOICE, m.day, m.player().id, v.id, -1, [m.player().id, v.id], false,
 			{"scene": "personal_story", "step": v.story_step})
 	if choice == 0:

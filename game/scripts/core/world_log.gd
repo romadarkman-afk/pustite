@@ -244,5 +244,5 @@ func campaign_records(m: Match, limit: int = 40) -> Array[Dictionary]:
 
 ## Порядок важности записей памяти кампании: при переполнении отрезается конец.
 const RANK: PackedStringArray = ["react_revenge", "react_accuse", "react_defend", "react_withdraw", "refused_died",
-	"broken", "exiled_by_you", "broke_you", "refused", "refused_you", "kept", "admitted", "listened",
-	"river_answer", "river_silent", "story_1", "story_2"]
+	"story_1", "story_2", "broken", "exiled_by_you", "broke_you", "refused", "refused_you", "kept", "admitted", "listened",
+	"river_answer", "river_silent"]

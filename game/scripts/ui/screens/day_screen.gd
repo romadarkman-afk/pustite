@@ -320,8 +320,10 @@ func person_actions(v: Villager) -> void:
 	if m.vouch_on and m.vouch_day != m.day:                  # «Ворота»: вписать имя в книгу (TASK-026)
 		vouch_index = opts.size()
 		opts.append(L.t("day.p_vouch"))
-	var personal_index := opts.size()
-	opts.append(SocialContent.narrative_ui("personal"))
+	var personal_index := -1
+	if v.story_step < 2:
+		personal_index = opts.size()
+		opts.append(SocialContent.narrative_ui("personal"))
 	var legend_index := opts.size()
 	opts.append(L.t("legend.btn"))
 	opts.append(L.t("day.p_gesture"))        # то же, что долгое нажатие на жителя
@@ -332,7 +334,7 @@ func person_actions(v: Villager) -> void:
 	if i == legend_index:
 		marks_legend()
 		return
-	if i == personal_index:
+	if personal_index >= 0 and i == personal_index:
 		_personal_talk(v)
 		return
 	if i == comfort_index and comfort_index >= 0:
