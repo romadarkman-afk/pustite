@@ -287,6 +287,9 @@ static func campaign_memory(fails: PackedStringArray) -> int:
 	var kept: Villager = m.alive_bots()[1]
 	var talk_dir := Director.new()
 	talk_dir.attach(m)
+	talk_dir.chapter_id = "a1c2"
+	ok += SelfTest._expect(fails, talk_dir._question_topic() != "arrival",
+		"следующая глава: вопрос снова о прибытии")
 	talk_dir.chapter_id = "a1c3"
 	talk_dir.personal_talk(kept.id, 1)
 	m.promise(m.player(), kept, "come")
