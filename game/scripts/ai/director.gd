@@ -696,6 +696,14 @@ func chapter_lines() -> Array[ChatLine]:
 		out.append_array(act_two_lines())
 	if chapter_id != "a1c2" or m.day != 1:
 		return out
+	var river_choice := Campaign.river_choice()
+	if river_choice in ["answer", "silent"]:
+		for ferry: Villager in m.alive_bots():
+			if ferry.story_id == 0 and ferry.guest_id.is_empty():
+				var memory := ChatLine.say(ferry, L.t("sc.river.carry_" + river_choice))
+				memory.emotion = "suspicious" if river_choice == "answer" else "sad"
+				out.append(memory)
+				break
 	for v: Villager in m.alive_bots():
 		if v.guest_id == "soldier":
 			out.append(ChatLine.say(v, L.t("fog.teach", {"me": v})))
@@ -1125,6 +1133,25 @@ func river_answered() -> void:
 			var l := ChatLine.say(v, L.t("sc.river.answered", {"me": v}))
 			l.emotion = "suspicious"
 			scene_lines.append(l)
+
+
+## Молчание у реки тоже запоминается: перевозчица немного больше доверяет игроку.
+func river_silent() -> void:
+	for v: Villager in m.alive_bots():
+		if v.story_id == 0 and v.guest_id.is_empty() and brains.has(v.id):
+			brains[v.id].private_delta[0] = brains[v.id].private_delta.get(0, 0.0) - 0.2
+			var l := ChatLine.say(v, L.t("sc.river.silent_today"))
+			l.emotion = "sad"
+			scene_lines.append(l)
+			return
+
+
+## Разговор утром влияет на личное доверие, не раскрывая роль гостя.
+func first_morning_answer(v: Villager, choice: String) -> void:
+	if v == null or not v.alive or not brains.has(v.id) or choice not in ["warm", "wary"]:
+		return
+	var shift := -0.35 if choice == "warm" else 0.35
+	brains[v.id].private_delta[0] = brains[v.id].private_delta.get(0, 0.0) + shift
 
 
 ## «Кто там?» у двери (TASK-013). Человек отвечает по делу: называет дом, куда собирался днём,

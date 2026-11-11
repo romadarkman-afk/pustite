@@ -84,9 +84,14 @@ func _scene_then_reveal(r: NightReport) -> void:
 	if not sc.is_empty() and not you_died():
 		scene_shown = String(sc.id)
 		var choice: String = await ScenePlayer.play(self, sc, m)
-		scene_chosen(sc, choice)
 		if not is_instance_valid(self):
 			return
+		scene_chosen(sc, choice)
+		var reply := Scenes.first_morning_reply(m, sc, choice)
+		if not reply.is_empty():
+			await ScenePlayer.play(self, reply, m)
+			if not is_instance_valid(self):
+				return
 	await _guest_comics()
 	if not is_instance_valid(self):
 		return
@@ -170,7 +175,10 @@ static func scene_chosen(sc: Dictionary, choice: String) -> void:
 	if Game.m == null:
 		return
 	var d := Game.director
-	match String(sc.get("id", "")):
+	var id := String(sc.get("id", ""))
+	if id.begins_with("a1c1_morning_") and d != null:
+		d.first_morning_answer(Game.m.get_villager(int(sc.get("person_id", -1))), choice)
+	match id:
 		"a1c3_board":
 			if d != null and not choice.is_empty():
 				d.board_answer(Game.m.get_villager(int(sc.get("teller", -1))), choice)

@@ -199,7 +199,9 @@ func campaign_records(m: Match, limit: int = 40) -> Array[Dictionary]:
 					rec = {"kind": "listened", "who": e.target}
 			Kind.CHOICE:
 				# выбор в сюжетной сцене (TASK-019): помнится без привязки к жителю
-				if String(e.info.get("scene", "")) == "a1c3_board":
+				if String(e.info.get("scene", "")) == "a1c1_river" and String(e.info.get("choice", "")) in ["answer", "silent"]:
+					out.append({"kind": "river_" + String(e.info.choice), "who": -1, "day": e.day, "knew": []})
+				elif String(e.info.get("scene", "")) == "a1c3_board":
 					out.append({"kind": "board_" + String(e.info.get("choice", "silent")), "who": -1, "day": e.day, "knew": []})
 				elif String(e.info.get("scene", "")) == "a2c3_miller":     # тайна мельника (TASK-022)
 					out.append({"kind": "miller_" + String(e.info.get("choice", "keep")), "who": -1, "day": e.day, "knew": []})
@@ -239,4 +241,5 @@ func campaign_records(m: Match, limit: int = 40) -> Array[Dictionary]:
 
 ## Порядок важности записей памяти кампании: при переполнении отрезается конец.
 const RANK: PackedStringArray = ["react_revenge", "react_accuse", "react_defend", "react_withdraw", "refused_died",
-	"broken", "exiled_by_you", "broke_you", "refused", "refused_you", "kept", "admitted", "listened"]
+	"broken", "exiled_by_you", "broke_you", "refused", "refused_you", "kept", "admitted", "listened",
+	"river_answer", "river_silent"]

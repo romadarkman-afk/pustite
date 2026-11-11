@@ -547,6 +547,16 @@ static func boat_clues() -> int:
 	return n
 
 
+## Ответ у реки хранится в памяти первой пройденной главы; старые сохранения могут его не содержать.
+static func river_choice() -> String:
+	var out := ""
+	for rec: Dictionary in Save.campaign_memory:
+		var kind := String(rec.get("kind", ""))
+		if String(rec.get("ch", "")) == "a1c1" and kind in ["river_answer", "river_silent"]:
+			out = kind.substr(6)
+	return out
+
+
 ## Что игрок ответил у доски с именем: confess, deny, silent или "" — ещё не был там.
 static func board_choice() -> String:
 	var out := ""

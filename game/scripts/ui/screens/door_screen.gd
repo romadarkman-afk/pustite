@@ -286,8 +286,11 @@ func _start_knocks() -> void:
 		var choice: String = await ScenePlayer.play(self, Scenes.river(m), m)
 		if not is_instance_valid(self):
 			return
-		if choice == "answer" and director != null:
-			director.river_answered()
+		if director != null:
+			if choice == "answer":
+				director.river_answered()
+			elif choice == "silent":
+				director.river_silent()
 		await ScenePlayer.play(self, Scenes.first_knock(choice == "answer"), m)
 		if not is_instance_valid(self):
 			return
