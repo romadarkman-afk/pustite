@@ -3346,7 +3346,7 @@ static func howto() -> void:
 
 	Nav.show_menu()
 	await _settle(tree)
-	_find_button(Nav.host.current, "Как играть").pressed.emit()
+	Nav.handle_intent(Intent.OPEN_HOWTO, {}, Nav.host.current)
 	await _settle(tree)
 	h = Nav.host.current as HowToScreen
 	ok += _expect(fails, h != null and not h.then_play, "кнопка «Как играть» в меню не открыла карточки")
