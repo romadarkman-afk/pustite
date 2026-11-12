@@ -3391,6 +3391,23 @@ static func howto() -> void:
 	Save.load_all()
 	ok += _expect(fails, Save.howto_seen, "после перезапуска «Как играть» забылось")
 
+	# Игрок со старым сохранением раньше мог начать кампанию, не увидев правил.
+	Save.howto_seen = true
+	Save.hints_seen.erase("campaign_basics_v2")
+	Nav.handle_intent(Intent.PLAY_CHAPTER, {"id": "a1c1"}, Nav.host.current)
+	await _settle(tree)
+	h = Nav.host.current as HowToScreen
+	ok += _expect(fails, h != null and h.then_play, "кампания обошла вводное обучение")
+	if h != null:
+		Nav.handle_intent(Intent.HOWTO_DONE, {"play": true}, h)
+		await _settle(tree)
+		ok += _expect(fails, Game.chapter.get("id", "") == "a1c1" and Save.hint_seen("campaign_basics_v2"),
+			"после обучения запустилась не выбранная глава или обучение не сохранилось")
+		var exchange := Game.director.day_exchange()
+		ok += _expect(fails, exchange.size() == 2 and exchange[0].speaker != exchange[1].speaker
+			and not exchange[0].asks_player and not exchange[1].asks_player,
+			"разговор двух ботов не создан или открыл вопрос игроку")
+
 	print("=== «Как играть»: %d проверок ===" % (ok + fails.size()))
 	if fails.is_empty():
 		print("ИТОГ: OK — показывается один раз перед первой партией и открывается из меню")

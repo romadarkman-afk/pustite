@@ -230,6 +230,17 @@ jobs:
             exit 1
           fi
           echo "Проверка запуска пройдена; перехожу к экспорту APK."
+      - name: Проверка вводного обучения и разговоров
+        run: |
+          set -o pipefail
+          log="$(mktemp)"
+          status=0
+          timeout 120 godot --headless --path game -- --howto 2>&1 | tee "$log" || status=$?
+          if [ "$status" -ne 0 ] || grep -Eq "SCRIPT ERROR|Parse Error|ИТОГ: НАРУШЕНИЙ" "$log"; then
+            echo "::error title=Проверка обучения не пройдена::См. вывод Godot выше."
+            exit 1
+          fi
+
       - name: Экспорт APK
         run: |
           mkdir -p build
