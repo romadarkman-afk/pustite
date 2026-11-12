@@ -4,6 +4,7 @@ extends Screen
 
 ## Фоновые заставки главного меню. Две картинки держим в памяти для плавного перехода.
 const MENU_ART: PackedStringArray = [
+	"res://assets/scenes/menu_winter_door.png",
 	"res://assets/scenes/end_upyri.jpg",
 	"res://assets/scenes/end_people.jpg",
 	"res://assets/scenes/a2c1.jpg",
