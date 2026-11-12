@@ -4234,7 +4234,7 @@ static func sound() -> void:
 		and main_menu.find_child("OnlineSoon", true, false) == null,
 		"в главном меню нет кампании, одиночной игры или настроек, либо осталась кнопка «Онлайн · скоро»")
 	var mode_cards := main_menu.find_child("ModeCards", true, false) as GridContainer if main_menu != null else null
-	ok += _expect(fails, mode_cards != null and mode_cards.columns == 2 and mode_cards.get_child_count() == 4,
+	ok += _expect(fails, mode_cards != null and mode_cards.columns == 1 and mode_cards.get_child_count() == 4,
 		"на главном экране нет четырёх плиток режимов")
 	var online := main_menu.find_child("Online", true, false) as Button if main_menu != null else null
 	ok += _expect(fails, online != null and online.disabled, "плитка «Онлайн» не помечена как будущий режим")

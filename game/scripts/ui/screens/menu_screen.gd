@@ -52,7 +52,7 @@ func build() -> void:
 	var brand := W.label(L.t("game.title"), &"Title")
 	brand.name = "MenuTitle"
 	brand.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	brand.add_theme_font_size_override("font_size", ThemeFactory.fs(31))
+	brand.add_theme_font_size_override("font_size", ThemeFactory.fs(40))
 	body.add_child(brand)
 	var case_file := W.label(L.t("menu.case_file"), &"Speaker")
 	case_file.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -61,7 +61,7 @@ func build() -> void:
 
 	var modes := GridContainer.new()
 	modes.name = "ModeCards"
-	modes.columns = 2
+	modes.columns = 1
 	modes.add_theme_constant_override("h_separation", 8)
 	modes.add_theme_constant_override("v_separation", 8)
 	modes.add_child(_mode_tile(L.t("menu.mode_campaign"), "",
@@ -208,7 +208,7 @@ func _open_more() -> void:
 
 func _mode_tile(heading: String, detail: String, node_name: String, variation: StringName,
 		action: StringName, disabled: bool = false) -> Button:
-	var button := W.button("", variation, 60)
+	var button := W.button("", variation, 48)
 	button.name = node_name
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.disabled = disabled
