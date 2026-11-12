@@ -92,6 +92,15 @@ func _scene_then_reveal(r: NightReport) -> void:
 			await ScenePlayer.play(self, reply, m)
 			if not is_instance_valid(self):
 				return
+	if m.day == 1 and not you_died() and not Game.scenes_done.has("chapter_crossroads"):
+		Game.scenes_done["chapter_crossroads"] = true
+		var crossroads := Scenes.chapter_crossroads(m, String(Game.chapter.get("id", "")), Game.director)
+		if not crossroads.is_empty():
+			var answer: String = await ScenePlayer.play(self, crossroads, m)
+			if not is_instance_valid(self):
+				return
+			if Game.director != null:
+				Game.director.crossroads_answer(m.get_villager(int(crossroads.target)), answer)
 	await _guest_comics()
 	if not is_instance_valid(self):
 		return
