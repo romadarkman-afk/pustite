@@ -72,6 +72,7 @@ var said: Dictionary = {}      ## шаблоны, уже прозвучавши�
 const OWN_VOICE_P := 0.75      ## как часто житель говорит строкой своего характера, а не общей
 const W_REVENGE := 0.8         ## утро после гибели близкого: тот, кто не открыл ему дверь, под подозрением
 var last_questioner := -1
+var crossroads_promise_id := -1
 ## Обещания (TASK-004): что скажут утром о сдержанном и нарушенном слове.
 var promise_lines: Array[ChatLine] = []
 var scene_lines: Array[ChatLine] = []     ## что скажут днём после сцены (отозвался на зов у реки)
@@ -102,6 +103,7 @@ func attach(match_ref: Match) -> void:
 	evidence.clear()
 	last_question_topic = ""
 	last_questioner = -1
+	crossroads_promise_id = -1
 	said.clear()
 	exchange_seen.clear()
 	promise_lines.clear()
@@ -470,6 +472,11 @@ func _say(who: Villager, bank: String, target: Villager = null, extra: Dictionar
 ## Боты решают, куда пойдут, и объявляют это. Люди — честно,
 ## упыри — туда, где их пустит человек, которому верят.
 func plan_day() -> void:
+	if crossroads_promise_id >= 0:
+		var ally := m.get_villager(crossroads_promise_id)
+		if ally != null and ally.alive and m.player().alive:
+			m.promise(ally, m.player(), "open")
+		crossroads_promise_id = -1
 	bots_vouch()
 	if m.train_on:
 		secret_listing()                 # союзник вписывает первым, пока список пуст (TASK-034)
@@ -1224,7 +1231,9 @@ func crossroads_answer(resident: Villager, choice: String) -> void:
 		return
 	var change := -0.6 if choice == "trust" else 0.35
 	brains[resident.id].private_delta[0] = brains[resident.id].private_delta.get(0, 0.0) + change
-	var response := "Я запомню это. До вечера ещё есть время." if choice == "trust" else "Я понял. Буду решать сам."
+	if choice == "trust":
+		crossroads_promise_id = resident.id
+	var response := "Если придёшь ко мне ночью, я открою тебе дверь." if choice == "trust" else "Я понял. Буду решать сам."
 	scene_lines.append(ChatLine.say(resident, response))
 
 

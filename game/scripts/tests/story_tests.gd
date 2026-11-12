@@ -440,6 +440,9 @@ static func crossroads(fails: PackedStringArray) -> int:
 			Save.campaign_memory = old_memory
 		var before := float(d.brains[resident.id].private_delta.get(0, 0.0))
 		d.crossroads_answer(resident, "trust")
+		d.plan_day()
+		ok += _ok(fails, not m.promises_today(resident.id, 0).is_empty(),
+			"%s: обещание спутника не записано в день" % chapter_id)
 		ok += _ok(fails, float(d.brains[resident.id].private_delta.get(0, 0.0)) < before,
 			"%s: поддержка не изменила доверие" % chapter_id)
 		m.world.add(WorldLog.Kind.CHOICE, 1, 0, resident.id, -1, [0], false,
