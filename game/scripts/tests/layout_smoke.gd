@@ -82,8 +82,8 @@ static func _check_menu_layout(tree: SceneTree, problems: PackedStringArray) -> 
 	checks += _expect(problems, art_a != null and art_a.texture != null and art_b != null and art_b.texture != null
 		and shade != null and shade.get_global_rect().size.x >= vp.x - 1.0,
 		"720×1280: слайд-шоу заставок не заполнило фон экрана")
-	checks += _expect(problems, modes != null and modes.columns == 2 and modes.get_child_count() == 4,
-		"720×1280: плитки режимов не собраны в сетку 2×2")
+	checks += _expect(problems, modes != null and modes.columns == 1 and modes.get_child_count() == 4,
+		"720×1280: кнопки режимов не собраны в один столбец")
 	checks += _expect(problems, ThemeFactory.fs(20) <= roundi(18.0 * ThemeFactory.text_scale),
 		"720×1280: базовый размер игрового текста снова увеличен")
 	checks += _expect(problems, more != null and more.get_global_rect().end.y <= screen.scroll.get_global_rect().end.y + 1.0,
