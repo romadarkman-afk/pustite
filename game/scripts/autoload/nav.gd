@@ -247,7 +247,10 @@ func start_chapter(id: String = "", force: bool = false) -> void:
 	if not force and not Campaign.unlocked(id):
 		toast(L.t("camp.locked"))
 		return
-	Save.mark_howto()                      # правила новичку объясняются по ходу главы
+	Save.mark_howto()
+	# Предыстория должна предшествовать стуку: первая глава обходит экран пролога.
+	if id == "a1c1" and not Juice.instant and not Slides.seen("prologue"):
+		await SlidePlayer.play(ui, "prologue", true)
 	Game.start(Campaign.config(id), "", Campaign.chapter(id))
 
 
