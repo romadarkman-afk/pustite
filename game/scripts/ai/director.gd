@@ -749,7 +749,7 @@ func campaign_memory_scene() -> Array[ChatLine]:
 		if previous < 0 or previous >= current:
 			continue
 		var kind := String(rec.get("kind", ""))
-		if kind not in ["admitted", "kept", "broken", "refused", "broke_you", "listened"]:
+		if kind not in ["admitted", "kept", "broken", "refused", "broke_you", "listened", "crossroads_trust", "crossroads_refuse"]:
 			continue
 		var resident: Villager = null
 		for bot: Villager in m.alive_bots():
@@ -766,6 +766,8 @@ func campaign_memory_scene() -> Array[ChatLine]:
 			"refused": text = "Ты оставил меня за дверью. Я пережил ту ночь, но забыть её не смог."
 			"broke_you": text = "Я не сдержал обещание, которое дал тебе. Я до сих пор думаю об этом."
 			"listened": text = "Ты тогда выслушал мою историю. Остальные даже не спросили."
+			"crossroads_trust": text = "Ты сказал, что будешь на моей стороне. Я это помню."
+			"crossroads_refuse": text = "Тогда ты не захотел ничего обещать. Посмотрим, что скажешь теперь."
 		var line := ChatLine.say(resident, text)
 		line.emotion = "angry" if kind in ["broken", "refused"] else "sad"
 		out.append(line)
@@ -1199,6 +1201,16 @@ func farewell(v: Villager) -> Array[ChatLine]:
 
 
 ## «Имя на доске» (TASK-019): ответ игрока меняет отношение рассказчика и посёлка.
+## Ответ меняет личное доверие; роль спутника не раскрывается.
+func crossroads_answer(resident: Villager, choice: String) -> void:
+	if resident == null or not brains.has(resident.id) or choice not in ["trust", "refuse"]:
+		return
+	var change := -0.6 if choice == "trust" else 0.35
+	brains[resident.id].private_delta[0] = brains[resident.id].private_delta.get(0, 0.0) + change
+	var response := "Я запомню это. До вечера ещё есть время." if choice == "trust" else "Я понял. Буду решать сам."
+	scene_lines.append(ChatLine.say(resident, response))
+
+
 func board_answer(teller: Villager, choice: String) -> void:
 	if teller != null and brains.has(teller.id):
 		match choice:
@@ -2173,20 +2185,18 @@ func apply_campaign(bonds: Dictionary, grudges: Array, defenders: Array) -> void
 
 ## Конец главы: как жители относятся друг к другу и к игроку (−3..3) — в память кампании.
 func campaign_bonds() -> Dictionary:
-	var out := {}
+	var out := Save.campaign_bonds.duplicate()
 	for v: Villager in m.villagers:
 		if v.is_player or v.story_id < 0 or not v.guest_id.is_empty() or not brains.has(v.id):
 			continue
 		var b: BotBrain = brains[v.id]
 		var to_p := clampi(roundi(-(b.private_delta.get(0, 0.0) + b.grudge.get(0, 0.0) * 0.5) / 0.3), -3, 3)
-		if to_p != 0:
-			out["%d>p" % v.story_id] = to_p
+		out["%d>p" % v.story_id] = to_p
 		for o: Villager in m.villagers:
 			if o == v or o.is_player or o.story_id < 0 or not o.guest_id.is_empty():
 				continue
 			var k := clampi(roundi(-(b.private_delta.get(o.id, 0.0) + b.grudge.get(o.id, 0.0) * 0.5) / 0.3), -3, 3)
-			if k != 0:
-				out["%d>%d" % [v.story_id, o.story_id]] = k
+			out["%d>%d" % [v.story_id, o.story_id]] = k
 	return out
 
 

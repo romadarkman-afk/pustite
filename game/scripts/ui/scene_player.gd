@@ -272,7 +272,7 @@ func choose(id: String) -> void:
 		return
 	choice_id = id
 	if m != null:
-		m.world.add(WorldLog.Kind.CHOICE, m.day, 0, -1, -1, [0], false, {"scene": String(scene.get("id", "")), "choice": id})
+		m.world.add(WorldLog.Kind.CHOICE, m.day, 0, int(scene.get("target", -1)), -1, [0], false, {"scene": String(scene.get("id", "")), "choice": id})
 	_finish(id)
 
 

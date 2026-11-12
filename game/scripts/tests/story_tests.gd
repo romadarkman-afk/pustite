@@ -392,6 +392,54 @@ static func scenes(fails: PackedStringArray) -> int:
 
 
 ## Запуск: --story
+## Связи отсутствующих жителей переживают главу, нейтральная связь стирает старую обиду.
+static func bond_carry(fails: PackedStringArray) -> int:
+	var ok := 0
+	var before := Save.campaign_bonds.duplicate(true)
+	_dead([])
+	var m := _match("a1c1")
+	var bots := m.alive_bots()
+	if bots.is_empty():
+		Save.campaign_bonds = before
+		return _ok(fails, false, "нет жителей для проверки отношений")
+	var resident: Villager = bots[0]
+	Save.campaign_bonds = {"999>p": -2, "%d>p" % resident.story_id: -3}
+	var d := Director.new()
+	d.attach(m)
+	var result := d.campaign_bonds()
+	ok += _ok(fails, int(result.get("999>p", 0)) == -2, "отношение отсутствующего жителя пропало")
+	ok += _ok(fails, int(result.get("%d>p" % resident.story_id, -9)) == 0, "нейтральное отношение сохранило прежнюю обиду")
+	Save.campaign_bonds = before
+	return ok
+
+
+## Выборы доступны в каждой главе, меняют отношение и попадают в память.
+static func crossroads(fails: PackedStringArray) -> int:
+	var ok := 0
+	_dead([])
+	for chapter_id: String in Campaign.ORDER:
+		var m := _match(chapter_id)
+		var d := Director.new()
+		d.attach(m)
+		var scene := Scenes.chapter_crossroads(m, chapter_id, d)
+		ok += _ok(fails, not scene.is_empty() and (scene.get("choice", {}).get("options", []) as Array).size() == 2,
+			"%s: нет двух вариантов личного выбора" % chapter_id)
+		if scene.is_empty():
+			continue
+		var resident := m.get_villager(int(scene.target))
+		var before := float(d.brains[resident.id].private_delta.get(0, 0.0))
+		d.crossroads_answer(resident, "trust")
+		ok += _ok(fails, float(d.brains[resident.id].private_delta.get(0, 0.0)) < before,
+			"%s: поддержка не изменила доверие" % chapter_id)
+		m.world.add(WorldLog.Kind.CHOICE, 1, 0, resident.id, -1, [0], false,
+			{"scene": "chapter_crossroads", "choice": "trust"})
+		var records := m.world.campaign_records(m, 60)
+		ok += _ok(fails, records.any(func(rec: Dictionary) -> bool:
+			return String(rec.kind) == "crossroads_trust" and int(rec.who) == resident.story_id),
+			"%s: выбор не сохранился за героем" % chapter_id)
+	return ok
+
+
 static func run() -> void:
 	var tree := Engine.get_main_loop() as SceneTree
 	var t0 := Time.get_ticks_msec()
@@ -404,6 +452,8 @@ static func run() -> void:
 	ok += memory(fails)
 	ok += scenes(fails)
 	ok += recording(fails)
+	ok += bond_carry(fails)
+	ok += crossroads(fails)
 	SimChapters.restore_campaign(snap)
 	for f: String in fails:
 		print("  ✗ " + f)

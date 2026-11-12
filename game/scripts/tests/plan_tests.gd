@@ -783,6 +783,7 @@ static func chapter_one(tree: SceneTree, fails: PackedStringArray) -> int:
 	ok += SelfTest._expect(fails, mo != null and mo.scene_shown == "a1c1_morning_" + String(outcome.kind) and int(outcome.who) == g.id,
 		"глава «Стук»: сцена утра не та, что вышла ночью")
 	var morning_choice := false
+	var crossroads_choice := false
 	for i in range(400):
 		if mo == null or mo.revealed:
 			break
@@ -791,11 +792,17 @@ static func chapter_one(tree: SceneTree, fails: PackedStringArray) -> int:
 			if player._in_choice and String(player.scene.get("id", "")).begins_with("a1c1_morning_"):
 				player.choose("warm")
 				morning_choice = true
+			elif player._in_choice and String(player.scene.get("id", "")) == "chapter_crossroads":
+				player.choose("trust")
+				crossroads_choice = true
 		await tree.process_frame
 	if g.alive:
-		var morning_event := Game.m.world.last(WorldLog.Kind.CHOICE, 0)
-		ok += SelfTest._expect(fails, morning_choice and mo.revealed and morning_event != null
-			and String(morning_event.info.get("choice", "")) == "warm", "глава «Стук»: выбор утром не завершился")
+		var morning_event := false
+		for e: WorldLog.Event in Game.m.world.events:
+			if e.kind == WorldLog.Kind.CHOICE and String(e.info.get("scene", "")).begins_with("a1c1_morning_") and String(e.info.get("choice", "")) == "warm":
+				morning_event = true
+		ok += SelfTest._expect(fails, morning_choice and crossroads_choice and mo.revealed and morning_event,
+			"глава «Стук»: выборы утром не завершились")
 	ok += SelfTest._expect(fails, (Scenes.first_knock(true).frames as Array).size() == (Scenes.first_knock(false).frames as Array).size() + 1,
 		"глава «Стук»: ответ у реки не меняет сцену стука")
 	# три исхода — три разных утра
