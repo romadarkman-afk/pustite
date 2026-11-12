@@ -2173,20 +2173,18 @@ func apply_campaign(bonds: Dictionary, grudges: Array, defenders: Array) -> void
 
 ## Конец главы: как жители относятся друг к другу и к игроку (−3..3) — в память кампании.
 func campaign_bonds() -> Dictionary:
-	var out := {}
+	var out := Save.campaign_bonds.duplicate()
 	for v: Villager in m.villagers:
 		if v.is_player or v.story_id < 0 or not v.guest_id.is_empty() or not brains.has(v.id):
 			continue
 		var b: BotBrain = brains[v.id]
 		var to_p := clampi(roundi(-(b.private_delta.get(0, 0.0) + b.grudge.get(0, 0.0) * 0.5) / 0.3), -3, 3)
-		if to_p != 0:
-			out["%d>p" % v.story_id] = to_p
+		out["%d>p" % v.story_id] = to_p
 		for o: Villager in m.villagers:
 			if o == v or o.is_player or o.story_id < 0 or not o.guest_id.is_empty():
 				continue
 			var k := clampi(roundi(-(b.private_delta.get(o.id, 0.0) + b.grudge.get(o.id, 0.0) * 0.5) / 0.3), -3, 3)
-			if k != 0:
-				out["%d>%d" % [v.story_id, o.story_id]] = k
+			out["%d>%d" % [v.story_id, o.story_id]] = k
 	return out
 
 

@@ -392,6 +392,27 @@ static func scenes(fails: PackedStringArray) -> int:
 
 
 ## Запуск: --story
+## Связи отсутствующих жителей переживают главу, нейтральная связь стирает старую обиду.
+static func bond_carry(fails: PackedStringArray) -> int:
+	var ok := 0
+	var before := Save.campaign_bonds.duplicate(true)
+	_dead([])
+	var m := _match("a1c1")
+	var bots := m.alive_bots()
+	if bots.is_empty():
+		Save.campaign_bonds = before
+		return _ok(fails, false, "нет жителей для проверки отношений")
+	var resident: Villager = bots[0]
+	Save.campaign_bonds = {"999>p": -2, "%d>p" % resident.story_id: -3}
+	var d := Director.new()
+	d.attach(m)
+	var result := d.campaign_bonds()
+	ok += _ok(fails, int(result.get("999>p", 0)) == -2, "отношение отсутствующего жителя пропало")
+	ok += _ok(fails, int(result.get("%d>p" % resident.story_id, -9)) == 0, "нейтральное отношение сохранило прежнюю обиду")
+	Save.campaign_bonds = before
+	return ok
+
+
 static func run() -> void:
 	var tree := Engine.get_main_loop() as SceneTree
 	var t0 := Time.get_ticks_msec()
@@ -404,6 +425,7 @@ static func run() -> void:
 	ok += memory(fails)
 	ok += scenes(fails)
 	ok += recording(fails)
+	ok += bond_carry(fails)
 	SimChapters.restore_campaign(snap)
 	for f: String in fails:
 		print("  ✗ " + f)
