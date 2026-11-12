@@ -3318,7 +3318,7 @@ static func howto() -> void:
 			"перед первой партией показано %d карточек вместо основных %d" % [h.page_count(), HowToScreen.CORE])
 		for pg in range(h.page_count()):
 			var ar := h.art.get_global_rect()
-			ok += _expect(fails, h.page == pg and ar.size.y >= host_h * 0.3, "карточка %d: картинка %d px — меньше 30%% экрана" % [pg + 1, int(ar.size.y)])
+			ok += _expect(fails, h.page == pg and ar.size.y >= 140.0 and ar.size.y <= minf(230.0, host_h), "карточка %d: неподходящая высота картинки %d px" % [pg + 1, int(ar.size.y)])
 			var inside := true
 			for f: VillagerFigure in h.art.figures:
 				if not ar.grow(2.0).encloses(f.body_rect_global()):
