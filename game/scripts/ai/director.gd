@@ -181,22 +181,29 @@ func plan_jobs(day_sec: float) -> Array[JobTask]:
 	var planned := 0
 	var workers := m.alive_bots().duplicate()
 	_shuffle(workers)
+	# Сначала по одному делу желающим, затем второе. Так один житель не занимает
+	# оба последних доступных места, пока остальные ещё не получили задания.
+	var planned_by_bot := {}
+	var next_start := {}
 	for bot: Villager in workers:
 		var n := 0
 		if bot.grief_days > 0 and not bot.is_upyr:
-			n = 0                     # в трауре: не до вёдер и дров
+			n = 0
 		elif bot.is_upyr:
 			n = 1 if rng.randf() < 0.75 else 0
 		elif rng.randf() < 0.85:
 			n = 2 if rng.randf() < 0.4 else 1
-		var tired := m.feelings.get_f(bot.id, Feelings.F.EXHAUSTION)
-		if tired >= 0.7 and not bot.is_upyr:
-			n = mini(n, 1)                # не спал ночь: на второе дело сил нет
-		# за дело берутся с первых секунд дня, а не к середине: посёлок с утра в работе
-		var t := rng.randf_range(2.5, maxf(5.0, day_sec * 0.3))
-		for k in range(n):
-			if t > day_sec - WORK_SEC - 3.0 or planned >= cap:
-				break
+		if m.feelings.get_f(bot.id, Feelings.F.EXHAUSTION) >= 0.7 and not bot.is_upyr:
+			n = mini(n, 1)
+		planned_by_bot[bot.id] = n
+		next_start[bot.id] = rng.randf_range(2.5, maxf(5.0, day_sec * 0.3))
+	for round_index in range(2):
+		for bot: Villager in workers:
+			if int(planned_by_bot[bot.id]) <= round_index or planned >= cap:
+				continue
+			var t: float = next_start[bot.id]
+			if t > day_sec - WORK_SEC - 3.0:
+				continue
 			var ji := _pick_job(load)
 			if ji < 0:
 				break
@@ -209,7 +216,8 @@ func plan_jobs(day_sec: float) -> Array[JobTask]:
 			task.real = rng.randf() < (UPYR_REAL if bot.is_upyr else 1.0 - HUMAN_FAIL)
 			task.sabotage = bot.is_upyr and not task.real and rng.randf() < SABOTAGE_P
 			out.append(task)
-			t += WORK_SEC + rng.randf_range(4.0, 9.0) + tired * 8.0     # уставший долго собирается
+			var tired := m.feelings.get_f(bot.id, Feelings.F.EXHAUSTION)
+			next_start[bot.id] = t + WORK_SEC + rng.randf_range(4.0, 9.0) + tired * 8.0
 	out.sort_custom(func(a: JobTask, b: JobTask) -> bool: return a.start < b.start)
 	return out
 
@@ -728,9 +736,52 @@ func bot_promise() -> ChatLine:
 
 ## Реплики главы (TASK-016): в «Тумане» в первый день солдат Гордей учит спрашивать о памяти,
 ## вдова Агафья рассказывает, как туман забрал мужа.
+## Одна сцена по реальному событию из ранее пройденной главы.
+## Участвуют только живые жители, записанные в памяти и среди свидетелей.
+func campaign_memory_scene() -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	if L.code != "ru" or chapter_id.is_empty() or m.day != 1 or not m.player().alive:
+		return out
+	var current := Campaign.ORDER.find(chapter_id)
+	for i in range(Save.campaign_memory.size() - 1, -1, -1):
+		var rec: Dictionary = Save.campaign_memory[i]
+		var previous := Campaign.ORDER.find(String(rec.get("ch", "")))
+		if previous < 0 or previous >= current:
+			continue
+		var kind := String(rec.get("kind", ""))
+		if kind not in ["admitted", "kept", "broken", "refused", "broke_you", "listened"]:
+			continue
+		var resident: Villager = null
+		for bot: Villager in m.alive_bots():
+			if bot.guest_id.is_empty() and bot.story_id == int(rec.get("who", -1)):
+				resident = bot
+				break
+		if resident == null:
+			continue
+		var text := ""
+		match kind:
+			"admitted": text = "Я помню ту ночь, когда ты открыл мне дверь. Я не забыл, чем тебе обязан."
+			"kept": text = "Ты сдержал слово, когда это было опасно. Я помню."
+			"broken": text = "Ты обещал помочь и не сдержал слова. Объясни, как мне снова тебе доверять?"
+			"refused": text = "Ты оставил меня за дверью. Я пережил ту ночь, но забыть её не смог."
+			"broke_you": text = "Я не сдержал обещание, которое дал тебе. Я до сих пор думаю об этом."
+			"listened": text = "Ты тогда выслушал мою историю. Остальные даже не спросили."
+		var line := ChatLine.say(resident, text)
+		line.emotion = "angry" if kind in ["broken", "refused"] else "sad"
+		out.append(line)
+		var witnesses: Array = rec.get("knew", [])
+		for other: Villager in m.alive_bots():
+			if other != resident and other.guest_id.is_empty() and witnesses.has(other.story_id):
+				out.append(ChatLine.say(other, "Я тоже помню. Мы все тогда сделали свой выбор."))
+				break
+		break
+	return out
+
+
 func chapter_lines() -> Array[ChatLine]:
 	var out: Array[ChatLine] = []
 	if m.day == 1:
+		out.append_array(campaign_memory_scene())
 		out.append_array(act_two_lines())
 	if chapter_id != "a1c2" or m.day != 1:
 		return out

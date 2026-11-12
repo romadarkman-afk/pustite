@@ -3408,6 +3408,25 @@ static func howto() -> void:
 			and not exchange[0].asks_player and not exchange[1].asks_player,
 			"разговор двух ботов не создан или открыл вопрос игроку")
 
+	# Сцена использует записанное событие и не придумывает участника.
+	if Game.director != null and Game.m != null and not Game.m.alive_bots().is_empty():
+		var saved_memory := Save.campaign_memory.duplicate(true)
+		var resident: Villager = Game.m.alive_bots()[0]
+		if resident.story_id >= 0 and resident.guest_id.is_empty():
+			Save.campaign_memory.clear()
+			Save.campaign_memory.append({"ch": "a1c1", "kind": "broken", "who": resident.story_id, "day": 1, "knew": []})
+			Game.director.chapter_id = "a1c2"
+			Game.m.day = 1
+			var memory_lines := Game.director.campaign_memory_scene()
+			ok += _expect(fails, memory_lines.size() == 1 and memory_lines[0].speaker == resident and memory_lines[0].text.contains("обещал"),
+				"нарушенное обещание не вызвало сцену с нужным жителем")
+			resident.alive = false
+			ok += _expect(fails, Game.director.campaign_memory_scene().is_empty(), "погибший житель появился в сцене памяти")
+			resident.alive = true
+			Game.director.chapter_id = "a1c1"
+			ok += _expect(fails, Game.director.campaign_memory_scene().is_empty(), "сцена использует событие текущей главы")
+			Save.campaign_memory = saved_memory
+
 	print("=== «Как играть»: %d проверок ===" % (ok + fails.size()))
 	if fails.is_empty():
 		print("ИТОГ: OK — показывается один раз перед первой партией и открывается из меню")
