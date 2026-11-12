@@ -31,6 +31,7 @@ var perf: PerfGuard               ## кадры: автоупрощение гр
 var _walk_gen := 0                 ## каждая новая прогулка игрока отменяет прежнюю цель
 var _spoiled_ji := -1              ## у этого дела только что испортили сделанное: всплывашка уже показана
 var _solo_after_howto := false
+var _chapter_after_howto := ""
 const SIDE_UP := 1
 const SIDE_DOWN := 3
 const SIDE_LEFT := 0
@@ -248,6 +249,20 @@ func start_chapter(id: String = "", force: bool = false) -> void:
 		return
 	Save.mark_howto()                      # правила новичку объясняются по ходу главы
 	Game.start(Campaign.config(id), "", Campaign.chapter(id))
+
+
+func start_chapter_with_intro(id: String = "") -> void:
+	if id.is_empty():
+		id = Campaign.current()
+	if not Campaign.unlocked(id):
+		toast(L.t("camp.locked"))
+		return
+	if not Save.hint_seen("campaign_basics_v2"):
+		_chapter_after_howto = id
+		_solo_after_howto = false
+		show_howto(true)
+	else:
+		start_chapter(id)
 
 
 func show_book() -> void:
@@ -664,12 +679,13 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			_new_game_audio_cue()
 			_apply_settings(data)
 			if Campaign.is_new() and int(Save.stats["games"]) == 0:
-				start_chapter("a1c1")     # новичок: сразу первая глава, стук через несколько секунд
+				start_chapter_with_intro("a1c1")
 			elif not Save.howto_seen:
 				show_howto(true)          # первая партия: сначала «Как играть»
 			else:
 				start_match()
 		Intent.START_SOLO:
+			_chapter_after_howto = ""
 			_new_game_audio_cue()
 			_apply_settings(data)
 			if not Save.howto_seen:
@@ -678,11 +694,18 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			else:
 				start_match(true)
 		Intent.OPEN_HOWTO:
+			_chapter_after_howto = ""
 			show_howto(false)
 		Intent.HOWTO_DONE:
 			Save.mark_howto()
 			if data.get("play", false):
-				start_match(_solo_after_howto)
+				if not _chapter_after_howto.is_empty():
+					var target := _chapter_after_howto
+					_chapter_after_howto = ""
+					Save.mark_hint("campaign_basics_v2")
+					start_chapter(target)
+				else:
+					start_match(_solo_after_howto)
 				_solo_after_howto = false
 			else:
 				_solo_after_howto = false
@@ -711,7 +734,7 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 		Intent.OPEN_BOOK:
 			show_book()
 		Intent.PLAY_CHAPTER:
-			start_chapter(String(data.get("id", "")))
+			start_chapter_with_intro(String(data.get("id", "")))
 		Intent.SKIP_TO_END:
 			Game.skip_to_end()
 		Intent.AGAIN:

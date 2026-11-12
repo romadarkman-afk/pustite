@@ -47,6 +47,8 @@ var player_job: int = -1
 var player_job_left: float = 0.0
 var player_sab: bool = false       ## игрок-упырь не работает, а портит
 var box_at: float = -1.0           ## на какой секунде дня появится ящик; -1 — сегодня его нет
+var exchange_at: float = -1.0
+var exchanges_left: int = 0
 var meeting_check_at: float = -1.0 ## на этой секунде дня боты решают, бить ли в колокол
 var player_tunnel: bool = false    ## игрок решил лезть в туннель после отказа у двери
 
@@ -222,6 +224,10 @@ func _process(delta: float) -> void:
 			m.post(director.meeting_line(caller))
 			call_meeting(caller.id)
 			return
+	if exchange_at >= 0.0 and day_t >= exchange_at:
+		exchanges_left -= 1
+		exchange_at = day_t + m.config.day_seconds * 0.25 if exchanges_left > 0 else -1.0
+		_feed(director.day_exchange())
 	if player_job >= 0:
 		if not (m.can_sabotage(player_job) if player_sab else m.job_available(player_job)):
 			var lost := player_job
@@ -394,6 +400,8 @@ func _on_phase(p: Match.Phase) -> void:
 			player_sab = false
 			box_at = m.config.day_seconds * director.rng.randf_range(0.2, 0.4) if m.box_today else -1.0
 			meeting_check_at = m.config.day_seconds * 0.5
+			exchanges_left = 2
+			exchange_at = m.config.day_seconds * director.rng.randf_range(0.35, 0.42)
 			Diag.step("день: боты спланировали")
 			phase_entered.emit(p)
 			Diag.step("день: экран показан")

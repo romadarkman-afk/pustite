@@ -3318,7 +3318,7 @@ static func howto() -> void:
 			"перед первой партией показано %d карточек вместо основных %d" % [h.page_count(), HowToScreen.CORE])
 		for pg in range(h.page_count()):
 			var ar := h.art.get_global_rect()
-			ok += _expect(fails, h.page == pg and ar.size.y >= host_h * 0.3, "карточка %d: картинка %d px — меньше 30%% экрана" % [pg + 1, int(ar.size.y)])
+			ok += _expect(fails, h.page == pg and ar.size.y >= 140.0 and ar.size.y <= minf(230.0, host_h), "карточка %d: неподходящая высота картинки %d px" % [pg + 1, int(ar.size.y)])
 			var inside := true
 			for f: VillagerFigure in h.art.figures:
 				if not ar.grow(2.0).encloses(f.body_rect_global()):
@@ -3346,7 +3346,7 @@ static func howto() -> void:
 
 	Nav.show_menu()
 	await _settle(tree)
-	_find_button(Nav.host.current, "Как играть").pressed.emit()
+	Nav.handle_intent(Intent.OPEN_HOWTO, {}, Nav.host.current)
 	await _settle(tree)
 	h = Nav.host.current as HowToScreen
 	ok += _expect(fails, h != null and not h.then_play, "кнопка «Как играть» в меню не открыла карточки")
@@ -3390,6 +3390,23 @@ static func howto() -> void:
 	Save.flush()
 	Save.load_all()
 	ok += _expect(fails, Save.howto_seen, "после перезапуска «Как играть» забылось")
+
+	# Игрок со старым сохранением раньше мог начать кампанию, не увидев правил.
+	Save.howto_seen = true
+	Save.hints_seen.erase("campaign_basics_v2")
+	Nav.handle_intent(Intent.PLAY_CHAPTER, {"id": "a1c1"}, Nav.host.current)
+	await _settle(tree)
+	h = Nav.host.current as HowToScreen
+	ok += _expect(fails, h != null and h.then_play, "кампания обошла вводное обучение")
+	if h != null:
+		Nav.handle_intent(Intent.HOWTO_DONE, {"play": true}, h)
+		await _settle(tree)
+		ok += _expect(fails, Game.chapter.get("id", "") == "a1c1" and Save.hint_seen("campaign_basics_v2"),
+			"после обучения запустилась не выбранная глава или обучение не сохранилось")
+		var exchange := Game.director.day_exchange()
+		ok += _expect(fails, exchange.size() == 2 and exchange[0].speaker != exchange[1].speaker
+			and not exchange[0].asks_player and not exchange[1].asks_player,
+			"разговор двух ботов не создан или открыл вопрос игроку")
 
 	print("=== «Как играть»: %d проверок ===" % (ok + fails.size()))
 	if fails.is_empty():

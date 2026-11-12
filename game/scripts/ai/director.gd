@@ -67,6 +67,7 @@ var pending_lines: Array[ChatLine] = []          ## что скажут перв
 var fake_elder_done := false
 var gestured: Dictionary = {}   ## «жест:id:день» — какие жесты уже засчитаны
 var last_question_topic := ""
+var exchange_seen: Dictionary = {}
 var said: Dictionary = {}      ## шаблоны, уже прозвучавшие в этой партии: второй раз — только если других нет
 const OWN_VOICE_P := 0.75      ## как часто житель говорит строкой своего характера, а не общей
 const W_REVENGE := 0.8         ## утро после гибели близкого: тот, кто не открыл ему дверь, под подозрением
@@ -102,6 +103,7 @@ func attach(match_ref: Match) -> void:
 	last_question_topic = ""
 	last_questioner = -1
 	said.clear()
+	exchange_seen.clear()
 	promise_lines.clear()
 	for v: Villager in m.villagers:
 		public_susp[v.id] = 0.0
@@ -177,7 +179,9 @@ func plan_jobs(day_sec: float) -> Array[JobTask]:
 	load.resize(m.jobs.size())
 	var cap := maxi(0, m.supply_total - 2)
 	var planned := 0
-	for bot: Villager in m.alive_bots():
+	var workers := m.alive_bots().duplicate()
+	_shuffle(workers)
+	for bot: Villager in workers:
 		var n := 0
 		if bot.grief_days > 0 and not bot.is_upyr:
 			n = 0                     # в трауре: не до вёдер и дров
@@ -600,6 +604,40 @@ func _house_of_most_trusted(bot: Villager, counts: Array[int]) -> int:
 		if o.announced_house >= 0 and counts[o.announced_house] < m.config.capacity:
 			return o.announced_house
 	return _emptiest(counts)
+
+
+## Разговоры без вопроса игроку: жители обмениваются мнениями в течение дня.
+func day_exchange() -> Array[ChatLine]:
+	var out: Array[ChatLine] = []
+	if L.code != "ru":
+		return out
+	var bots := m.alive_bots().duplicate()
+	if bots.size() < 2:
+		return out
+	_shuffle(bots)
+	var pairs := [
+		["Если мест не хватит, кого выберешь?", "Того, кто не бросит остальных у двери."],
+		["Ты веришь обещаниям, которые дают перед ночью?", "Верю поступкам. Слова слишком легко сказать."],
+		["Сколько ещё продержатся запасы?", "Пока работаем вместе, надежда есть."],
+		["Вчера люди улыбались друг другу. Сегодня молчат.", "Ночью у каждого нашлась причина бояться."],
+		["Если увидишь что-то у леса, скажешь остальным?", "Скажу. Только пусть сначала дослушают."],
+		["Ты бы открыл дверь знакомому голосу?", "Я бы сначала спросил то, что знает только он."],
+		["Что страшнее: остаться одному или ошибиться с гостем?", "У двери будет мало времени, чтобы решить."],
+		["Почему ты всё время оглядываешься?", "Привычка. Тут она помогает дожить до утра."]
+	]
+	var available: Array[int] = []
+	for i in range(pairs.size()):
+		if not exchange_seen.has(i):
+			available.append(i)
+	if available.is_empty():
+		exchange_seen.clear()
+		for i in range(pairs.size()):
+			available.append(i)
+	var chosen: int = available[rng.randi_range(0, available.size() - 1)]
+	exchange_seen[chosen] = true
+	out.append(ChatLine.say(bots[0], pairs[chosen][0]))
+	out.append(ChatLine.say(bots[1], pairs[chosen][1]))
+	return out
 
 
 func opening_lines() -> Array[ChatLine]:
