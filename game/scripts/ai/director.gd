@@ -1034,7 +1034,16 @@ func carry_lines() -> Array[ChatLine]:
 		if v == null:
 			absent.append(rec)
 			continue
-		var l := ChatLine.say(v, L.t("carry." + String(rec.kind), {"me": v}))
+		var memory_kind := String(rec.kind)
+		if memory_kind in ["crossroads_trust", "crossroads_refuse"]:
+			var recalled := "Ты обещал мне помочь. Я не забыл." if memory_kind == "crossroads_trust" else "Ты не стал обещать мне помощи. Я помню."
+			var personal := ChatLine.say(v, recalled)
+			personal.emotion = "sad"
+			out.append(personal)
+			if out.size() >= 2:
+				break
+			continue
+		var l := ChatLine.say(v, L.t("carry." + memory_kind, {"me": v}))
 		l.emotion = "sad" if String(rec.kind) in ["refused", "refused_died", "broken", "react_accuse", "react_revenge", "react_withdraw"] else "relieved"
 		out.append(l)
 		if out.size() >= 2:
@@ -1042,7 +1051,15 @@ func carry_lines() -> Array[ChatLine]:
 	if out.is_empty() and not absent.is_empty():
 		var rec: Dictionary = absent[0]
 		var who := Revelations._person(int(rec.who), m)
-		out.append(ChatLine.system(L.t("carry.letter", {"who": who, "text": L.t("carry." + String(rec.kind), {"me": who})})))
+		var memory_kind := String(rec.kind)
+		var remembered := ""
+		if memory_kind == "crossroads_trust":
+			remembered = "Ты обещал мне помочь. Я не забыл."
+		elif memory_kind == "crossroads_refuse":
+			remembered = "Ты не стал обещать мне помощи. Я помню."
+		else:
+			remembered = L.t("carry." + memory_kind, {"me": who})
+		out.append(ChatLine.system(L.t("carry.letter", {"who": who, "text": remembered})))
 	return out
 
 

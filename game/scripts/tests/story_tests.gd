@@ -451,6 +451,26 @@ static func crossroads(fails: PackedStringArray) -> int:
 	return ok
 
 
+## Личный выбор не должен превращаться в непереведённый ключ при переходе к мельнице.
+static func crossroads_carry(fails: PackedStringArray) -> int:
+	var ok := 0
+	var old := Save.campaign_memory.duplicate(true)
+	_dead([])
+	var m := _match("a2c1")
+	var bots := m.alive_bots()
+	if bots.is_empty():
+		return _ok(fails, false, "нет жителей для проверки перехода")
+	var resident: Villager = bots[0]
+	_journal([_mem("crossroads_trust", resident.story_id, "a1c1")])
+	var d := Director.new()
+	d.attach(m)
+	var lines := d.carry_lines()
+	ok += _ok(fails, not lines.is_empty() and not lines[0].text.contains("carry.crossroads"),
+		"личный выбор у мельницы показан служебным ключом")
+	Save.campaign_memory = old
+	return ok
+
+
 static func run() -> void:
 	var tree := Engine.get_main_loop() as SceneTree
 	var t0 := Time.get_ticks_msec()
@@ -465,6 +485,7 @@ static func run() -> void:
 	ok += recording(fails)
 	ok += bond_carry(fails)
 	ok += crossroads(fails)
+	ok += crossroads_carry(fails)
 	SimChapters.restore_campaign(snap)
 	for f: String in fails:
 		print("  ✗ " + f)
