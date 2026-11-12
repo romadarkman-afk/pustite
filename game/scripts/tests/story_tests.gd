@@ -427,6 +427,17 @@ static func crossroads(fails: PackedStringArray) -> int:
 		if scene.is_empty():
 			continue
 		var resident := m.get_villager(int(scene.target))
+		if chapter_id != "a1c1":
+			var old_memory := Save.campaign_memory.duplicate(true)
+			_journal([_mem("crossroads_trust", resident.story_id, "a1c1")])
+			var remembered := Scenes.chapter_crossroads(m, chapter_id, d)
+			ok += _ok(fails, _frames_text(remembered).contains("В прошлый раз"),
+				"%s: спутник не вспомнил прошлый выбор" % chapter_id)
+			_journal([_mem("crossroads_refuse", resident.story_id, "a1c1")])
+			var refused := Scenes.chapter_crossroads(m, chapter_id, d)
+			ok += _ok(fails, _frames_text(refused).contains("не стал обещать"),
+				"%s: отказ не изменил разговор" % chapter_id)
+			Save.campaign_memory = old_memory
 		var before := float(d.brains[resident.id].private_delta.get(0, 0.0))
 		d.crossroads_answer(resident, "trust")
 		ok += _ok(fails, float(d.brains[resident.id].private_delta.get(0, 0.0)) < before,

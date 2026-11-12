@@ -17,6 +17,8 @@ var _menu_art_nodes: Array[TextureRect] = []
 var _menu_art_front := 0
 var _menu_art_index := 0
 var _menu_backdrop: Control
+var _mode_width_holder: Control
+var _more_width_holder: Control
 
 
 func screen_id() -> String:
@@ -52,7 +54,7 @@ func build() -> void:
 	var brand := W.label(L.t("game.title"), &"Title")
 	brand.name = "MenuTitle"
 	brand.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	brand.add_theme_font_size_override("font_size", ThemeFactory.fs(40))
+	brand.add_theme_font_size_override("font_size", ThemeFactory.fs(48))
 	body.add_child(brand)
 	var case_file := W.label(L.t("menu.case_file"), &"Speaker")
 	case_file.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -72,14 +74,25 @@ func build() -> void:
 		"Online", &"Row", &"", true))
 	modes.add_child(_mode_tile(L.t("settings.title"), "",
 		"Settings", &"Row", Intent.OPEN_SETTINGS))
-	body.add_child(modes)
+	var mode_center := CenterContainer.new()
+	mode_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_child(mode_center)
+	mode_center.add_child(modes)
+	_mode_width_holder = modes
+	if not resized.is_connected(_size_menu_columns):
+		resized.connect(_size_menu_columns)
+	_size_menu_columns.call_deferred()
 
 	var more := W.button(L.t("menu.more"), &"Compact", 56)
 	more.name = "More"
 	more.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	more.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
+	more.add_theme_font_size_override("font_size", ThemeFactory.fs(18))
 	more.pressed.connect(_open_more)
-	body.add_child(more)
+	var more_center := CenterContainer.new()
+	more_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_child(more_center)
+	more_center.add_child(more)
+	_more_width_holder = more
 
 	var footer_actions: Array[Button] = []
 	if not Campaign.is_new():
@@ -206,6 +219,14 @@ func _open_more() -> void:
 		Intent.OPEN_BOOK:
 			emit_intent(Intent.OPEN_BOOK)
 
+func _size_menu_columns() -> void:
+	var width := clampf(body.size.x * 0.78, 180.0, 420.0)
+	if is_instance_valid(_mode_width_holder):
+		_mode_width_holder.custom_minimum_size.x = width
+	if is_instance_valid(_more_width_holder):
+		_more_width_holder.custom_minimum_size.x = width
+
+
 func _mode_tile(heading: String, detail: String, node_name: String, variation: StringName,
 		action: StringName, disabled: bool = false) -> Button:
 	var button := W.button("", variation, 48)
@@ -221,7 +242,7 @@ func _mode_tile(heading: String, detail: String, node_name: String, variation: S
 	text_box.offset_right = -9.0
 	var title_label := W.label(heading, &"Speaker")
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_label.add_theme_font_size_override("font_size", ThemeFactory.fs(14))
+	title_label.add_theme_font_size_override("font_size", ThemeFactory.fs(19))
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text_box.add_child(title_label)
 	if not detail.is_empty():

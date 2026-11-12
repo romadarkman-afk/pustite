@@ -109,7 +109,9 @@ const VOICE_DIR := "res://assets/voice/"
 const BARK_MOOD := {"grief": "grief", "despair": "grief", "guilt": "grief", "exhaustion": "grief", "fear": "fear", "rage": "rage"}
 const BARKS_PER_SET := 8
 ## Музыка в момент озвучки тише на столько дБ.
-const DUCK_DB := 5.0
+const DUCK_DB := 10.0
+const VOICE_EFFECT_DUCK_DB := -14.0
+const VOICE_AMBIENCE_DUCK_DB := -12.0
 ## Музыка по главам (TASK-123): day_a1c2 … night_a4c3. У быстрой партии на карте «посёлок» играют общие day и night. С 0.68.0 свои дорожки day_<глава> и night_<глава> есть у всех двенадцати глав.
 ## Файлов может не быть: тогда играет общая дорожка. Их делает tools/make_stage_music.py.
 const STAGE_KEYS: PackedStringArray = ["a1c1", "a1c2", "a1c3", "a2c1", "a2c2", "a2c3", "a3c1", "a3c2", "a3c3", "a4c1", "a4c2", "a4c3"]
@@ -170,6 +172,8 @@ var _vo_p: AudioStreamPlayer          ## озвучка кадров комик�
 var _vo_gen := 0
 var _bark_cache: Dictionary = {}      ## "f_old_calm" -> Array[AudioStream]; пустой массив: файлов нет
 var _bark_last: Dictionary = {}       ## id говорящего -> номер последнего возгласа
+var _voice_duck_sfx: AudioEffectAmplify
+var _voice_duck_amb: AudioEffectAmplify
 var _muted_by_os := false
 var _tw: Dictionary = {}
 
@@ -243,6 +247,11 @@ func _ready() -> void:
 	AudioServer.add_bus_effect(AudioServer.get_bus_index(&"Ambience"), _amb_filter)
 	_heart = _player(&"Sfx")
 	_vo_p = _player(&"Voice")
+	_voice_duck_sfx = AudioEffectAmplify.new()
+	_voice_duck_amb = AudioEffectAmplify.new()
+	AudioServer.add_bus_effect(AudioServer.get_bus_index(&"Sfx"), _voice_duck_sfx)
+	AudioServer.add_bus_effect(AudioServer.get_bus_index(&"Ambience"), _voice_duck_amb)
+	_vo_p.finished.connect(_voice_finished)
 	_panned_player = _player(HORROR_LEFT)
 	_heart.stream = _streams[&"heartbeat"]
 
@@ -435,6 +444,21 @@ func play_voice_line(path: String, vol_db: float = 0.0) -> float:
 	return play_voice_stream(load(path) as AudioStream, vol_db)
 
 
+## Отдельные эффекты не меняют громкость каналов, заданную в настройках.
+func _voice_mix_update() -> void:
+	var on := voice_line_playing() and not is_bus_muted(&"Voice")
+	if _voice_duck_sfx != null:
+		_voice_duck_sfx.volume_db = VOICE_EFFECT_DUCK_DB if on else 0.0
+	if _voice_duck_amb != null:
+		_voice_duck_amb.volume_db = VOICE_AMBIENCE_DUCK_DB if on else 0.0
+
+
+func _voice_finished() -> void:
+	_voice_mix_update()
+	if _music_p != null and _music_p.playing and music_name != &"":
+		_fade(_music_p, _music_target_db(), 0.4, false)
+
+
 func play_voice_stream(stream: AudioStream, vol_db: float = 0.0) -> float:
 	if stream == null or _vo_p == null:
 		return -1.0
@@ -444,6 +468,7 @@ func play_voice_stream(stream: AudioStream, vol_db: float = 0.0) -> float:
 	_vo_p.volume_db = vol_db
 	_vo_p.pitch_scale = 1.0
 	_vo_p.play()
+	_voice_mix_update()
 	_note(&"озвучка")
 	var len_s := stream.get_length()
 	if music_name != &"":
@@ -460,6 +485,7 @@ func stop_voice_line() -> void:
 	_vo_gen += 1
 	if _vo_p != null and _vo_p.playing:
 		_vo_p.stop()
+		_voice_mix_update()
 		if _music_p != null and _music_p.playing and music_name != &"":
 			_fade(_music_p, _music_target_db(), 0.4, false)
 
@@ -832,6 +858,8 @@ func set_volume(bus: StringName, v: float) -> void:
 	v = clampf(v, 0.0, 1.0)
 	AudioServer.set_bus_volume_db(i, linear_to_db(maxf(v, 0.0001)))
 	AudioServer.set_bus_mute(i, v <= 0.001 or _muted_by_os)
+	if bus == &"Voice":
+		_voice_mix_update()
 
 
 func volume(bus: StringName) -> float:

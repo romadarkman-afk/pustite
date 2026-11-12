@@ -481,8 +481,23 @@ static func chapter_crossroads(m: Match, chapter_id: String, director: Director)
 			chosen = v
 	if chosen == null:
 		return {}
+	var lines: Array = []
+	var current_index := Campaign.ORDER.find(chapter_id)
+	for i in range(Save.campaign_memory.size() - 1, -1, -1):
+		var rec: Dictionary = Save.campaign_memory[i]
+		var previous := Campaign.ORDER.find(String(rec.get("ch", "")))
+		if previous < 0 or previous >= current_index or int(rec.get("who", -1)) != chosen.story_id:
+			continue
+		var kind := String(rec.get("kind", ""))
+		if kind == "crossroads_trust":
+			lines.append({"who": chosen.name, "text": "В прошлый раз ты сказал, что будешь рядом. Я это помню."})
+			break
+		if kind == "crossroads_refuse":
+			lines.append({"who": chosen.name, "text": "В прошлый раз ты не стал обещать мне помощи. Может, сейчас ответишь иначе?"})
+			break
+	lines.append({"who": chosen.name, "text": String(prompts[chapter_id])})
 	return sealed({"id": "chapter_crossroads", "target": chosen.id, "frames": [
-		{"portrait": chosen, "light": "dawn", "lines": [{"who": chosen.name, "text": String(prompts[chapter_id])}]}
+		{"portrait": chosen, "light": "dawn", "lines": lines}
 	], "choice": {"prompt": "Что ответить?", "options": [
 		{"id": "trust", "text": "Я на твоей стороне."},
 		{"id": "refuse", "text": "Я не могу этого обещать."}

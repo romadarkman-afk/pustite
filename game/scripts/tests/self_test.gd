@@ -4035,6 +4035,26 @@ static func sound() -> void:
 	var ok := 0
 	Save.set_difficulty("easy")
 
+	# Голос приглушает эффекты и фон, не меняя настройки громкости пользователя.
+	var voice_level := Sfx.volume(&"Voice")
+	var fx_level := Sfx.volume(&"Sfx")
+	var amb_level := Sfx.volume(&"Ambience")
+	Sfx.set_volume(&"Voice", 1.0)
+	Sfx.play_voice_stream(Sfx._streams.get(&"amb_day") as AudioStream)
+	ok += _expect(fails, Sfx.voice_line_playing() and Sfx._voice_duck_sfx.volume_db == Sfx.VOICE_EFFECT_DUCK_DB
+		and Sfx._voice_duck_amb.volume_db == Sfx.VOICE_AMBIENCE_DUCK_DB,
+		"во время голоса эффекты и окружение не приглушены")
+	ok += _expect(fails, is_equal_approx(Sfx.volume(&"Sfx"), fx_level) and is_equal_approx(Sfx.volume(&"Ambience"), amb_level),
+		"озвучка изменила настройки громкости")
+	Sfx.set_volume(&"Voice", 0.0)
+	ok += _expect(fails, Sfx._voice_duck_sfx.volume_db == 0.0 and Sfx._voice_duck_amb.volume_db == 0.0,
+		"беззвучный голос продолжает приглушать игру")
+	Sfx.set_volume(&"Voice", 1.0)
+	Sfx.stop_voice_line()
+	ok += _expect(fails, Sfx._voice_duck_sfx.volume_db == 0.0 and Sfx._voice_duck_amb.volume_db == 0.0,
+		"после голоса фон не восстановился")
+	Sfx.set_volume(&"Voice", voice_level)
+
 	# 1. Файлы, каналы, циклы
 	var missing := PackedStringArray()
 	for k: StringName in Sfx.SOUNDS.keys() + Sfx.LOOPS.keys():
