@@ -101,6 +101,15 @@ func _scene_then_reveal(r: NightReport) -> void:
 				return
 			if Game.director != null:
 				Game.director.crossroads_answer(m.get_villager(int(crossroads.target)), answer)
+	if not Game.chapter.is_empty() and not you_died() and not Game.scenes_done.has("promise_reckoning_%d" % m.day):
+		var reckoning := Scenes.broken_promise_scene(m)
+		if not reckoning.is_empty():
+			Game.scenes_done["promise_reckoning_%d" % m.day] = true
+			var response: String = await ScenePlayer.play(self, reckoning, m)
+			if not is_instance_valid(self):
+				return
+			if Game.director != null:
+				Game.director.promise_reckoning(m.get_villager(int(reckoning.target)), response)
 	await _guest_comics()
 	if not is_instance_valid(self):
 		return

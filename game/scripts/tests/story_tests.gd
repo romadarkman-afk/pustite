@@ -474,6 +474,40 @@ static func crossroads_carry(fails: PackedStringArray) -> int:
 	return ok
 
 
+## Сцена отказа появляется только при реальном нарушенном обещании.
+static func promise_reckoning(fails: PackedStringArray) -> int:
+	var ok := 0
+	_dead([])
+	var m := _match("a1c2")
+	var residents := m.alive_bots()
+	if residents.is_empty():
+		return _ok(fails, false, "нет свидетеля для проверки нарушенного обещания")
+	var resident: Villager = residents[0]
+	ok += _ok(fails, Scenes.broken_promise_scene(m).is_empty(), "сцена появилась без нарушенного обещания")
+	m.world.add(WorldLog.Kind.PROMISE_BROKEN, m.day, resident.id, m.player().id, -1, [resident.id, 0], false, {"promise": "open"})
+	var sc := Scenes.broken_promise_scene(m)
+	ok += _ok(fails, not sc.is_empty() and int(sc.get("target", -1)) == resident.id,
+		"не найден герой, нарушивший обещание")
+	var d := Director.new()
+	d.attach(m)
+	d.promise_reckoning(resident, "confront")
+	ok += _ok(fails, float(d.brains[resident.id].private_delta.get(0, 0.0)) > 0.0,
+		"обвинение не изменило отношение")
+	var forgiving := Director.new()
+	forgiving.attach(m)
+	forgiving.promise_reckoning(resident, "forgive")
+	ok += _ok(fails, float(forgiving.brains[resident.id].private_delta.get(0, 0.0)) < 0.0,
+		"попытка выслушать не изменила отношение")
+	m.world.add(WorldLog.Kind.CHOICE, m.day, 0, resident.id, -1, [0], false,
+		{"scene": "promise_reckoning", "choice": "forgive"})
+	ok += _ok(fails, m.world.campaign_records(m, 60).any(func(rec: Dictionary) -> bool:
+		return String(rec.kind) == "reckoning_forgive" and int(rec.who) == resident.story_id),
+		"ответ после отказа не попал в память кампании")
+	resident.alive = false
+	ok += _ok(fails, Scenes.broken_promise_scene(m).is_empty(), "погибший герой появился в сцене")
+	return ok
+
+
 static func run() -> void:
 	var tree := Engine.get_main_loop() as SceneTree
 	var t0 := Time.get_ticks_msec()
@@ -489,6 +523,7 @@ static func run() -> void:
 	ok += bond_carry(fails)
 	ok += crossroads(fails)
 	ok += crossroads_carry(fails)
+	ok += promise_reckoning(fails)
 	SimChapters.restore_campaign(snap)
 	for f: String in fails:
 		print("  ✗ " + f)

@@ -505,6 +505,28 @@ static func chapter_crossroads(m: Match, chapter_id: String, director: Director)
 	]}})
 
 
+## Последствие ночного обещания, нарушенного перед игроком.
+## Показывается только по событию журнала: отказ видели оба участника.
+static func broken_promise_scene(m: Match) -> Dictionary:
+	if L.code != "ru" or m == null or not m.player().alive:
+		return {}
+	var event := m.world.last(WorldLog.Kind.PROMISE_BROKEN, -1, m.player().id, m.day)
+	if event == null:
+		return {}
+	var resident := m.get_villager(event.actor)
+	if resident == null or not resident.alive or resident.is_player or not resident.guest_id.is_empty():
+		return {}
+	return sealed({"id": "promise_reckoning", "target": resident.id, "frames": [
+		{"portrait": resident, "light": "dawn", "lines": [
+			{"who": resident.name, "text": "Твой стук до сих пор слышится мне. Я помню обещание открыть. Ночью страх оказался сильнее."},
+			{"text": "Обещание нарушено. Теперь решать тебе, можно ли доверять этому человеку дальше."}
+		]}
+	], "choice": {"prompt": "Что сказать?", "options": [
+		{"id": "confront", "text": "Ты оставил меня снаружи. Больше я тебе не верю."},
+		{"id": "forgive", "text": "Я пережил эту ночь. Объясни, почему не открыл."}
+	]}})
+
+
 static func betrayal(m: Match, ally: Villager) -> Dictionary:
 	var frames: Array = [
 		{"art": art("a4c3"), "light": "dawn", "weather": "fog", "lines": [{"text": L.t("sc.betray.1")}],
