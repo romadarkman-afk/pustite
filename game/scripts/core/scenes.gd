@@ -473,14 +473,22 @@ static func chapter_crossroads(m: Match, chapter_id: String, director: Director)
 	}
 	if not prompts.has(chapter_id):
 		return {}
-	var chosen: Villager = null
+	var candidates: Array[Villager] = []
 	for v: Villager in m.alive_bots():
-		if not v.guest_id.is_empty() or v.story_id < 0:
-			continue
-		if chosen == null or director.view(v, m.player()) < director.view(chosen, m.player()):
-			chosen = v
-	if chosen == null:
+		if v.guest_id.is_empty() and v.story_id >= 0:
+			candidates.append(v)
+	if candidates.is_empty():
 		return {}
+	# Чередуем трёх наиболее близких, чтобы личные сцены не принадлежали
+	# одному и тому же герою во всех главах. Равные оценки имеют стабильный порядок.
+	candidates.sort_custom(func(a: Villager, b: Villager) -> bool:
+		var av := director.view(a, m.player())
+		var bv := director.view(b, m.player())
+		if is_equal_approx(av, bv):
+			return a.story_id < b.story_id
+		return av < bv)
+	var chapter_index := maxi(0, Campaign.ORDER.find(chapter_id))
+	var chosen: Villager = candidates[chapter_index % mini(3, candidates.size())]
 	var lines: Array = []
 	var current_index := Campaign.ORDER.find(chapter_id)
 	for i in range(Save.campaign_memory.size() - 1, -1, -1):

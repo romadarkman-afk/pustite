@@ -557,6 +557,21 @@ static func kept_promise(fails: PackedStringArray) -> int:
 	return ok
 
 
+## Разные главы не выбирают одного и того же собеседника при одинаковом составе.
+static func varied_crossroads_cast(fails: PackedStringArray) -> int:
+	_dead([])
+	var m := _match("a1c1")
+	var d := Director.new()
+	d.attach(m)
+	var selected := {}
+	for id: String in ["a1c1", "a1c2", "a1c3"]:
+		var sc := Scenes.chapter_crossroads(m, id, d)
+		if not sc.is_empty():
+			selected[int(sc.target)] = true
+	return _ok(fails, selected.size() >= mini(3, m.alive_bots().size()),
+		"разные главы повторно выбрали одного собеседника")
+
+
 static func run() -> void:
 	var tree := Engine.get_main_loop() as SceneTree
 	var t0 := Time.get_ticks_msec()
@@ -574,6 +589,7 @@ static func run() -> void:
 	ok += crossroads_carry(fails)
 	ok += promise_reckoning(fails)
 	ok += kept_promise(fails)
+	ok += varied_crossroads_cast(fails)
 	SimChapters.restore_campaign(snap)
 	for f: String in fails:
 		print("  ✗ " + f)
