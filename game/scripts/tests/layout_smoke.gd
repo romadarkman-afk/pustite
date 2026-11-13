@@ -76,9 +76,12 @@ static func _check_menu_layout(tree: SceneTree, problems: PackedStringArray) -> 
 	var art_a := Nav.ui.find_child("MenuBackdrop0", true, false) as TextureRect
 	var art_b := Nav.ui.find_child("MenuBackdrop1", true, false) as TextureRect
 	var shade := Nav.ui.find_child("MenuBackdropShade", true, false) as TextureRect
-	var title := screen.find_child("MenuTitle", true, false) as Label
+	var title := screen.find_child("MenuTitle", true, false) as Control
 	checks += _expect(problems, title != null and title.is_visible_in_tree(),
 		"720×1280: заголовок меню не виден")
+	if L.code == "ru":
+		checks += _expect(problems, title is TextureRect and (title as TextureRect).texture != null,
+			"720×1280: логотип меню не загружен")
 	checks += _expect(problems, art_a != null and art_a.texture != null and art_b != null and art_b.texture != null
 		and shade != null and shade.get_global_rect().size.x >= vp.x - 1.0,
 		"720×1280: слайд-шоу заставок не заполнило фон экрана")
