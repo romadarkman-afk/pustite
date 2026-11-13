@@ -62,7 +62,7 @@ func _build() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_dim = ColorRect.new()
-	_dim.color = Color(0.02, 0.02, 0.04, 0.8)
+	_dim.color = Color(0.035, 0.025, 0.02, 0.8)
 	_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_cover(_dim)
 	add_child(_dim)

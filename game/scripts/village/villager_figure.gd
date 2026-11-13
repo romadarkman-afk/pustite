@@ -1198,7 +1198,7 @@ func _draw_tag() -> void:
 		tag.draw_colored_polygon(PackedVector2Array([Vector2(-9, y0 - 12), Vector2(9, y0 - 12), Vector2(0, y0)]), ThemeFactory.LAMP)
 	var lr := label_rect_local()
 	var col := ThemeFactory.LAMP if is_player else Color(1, 1, 1, 0.95 if state != State.DEAD else 0.45)
-	Art.shape(tag, Art.rrect(lr, lr.size.y * 0.5), Color(0.08, 0.06, 0.12, 0.72 if state != State.DEAD else 0.4), Color(col, 0.35), 1.2)
+	Art.shape(tag, Art.rrect(lr, 4.0), Color(0.10, 0.065, 0.045, 0.88 if state != State.DEAD else 0.5), Color(ThemeFactory.LAMP_D, 0.62), 1.2)
 	if state != State.DEAD:
 		tag.draw_line(Vector2(lr.position.x + 9, lr.end.y - 1.5), Vector2(lr.end.x - 9, lr.end.y - 1.5), Color(identity_color, 0.85 + 0.15 * _tap_glow), 2.2 + _tap_glow)
 	tag.draw_string(_font, Vector2(lr.position.x + 8.0, lr.end.y - 5.0), who, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size(), col)

@@ -165,6 +165,8 @@ jobs:
 
       - name: Проверка кадров
         run: |
+          python3 -c 'from PIL import Image; import io,base64; im=Image.open("build/shots/r1_menu.png"); im.thumbnail((288,512)); o=io.BytesIO(); im.convert("RGB").save(o,format="JPEG",quality=65); print("PREVIEW_MENU:"+base64.b64encode(o.getvalue()).decode())'
+          python3 -c 'from PIL import Image; import io,base64; im=Image.open("build/shots/r2_day.png"); im.thumbnail((288,512)); o=io.BytesIO(); im.convert("RGB").save(o,format="JPEG",quality=65); print("PREVIEW_DAY:"+base64.b64encode(o.getvalue()).decode())'
           python3 tools/check_render.py --self-test
           python3 tools/check_render.py build/shots build/shots.log 720 1280 r1_menu r2_day r3_door r4_camp r5_stuk r6_howto r7_door r8_charms
 

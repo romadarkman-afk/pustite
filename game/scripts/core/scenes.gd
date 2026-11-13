@@ -83,6 +83,20 @@ static func sound_problems(scene: Dictionary, strict: bool) -> PackedStringArray
 
 
 static func art(name: String) -> String:
+	# В сценах используем иллюстрации кампании: старые рисованные кадры остаются запасными.
+	var preferred := {
+		"river": "res://assets/slides/a1c1_intro/02.webp",
+		"door_inside_night": "res://assets/slides/a1c1_intro/05.webp",
+		"final_shore": "res://assets/slides/final_shore/01.webp",
+	}
+	if preferred.has(name) and ResourceLoader.exists(String(preferred[name])):
+		return String(preferred[name])
+	if Campaign.ORDER.has(name) and Slides.has_deck(name + "_intro"):
+		for panel: Variant in Slides.panels(name + "_intro"):
+			if panel is Dictionary:
+				var chapter_art := Slides.art_path(panel as Dictionary)
+				if not chapter_art.is_empty():
+					return chapter_art
 	var exact := ART % name
 	if ResourceLoader.exists(exact):
 		return exact

@@ -902,7 +902,7 @@ func _draw_plaques() -> void:
 	for i in range(open_count):
 		var r := shelter_label_rect_local(i)
 		var sel := i == selected_house
-		Art.shape(_labels, Art.rrect(r, r.size.y * 0.5), Color(0.08, 0.06, 0.12, 0.82), ThemeFactory.LAMP if sel else Color(1, 1, 1, 0.3), 2.0 if sel else 1.2)
+		Art.shape(_labels, Art.rrect(r, 4.0), Color(0.10, 0.065, 0.045, 0.9), ThemeFactory.LAMP if sel else ThemeFactory.EDGE, 2.0 if sel else 1.2)
 		var name_w := _font.get_string_size(_title(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE).x
 		var x2 := r.position.x + 8.0
 		_labels.draw_string(_font, Vector2(x2, r.end.y - 4.5), _title(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE, Color(1, 1, 1))
