@@ -7,6 +7,7 @@ static func run() -> void:
 	var checks := 0
 	await _check_menu_music(tree, problems)
 	checks += await _check_menu_layout(tree, problems)
+	checks += await _check_menu_devices(tree, problems)
 	checks += _expect(problems, Nav.host.current is MenuScreen, "перед тестом раскладки открылось не меню")
 	Nav.start_match()
 	await SelfTest._settle(tree)
@@ -66,6 +67,9 @@ static func _check_menu_layout(tree: SceneTree, problems: PackedStringArray) -> 
 	var vp := Nav.frame.get_viewport_rect().size
 	var modes := screen.find_child("ModeCards", true, false) as GridContainer
 	var more := screen.find_child("More", true, false) as Button
+	var online := screen.find_child("Online", true, false) as Button
+	var solo := screen.find_child("Start", true, false) as Button
+	var quit := screen.find_child("Exit", true, false) as Button
 	var scroll_max := INF
 	if screen.scroll != null:
 		var menu_scrollbar := screen.scroll.get_v_scroll_bar()
@@ -87,6 +91,13 @@ static func _check_menu_layout(tree: SceneTree, problems: PackedStringArray) -> 
 		"720×1280: слайд-шоу заставок не заполнило фон экрана")
 	checks += _expect(problems, modes != null and modes.columns == 1 and modes.get_child_count() == 4,
 		"720×1280: кнопки режимов не собраны в один столбец")
+	checks += _expect(problems, online != null and online.disabled and online.find_child("TileDetail", true, false) != null,
+		"720×1280: онлайн доступен или не обозначен как будущий режим")
+	checks += _expect(problems, quit != null and quit.find_child("Plaque", true, false) is TextureRect,
+		"720×1280: кнопка выхода без таблички")
+	var solo_title := solo.find_child("TileTitle", true, false) as Label if solo != null else null
+	checks += _expect(problems, solo_title != null and solo_title.text_overrun_behavior == TextServer.OVERRUN_NO_TRIMMING,
+		"720×1280: название одиночной игры обрезается")
 	checks += _expect(problems, ThemeFactory.fs(20) <= roundi(18.0 * ThemeFactory.text_scale),
 		"720×1280: базовый размер игрового текста снова увеличен")
 	checks += _expect(problems, more != null and more.get_global_rect().end.y <= screen.scroll.get_global_rect().end.y + 1.0,
@@ -101,6 +112,40 @@ static func _check_menu_layout(tree: SceneTree, problems: PackedStringArray) -> 
 			and shortcut.get_global_rect().size.y >= 48.0 and not shortcut.accessibility_name.is_empty(),
 			"720×1280: нижняя кнопка %s недоступна или слишком мала" % name)
 
+	return checks
+
+
+## Меню проверяется на узком телефоне, S25 Ultra и планшете с реальным масштабом интерфейса.
+static func _check_menu_devices(tree: SceneTree, problems: PackedStringArray) -> int:
+	var checks := 0
+	var tested := 0
+	for profile: Array in SelfTest.device_profiles():
+		var model := String(profile[3])
+		if model not in ["Apple iPhone SE (2016)", "Samsung Galaxy S25 Ultra", "Samsung Galaxy Tab S4"]:
+			continue
+		tree.root.size = profile[0]
+		tree.root.content_scale_factor = float(profile[2])
+		await SelfTest._settle(tree)
+		Nav.frame.refresh()
+		await SelfTest._settle(tree)
+		var screen := Nav.host.current as MenuScreen
+		if screen == null:
+			problems.append("%s: меню закрыто" % model)
+			continue
+		tested += 1
+		var visible_area := screen.scroll.get_global_rect()
+		for node_name: String in ["Campaign", "Start", "Online", "More"]:
+			var button := screen.find_child(node_name, true, false) as Button
+			var inside := button != null and visible_area.grow(1.0).encloses(button.get_global_rect())
+			checks += _expect(problems, inside, "%s: кнопка %s вышла из видимой области меню" % [model, node_name])
+		var footer_end := screen.footer.get_global_rect().end.y
+		checks += _expect(problems, footer_end <= Nav.frame.get_viewport_rect().size.y + 1.0,
+			"%s: нижние кнопки вышли за край" % model)
+	checks += _expect(problems, tested == 3, "не найдены профили устройств для меню: %d из 3" % tested)
+	tree.root.size = Vector2i(720, 1280)
+	tree.root.content_scale_factor = 1.0
+	await SelfTest._settle(tree)
+	Nav.frame.refresh()
 	return checks
 
 

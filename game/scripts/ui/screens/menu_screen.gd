@@ -5,11 +5,11 @@ extends Screen
 ## Фоновые заставки главного меню. Две картинки держим в памяти для плавного перехода.
 const MENU_ART: PackedStringArray = [
 	"res://assets/scenes/menu_winter_door.png",
-	"res://assets/scenes/end_upyri.jpg",
-	"res://assets/scenes/end_people.jpg",
-	"res://assets/scenes/a2c1.jpg",
-	"res://assets/scenes/a1c1.jpg",
-	"res://assets/scenes/river.jpg",
+	"res://assets/slides/a1c1_intro/02.webp",
+	"res://assets/slides/prologue/01.webp",
+	"res://assets/slides/act2_intro/01.webp",
+	"res://assets/slides/act3_intro/01.webp",
+	"res://assets/slides/act4_intro/01.webp",
 ]
 
 var difficulty: String = "easy"
@@ -20,6 +20,9 @@ var _menu_art_index := 0
 var _menu_backdrop: Control
 var _mode_width_holder: Control
 var _more_width_holder: Control
+var _menu_logo: Control
+var _menu_bottom_margin: Control
+var _menu_buttons: Array[Button] = []
 
 
 func screen_id() -> String:
@@ -59,10 +62,11 @@ func build() -> void:
 	if L.code == "ru" and ResourceLoader.exists("res://assets/ui/pustite_logo.png"):
 		var logo := TextureRect.new()
 		logo.name = "MenuTitle"
+		_menu_logo = logo
 		logo.texture = load("res://assets/ui/pustite_logo.png") as Texture2D
 		logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		logo.custom_minimum_size = Vector2(0, 112)
+		logo.custom_minimum_size = Vector2(0, 178)
 		logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		body.add_child(logo)
 	else:
@@ -97,6 +101,8 @@ func build() -> void:
 	_mode_width_holder = modes
 	if not resized.is_connected(_size_menu_columns):
 		resized.connect(_size_menu_columns)
+	if not body.resized.is_connected(_size_menu_columns):
+		body.resized.connect(_size_menu_columns)
 	_size_menu_columns.call_deferred()
 
 	var lower_space := Control.new()
@@ -115,13 +121,13 @@ func build() -> void:
 	var footer_actions: Array[Button] = []
 	if not Campaign.is_new():
 		var chapter := Campaign.current()
-		var resume := W.button(L.t("ui.continue"), &"RowOn", 48)
+		var resume := _footer_tile(L.t("ui.continue"), "Continue")
 		resume.name = "Continue"
 		resume.tooltip_text = L.t("camp.continue", {"title": L.t("camp.%s.title" % chapter)})
 		resume.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
 		resume.pressed.connect(func() -> void: emit_intent(Intent.PLAY_CHAPTER, {"id": chapter}))
 		footer_actions.append(resume)
-	var exit := W.button(L.t("ui.exit"), &"Ghost", 48)
+	var exit := _footer_tile(L.t("ui.exit"), "Exit")
 	exit.name = "Exit"
 	exit.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
 	exit.pressed.connect(func() -> void:
@@ -130,6 +136,12 @@ func build() -> void:
 			emit_intent(Intent.EXIT))
 	footer_actions.append(exit)
 	footer.add_child(W.fit_row(footer_actions))
+	var bottom_margin := Control.new()
+	bottom_margin.custom_minimum_size.y = 36.0
+	bottom_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_menu_bottom_margin = bottom_margin
+	footer.add_child(bottom_margin)
+	_size_menu_columns.call_deferred()
 	refresh(difficulty, cfg)
 
 
@@ -238,11 +250,20 @@ func _open_more() -> void:
 			emit_intent(Intent.OPEN_BOOK)
 
 func _size_menu_columns() -> void:
-	var width := clampf(body.size.x * 0.90, 180.0, 460.0)
+	var width := clampf(body.size.x * 0.96, 180.0, 600.0)
 	if is_instance_valid(_mode_width_holder):
 		_mode_width_holder.custom_minimum_size.x = width
 	if is_instance_valid(_more_width_holder):
 		_more_width_holder.custom_minimum_size.x = width
+	# На низких экранах сначала уменьшаем пустые поля и логотип, сохраняя зоны нажатия.
+	var room := clampf((size.y - 700.0) / 300.0, 0.0, 1.0) if size.y > 0.0 else 1.0
+	if is_instance_valid(_menu_logo):
+		_menu_logo.custom_minimum_size.y = lerpf(112.0, 178.0, room)
+	if is_instance_valid(_menu_bottom_margin):
+		_menu_bottom_margin.custom_minimum_size.y = lerpf(8.0, 36.0, room)
+	for button: Button in _menu_buttons:
+		if is_instance_valid(button):
+			button.custom_minimum_size.y = lerpf(68.0, 82.0, room)
 
 
 ## Тёплая древесина и потёртый металл в палитре игры.
@@ -269,6 +290,8 @@ func _mode_tile(heading: String, detail: String, node_name: String, variation: S
 		action: StringName, disabled: bool = false) -> Button:
 	var button := W.button("", variation, 48)
 	button.name = node_name
+	button.custom_minimum_size.y = 82.0
+	_menu_buttons.append(button)
 	var clear_style := StyleBoxEmpty.new()
 	for state: StringName in [&"normal", &"hover", &"pressed", &"disabled", &"focus"]:
 		button.add_theme_stylebox_override(state, clear_style)
@@ -296,17 +319,19 @@ func _mode_tile(heading: String, detail: String, node_name: String, variation: S
 	text_box.offset_left = 9.0
 	text_box.offset_right = -9.0
 	var title_label := W.label(heading, &"Speaker")
+	title_label.name = "TileTitle"
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_label.add_theme_font_size_override("font_size", ThemeFactory.fs(16))
-	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	title_label.add_theme_color_override("font_color", Color("f3deba"))
+	title_label.add_theme_font_size_override("font_size", ThemeFactory.fs(18))
+	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title_label.add_theme_color_override("font_color", Color("969491") if disabled else Color("f3deba"))
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text_box.add_child(title_label)
 	if not detail.is_empty():
 		var detail_label := W.label(detail, &"Small")
+		detail_label.name = "TileDetail"
 		detail_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		detail_label.add_theme_font_size_override("font_size", ThemeFactory.fs(10))
+		detail_label.add_theme_font_size_override("font_size", ThemeFactory.fs(11))
+		detail_label.add_theme_color_override("font_color", Color("969491") if disabled else ThemeFactory.BONE)
 		detail_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		text_box.add_child(detail_label)
 	button.add_child(text_box)
@@ -315,13 +340,22 @@ func _mode_tile(heading: String, detail: String, node_name: String, variation: S
 	return button
 
 
+## Нижние действия имеют ту же табличку; текст Button сохраняется для доступности и тестов.
+func _footer_tile(label: String, node_name: String) -> Button:
+	var b := _mode_tile(label, "", node_name, &"Row", &"")
+	b.text = label
+	for state: StringName in [&"font_color", &"font_hover_color", &"font_pressed_color", &"font_focus_color", &"font_hover_pressed_color"]:
+		b.add_theme_color_override(state, Color(0, 0, 0, 0))
+	return b
+
+
 func _menu_shortcut(kind: String, node_name: String, label: String, action: StringName) -> Button:
 	var b := W.button("", &"Compact", 48)
 	b.name = node_name
 	b.custom_minimum_size = Vector2(56, 48)
 	b.tooltip_text = label
 	b.accessibility_name = label
-	b.add_theme_stylebox_override("normal", _menu_button_style(Color(0.075, 0.08, 0.10, 0.94), Color(0.43, 0.41, 0.36, 0.75)))
+	b.add_theme_stylebox_override("normal", _menu_button_style(ThemeFactory.PANEL, ThemeFactory.EDGE))
 	var center := CenterContainer.new()
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

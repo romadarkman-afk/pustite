@@ -328,10 +328,10 @@ func _capsule(inner: Control) -> Control:
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.06, 0.05, 0.1, 0.6)
-	sb.border_color = Color(1, 1, 1, 0.16)
+	sb.bg_color = Color(0.075, 0.055, 0.04, 0.84)
+	sb.border_color = ThemeFactory.EDGE
 	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(14)
+	sb.set_corner_radius_all(6)
 	sb.content_margin_left = 9
 	sb.content_margin_right = 9
 	sb.content_margin_top = 3

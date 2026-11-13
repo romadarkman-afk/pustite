@@ -418,6 +418,8 @@ static func crossroads(fails: PackedStringArray) -> int:
 	var ok := 0
 	_dead([])
 	for chapter_id: String in Campaign.ORDER:
+		var chapter_art := Scenes.art(chapter_id)
+		ok += _ok(fails, chapter_art.begins_with("res://assets/slides/") and ResourceLoader.exists(chapter_art), "%s: современная иллюстрация главы не загружена" % chapter_id)
 		var m := _match(chapter_id)
 		var d := Director.new()
 		d.attach(m)

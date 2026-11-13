@@ -82,10 +82,10 @@ func _draw() -> void:
 	if card_rect.size.x <= 0.0:
 		return
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("0f171b", 0.80)
+	sb.bg_color = Color(ThemeFactory.PANEL_2, 0.88)
 	sb.border_color = Color(ThemeFactory.LAMP, 0.82)
 	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(10)
+	sb.set_corner_radius_all(6)
 	draw_style_box(sb, card_rect)
 	draw_multiline_string(_font, card_rect.position + PAD + Vector2(0, _font.get_ascent(ThemeFactory.fs(FONT_SIZE))), text,
 		HORIZONTAL_ALIGNMENT_LEFT, card_rect.size.x - PAD.x * 2.0, ThemeFactory.fs(FONT_SIZE), -1, ThemeFactory.BONE)

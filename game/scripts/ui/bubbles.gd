@@ -238,13 +238,13 @@ func _draw() -> void:
 		var s := 0.9 + 0.1 * a
 		var c := b.rect.get_center()
 		draw_set_transform(c - c * s, 0.0, Vector2(s, s))
-		var bg := Color("20302a") if b.mine else ThemeFactory.PANEL_2
+		var bg := ThemeFactory.MINE if b.mine else ThemeFactory.PANEL_2
 		var edge := ThemeFactory.LAMP_D if b.mine else ThemeFactory.EDGE
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(bg, 0.72 * a)
 		sb.border_color = Color(edge, 0.82 * a)
 		sb.set_border_width_all(1)
-		sb.set_corner_radius_all(10)
+		sb.set_corner_radius_all(6)
 		var tip := Vector2(b.tail_x, b.rect.end.y + 9.0)
 		draw_colored_polygon(PackedVector2Array([Vector2(b.tail_x - 7, b.rect.end.y - 1), Vector2(b.tail_x + 7, b.rect.end.y - 1), tip]), Color(bg, 0.72 * a))
 		draw_style_box(sb, b.rect)

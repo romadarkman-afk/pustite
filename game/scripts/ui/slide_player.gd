@@ -147,8 +147,8 @@ func _build() -> void:
 	_plate.offset_bottom = -10.0
 	_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.02, 0.02, 0.03, 0.9)
-	sb.border_color = Color(0.96, 0.74, 0.40, 0.9)
+	sb.bg_color = Color(0.075, 0.05, 0.035, 0.92)
+	sb.border_color = Color(0.78, 0.58, 0.36, 0.85)
 	sb.border_width_left = 4
 	sb.set_content_margin_all(14)
 	sb.content_margin_left = 18

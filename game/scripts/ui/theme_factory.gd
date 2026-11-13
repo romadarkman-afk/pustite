@@ -4,20 +4,20 @@ extends RefCounted
 ## Стиль «уютный ужас»: глубокий фиолетово-чёрный фон, стеклянные панели,
 ## тёплый янтарь, мягкий округлый шрифт Nunito (лицензия OFL, fonts/Nunito-OFL.txt).
 
-const NIGHT := Color("110e1c")
-const PANEL := Color(0.10, 0.09, 0.16, 0.9)
-const PANEL_2 := Color("2a2440")
-const EDGE := Color(1, 1, 1, 0.14)
+const NIGHT := Color("10151b")
+const PANEL := Color(0.105, 0.080, 0.065, 0.94)
+const PANEL_2 := Color("29211c")
+const EDGE := Color(0.70, 0.53, 0.34, 0.52)
 const PAGE := Color(0.15, 0.12, 0.09, 0.97)
 const PAGE_EDGE := Color(0.72, 0.56, 0.32, 0.5)
 const BONE := Color("f6f1e8")
-const FROST := Color("a3a8c6")
-const LAMP := Color("ffb54d")
-const LAMP_D := Color("e0a050")
+const FROST := Color("b8b5af")
+const LAMP := Color("efbc75")
+const LAMP_D := Color("cc9a62")
 const BLOOD := Color("ff6b6b")
-const MINE := Color("2d2618")
+const MINE := Color("302519")
 const MINE_EDGE := Color("e0a050")
-const RADIUS := 18
+const RADIUS := 6
 
 static var _fonts: Dictionary = {}
 
@@ -32,15 +32,15 @@ static func fs(n: float) -> int:
 	return roundi(n * text_scale * UI_TEXT_SCALE)
 
 
-## Шрифт Nunito нужной толщины: 600 — текст, 800 — кнопки и имена, 900 — заголовки.
+## Шрифт Bitter нужной толщины: 600 — текст, 800 — кнопки и имена, 900 — заголовки.
 ## Запасные шрифты письменностей, которых нет в Nunito: иероглифы (урезаны до ~3900 частых),
 ## деванагари и знаки ★ ☆ ✓ ✗ (Symbols.ttf: 7 знаков из DejaVu Sans, лицензия fonts/DejaVu-LICENSE.txt).
 ## Подключены к самому Nunito, поэтому работают во всех надписях и списке языков.
-const FALLBACKS: PackedStringArray = ["res://fonts/NotoSansSC.ttf", "res://fonts/NotoSansDevanagari.ttf", "res://fonts/Symbols.ttf"]
+const FALLBACKS: PackedStringArray = ["res://fonts/Nunito.ttf", "res://fonts/NotoSansSC.ttf", "res://fonts/NotoSansDevanagari.ttf", "res://fonts/Symbols.ttf"]
 
 
 static func _base() -> FontFile:
-	var base := load("res://fonts/Nunito.ttf") as FontFile
+	var base := load("res://fonts/Bitter.ttf") as FontFile
 	if base.fallbacks.is_empty():
 		var fb: Array[Font] = []
 		for p: String in FALLBACKS:
@@ -115,7 +115,7 @@ static func build() -> Theme:
 	_panel(t, "Bubble", PANEL, EDGE)
 	_panel(t, "BubbleMine", MINE, MINE_EDGE)
 	_panel(t, "Card", PANEL, EDGE)
-	_panel(t, "Sheet", Color(0.08, 0.07, 0.13, 0.86), EDGE, 18)
+	_panel(t, "Sheet", Color(0.075, 0.055, 0.04, 0.92), EDGE, 18)
 	# страница книги (TASK-088): тетрадь улик, память, рассказы Книги посёлка; тёплая бумага вместо холодной синевы
 	_panel(t, "Page", PAGE, PAGE_EDGE, 16)
 
