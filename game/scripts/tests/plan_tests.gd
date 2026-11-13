@@ -878,6 +878,14 @@ static func chapter_one(tree: SceneTree, fails: PackedStringArray) -> int:
 	ok += SelfTest._expect(fails, Campaign.river_choice() == "answer", "глава «Стук»: ответ у реки не сохранился")
 	Save.load_all()
 	ok += SelfTest._expect(fails, Campaign.river_choice() == "answer", "глава «Стук»: ответ у реки пропал после чтения сохранения")
+	# У каждой главы свой эпизод и разные ответы на оба решения.
+	var bad_beats := PackedStringArray()
+	for chapter: String in Campaign.ORDER:
+		var yes := Scenes.crossroads_response(chapter, "trust")
+		var no := Scenes.crossroads_response(chapter, "refuse")
+		if not Scenes.CHAPTER_BEATS.has(chapter) or yes.is_empty() or no.is_empty() or yes == no:
+			bad_beats.append(chapter)
+	ok += SelfTest._expect(fails, bad_beats.is_empty(), "личные сцены: нет разных реплик в главах %s" % ", ".join(bad_beats))
 	var saved_mem := Save.campaign_memory.duplicate(true)
 	var cm := Match.new()
 	cm.cast.assign([0, 1, 2, 3, 4, 5, 6])

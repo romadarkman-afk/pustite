@@ -56,16 +56,21 @@ func build() -> void:
 	upper_space.size_flags_stretch_ratio = 0.55
 	body.add_child(upper_space)
 
-	var brand := W.label(L.t("game.title"), &"Title")
-	brand.name = "MenuTitle"
-	brand.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	brand.add_theme_font_size_override("font_size", ThemeFactory.fs(48))
-	brand.add_theme_color_override("font_color", Color("f2e7d2"))
-	brand.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.9))
-	brand.add_theme_constant_override("shadow_offset_x", 2)
-	brand.add_theme_constant_override("shadow_offset_y", 4)
-	brand.add_theme_constant_override("shadow_outline_size", 3)
-	body.add_child(brand)
+	if L.code == "ru" and ResourceLoader.exists("res://assets/ui/pustite_logo.png"):
+		var logo := TextureRect.new()
+		logo.name = "MenuTitle"
+		logo.texture = load("res://assets/ui/pustite_logo.png") as Texture2D
+		logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		logo.custom_minimum_size = Vector2(0, 112)
+		logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		body.add_child(logo)
+	else:
+		var brand := W.label(L.t("game.title"), &"Title")
+		brand.name = "MenuTitle"
+		brand.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		brand.add_theme_font_size_override("font_size", ThemeFactory.fs(42))
+		body.add_child(brand)
 	var case_file := W.label(L.t("menu.case_file"), &"Speaker")
 	case_file.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	case_file.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
@@ -233,7 +238,7 @@ func _open_more() -> void:
 			emit_intent(Intent.OPEN_BOOK)
 
 func _size_menu_columns() -> void:
-	var width := clampf(body.size.x * 0.78, 180.0, 420.0)
+	var width := clampf(body.size.x * 0.90, 180.0, 460.0)
 	if is_instance_valid(_mode_width_holder):
 		_mode_width_holder.custom_minimum_size.x = width
 	if is_instance_valid(_more_width_holder):
@@ -264,16 +269,26 @@ func _mode_tile(heading: String, detail: String, node_name: String, variation: S
 		action: StringName, disabled: bool = false) -> Button:
 	var button := W.button("", variation, 48)
 	button.name = node_name
-	var main_action := node_name == "Campaign" or node_name == "Start"
-	var fill := Color(0.16, 0.115, 0.082, 0.96) if main_action else Color(0.075, 0.08, 0.10, 0.94)
-	var rim := Color(0.65, 0.47, 0.28, 0.9) if main_action else Color(0.43, 0.41, 0.36, 0.75)
-	button.add_theme_stylebox_override("normal", _menu_button_style(fill, rim))
-	button.add_theme_stylebox_override("hover", _menu_button_style(fill.lightened(0.12), rim.lightened(0.1)))
-	button.add_theme_stylebox_override("pressed", _menu_button_style(fill.darkened(0.15), rim))
-	button.add_theme_stylebox_override("disabled", _menu_button_style(Color(0.05, 0.055, 0.065, 0.78), Color(0.3, 0.3, 0.3, 0.5)))
+	var clear_style := StyleBoxEmpty.new()
+	for state: StringName in [&"normal", &"hover", &"pressed", &"disabled", &"focus"]:
+		button.add_theme_stylebox_override(state, clear_style)
+	var plaque := TextureRect.new()
+	plaque.name = "Plaque"
+	plaque.texture = load("res://assets/ui/menu_plaque.png") as Texture2D
+	plaque.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	plaque.stretch_mode = TextureRect.STRETCH_SCALE
+	plaque.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plaque.modulate = Color(0.56, 0.56, 0.56, 0.8) if disabled else Color.WHITE
+	button.add_child(plaque)
+	plaque.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	button.button_down.connect(func() -> void: plaque.modulate = Color(0.76, 0.68, 0.55))
+	button.button_up.connect(func() -> void: plaque.modulate = Color.WHITE)
+	button.focus_entered.connect(func() -> void: plaque.modulate = Color(1.12, 1.04, 0.88))
+	button.focus_exited.connect(func() -> void: plaque.modulate = Color.WHITE)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.disabled = disabled
 	button.tooltip_text = heading if detail.is_empty() else heading + " · " + detail
+	button.accessibility_name = button.tooltip_text
 	var text_box := W.vbox(1)
 	text_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text_box.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -282,7 +297,10 @@ func _mode_tile(heading: String, detail: String, node_name: String, variation: S
 	text_box.offset_right = -9.0
 	var title_label := W.label(heading, &"Speaker")
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_label.add_theme_font_size_override("font_size", ThemeFactory.fs(19))
+	title_label.add_theme_font_size_override("font_size", ThemeFactory.fs(16))
+	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title_label.add_theme_color_override("font_color", Color("f3deba"))
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text_box.add_child(title_label)
 	if not detail.is_empty():

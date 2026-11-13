@@ -4,6 +4,16 @@ extends Control
 ## kind: day, night, door, talisman, marks, jobs, events, roles, campaign.
 
 const COVER_PATH := "res://assets/ui/campaign_cover.png"
+const GROUND_DAY := preload("res://assets/village/realistic/ground_day.jpg")
+const GROUND_NIGHT := preload("res://assets/village/realistic/ground_night.jpg")
+const HOUSE_DAY := preload("res://assets/village/realistic/house_day.png")
+const HOUSE_NIGHT := preload("res://assets/village/realistic/house_night.png")
+const DOOR_CLOSED := preload("res://assets/ui/door_closed.png")
+const CHARMS := [
+	preload("res://assets/village/talisman.png"),
+	preload("res://assets/village/talisman_cracked.png"),
+	preload("res://assets/village/talisman_broken.png")
+]
 
 var kind: String = "day"
 var figures: Array[VillagerFigure] = []
@@ -139,11 +149,21 @@ func _draw() -> void:
 	var w := size.x
 	var h := size.y
 	var night := _is_night()
-	var sky_top := Color("0b1418") if night else Color("2f3e44")
-	var sky_bot := Color("17242a") if night else Color("4d5d62")
-	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, h * 0.62), Vector2(0, h * 0.62)]),
-		PackedColorArray([sky_top, sky_top, sky_bot, sky_bot]))
-	draw_rect(Rect2(0, h * 0.62, w, h * 0.38), Color("10191d") if night else Color("2a353a"))
+	# Та же карта, что в партии: кадрирование без растягивания.
+	var ground: Texture2D = GROUND_NIGHT if night else GROUND_DAY
+	var source := Rect2(Vector2.ZERO, ground.get_size())
+	var target_ratio := w / maxf(h, 1.0)
+	var source_ratio := source.size.x / maxf(source.size.y, 1.0)
+	if source_ratio > target_ratio:
+		var cropped_width := source.size.y * target_ratio
+		source.position.x = (source.size.x - cropped_width) * 0.5
+		source.size.x = cropped_width
+	else:
+		var cropped_height := source.size.x / target_ratio
+		source.position.y = (source.size.y - cropped_height) * 0.5
+		source.size.y = cropped_height
+	draw_texture_rect_region(ground, Rect2(Vector2.ZERO, size), source)
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.02, 0.025, 0.03, 0.25))
 	var corner := StyleBoxFlat.new()
 	corner.bg_color = Color(0, 0, 0, 0)
 	corner.border_color = ThemeFactory.EDGE
@@ -151,38 +171,26 @@ func _draw() -> void:
 	corner.set_corner_radius_all(12)
 	match kind:
 		"day":
-			draw_circle(Vector2(w * 0.82, h * 0.18), h * 0.07, Color(0.86, 0.87, 0.80, 0.25))
 			_house(Rect2(w * 0.08, h * 0.30, w * 0.22, h * 0.30), false)
 			_house(Rect2(w * 0.70, h * 0.30, w * 0.22, h * 0.30), false)
 			_speech(Vector2(w * 0.14, h * 0.82 - figures[0].scale.y * 62.0), L.t("howto.art_accuse"))
 		"night":
-			draw_circle(Vector2(w * 0.84, h * 0.16), h * 0.07, Color(0.86, 0.87, 0.80, 0.9))
 			_house(Rect2(w * 0.10, h * 0.28, w * 0.28, h * 0.34), true)
 			_house(Rect2(w * 0.62, h * 0.28, w * 0.28, h * 0.34), true)
 			var out := figures[4]
 			draw_string(_font, out.position + Vector2(22.0 * out.scale.x, -22.0 * out.scale.y), L.t("howto.art_street"), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(ThemeFactory.BLOOD, 0.95))
 		"door":
-			var dw := w * 0.30
-			var door := Rect2(w * 0.5 - dw * 0.5, h * 0.12, dw, h * 0.66)
-			var open := 0.55 + 0.1 * sin(_t * 2.0)
-			for i in range(8):
-				var r := (dw * 0.12 + i * dw * 0.09) * open
-				draw_rect(Rect2(w * 0.5 - r, door.position.y, r * 2.0, door.size.y), Color(ThemeFactory.LAMP, 0.04 * (1.0 - i / 8.0)))
-			draw_rect(door, ThemeFactory.PANEL)
-			draw_rect(Rect2(w * 0.5 - 5, door.position.y, 10, door.size.y), Color(ThemeFactory.LAMP, 0.85))
-			draw_rect(door, ThemeFactory.EDGE, false, 3.0)
-			draw_string(_font, Vector2(0, h * 0.10), L.t("howto.art_door"), HORIZONTAL_ALIGNMENT_CENTER, w, 26, ThemeFactory.LAMP)
+			var dh := h * 0.74
+			var dw := minf(w * 0.34, dh * DOOR_CLOSED.get_width() / maxf(DOOR_CLOSED.get_height(), 1.0))
+			draw_texture_rect(DOOR_CLOSED, Rect2(w * 0.5 - dw * 0.5, h * 0.10, dw, dh), false)
+
 		"talisman":
 			# те же обереги, что у двери в игре: целый, треснувший, расколотый
 			_house(Rect2(w * 0.36, h * 0.54, w * 0.28, h * 0.26), true)
-			var s := clampf(h / 100.0, 1.8, 3.4)
+			var charm_size := clampf(h * 0.25, 36.0, 62.0)
 			for i in range(3):
 				var c := Vector2(w * (0.22 + 0.28 * i), h * 0.24)
-				draw_set_transform(c, 0.0, Vector2(s, s))
-				Art._talisman(self, Vector2.ZERO, 0.55, Color("0d1214"), 2 - i)
-				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-		"marks":
-			draw_circle(Vector2(w * 0.86, h * 0.14), h * 0.06, Color(0.86, 0.87, 0.80, 0.25))
+				draw_texture_rect(CHARMS[i], Rect2(c - Vector2.ONE * charm_size * 0.5, Vector2.ONE * charm_size), false)
 		"jobs":
 			var tokens: Array = [[0.14, "water"], [0.38, "wood"], [0.62, "lamp"], [0.86, "box"]]
 			for tk: Array in tokens:
@@ -228,16 +236,9 @@ func _job_token(c: Vector2, which: String, s: float) -> void:
 
 
 func _house(r: Rect2, lit: bool) -> void:
-	var wall := Color("172228") if lit else Color("2a3940")
-	draw_rect(r, wall)
-	draw_colored_polygon(PackedVector2Array([Vector2(r.position.x - 8, r.position.y), Vector2(r.get_center().x, r.position.y - r.size.y * 0.5),
-		Vector2(r.end.x + 8, r.position.y)]), Color("0d1518") if lit else Color("1d282d"))
-	var win := ThemeFactory.LAMP if lit else Color("1b262b")
-	var ws := r.size.x * 0.18
-	draw_rect(Rect2(r.position.x + r.size.x * 0.12, r.position.y + r.size.y * 0.2, ws, ws), win)
-	draw_rect(Rect2(r.end.x - r.size.x * 0.12 - ws, r.position.y + r.size.y * 0.2, ws, ws), win)
-	draw_rect(Rect2(r.get_center().x - r.size.x * 0.12, r.end.y - r.size.y * 0.5, r.size.x * 0.24, r.size.y * 0.5), Color("3a2c22"))
-	draw_rect(r, ThemeFactory.EDGE, false, 2.0)
+	var tex: Texture2D = HOUSE_NIGHT if lit else HOUSE_DAY
+	var image_rect := Rect2(r.position.x, r.position.y - r.size.y * 0.45, r.size.x, r.size.y * 1.45)
+	draw_texture_rect(tex, image_rect, false)
 
 
 func _speech(anchor: Vector2, text: String) -> void:
