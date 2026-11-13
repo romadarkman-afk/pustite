@@ -516,6 +516,17 @@ static func promise_reckoning(fails: PackedStringArray) -> int:
 	var remembered := next_director.campaign_memory_scene()
 	ok += _ok(fails, not remembered.is_empty() and remembered[0].speaker.story_id == resident.story_id and remembered[0].text.contains("выслушать"),
 		"в следующей главе герой не вспомнил ответ после нарушенного обещания")
+	var next_resident: Villager = null
+	for v: Villager in next.alive_bots():
+		if v.guest_id.is_empty() and v.story_id == resident.story_id:
+			next_resident = v
+			break
+	if next_resident != null:
+		var facts := DiarySheet.facts(next, next_director, next_resident)
+		ok += _ok(fails, "\n".join(facts).contains("решено выслушать"),
+			"дневник не показывает ответ после отказа")
+	else:
+		ok += _ok(fails, false, "свидетель отсутствует в следующей главе")
 	Save.campaign_memory = old_memory
 	return ok
 
