@@ -2,7 +2,7 @@ extends Control
 
 const LayoutSmoke = preload("res://scripts/tests/layout_smoke.gd")
 ## Точка входа. Логотип ровно 1 секунду → меню. Тап — пропустить.
-## Фон логотипа — картинка заставки (assets/splash.png): Android показывает её, пока грузится движок.
+## Фон логотипа совпадает с актуальной сценой меню.
 ## Самотесты запускаются вручную флагами ниже. Текущий android.yml выполняет короткий smoke-запуск, не полный набор тестов.
 ## --lang=en рядом с любым самотестом гоняет его на другом языке, --text=2 — с самым крупным текстом.
 
@@ -11,14 +11,15 @@ const TEST_TIMEOUT_SEC := 240.0
 const LONG_TEST_TIMEOUT_SEC := 3600.0      ## полная таблица баланса глав
 const LAYOUT_TEST_TIMEOUT_SEC := 720.0     ## раскладка: 23 типа экранов и 11 устройств из списка проекта
 const LOGO_SEC := 2.4
-const SPLASH: Texture2D = preload("res://assets/splash.png")
+const SPLASH: Texture2D = preload("res://assets/scenes/menu_winter_door.png")
 const MENU_PRELOAD: Array[String] = [
 	"res://scripts/ui/screens/menu_screen.gd",
-	"res://fonts/Nunito.ttf",
+	"res://fonts/Bitter.ttf",
+	"res://assets/ui/pustite_logo.png",
 	"res://assets/music/menu_theme.ogg",
 ]
 
-var _title: Label
+var _title: Control
 var _subtitle: Label
 var _shade: GradientTexture2D
 var _done := false
@@ -331,12 +332,20 @@ func _play_logo() -> void:
 	_shade.fill_from = Vector2(0.0, 0.0)
 	_shade.fill_to = Vector2(0.0, 1.0)
 
-	_title = Label.new()
-	_title.text = L.t("game.title")
-	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title.add_theme_font_override("font", ThemeFactory.font(900))
-	_title.add_theme_font_size_override("font_size", ThemeFactory.fs(48))
-	_title.add_theme_color_override("font_color", ThemeFactory.BONE)
+	if L.code == "ru":
+		var logo := TextureRect.new()
+		logo.texture = load("res://assets/ui/pustite_logo.png") as Texture2D
+		logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		_title = logo
+	else:
+		var label := Label.new()
+		label.text = L.t("game.title")
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.add_theme_font_override("font", ThemeFactory.font(900))
+		label.add_theme_font_size_override("font_size", ThemeFactory.fs(48))
+		label.add_theme_color_override("font_color", ThemeFactory.BONE)
+		_title = label
 	_title.modulate.a = 0.0
 	add_child(_title)
 
@@ -365,13 +374,13 @@ func _place_title() -> void:
 	if _title == null or _subtitle == null:
 		return
 	var top := -size.y * 0.20
-	for label: Label in [_title, _subtitle]:
-		label.offset_left = -size.x * 0.46
-		label.offset_right = size.x * 0.46
+	for control: Control in [_title, _subtitle]:
+		control.offset_left = -size.x * 0.46
+		control.offset_right = size.x * 0.46
 	_title.offset_top = top
-	_title.offset_bottom = top + ThemeFactory.fs(60)
-	_subtitle.offset_top = top + ThemeFactory.fs(62)
-	_subtitle.offset_bottom = top + ThemeFactory.fs(86)
+	_title.offset_bottom = top + clampf(size.x * 0.22, 90.0, 160.0)
+	_subtitle.offset_top = _title.offset_bottom + 2.0
+	_subtitle.offset_bottom = _subtitle.offset_top + ThemeFactory.fs(26)
 
 
 func _gui_input(event: InputEvent) -> void:
