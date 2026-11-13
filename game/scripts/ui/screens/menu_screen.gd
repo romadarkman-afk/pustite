@@ -62,7 +62,7 @@ func build() -> void:
 		logo.texture = load("res://assets/ui/pustite_logo.png") as Texture2D
 		logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		logo.custom_minimum_size = Vector2(0, 150)
+		logo.custom_minimum_size = Vector2(0, 178)
 		logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		body.add_child(logo)
 	else:
@@ -133,7 +133,7 @@ func build() -> void:
 	footer_actions.append(exit)
 	footer.add_child(W.fit_row(footer_actions))
 	var bottom_margin := Control.new()
-	bottom_margin.custom_minimum_size.y = 24.0
+	bottom_margin.custom_minimum_size.y = 36.0
 	bottom_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	footer.add_child(bottom_margin)
 	refresh(difficulty, cfg)
@@ -305,7 +305,7 @@ func _mode_tile(heading: String, detail: String, node_name: String, variation: S
 	var title_label := W.label(heading, &"Speaker")
 	title_label.name = "TileTitle"
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_label.add_theme_font_size_override("font_size", ThemeFactory.fs(16))
+	title_label.add_theme_font_size_override("font_size", ThemeFactory.fs(18))
 	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title_label.add_theme_color_override("font_color", Color("969491") if disabled else Color("f3deba"))
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
