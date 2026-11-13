@@ -404,8 +404,8 @@ func _start_voice(p: Dictionary) -> void:
 ## Раскладка настоящего кадра: картинка целиком (без обрезки и растяжения) и подпись прямо под ней. Группа стоит по центру
 ## свободного места: у высокого кадра она занимает всё, у широкого остаётся размытое продолжение картинки сверху и снизу.
 ## plate_h — высота подложки подписи (0, если подписи нет), bottom — сколько оставить снизу. Возвращает окно картинки и верх подписи.
-static func art_layout(_tex_size: Vector2, view: Vector2, _plate_h: float, _bottom: float) -> Dictionary:
-	return {"win": Rect2(Vector2.ZERO, view), "plate_top": -1.0}
+static func art_layout(_tex_size: Vector2, view: Vector2, plate_h: float, bottom: float) -> Dictionary:
+	return {"win": Rect2(Vector2.ZERO, view), "plate_top": maxf(ART_TOP, view.y - bottom - plate_h)}
 
 
 ## Высота подложки под текущую подпись по шрифту (с запасом на перенос). Нет текста: 0.

@@ -910,6 +910,7 @@ static func geometry(fails: PackedStringArray) -> int:
 					"%s: пропорции изображения не сохранены" % atag)
 				var aplate := pa._plate.get_global_rect()
 				ok += SelfTest._expect(fails, pa._plate.visible, "%s: подпись скрыта" % atag)
+				ok += SelfTest._expect(fails, aplate.size.y <= av.y * MAX_PLATE_SHARE, "%s: подпись занимает слишком много места: %s" % [atag, aplate])
 				ok += SelfTest._expect(fails, aplate.end.y <= av.y + 0.5 and aplate.position.x >= -0.5 and aplate.end.x <= av.x + 0.5,
 					"%s: подпись %s вне экрана %s" % [atag, aplate, av])
 				ok += SelfTest._expect(fails, pa._stage_root.find_child("Backdrop", true, false) != null, "%s: нет размытой подложки" % atag)
