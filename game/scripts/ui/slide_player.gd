@@ -21,8 +21,7 @@ const CARD_SEC := 2.4            ## титульная плашка
 const FADE := 0.32
 const SHAKE_PX := 10.0
 const BREATH := 0.004           ## дыхание кадра: масштаб колеблется на эту долю
-## Раскладка настоящей картинки (0.70.0): кадр виден целиком, без обрезки и растяжения, над зоной подписи.
-## Сбоку и сверху остаётся размытое продолжение той же картинки. Подпись никогда не ложится на лица.
+## Кадр заполняет экран с сохранением пропорций. Подпись расположена поверх нижней части.
 const ART_TOP := 72.0            ## картинка начинается под полоской кадров и кнопкой «Пропустить»
 const ART_GAP := 14.0            ## зазор между картинкой и подписью
 const PLATE_BOTTOM := 10.0       ## отступ подписи от нижней кромки
@@ -87,6 +86,7 @@ var _cam_f0 := Vector2(0.5, 0.5)
 var _cam_f1 := Vector2(0.5, 0.5)
 var _cam_shake := false
 var _flash_tw: Tween
+var _hidden_tags: Array[Node2D] = []
 
 
 ## Показать колоду. Возвращает true, если колода была показана (дочитана или пропущена), false — если показывать нечего:
@@ -112,7 +112,10 @@ static func play(parent: Control, id: String, force: bool = false) -> bool:
 # ----------------------------------------------------------------- построение
 
 func _build() -> void:
+	_hide_village_tags()
 	name = "Slides_" + deck_id
+	z_index = 100
+	z_as_relative = false
 	_hold_key = StringName("slides_%d" % get_instance_id())
 	Game.hold(_hold_key)
 	_music_before = Sfx.music_name
@@ -401,14 +404,8 @@ func _start_voice(p: Dictionary) -> void:
 ## Раскладка настоящего кадра: картинка целиком (без обрезки и растяжения) и подпись прямо под ней. Группа стоит по центру
 ## свободного места: у высокого кадра она занимает всё, у широкого остаётся размытое продолжение картинки сверху и снизу.
 ## plate_h — высота подложки подписи (0, если подписи нет), bottom — сколько оставить снизу. Возвращает окно картинки и верх подписи.
-static func art_layout(tex_size: Vector2, view: Vector2, plate_h: float, bottom: float) -> Dictionary:
-	var gap := ART_GAP if plate_h > 0.0 else 0.0
-	var avail_h := maxf(view.y - ART_TOP - bottom - plate_h - gap, view.y * 0.3)
-	var k := minf(view.x / maxf(tex_size.x, 1.0), avail_h / maxf(tex_size.y, 1.0))
-	var sz := (tex_size * k).round()
-	var free_h := view.y - ART_TOP - bottom
-	var top := ART_TOP + roundf(maxf(0.0, free_h - (sz.y + gap + plate_h)) * 0.5)
-	return {"win": Rect2(Vector2(roundf((view.x - sz.x) * 0.5), top), sz), "plate_top": top + sz.y + gap}
+static func art_layout(_tex_size: Vector2, view: Vector2, _plate_h: float, _bottom: float) -> Dictionary:
+	return {"win": Rect2(Vector2.ZERO, view), "plate_top": -1.0}
 
 
 ## Высота подложки под текущую подпись по шрифту (с запасом на перенос). Нет текста: 0.
@@ -525,7 +522,7 @@ func _show_stage(i: int, fresh: bool) -> void:
 		rect.name = "Picture"
 		rect.texture = tex
 		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		rect.stretch_mode = TextureRect.STRETCH_SCALE
+		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		rect.size = _win.size
 		rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if mat != null:
@@ -801,7 +798,39 @@ func _notification(what: int) -> void:
 			Sfx.pause_voice_line(false)
 
 
+## Скрыть подписи жителей на время комикса, включая смену кадров и затухание.
+## Счётчик защищает от пересекающихся сцен; исходная видимость восстанавливается при закрытии последней.
+func _hide_village_tags() -> void:
+	if Nav.village == null or Nav.village.crowd == null:
+		return
+	for figure: VillagerFigure in Nav.village.crowd.figures.values():
+		if not is_instance_valid(figure) or not is_instance_valid(figure.tag):
+			continue
+		var tag := figure.tag
+		var count := int(tag.get_meta("slides_hide_count", 0))
+		if count == 0:
+			tag.set_meta("slides_was_visible", tag.visible)
+		tag.set_meta("slides_hide_count", count + 1)
+		tag.visible = false
+		_hidden_tags.append(tag)
+
+
+func _restore_village_tags() -> void:
+	for tag: Node2D in _hidden_tags:
+		if not is_instance_valid(tag):
+			continue
+		var count := maxi(0, int(tag.get_meta("slides_hide_count", 1)) - 1)
+		if count == 0:
+			tag.visible = bool(tag.get_meta("slides_was_visible", true))
+			tag.remove_meta("slides_hide_count")
+			tag.remove_meta("slides_was_visible")
+		else:
+			tag.set_meta("slides_hide_count", count)
+	_hidden_tags.clear()
+
+
 func _exit_tree() -> void:
+	_restore_village_tags()
 	if not _done:
 		Sfx.stop_voice_line()
 		_done = true

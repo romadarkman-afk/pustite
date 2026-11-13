@@ -691,6 +691,25 @@ static func scene_engine(tree: SceneTree, fails: PackedStringArray) -> int:
 	await SelfTest._frames(tree, 3)
 	var host: Control = Nav.host.current
 	var m := Game.m
+	# Подписи жителей скрыты до закрытия последнего перекрывающегося комикса.
+	var figure: VillagerFigure = Nav.village.crowd.figures.get(0)
+	if figure != null and is_instance_valid(figure.tag):
+		var tag_was_visible := figure.tag.visible
+		var comic1 := SlidePlayer.new()
+		var comic2 := SlidePlayer.new()
+		host.add_child(comic1)
+		host.add_child(comic2)
+		comic1._hide_village_tags()
+		comic2._hide_village_tags()
+		ok += SelfTest._expect(fails, not figure.tag.visible, "комикс: имя жителя видно во время заставки")
+		comic1._restore_village_tags()
+		ok += SelfTest._expect(fails, not figure.tag.visible, "комикс: имя вернулось при второй заставке")
+		comic2._restore_village_tags()
+		ok += SelfTest._expect(fails, figure.tag.visible == tag_was_visible, "комикс: видимость имени не восстановилась")
+		comic1._done = true
+		comic2._done = true
+		comic1.queue_free()
+		comic2.queue_free()
 	var sc := {"id": "test", "frames": [
 		{"art": "res://assets/scenes/none.jpg", "lines": [{"text": "один"}], "sound": [{"at": 0.0, "do": "play", "id": "knock"}]},
 		{"portrait": m.alive_bots()[0], "lines": [{"who": "Кто-то", "text": "два"}, {"text": "три"}]},
