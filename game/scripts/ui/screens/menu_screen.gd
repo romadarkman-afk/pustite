@@ -82,8 +82,9 @@ func build() -> void:
 		"Start", &"RowOn", Intent.START_SOLO))
 	modes.add_child(_mode_tile(L.t("menu.online"), L.t("camp.soon"),
 		"Online", &"Row", &"", true))
-	modes.add_child(_mode_tile(L.t("settings.title"), "",
-		"Settings", &"Row", Intent.OPEN_SETTINGS))
+	var more := _mode_tile(L.t("menu.more"), "", "More", &"Row", &"")
+	more.pressed.connect(_open_more)
+	modes.add_child(more)
 	var mode_center := CenterContainer.new()
 	mode_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_child(mode_center)
@@ -93,20 +94,18 @@ func build() -> void:
 		resized.connect(_size_menu_columns)
 	_size_menu_columns.call_deferred()
 
-	var more := W.button(L.t("menu.more"), &"Compact", 56)
-	more.name = "More"
-	more.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	more.add_theme_font_size_override("font_size", ThemeFactory.fs(18))
-	more.pressed.connect(_open_more)
-	var more_center := CenterContainer.new()
-	more_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.add_child(more_center)
-	more_center.add_child(more)
-	_more_width_holder = more
 	var lower_space := Control.new()
 	lower_space.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	lower_space.size_flags_stretch_ratio = 0.35
 	body.add_child(lower_space)
+
+	var shortcuts := W.hbox(10)
+	shortcuts.alignment = BoxContainer.ALIGNMENT_CENTER
+	shortcuts.name = "MenuShortcuts"
+	shortcuts.add_child(_menu_shortcut("info", "HowToShortcut", L.t("menu.howto"), Intent.OPEN_HOWTO))
+	shortcuts.add_child(_menu_shortcut("book", "BookShortcut", L.t("menu.book"), Intent.OPEN_BOOK))
+	shortcuts.add_child(_menu_shortcut("gear", "Settings", L.t("settings.title"), Intent.OPEN_SETTINGS))
+	footer.add_child(shortcuts)
 
 	var footer_actions: Array[Button] = []
 	if not Campaign.is_new():
@@ -293,9 +292,25 @@ func _mode_tile(heading: String, detail: String, node_name: String, variation: S
 		detail_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		text_box.add_child(detail_label)
 	button.add_child(text_box)
-	if not disabled:
+	if not disabled and action != &"":
 		button.pressed.connect(func() -> void: emit_intent(action))
 	return button
+
+
+func _menu_shortcut(kind: String, node_name: String, label: String, action: StringName) -> Button:
+	var b := W.button("", &"Compact", 48)
+	b.name = node_name
+	b.custom_minimum_size = Vector2(56, 48)
+	b.tooltip_text = label
+	b.accessibility_name = label
+	b.add_theme_stylebox_override("normal", _menu_button_style(Color(0.075, 0.08, 0.10, 0.94), Color(0.43, 0.41, 0.36, 0.75)))
+	var center := CenterContainer.new()
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	b.add_child(center)
+	center.add_child(Glyph.make(kind, 27.0, ThemeFactory.BONE))
+	b.pressed.connect(func() -> void: emit_intent(action))
+	return b
 
 
 func _small_button(text: String, node_name: String) -> Button:

@@ -92,6 +92,12 @@ static func _check_menu_layout(tree: SceneTree, problems: PackedStringArray) -> 
 		"720×1280: главное меню требует прокрутки (%.1f px)" % scroll_max)
 	checks += _expect(problems, screen.footer.get_global_rect().end.y <= vp.y + 1.0,
 		"720×1280: нижние кнопки меню вышли за экран")
+	for name: String in ["HowToShortcut", "BookShortcut", "Settings"]:
+		var shortcut := screen.find_child(name, true, false) as Button
+		checks += _expect(problems, shortcut != null and shortcut.is_visible_in_tree() and shortcut.get_global_rect().size.x >= 48.0
+			and shortcut.get_global_rect().size.y >= 48.0 and not shortcut.accessibility_name.is_empty(),
+			"720×1280: нижняя кнопка %s недоступна или слишком мала" % name)
+
 	return checks
 
 
