@@ -1248,7 +1248,7 @@ func promise_reckoning(resident: Villager, choice: String) -> void:
 	b.private_delta[0] = b.private_delta.get(0, 0.0) + shift
 	if choice == "confront":
 		b.grudge[0] = b.grudge.get(0, 0.0) + 0.3
-	var reply := "Понимаю. Я не жду, что ты поверишь мне снова." if choice == "confront" else "Я расскажу, что случилось у двери. Прошу только дослушать."
+	var reply := "Понимаю. Я не жду, что ты поверишь мне снова." if choice == "confront" else "Спасибо. Тебе не обязательно меня прощать."
 	scene_lines.append(ChatLine.say(resident, reply))
 
 

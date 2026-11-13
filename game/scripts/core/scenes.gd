@@ -521,9 +521,19 @@ static func broken_promise_scene(m: Match) -> Dictionary:
 	var resident := m.get_villager(event.actor)
 	if resident == null or not resident.alive or resident.is_player or not resident.guest_id.is_empty():
 		return {}
+	var explanation := "Твой стук до сих пор слышится мне. Я помню обещание открыть. Ночью страх оказался сильнее."
+	match String(Game.chapter.get("id", "")).left(2):
+		"a1":
+			explanation = "У твоего стука было эхо. Мне показалось, что за тобой стоит кто-то ещё. Я испугался и не поднял засов." if not resident.female else "У твоего стука было эхо. Мне показалось, что за тобой стоит кто-то ещё. Я испугалась и не подняла засов."
+		"a2":
+			explanation = "Шум за дверью заглушал голос. Я видел только тень за дверью и не узнал тебя." if not resident.female else "Шум за дверью заглушал голос. Я видела только тень за дверью и не узнала тебя."
+		"a3":
+			explanation = "За дверью сначала говорили твоим голосом, потом стало тихо. Я не знал, кто там." if not resident.female else "За дверью сначала говорили твоим голосом, потом стало тихо. Я не знала, кто там."
+		"a4":
+			explanation = "Я слышал твой стук. Подумал: если впущу не того, до поезда никто из нас не дойдёт." if not resident.female else "Я слышала твой стук. Подумала: если впущу не того, до поезда никто из нас не дойдёт."
 	return sealed({"id": "promise_reckoning", "target": resident.id, "frames": [
 		{"portrait": resident, "light": "dawn", "lines": [
-			{"who": resident.name, "text": "Твой стук до сих пор слышится мне. Я помню обещание открыть. Ночью страх оказался сильнее."},
+			{"who": resident.name, "text": explanation},
 			{"text": "Обещание нарушено. Теперь решать тебе, можно ли доверять этому человеку дальше."}
 		]}
 	], "choice": {"prompt": "Что сказать?", "options": [
