@@ -1278,7 +1278,9 @@ func crossroads_answer(resident: Villager, choice: String) -> void:
 	brains[resident.id].private_delta[0] = brains[resident.id].private_delta.get(0, 0.0) + change
 	if choice == "trust":
 		crossroads_promise_id = resident.id
-	var response := "Если придёшь ко мне ночью, я открою тебе дверь." if choice == "trust" else "Я понял. Буду решать сам."
+	var response := Scenes.crossroads_response(chapter_id, choice)
+	if response.is_empty():
+		response = "Если придёшь ко мне ночью, я открою тебе дверь." if choice == "trust" else "Я понял. Буду решать сам."
 	scene_lines.append(ChatLine.say(resident, response))
 
 

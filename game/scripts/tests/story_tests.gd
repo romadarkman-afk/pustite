@@ -421,6 +421,7 @@ static func crossroads(fails: PackedStringArray) -> int:
 		var m := _match(chapter_id)
 		var d := Director.new()
 		d.attach(m)
+		d.chapter_id = chapter_id
 		var scene := Scenes.chapter_crossroads(m, chapter_id, d)
 		ok += _ok(fails, not scene.is_empty() and (scene.get("choice", {}).get("options", []) as Array).size() == 2,
 			"%s: нет двух вариантов личного выбора" % chapter_id)
@@ -431,15 +432,17 @@ static func crossroads(fails: PackedStringArray) -> int:
 			var old_memory := Save.campaign_memory.duplicate(true)
 			_journal([_mem("crossroads_trust", resident.story_id, "a1c1")])
 			var remembered := Scenes.chapter_crossroads(m, chapter_id, d)
-			ok += _ok(fails, _frames_text(remembered).contains("В прошлый раз"),
+			ok += _ok(fails, _frames_text(remembered).contains("Мы уже разговаривали"),
 				"%s: спутник не вспомнил прошлый выбор" % chapter_id)
 			_journal([_mem("crossroads_refuse", resident.story_id, "a1c1")])
 			var refused := Scenes.chapter_crossroads(m, chapter_id, d)
-			ok += _ok(fails, _frames_text(refused).contains("не стал обещать"),
+			ok += _ok(fails, _frames_text(refused).contains("не сошлись") and _frames_text(refused) != _frames_text(remembered),
 				"%s: отказ не изменил разговор" % chapter_id)
 			Save.campaign_memory = old_memory
 		var before := float(d.brains[resident.id].private_delta.get(0, 0.0))
 		d.crossroads_answer(resident, "trust")
+		ok += _ok(fails, not d.scene_lines.is_empty() and d.scene_lines.back().text == Scenes.crossroads_response(chapter_id, "trust"),
+			"%s: ответ спутника после выбора не появился на поле" % chapter_id)
 		d.plan_day()
 		ok += _ok(fails, not m.promises_today(resident.id, 0).is_empty(),
 			"%s: обещание спутника не записано в день" % chapter_id)

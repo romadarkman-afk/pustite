@@ -35,6 +35,14 @@ func _ready() -> void:
 				var mp := cs.find_child("CampaignMap", true, false) as Control
 				cs.scroll.scroll_vertical = int(mp.global_position.y - cs.scroll.global_position.y) + cs.scroll.scroll_vertical - 4
 				await _frames(10)
+			"howto":
+				Nav.show_howto(false)
+				await SelfTest._settle(get_tree())
+				var tutorial := Nav.host.current as HowToScreen
+				for page in range(clampi(ch.to_int(), 0, HowToScreen.PAGES.size() - 1)):
+					tutorial.next_page()
+					await _frames(2)
+				await _frames(10)
 			"slide":
 				# кадр комикса: метка:slide:колода:номер кадра с нуля:прогресс камеры (0..100, по умолчанию 55)
 				Nav.show_menu()
