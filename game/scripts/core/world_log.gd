@@ -203,6 +203,8 @@ func campaign_records(m: Match, limit: int = 40) -> Array[Dictionary]:
 					rec = {"kind": "crossroads_" + String(e.info.choice), "who": e.target}
 				elif String(e.info.get("scene", "")) == "promise_reckoning" and String(e.info.get("choice", "")) in ["confront", "forgive"]:
 					rec = {"kind": "reckoning_" + String(e.info.choice), "who": e.target}
+				elif String(e.info.get("scene", "")) == "promise_kept_response" and String(e.info.get("choice", "")) in ["thank", "doubt"]:
+					rec = {"kind": "kept_response_" + String(e.info.choice), "who": e.target}
 				elif String(e.info.get("scene", "")) == "personal_story" and int(e.info.get("step", 0)) in [1, 2]:
 					rec = {"kind": "story_%d" % int(e.info.step), "who": e.target}
 				elif String(e.info.get("scene", "")) == "a1c1_river" and String(e.info.get("choice", "")) in ["answer", "silent"]:
@@ -248,5 +250,5 @@ func campaign_records(m: Match, limit: int = 40) -> Array[Dictionary]:
 
 ## Порядок важности записей памяти кампании: при переполнении отрезается конец.
 const RANK: PackedStringArray = ["react_revenge", "react_accuse", "react_defend", "react_withdraw", "refused_died",
-	"reckoning_confront", "reckoning_forgive", "crossroads_trust", "crossroads_refuse", "story_1", "story_2", "broken", "exiled_by_you", "broke_you", "refused", "refused_you", "kept", "admitted", "listened",
+	"reckoning_confront", "reckoning_forgive", "kept_response_thank", "kept_response_doubt", "crossroads_trust", "crossroads_refuse", "story_1", "story_2", "broken", "exiled_by_you", "broke_you", "refused", "refused_you", "kept", "admitted", "listened",
 	"river_answer", "river_silent"]

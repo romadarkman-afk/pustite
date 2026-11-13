@@ -756,7 +756,7 @@ func campaign_memory_scene() -> Array[ChatLine]:
 		if previous < 0 or previous >= current:
 			continue
 		var kind := String(rec.get("kind", ""))
-		if kind not in ["admitted", "kept", "broken", "refused", "broke_you", "listened", "crossroads_trust", "crossroads_refuse", "reckoning_confront", "reckoning_forgive"]:
+		if kind not in ["admitted", "kept", "broken", "refused", "broke_you", "listened", "crossroads_trust", "crossroads_refuse", "reckoning_confront", "reckoning_forgive", "kept_response_thank", "kept_response_doubt"]:
 			continue
 		var resident: Villager = null
 		for bot: Villager in m.alive_bots():
@@ -777,6 +777,8 @@ func campaign_memory_scene() -> Array[ChatLine]:
 			"crossroads_refuse": text = "Тогда ты не захотел ничего обещать. Посмотрим, что скажешь теперь."
 			"reckoning_confront": text = "Ты сказал, что больше мне не веришь. После той ночи я понимаю почему."
 			"reckoning_forgive": text = "После той ночи ты захотел выслушать меня. Спасибо."
+			"kept_response_thank": text = "Твоё спасибо после той ночи я помню."
+			"kept_response_doubt": text = "После той ночи доверие между нами появилось не сразу. Понимаю почему."
 		var line := ChatLine.say(resident, text)
 		line.emotion = "angry" if kind in ["broken", "refused"] else "sad"
 		out.append(line)
@@ -1044,13 +1046,15 @@ func carry_lines() -> Array[ChatLine]:
 			absent.append(rec)
 			continue
 		var memory_kind := String(rec.kind)
-		if memory_kind in ["crossroads_trust", "crossroads_refuse", "reckoning_confront", "reckoning_forgive"]:
+		if memory_kind in ["crossroads_trust", "crossroads_refuse", "reckoning_confront", "reckoning_forgive", "kept_response_thank", "kept_response_doubt"]:
 			var recalled := ""
 			match memory_kind:
 				"crossroads_trust": recalled = "Ты обещал мне помочь. Я не забыл."
 				"crossroads_refuse": recalled = "Ты не стал обещать мне помощи. Я помню."
 				"reckoning_confront": recalled = "После той ночи ты перестал мне верить."
 				"reckoning_forgive": recalled = "После той ночи ты согласился меня выслушать."
+				"kept_response_thank": recalled = "Твоё спасибо после той ночи я помню."
+				"kept_response_doubt": recalled = "После той ночи доверие между нами появилось не сразу."
 			var personal := ChatLine.say(v, recalled)
 			personal.emotion = "sad"
 			out.append(personal)
@@ -1075,6 +1079,10 @@ func carry_lines() -> Array[ChatLine]:
 			remembered = "После той ночи ты перестал мне верить."
 		elif memory_kind == "reckoning_forgive":
 			remembered = "После той ночи ты согласился меня выслушать."
+		elif memory_kind == "kept_response_thank":
+			remembered = "Твоё спасибо после той ночи я помню."
+		elif memory_kind == "kept_response_doubt":
+			remembered = "После той ночи доверие между нами появилось не сразу."
 		else:
 			remembered = L.t("carry." + memory_kind, {"me": who})
 		out.append(ChatLine.system(L.t("carry.letter", {"who": who, "text": remembered})))
@@ -1238,6 +1246,17 @@ func farewell(v: Villager) -> Array[ChatLine]:
 ## «Имя на доске» (TASK-019): ответ игрока меняет отношение рассказчика и посёлка.
 ## Ответ меняет личное доверие; роль спутника не раскрывается.
 ## Ответ после отказа влияет на будущие решения этого жителя.
+## Ответ на сдержанное обещание отражается на последующем доверии.
+func promise_kept_response(resident: Villager, choice: String) -> void:
+	if resident == null or not resident.alive or not brains.has(resident.id) or choice not in ["thank", "doubt"]:
+		return
+	var b: BotBrain = brains[resident.id]
+	var shift := -0.4 if choice == "thank" else 0.15
+	b.private_delta[0] = b.private_delta.get(0, 0.0) + shift
+	var reply := "Хорошо, что мы оба дожили до утра." if choice == "thank" else "Я понимаю. Двери сейчас открывать страшно всем."
+	scene_lines.append(ChatLine.say(resident, reply))
+
+
 func promise_reckoning(resident: Villager, choice: String) -> void:
 	if resident == null or not resident.alive or not brains.has(resident.id):
 		return

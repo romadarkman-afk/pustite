@@ -542,6 +542,31 @@ static func broken_promise_scene(m: Match) -> Dictionary:
 	]}})
 
 
+## Спутник сдержал обещание у двери. Только подтверждённое событие даёт сцену.
+static func kept_promise_scene(m: Match) -> Dictionary:
+	if L.code != "ru" or m == null or not m.player().alive:
+		return {}
+	var event: WorldLog.Event = null
+	for i in range(m.world.events.size() - 1, -1, -1):
+		var candidate: WorldLog.Event = m.world.events[i]
+		if candidate.kind == WorldLog.Kind.PROMISE_KEPT and candidate.day == m.day and candidate.target == m.player().id and String(candidate.info.get("promise", "")) == "open":
+			event = candidate
+			break
+	if event == null:
+		return {}
+	var resident := m.get_villager(event.actor)
+	if resident == null or not resident.alive or resident.is_player or not resident.guest_id.is_empty():
+		return {}
+	return sealed({"id": "promise_kept_response", "target": resident.id, "frames": [
+		{"portrait": resident, "light": "dawn", "lines": [
+			{"who": resident.name, "text": "Дверь тогда открылась, как я и обещала. Ночью тоже было страшно, но я узнала твой голос." if resident.female else "Дверь тогда открылась, как я и обещал. Ночью тоже было страшно, но я узнал твой голос."}
+		]}
+	], "choice": {"prompt": "Что ответить?", "options": [
+		{"id": "thank", "text": "Спасибо. Я запомню твою помощь."},
+		{"id": "doubt", "text": "Спасибо. Но мне нужно время, чтобы доверять."}
+	]}})
+
+
 static func betrayal(m: Match, ally: Villager) -> Dictionary:
 	var frames: Array = [
 		{"art": art("a4c3"), "light": "dawn", "weather": "fog", "lines": [{"text": L.t("sc.betray.1")}],

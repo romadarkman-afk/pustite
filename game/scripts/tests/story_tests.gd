@@ -520,6 +520,32 @@ static func promise_reckoning(fails: PackedStringArray) -> int:
 	return ok
 
 
+## Благодарность и сомнение возможны только после реально сдержанного обещания.
+static func kept_promise(fails: PackedStringArray) -> int:
+	var ok := 0
+	_dead([])
+	var m := _match("a1c2")
+	var residents := m.alive_bots()
+	if residents.is_empty():
+		return _ok(fails, false, "нет жителя для проверки помощи")
+	var v: Villager = residents[0]
+	ok += _ok(fails, Scenes.kept_promise_scene(m).is_empty(), "благодарность доступна без события")
+	m.world.add(WorldLog.Kind.PROMISE_KEPT, m.day, v.id, 0, -1, [v.id, 0], false, {"promise": "open"})
+	var sc := Scenes.kept_promise_scene(m)
+	ok += _ok(fails, not sc.is_empty() and int(sc.get("target", -1)) == v.id, "не найден герой, открывший дверь")
+	var d := Director.new()
+	d.attach(m)
+	d.promise_kept_response(v, "thank")
+	ok += _ok(fails, float(d.brains[v.id].private_delta.get(0, 0.0)) < 0.0, "благодарность не повлияла на отношения")
+	m.world.add(WorldLog.Kind.CHOICE, m.day, 0, v.id, -1, [0], false, {"scene": "promise_kept_response", "choice": "thank"})
+	ok += _ok(fails, m.world.campaign_records(m, 60).any(func(rec: Dictionary) -> bool:
+		return String(rec.kind) == "kept_response_thank" and int(rec.who) == v.story_id),
+		"благодарность не записалась в память")
+	v.alive = false
+	ok += _ok(fails, Scenes.kept_promise_scene(m).is_empty(), "погибший герой появился в сцене помощи")
+	return ok
+
+
 static func run() -> void:
 	var tree := Engine.get_main_loop() as SceneTree
 	var t0 := Time.get_ticks_msec()
@@ -536,6 +562,7 @@ static func run() -> void:
 	ok += crossroads(fails)
 	ok += crossroads_carry(fails)
 	ok += promise_reckoning(fails)
+	ok += kept_promise(fails)
 	SimChapters.restore_campaign(snap)
 	for f: String in fails:
 		print("  ✗ " + f)
