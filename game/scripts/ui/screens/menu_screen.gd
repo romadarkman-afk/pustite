@@ -20,6 +20,9 @@ var _menu_art_index := 0
 var _menu_backdrop: Control
 var _mode_width_holder: Control
 var _more_width_holder: Control
+var _menu_logo: Control
+var _menu_bottom_margin: Control
+var _menu_buttons: Array[Button] = []
 
 
 func screen_id() -> String:
@@ -59,6 +62,7 @@ func build() -> void:
 	if L.code == "ru" and ResourceLoader.exists("res://assets/ui/pustite_logo.png"):
 		var logo := TextureRect.new()
 		logo.name = "MenuTitle"
+		_menu_logo = logo
 		logo.texture = load("res://assets/ui/pustite_logo.png") as Texture2D
 		logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -135,7 +139,9 @@ func build() -> void:
 	var bottom_margin := Control.new()
 	bottom_margin.custom_minimum_size.y = 36.0
 	bottom_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_menu_bottom_margin = bottom_margin
 	footer.add_child(bottom_margin)
+	_size_menu_columns.call_deferred()
 	refresh(difficulty, cfg)
 
 
@@ -249,6 +255,15 @@ func _size_menu_columns() -> void:
 		_mode_width_holder.custom_minimum_size.x = width
 	if is_instance_valid(_more_width_holder):
 		_more_width_holder.custom_minimum_size.x = width
+	# На низких экранах сначала уменьшаем пустые поля и логотип, сохраняя зоны нажатия.
+	var room := clampf((size.y - 700.0) / 300.0, 0.0, 1.0) if size.y > 0.0 else 1.0
+	if is_instance_valid(_menu_logo):
+		_menu_logo.custom_minimum_size.y = lerpf(112.0, 178.0, room)
+	if is_instance_valid(_menu_bottom_margin):
+		_menu_bottom_margin.custom_minimum_size.y = lerpf(8.0, 36.0, room)
+	for button: Button in _menu_buttons:
+		if is_instance_valid(button):
+			button.custom_minimum_size.y = lerpf(68.0, 82.0, room)
 
 
 ## Тёплая древесина и потёртый металл в палитре игры.
@@ -276,6 +291,7 @@ func _mode_tile(heading: String, detail: String, node_name: String, variation: S
 	var button := W.button("", variation, 48)
 	button.name = node_name
 	button.custom_minimum_size.y = 82.0
+	_menu_buttons.append(button)
 	var clear_style := StyleBoxEmpty.new()
 	for state: StringName in [&"normal", &"hover", &"pressed", &"disabled", &"focus"]:
 		button.add_theme_stylebox_override(state, clear_style)
