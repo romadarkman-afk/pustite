@@ -177,21 +177,31 @@ func _next_frame() -> void:
 	if not Juice.instant and tex != null:
 		var tw := create_tween()
 		tw.tween_property(_art, "scale", Vector2.ONE * float(zoom[1]), dur)
-	# портрет вместо картинки: житель крупно
-	for c: Node in _portrait_box.get_children():
-		c.queue_free()
+	# Крупный портрет: пропорции исходника и свободное место для выбора внизу.
+	for child: Node in _portrait_box.get_children():
+		child.queue_free()
 	var who: Variant = f.get("portrait", null)
+	var available := get_viewport_rect().size
+	var portrait_h := minf(available.y * 0.44, 530.0)
+	var portrait_size := Vector2(minf(available.x * 0.50, portrait_h * 0.56), portrait_h)
+	var pic: TextureRect = null
 	if who is Villager:
-		var pic := W.portrait(who as Villager, Vector2(150, 270), Color(0.62, 0.62, 0.7))
-		_portrait_box.add_child(pic)
+		pic = W.portrait(who as Villager, portrait_size, Color(0.92, 0.92, 0.95))
 	elif who is String and ResourceLoader.exists(String(who)):
-		# хозяин места (TASK-021): его фигура вместо портрета жителя
-		var tr := TextureRect.new()
-		tr.texture = load(String(who)) as Texture2D
-		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		tr.custom_minimum_size = Vector2(150, 270)
-		_portrait_box.add_child(tr)
+		pic = TextureRect.new()
+		pic.texture = load(String(who)) as Texture2D
+		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		pic.custom_minimum_size = portrait_size
+	if pic != null:
+		_portrait_box.add_child(pic)
+		# Наезд целой фигуры не искажает голову и конечности.
+		if not Juice.instant and not Save.simplified_graphics:
+			pic.pivot_offset = portrait_size * 0.5
+			pic.scale = Vector2.ONE * 0.96
+			var portrait_tween := pic.create_tween()
+			portrait_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+			portrait_tween.tween_property(pic, "scale", Vector2.ONE * 1.02, maxf(2.0, dur))
 	_fog.color.a = 0.22 if String(f.get("weather", "")) == "fog" else 0.0
 	var kind := String(f.get("weather", ""))
 	var light := String(f.get("light", "night"))
