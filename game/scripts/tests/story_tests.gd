@@ -507,6 +507,16 @@ static func promise_reckoning(fails: PackedStringArray) -> int:
 		"ответ после отказа не попал в память кампании")
 	resident.alive = false
 	ok += _ok(fails, Scenes.broken_promise_scene(m).is_empty(), "погибший герой появился в сцене")
+	var old_memory := Save.campaign_memory.duplicate(true)
+	_journal([_mem("reckoning_forgive", resident.story_id, "a1c2")])
+	var next := _match("a1c3")
+	var next_director := Director.new()
+	next_director.attach(next)
+	next_director.chapter_id = "a1c3"
+	var remembered := next_director.campaign_memory_scene()
+	ok += _ok(fails, not remembered.is_empty() and remembered[0].speaker.story_id == resident.story_id and remembered[0].text.contains("выслушать"),
+		"в следующей главе герой не вспомнил ответ после нарушенного обещания")
+	Save.campaign_memory = old_memory
 	return ok
 
 
