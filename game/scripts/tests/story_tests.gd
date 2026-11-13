@@ -484,6 +484,8 @@ static func promise_reckoning(fails: PackedStringArray) -> int:
 		return _ok(fails, false, "нет свидетеля для проверки нарушенного обещания")
 	var resident: Villager = residents[0]
 	ok += _ok(fails, Scenes.broken_promise_scene(m).is_empty(), "сцена появилась без нарушенного обещания")
+	m.world.add(WorldLog.Kind.PROMISE_BROKEN, m.day, resident.id, m.player().id, -1, [resident.id, 0], false, {"promise": "come"})
+	ok += _ok(fails, Scenes.broken_promise_scene(m).is_empty(), "обещание прийти ошибочно названо отказом открыть дверь")
 	m.world.add(WorldLog.Kind.PROMISE_BROKEN, m.day, resident.id, m.player().id, -1, [resident.id, 0], false, {"promise": "open"})
 	var sc := Scenes.broken_promise_scene(m)
 	ok += _ok(fails, not sc.is_empty() and int(sc.get("target", -1)) == resident.id,

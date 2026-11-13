@@ -510,7 +510,12 @@ static func chapter_crossroads(m: Match, chapter_id: String, director: Director)
 static func broken_promise_scene(m: Match) -> Dictionary:
 	if L.code != "ru" or m == null or not m.player().alive:
 		return {}
-	var event := m.world.last(WorldLog.Kind.PROMISE_BROKEN, -1, m.player().id, m.day)
+	var event: WorldLog.Event = null
+	for i in range(m.world.events.size() - 1, -1, -1):
+		var candidate: WorldLog.Event = m.world.events[i]
+		if candidate.kind == WorldLog.Kind.PROMISE_BROKEN and candidate.day == m.day and candidate.target == m.player().id and String(candidate.info.get("promise", "")) == "open":
+			event = candidate
+			break
 	if event == null:
 		return {}
 	var resident := m.get_villager(event.actor)
