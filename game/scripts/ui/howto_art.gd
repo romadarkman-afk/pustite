@@ -205,35 +205,31 @@ func _draw() -> void:
 
 ## Значок дела на площади: белый круг с рисунком по виду дела.
 func _job_token(c: Vector2, which: String, s: float) -> void:
-	var r := 22.0 * s
-	var k := Color("5fa8d3")
-	draw_circle(c, r + 2.5, Color(k, 0.95))
-	draw_circle(c, r, Color(1, 1, 1, 0.95))
+	# Формы и цвета соответствуют значкам JobLayer на игровом поле.
+	var ink := Art.INK
+	draw_circle(c, 24.5 * s, ink)
+	draw_circle(c, 22.0 * s, Color(1, 1, 1, 0.95))
 	draw_set_transform(c, 0.0, Vector2(s, s))
 	match which:
 		"water":
-			k = Color("3f86b8")
-			draw_colored_polygon(PackedVector2Array([Vector2(0, -13), Vector2(8, 2), Vector2(0, 10), Vector2(-8, 2)]), k)
+			Art.shape(self, PackedVector2Array([Vector2(-9, -6), Vector2(9, -6), Vector2(7, 9), Vector2(-7, 9)]), Color(0.45, 0.72, 0.95), ink, 2.0)
+			draw_arc(Vector2(0, -6), 9, PI, TAU, 10, ink, 1.8, true)
+			draw_circle(Vector2(0, -1), 2.5, Color(1, 1, 1, 0.8))
 		"wood":
-			k = Color("8a5a34")
-			draw_rect(Rect2(-11, -8, 22, 7), k)
-			draw_rect(Rect2(-11, 1, 22, 7), Color(k, 0.75))
-			draw_circle(Vector2(-11, -4.5), 3.5, Color("d9b88a"))
-			draw_circle(Vector2(-11, 4.5), 3.5, Color("d9b88a"))
+			for o: Vector2 in [Vector2(-6, 4), Vector2(6, 4), Vector2(0, -6)]:
+				Art.shape(self, Art.ellipse(o, Vector2(6, 5.5), 10), Color(0.69, 0.48, 0.29), ink, 1.8)
+				draw_circle(o, 2.5, Color(0.91, 0.77, 0.56))
 		"lamp":
-			k = Color("e0902f")
-			draw_arc(Vector2(0, -6), 8, PI, TAU, 10, k, 2.0, true)
-			draw_rect(Rect2(-6, -6, 12, 14), Color(k, 0.35))
-			draw_rect(Rect2(-6, -6, 12, 14), k, false, 2.0)
-			draw_colored_polygon(PackedVector2Array([Vector2(-3, 5), Vector2(3, 5), Vector2(0, -3)]), Color("f27a2b"))
+			Art.shape(self, Art.rrect(Rect2(-6, -8, 12, 15), 3), Color(1.0, 0.81, 0.42), ink, 2.0)
+			draw_line(Vector2(-6, -3), Vector2(6, -3), ink, 1.6)
+			draw_line(Vector2(0, -12), Vector2(0, -8), ink, 2.0)
+			draw_colored_polygon(PackedVector2Array([Vector2(-2, 3), Vector2(2, 3), Vector2(0, -2)]), Color(0.95, 0.45, 0.2))
 		"box":
-			k = Color("7a5a3a")
-			draw_rect(Rect2(-11, -2, 22, 13), Color(k, 0.35))
-			draw_rect(Rect2(-11, -2, 22, 13), k, false, 2.0)
-			draw_rect(Rect2(-12, -8, 24, 7), Color(k, 0.6))
-			draw_rect(Rect2(-12, -8, 24, 7), k, false, 2.0)
+			Art.shape(self, Art.rrect(Rect2(-10, -7, 20, 15), 2), Color(0.72, 0.52, 0.32), ink, 2.0)
+			draw_line(Vector2(-10, -1), Vector2(10, -1), ink, 1.6)
+			draw_line(Vector2(-4, -7), Vector2(-4, 8), Color(ink, 0.6), 1.2)
+			draw_line(Vector2(4, -7), Vector2(4, 8), Color(ink, 0.6), 1.2)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-
 
 func _house(r: Rect2, lit: bool) -> void:
 	var tex: Texture2D = HOUSE_NIGHT if lit else HOUSE_DAY

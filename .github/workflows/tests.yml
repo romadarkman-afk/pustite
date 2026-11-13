@@ -161,12 +161,12 @@ jobs:
         run: |
           mkdir -p build/shots
           RES=720x1280 SHOT_TIMEOUT=900 GODOT=godot bash tools/store_shots.sh build/shots ru \
-            r1_menu:menu r2_day:day:a1c3 r3_door:door:a3c1 r4_camp:camp r5_stuk:slide:a1c1_intro:2:55 2>&1 | tee build/shots.log
+            r1_menu:menu r2_day:day:a1c3 r3_door:door:a3c1 r4_camp:camp r5_stuk:slide:a1c1_intro:2:55 r6_howto:howto:0 r7_door:howto:2 r8_charms:howto:3 2>&1 | tee build/shots.log
 
       - name: Проверка кадров
         run: |
           python3 tools/check_render.py --self-test
-          python3 tools/check_render.py build/shots build/shots.log 720 1280 r1_menu r2_day r3_door r4_camp r5_stuk
+          python3 tools/check_render.py build/shots build/shots.log 720 1280 r1_menu r2_day r3_door r4_camp r5_stuk r6_howto r7_door r8_charms
 
       - name: Кадры в артефакты
         if: always()
