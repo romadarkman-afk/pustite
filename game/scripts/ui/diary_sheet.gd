@@ -69,6 +69,23 @@ static func story_heading() -> String:
 	return String(titles.get(L.code, titles.en))
 
 
+## Новые решения переводим в понятные записи для русской версии.
+static func campaign_decision_text(kind: String, v: Villager, chapter_number: int) -> String:
+	if L.code != "ru":
+		return ""
+	var texts := {
+		"crossroads_trust": "Глава {n}: дана поддержка {who.dat}.",
+		"crossroads_refuse": "Глава {n}: поддержка {who.dat} не обещана.",
+		"reckoning_confront": "Глава {n}: после ночного отказа доверие к {who.dat} утрачено.",
+		"reckoning_forgive": "Глава {n}: после ночного отказа решено выслушать {who.acc}.",
+		"kept_response_thank": "Глава {n}: {who} {who:открыл|открыла|открыли} дверь, в ответ прозвучала благодарность.",
+		"kept_response_doubt": "Глава {n}: {who} {who:открыл|открыла|открыли} дверь, но доверие осталось под вопросом."
+	}
+	if not texts.has(kind):
+		return ""
+	return L.fill(String(texts[kind]), {"who": v, "n": chapter_number})
+
+
 ## Строки о жителе — чистые данные, их проверяет самотест.
 static func facts(m: Match, d: Director, v: Villager) -> PackedStringArray:
 	var out := PackedStringArray()
@@ -83,8 +100,14 @@ static func facts(m: Match, d: Director, v: Villager) -> PackedStringArray:
 			for rec: Dictionary in memories:
 				var rec_chapter := Campaign.ORDER.find(String(rec.get("ch", "")))
 				var key := "book.mem_" + String(rec.get("kind", ""))
-				if rec_chapter >= 0 and rec_chapter < current_chapter and L.has(key):
-					out.append(L.t(key, {"who": v, "n": rec_chapter + 1}))
+				if rec_chapter >= 0 and rec_chapter < current_chapter:
+					var decision := campaign_decision_text(String(rec.get("kind", "")), v, rec_chapter + 1)
+					if not decision.is_empty():
+						out.append(decision)
+					elif L.has(key):
+						out.append(L.t(key, {"who": v, "n": rec_chapter + 1}))
+					else:
+						continue
 					count += 1
 					if count >= 3:
 						break

@@ -4,6 +4,7 @@ extends Screen
 
 ## Фоновые заставки главного меню. Две картинки держим в памяти для плавного перехода.
 const MENU_ART: PackedStringArray = [
+	"res://assets/scenes/menu_winter_door.png",
 	"res://assets/scenes/end_upyri.jpg",
 	"res://assets/scenes/end_people.jpg",
 	"res://assets/scenes/a2c1.jpg",
@@ -49,12 +50,21 @@ func build() -> void:
 	_install_menu_art()
 	body.add_theme_constant_override("separation", 6)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.alignment = BoxContainer.ALIGNMENT_CENTER
+	body.alignment = BoxContainer.ALIGNMENT_BEGIN
+	var upper_space := Control.new()
+	upper_space.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	upper_space.size_flags_stretch_ratio = 0.55
+	body.add_child(upper_space)
 
 	var brand := W.label(L.t("game.title"), &"Title")
 	brand.name = "MenuTitle"
 	brand.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	brand.add_theme_font_size_override("font_size", ThemeFactory.fs(48))
+	brand.add_theme_color_override("font_color", Color("f2e7d2"))
+	brand.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.9))
+	brand.add_theme_constant_override("shadow_offset_x", 2)
+	brand.add_theme_constant_override("shadow_offset_y", 4)
+	brand.add_theme_constant_override("shadow_outline_size", 3)
 	body.add_child(brand)
 	var case_file := W.label(L.t("menu.case_file"), &"Speaker")
 	case_file.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -72,8 +82,9 @@ func build() -> void:
 		"Start", &"RowOn", Intent.START_SOLO))
 	modes.add_child(_mode_tile(L.t("menu.online"), L.t("camp.soon"),
 		"Online", &"Row", &"", true))
-	modes.add_child(_mode_tile(L.t("settings.title"), "",
-		"Settings", &"Row", Intent.OPEN_SETTINGS))
+	var more := _mode_tile(L.t("menu.more"), "", "More", &"Row", &"")
+	more.pressed.connect(_open_more)
+	modes.add_child(more)
 	var mode_center := CenterContainer.new()
 	mode_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_child(mode_center)
@@ -83,16 +94,18 @@ func build() -> void:
 		resized.connect(_size_menu_columns)
 	_size_menu_columns.call_deferred()
 
-	var more := W.button(L.t("menu.more"), &"Compact", 56)
-	more.name = "More"
-	more.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	more.add_theme_font_size_override("font_size", ThemeFactory.fs(18))
-	more.pressed.connect(_open_more)
-	var more_center := CenterContainer.new()
-	more_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.add_child(more_center)
-	more_center.add_child(more)
-	_more_width_holder = more
+	var lower_space := Control.new()
+	lower_space.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	lower_space.size_flags_stretch_ratio = 0.35
+	body.add_child(lower_space)
+
+	var shortcuts := W.hbox(10)
+	shortcuts.alignment = BoxContainer.ALIGNMENT_CENTER
+	shortcuts.name = "MenuShortcuts"
+	shortcuts.add_child(_menu_shortcut("info", "HowToShortcut", L.t("menu.howto"), Intent.OPEN_HOWTO))
+	shortcuts.add_child(_menu_shortcut("book", "BookShortcut", L.t("menu.book"), Intent.OPEN_BOOK))
+	shortcuts.add_child(_menu_shortcut("gear", "Settings", L.t("settings.title"), Intent.OPEN_SETTINGS))
+	footer.add_child(shortcuts)
 
 	var footer_actions: Array[Button] = []
 	if not Campaign.is_new():
@@ -227,10 +240,37 @@ func _size_menu_columns() -> void:
 		_more_width_holder.custom_minimum_size.x = width
 
 
+## Тёплая древесина и потёртый металл в палитре игры.
+func _menu_button_style(bg: Color, edge: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg
+	style.border_color = edge
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 2
+	style.corner_radius_top_left = 5
+	style.corner_radius_top_right = 5
+	style.corner_radius_bottom_left = 5
+	style.corner_radius_bottom_right = 5
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.72)
+	style.shadow_size = 5
+	style.shadow_offset = Vector2(0, 3)
+	style.set_content_margin_all(8.0)
+	return style
+
+
 func _mode_tile(heading: String, detail: String, node_name: String, variation: StringName,
 		action: StringName, disabled: bool = false) -> Button:
 	var button := W.button("", variation, 48)
 	button.name = node_name
+	var main_action := node_name == "Campaign" or node_name == "Start"
+	var fill := Color(0.16, 0.115, 0.082, 0.96) if main_action else Color(0.075, 0.08, 0.10, 0.94)
+	var rim := Color(0.65, 0.47, 0.28, 0.9) if main_action else Color(0.43, 0.41, 0.36, 0.75)
+	button.add_theme_stylebox_override("normal", _menu_button_style(fill, rim))
+	button.add_theme_stylebox_override("hover", _menu_button_style(fill.lightened(0.12), rim.lightened(0.1)))
+	button.add_theme_stylebox_override("pressed", _menu_button_style(fill.darkened(0.15), rim))
+	button.add_theme_stylebox_override("disabled", _menu_button_style(Color(0.05, 0.055, 0.065, 0.78), Color(0.3, 0.3, 0.3, 0.5)))
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.disabled = disabled
 	button.tooltip_text = heading if detail.is_empty() else heading + " · " + detail
@@ -252,9 +292,25 @@ func _mode_tile(heading: String, detail: String, node_name: String, variation: S
 		detail_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		text_box.add_child(detail_label)
 	button.add_child(text_box)
-	if not disabled:
+	if not disabled and action != &"":
 		button.pressed.connect(func() -> void: emit_intent(action))
 	return button
+
+
+func _menu_shortcut(kind: String, node_name: String, label: String, action: StringName) -> Button:
+	var b := W.button("", &"Compact", 48)
+	b.name = node_name
+	b.custom_minimum_size = Vector2(56, 48)
+	b.tooltip_text = label
+	b.accessibility_name = label
+	b.add_theme_stylebox_override("normal", _menu_button_style(Color(0.075, 0.08, 0.10, 0.94), Color(0.43, 0.41, 0.36, 0.75)))
+	var center := CenterContainer.new()
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	b.add_child(center)
+	center.add_child(Glyph.make(kind, 27.0, ThemeFactory.BONE))
+	b.pressed.connect(func() -> void: emit_intent(action))
+	return b
 
 
 func _small_button(text: String, node_name: String) -> Button:

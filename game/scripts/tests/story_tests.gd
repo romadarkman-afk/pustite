@@ -440,6 +440,9 @@ static func crossroads(fails: PackedStringArray) -> int:
 			Save.campaign_memory = old_memory
 		var before := float(d.brains[resident.id].private_delta.get(0, 0.0))
 		d.crossroads_answer(resident, "trust")
+		d.plan_day()
+		ok += _ok(fails, not m.promises_today(resident.id, 0).is_empty(),
+			"%s: обещание спутника не записано в день" % chapter_id)
 		ok += _ok(fails, float(d.brains[resident.id].private_delta.get(0, 0.0)) < before,
 			"%s: поддержка не изменила доверие" % chapter_id)
 		m.world.add(WorldLog.Kind.CHOICE, 1, 0, resident.id, -1, [0], false,
@@ -449,6 +452,124 @@ static func crossroads(fails: PackedStringArray) -> int:
 			return String(rec.kind) == "crossroads_trust" and int(rec.who) == resident.story_id),
 			"%s: выбор не сохранился за героем" % chapter_id)
 	return ok
+
+
+## Личный выбор не должен превращаться в непереведённый ключ при переходе к мельнице.
+static func crossroads_carry(fails: PackedStringArray) -> int:
+	var ok := 0
+	var old := Save.campaign_memory.duplicate(true)
+	_dead([])
+	var m := _match("a2c1")
+	var bots := m.alive_bots()
+	if bots.is_empty():
+		return _ok(fails, false, "нет жителей для проверки перехода")
+	var resident: Villager = bots[0]
+	_journal([_mem("crossroads_trust", resident.story_id, "a1c1")])
+	var d := Director.new()
+	d.attach(m)
+	var lines := d.carry_lines()
+	ok += _ok(fails, not lines.is_empty() and not lines[0].text.contains("carry.crossroads"),
+		"личный выбор у мельницы показан служебным ключом")
+	Save.campaign_memory = old
+	return ok
+
+
+## Сцена отказа появляется только при реальном нарушенном обещании.
+static func promise_reckoning(fails: PackedStringArray) -> int:
+	var ok := 0
+	_dead([])
+	var m := _match("a1c2")
+	var residents := m.alive_bots()
+	if residents.is_empty():
+		return _ok(fails, false, "нет свидетеля для проверки нарушенного обещания")
+	var resident: Villager = residents[0]
+	ok += _ok(fails, Scenes.broken_promise_scene(m).is_empty(), "сцена появилась без нарушенного обещания")
+	m.world.add(WorldLog.Kind.PROMISE_BROKEN, m.day, resident.id, m.player().id, -1, [resident.id, 0], false, {"promise": "come"})
+	ok += _ok(fails, Scenes.broken_promise_scene(m).is_empty(), "обещание прийти ошибочно названо отказом открыть дверь")
+	m.world.add(WorldLog.Kind.PROMISE_BROKEN, m.day, resident.id, m.player().id, -1, [resident.id, 0], false, {"promise": "open"})
+	var sc := Scenes.broken_promise_scene(m)
+	ok += _ok(fails, not sc.is_empty() and int(sc.get("target", -1)) == resident.id,
+		"не найден герой, нарушивший обещание")
+	var d := Director.new()
+	d.attach(m)
+	d.promise_reckoning(resident, "confront")
+	ok += _ok(fails, float(d.brains[resident.id].private_delta.get(0, 0.0)) > 0.0,
+		"обвинение не изменило отношение")
+	var forgiving := Director.new()
+	forgiving.attach(m)
+	forgiving.promise_reckoning(resident, "forgive")
+	ok += _ok(fails, float(forgiving.brains[resident.id].private_delta.get(0, 0.0)) < 0.0,
+		"попытка выслушать не изменила отношение")
+	m.world.add(WorldLog.Kind.CHOICE, m.day, 0, resident.id, -1, [0], false,
+		{"scene": "promise_reckoning", "choice": "forgive"})
+	ok += _ok(fails, m.world.campaign_records(m, 60).any(func(rec: Dictionary) -> bool:
+		return String(rec.kind) == "reckoning_forgive" and int(rec.who) == resident.story_id),
+		"ответ после отказа не попал в память кампании")
+	resident.alive = false
+	ok += _ok(fails, Scenes.broken_promise_scene(m).is_empty(), "погибший герой появился в сцене")
+	var old_memory := Save.campaign_memory.duplicate(true)
+	_journal([_mem("reckoning_forgive", resident.story_id, "a1c2")])
+	var next := _match("a1c3")
+	var next_director := Director.new()
+	next_director.attach(next)
+	next_director.chapter_id = "a1c3"
+	var remembered := next_director.campaign_memory_scene()
+	ok += _ok(fails, not remembered.is_empty() and remembered[0].speaker.story_id == resident.story_id and remembered[0].text.contains("выслушать"),
+		"в следующей главе герой не вспомнил ответ после нарушенного обещания")
+	var next_resident: Villager = null
+	for v: Villager in next.alive_bots():
+		if v.guest_id.is_empty() and v.story_id == resident.story_id:
+			next_resident = v
+			break
+	if next_resident != null:
+		var facts := DiarySheet.facts(next, next_director, next_resident)
+		ok += _ok(fails, "\n".join(facts).contains("решено выслушать"),
+			"дневник не показывает ответ после отказа")
+	else:
+		ok += _ok(fails, false, "свидетель отсутствует в следующей главе")
+	Save.campaign_memory = old_memory
+	return ok
+
+
+## Благодарность и сомнение возможны только после реально сдержанного обещания.
+static func kept_promise(fails: PackedStringArray) -> int:
+	var ok := 0
+	_dead([])
+	var m := _match("a1c2")
+	var residents := m.alive_bots()
+	if residents.is_empty():
+		return _ok(fails, false, "нет жителя для проверки помощи")
+	var v: Villager = residents[0]
+	ok += _ok(fails, Scenes.kept_promise_scene(m).is_empty(), "благодарность доступна без события")
+	m.world.add(WorldLog.Kind.PROMISE_KEPT, m.day, v.id, 0, -1, [v.id, 0], false, {"promise": "open"})
+	var sc := Scenes.kept_promise_scene(m)
+	ok += _ok(fails, not sc.is_empty() and int(sc.get("target", -1)) == v.id, "не найден герой, открывший дверь")
+	var d := Director.new()
+	d.attach(m)
+	d.promise_kept_response(v, "thank")
+	ok += _ok(fails, float(d.brains[v.id].private_delta.get(0, 0.0)) < 0.0, "благодарность не повлияла на отношения")
+	m.world.add(WorldLog.Kind.CHOICE, m.day, 0, v.id, -1, [0], false, {"scene": "promise_kept_response", "choice": "thank"})
+	ok += _ok(fails, m.world.campaign_records(m, 60).any(func(rec: Dictionary) -> bool:
+		return String(rec.kind) == "kept_response_thank" and int(rec.who) == v.story_id),
+		"благодарность не записалась в память")
+	v.alive = false
+	ok += _ok(fails, Scenes.kept_promise_scene(m).is_empty(), "погибший герой появился в сцене помощи")
+	return ok
+
+
+## Разные главы не выбирают одного и того же собеседника при одинаковом составе.
+static func varied_crossroads_cast(fails: PackedStringArray) -> int:
+	_dead([])
+	var m := _match("a1c1")
+	var d := Director.new()
+	d.attach(m)
+	var selected := {}
+	for id: String in ["a1c1", "a1c2", "a1c3"]:
+		var sc := Scenes.chapter_crossroads(m, id, d)
+		if not sc.is_empty():
+			selected[int(sc.target)] = true
+	return _ok(fails, selected.size() >= mini(3, m.alive_bots().size()),
+		"разные главы повторно выбрали одного собеседника")
 
 
 static func run() -> void:
@@ -465,6 +586,10 @@ static func run() -> void:
 	ok += recording(fails)
 	ok += bond_carry(fails)
 	ok += crossroads(fails)
+	ok += crossroads_carry(fails)
+	ok += promise_reckoning(fails)
+	ok += kept_promise(fails)
+	ok += varied_crossroads_cast(fails)
 	SimChapters.restore_campaign(snap)
 	for f: String in fails:
 		print("  ✗ " + f)

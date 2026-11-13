@@ -458,29 +458,37 @@ static func chapter_crossroads(m: Match, chapter_id: String, director: Director)
 	if L.code != "ru" or director == null:
 		return {}
 	var prompts := {
-		"a1c1": "Житель просит обещать место у двери. За стеной может оказаться и другой человек.",
-		"a1c2": "В тумане спутник хочет проверить следы у реки и просит прикрыть его перед остальными.",
-		"a1c3": "Перед уходом из деревни спутник просит сохранить за ним место рядом с тобой.",
-		"a2c1": "У мельницы спутник просит заступиться за него перед Савелием.",
-		"a2c2": "После находки у могилы спутник просит не обвинять чужаков, пока нет доказательств.",
-		"a2c3": "Вода прибывает. Спутник просит тебя не бросать его, если мостки затопит.",
-		"a3c1": "У монастырских ворот спутник просит поручиться за него перед братом Игнатом.",
-		"a3c2": "После ночного звона спутник просит не разглашать разговор до проверки.",
-		"a3c3": "Перед судом в крипте спутник просит тебя подтвердить, что вы держались вместе.",
-		"a4c1": "На станции спутник просит сохранить для него место, если поезд всё-таки придёт.",
-		"a4c2": "Когда составляют список, спутник просит поддержать его перед смотрителем.",
-		"a4c3": "Перед последней ночью спутник просит встать на его сторону, даже если остальные будут против."
+		"a1c1": ["За дверью тесно, и мест на всех не хватит. Если ночью я приду, ты оставишь мне место?", "Я постараюсь помочь.", "Не могу обещать место."],
+		"a1c2": ["У реки я заметил следы. Хочу вернуться, пока их не скрыл туман. Скажешь остальным, куда я пошёл?", "Скажу. Тебя будут искать.", "Сначала расскажи, что видел."],
+		"a1c3": ["Все собирают вещи, а я всё думаю о доме. Если решусь идти к мельнице, не бросишь меня в дороге?", "Пойдём вместе.", "Каждый отвечает за себя."],
+		"a2c1": ["Савелий считал нас у ворот дважды. Он остановил взгляд на мне. Если начнёт спрашивать, заступишься?", "Попробую защитить тебя.", "Сначала выслушаю мельника."],
+		"a2c2": ["У могилы нашли следы, и уже шепчут о чужаках. Можно сначала выяснить, кто там был?", "Сначала найдём доказательства.", "Скрываться им тоже нельзя."],
+		"a2c3": ["Вода поднимается. На узких мостках будет страшно, я могу не успеть. Поможешь, если останусь позади?", "Помогу, если смогу.", "Не знаю, получится ли."],
+		"a3c1": ["Игнат записывает имена. Моё уже было в похожей книге, давно. Если спросит, поручишься за меня?", "Поручусь за тебя.", "Сначала объясни про книгу."],
+		"a3c2": ["Ночью звонил колокол. Я кое-что слышал, но не уверен. Не рассказывай другим, пока я не проверю.", "Подожду, пока проверишь.", "Остальные должны знать."],
+		"a3c3": ["На суде захотят знать, кто был рядом со мной. Скажи, что сначала спросишь меня, прежде чем обвинять.", "Сначала выслушаю тебя.", "Суду скажу только то, что знаю."],
+		"a4c1": ["Смотритель обещает поезд, но мест может не хватить. Если появится шанс, вспомни обо мне.", "Не забуду о тебе.", "Сначала узнаем, сколько мест."],
+		"a4c2": ["У смотрителя список. Я не знаю, кто вписал моё имя. Не вычёркивай меня, пока не поговорим.", "Сначала поговорим.", "Я проверю список сам."],
+		"a4c3": ["Сегодня могут уехать только те, кто доживёт до рассвета. Если все отвернутся от меня, ты выслушаешь?", "Выслушаю, что бы ни случилось.", "Решу по тому, что узнаю."]
 	}
 	if not prompts.has(chapter_id):
 		return {}
-	var chosen: Villager = null
+	var candidates: Array[Villager] = []
 	for v: Villager in m.alive_bots():
-		if not v.guest_id.is_empty() or v.story_id < 0:
-			continue
-		if chosen == null or director.view(v, m.player()) < director.view(chosen, m.player()):
-			chosen = v
-	if chosen == null:
+		if v.guest_id.is_empty() and v.story_id >= 0:
+			candidates.append(v)
+	if candidates.is_empty():
 		return {}
+	# Чередуем трёх наиболее близких, чтобы личные сцены не принадлежали
+	# одному и тому же герою во всех главах. Равные оценки имеют стабильный порядок.
+	candidates.sort_custom(func(a: Villager, b: Villager) -> bool:
+		var av := director.view(a, m.player())
+		var bv := director.view(b, m.player())
+		if is_equal_approx(av, bv):
+			return a.story_id < b.story_id
+		return av < bv)
+	var chapter_index := maxi(0, Campaign.ORDER.find(chapter_id))
+	var chosen: Villager = candidates[chapter_index % mini(3, candidates.size())]
 	var lines: Array = []
 	var current_index := Campaign.ORDER.find(chapter_id)
 	for i in range(Save.campaign_memory.size() - 1, -1, -1):
@@ -495,12 +503,75 @@ static func chapter_crossroads(m: Match, chapter_id: String, director: Director)
 		if kind == "crossroads_refuse":
 			lines.append({"who": chosen.name, "text": "В прошлый раз ты не стал обещать мне помощи. Может, сейчас ответишь иначе?"})
 			break
-	lines.append({"who": chosen.name, "text": String(prompts[chapter_id])})
+	var options: Array = prompts[chapter_id]
+	lines.append({"who": chosen.name, "text": String(options[0])})
 	return sealed({"id": "chapter_crossroads", "target": chosen.id, "frames": [
 		{"portrait": chosen, "light": "dawn", "lines": lines}
 	], "choice": {"prompt": "Что ответить?", "options": [
-		{"id": "trust", "text": "Я на твоей стороне."},
-		{"id": "refuse", "text": "Я не могу этого обещать."}
+		{"id": "trust", "text": String(options[1])},
+		{"id": "refuse", "text": String(options[2])}
+	]}})
+
+
+## Последствие ночного обещания, нарушенного перед игроком.
+## Показывается только по событию журнала: отказ видели оба участника.
+static func broken_promise_scene(m: Match) -> Dictionary:
+	if L.code != "ru" or m == null or not m.player().alive:
+		return {}
+	var event: WorldLog.Event = null
+	for i in range(m.world.events.size() - 1, -1, -1):
+		var candidate: WorldLog.Event = m.world.events[i]
+		if candidate.kind == WorldLog.Kind.PROMISE_BROKEN and candidate.day == m.day and candidate.target == m.player().id and String(candidate.info.get("promise", "")) == "open":
+			event = candidate
+			break
+	if event == null:
+		return {}
+	var resident := m.get_villager(event.actor)
+	if resident == null or not resident.alive or resident.is_player or not resident.guest_id.is_empty():
+		return {}
+	var explanation := "Твой стук до сих пор слышится мне. Я помню обещание открыть. Ночью страх оказался сильнее."
+	match String(Game.chapter.get("id", "")).left(2):
+		"a1":
+			explanation = "У твоего стука было эхо. Мне показалось, что за тобой стоит кто-то ещё. Я испугался и не поднял засов." if not resident.female else "У твоего стука было эхо. Мне показалось, что за тобой стоит кто-то ещё. Я испугалась и не подняла засов."
+		"a2":
+			explanation = "Шум за дверью заглушал голос. Я видел только тень за дверью и не узнал тебя." if not resident.female else "Шум за дверью заглушал голос. Я видела только тень за дверью и не узнала тебя."
+		"a3":
+			explanation = "За дверью сначала говорили твоим голосом, потом стало тихо. Я не знал, кто там." if not resident.female else "За дверью сначала говорили твоим голосом, потом стало тихо. Я не знала, кто там."
+		"a4":
+			explanation = "Я слышал твой стук. Подумал: если впущу не того, до поезда никто из нас не дойдёт." if not resident.female else "Я слышала твой стук. Подумала: если впущу не того, до поезда никто из нас не дойдёт."
+	return sealed({"id": "promise_reckoning", "target": resident.id, "frames": [
+		{"portrait": resident, "light": "dawn", "lines": [
+			{"who": resident.name, "text": explanation},
+			{"text": "Обещание нарушено. Теперь решать тебе, можно ли доверять этому человеку дальше."}
+		]}
+	], "choice": {"prompt": "Что сказать?", "options": [
+		{"id": "confront", "text": "Ты оставил меня снаружи. Больше я тебе не верю."},
+		{"id": "forgive", "text": "Я пережил эту ночь. Объясни, почему не открыл."}
+	]}})
+
+
+## Спутник сдержал обещание у двери. Только подтверждённое событие даёт сцену.
+static func kept_promise_scene(m: Match) -> Dictionary:
+	if L.code != "ru" or m == null or not m.player().alive:
+		return {}
+	var event: WorldLog.Event = null
+	for i in range(m.world.events.size() - 1, -1, -1):
+		var candidate: WorldLog.Event = m.world.events[i]
+		if candidate.kind == WorldLog.Kind.PROMISE_KEPT and candidate.day == m.day and candidate.target == m.player().id and String(candidate.info.get("promise", "")) == "open":
+			event = candidate
+			break
+	if event == null:
+		return {}
+	var resident := m.get_villager(event.actor)
+	if resident == null or not resident.alive or resident.is_player or not resident.guest_id.is_empty():
+		return {}
+	return sealed({"id": "promise_kept_response", "target": resident.id, "frames": [
+		{"portrait": resident, "light": "dawn", "lines": [
+			{"who": resident.name, "text": "Дверь тогда открылась, как я и обещала. Ночью тоже было страшно, но я узнала твой голос." if resident.female else "Дверь тогда открылась, как я и обещал. Ночью тоже было страшно, но я узнал твой голос."}
+		]}
+	], "choice": {"prompt": "Что ответить?", "options": [
+		{"id": "thank", "text": "Спасибо. Я запомню твою помощь."},
+		{"id": "doubt", "text": "Спасибо. Но мне нужно время, чтобы доверять."}
 	]}})
 
 

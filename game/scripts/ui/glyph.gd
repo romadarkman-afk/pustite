@@ -7,7 +7,7 @@ extends Control
 const KINDS: PackedStringArray = ["door", "knock", "lock", "alone", "seat", "seat_on", "fang", "mimic", "people",
 	"skull", "street", "street_ok", "safe", "liar", "claw", "talisman", "talisman_cracked", "talisman_broken",
 	"heal", "tunnel", "pact", "fog", "moon", "quiet", "rain", "bell", "info",
-	"mark_eye", "mark_pact", "mark_street", "mark_liar", "mark_death", "mark_fake", "mark_tunnel", "mark_sabotage"]
+	"mark_eye", "mark_pact", "mark_street", "mark_liar", "mark_death", "mark_fake", "mark_tunnel", "mark_sabotage", "book", "gear"]
 
 var kind := "door"
 var col := ThemeFactory.BONE
@@ -55,6 +55,16 @@ func _draw() -> void:
 			elif kind == "lock":
 				draw_rect(Rect2(19, 22, 10, 9), c)
 				draw_arc(Vector2(24, 22), 4.0, PI, TAU, 8, c, 2.4)
+		"book":
+			draw_polyline(PackedVector2Array([Vector2(24, 12), Vector2(13, 9), Vector2(7, 11), Vector2(7, 35), Vector2(14, 33), Vector2(24, 37)]), c, 2.5)
+			draw_polyline(PackedVector2Array([Vector2(24, 12), Vector2(35, 9), Vector2(41, 11), Vector2(41, 35), Vector2(34, 33), Vector2(24, 37), Vector2(24, 12)]), c, 2.5)
+		"gear":
+			draw_arc(Vector2(24, 24), 11.0, 0.0, TAU, 20, c, 3.0)
+			draw_arc(Vector2(24, 24), 4.0, 0.0, TAU, 16, c, 2.5)
+			for i in range(8):
+				var angle := TAU * float(i) / 8.0
+				var direction := Vector2(cos(angle), sin(angle))
+				draw_line(Vector2(24, 24) + direction * 12.0, Vector2(24, 24) + direction * 17.0, c, 3.0)
 		"alone":
 			_person(Vector2(24, 26), c, true)
 			draw_arc(Vector2(24, 26), 18.0, -2.4, -0.7, 10, dim, 2.0)
