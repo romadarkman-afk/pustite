@@ -352,7 +352,7 @@ static func _check_day(tag: String, problems: PackedStringArray) -> int:
 	for i in range(view.open_count):
 		var plaque := view.shelter_label_rect_global(i)
 		if field.intersects(plaque) and not field.encloses(plaque):
-			problems.append("%s: табличка убежища обрезана: %s" % [tag, view._title(i)])
+			problems.append("%s: табличка убежища обрезана: %s field=%s plaque=%s scale=%s pos=%s camera=%.1f" % [tag, view._title(i), field, plaque, view.scale, view.position, view.cam_x])
 	var bounds := Nav.village._ground_draw_rect()
 	var left_edge := Nav.village.position.x + bounds.position.x * Nav.village.scale.x
 	var right_edge := Nav.village.position.x + bounds.end.x * Nav.village.scale.x
