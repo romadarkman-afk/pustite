@@ -11,7 +11,7 @@ var journal_preview: Label
 var _question_prompt_open := false
 var _contact_hint: Label
 
-const ACTION_HEIGHT := 52
+const ACTION_HEIGHT := 48
 
 
 func screen_id() -> String:
@@ -19,7 +19,7 @@ func screen_id() -> String:
 
 
 func field_ratio() -> float:
-	return 0.86
+	return 0.82
 
 
 ## Под полем остаётся только строка журнала.
@@ -27,15 +27,16 @@ func min_content_ratio() -> float:
 	return 0.04
 
 
-## Поле занимает до 86% экрана. Кнопки и строка журнала остаются на экране, а свободная высота уходит карте.
+## Высота поля считается по фактическому размеру строки журнала и всех кнопок под ней.
+## На коротком экране карта сжимается первой, освобождая место для управления.
 func field_height(h: float) -> float:
 	var sep := float(chrome.get_theme_constant("separation")) if chrome != null else 18.0
 	var bar := 0.0
 	if chrome != null and chrome.get_child_count() > 0 and title() != "":
 		bar = (chrome.get_child(0) as Control).get_combined_minimum_size().y
-	# шапка, строка журнала (одна кнопка), подвал и три промежутка колонки
-	var reserved := bar + footer.get_combined_minimum_size().y + float(ThemeFactory.COMPACT_TOUCH) + 3.0 * sep + 8.0
-	return maxf(h * 0.34, minf(h * 0.86, h - reserved))
+	var body_min := body.get_combined_minimum_size().y if body != null else float(ThemeFactory.COMPACT_TOUCH)
+	var reserved := bar + body_min + footer.get_combined_minimum_size().y + 3.0 * sep + 8.0
+	return maxf(1.0, minf(h * 0.82, h - reserved))
 
 
 func title() -> String:
@@ -61,7 +62,7 @@ func build() -> void:
 	if field_spacer != null:
 		supplies = SuppliesBadge.new()
 		field_spacer.add_child(supplies)
-		supplies.position = Vector2(20, 54)
+		supplies.position = Vector2(14, 28)
 		update_supplies()
 	var jr := W.hbox(10)
 	journal_button = W.button(L.t("day.journal"), &"Compact", ACTION_HEIGHT)

@@ -32,11 +32,11 @@ func _ready() -> void:
 	_label = Label.new()
 	_label.name = "FpsCounter"
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_label.add_theme_font_size_override("font_size", 22)
+	_label.add_theme_font_size_override("font_size", 16)
 	_label.add_theme_color_override("font_color", Color(0.8, 1.0, 0.8))
 	_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	_label.add_theme_constant_override("outline_size", 5)
-	_label.position = Vector2(10, 6)
+	_label.add_theme_constant_override("outline_size", 3)
+	_label.position = Vector2(8, 4)
 	_label.visible = counter_wanted()
 	_layer.add_child(_label)
 

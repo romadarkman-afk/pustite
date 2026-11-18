@@ -26,8 +26,8 @@ var pact: bool = false
 var _eye_pop: float = 0.0
 var highlight: bool = false        ## метка «Вы»: стрелка над головой и кольцо под ногами
 
-const MARK_X := 33.0       ## колонка отметок справа от головы
-const MARK_SCALE := 0.9     ## метки чуть компактнее; зона выбора жителя остаётся прежней
+const MARK_X := 31.0       ## колонка отметок справа от головы
+const MARK_SCALE := 0.82     ## метки чуть компактнее; зона выбора жителя остаётся прежней
 const S := 0.62            ## масштаб рисунка жителя (Folk) в единицах посёлка
 const FIG_TOP := 88.0      ## высота жителя с шапкой, логических единиц
 
@@ -713,7 +713,7 @@ func set_cold(on: bool) -> void:
 		body.queue_redraw()
 
 
-const LABEL_SIZE := 14
+const LABEL_SIZE := 12
 
 
 func body_scale() -> Vector2:
@@ -721,25 +721,70 @@ func body_scale() -> Vector2:
 
 
 ## Прямоугольники для раскладки и самотестов, в координатах фигурки.
-## Длинное имя (Ebenezer, Keloğlan) пишется мельче, чтобы подпись влезла в место в очереди у двери.
+## Длинное имя уменьшается до ширины таблички, не залезая на соседнее поле.
 const LABEL_MAX_W := 54.0
-const LABEL_MIN := 11
+const LABEL_MIN := 9
 
 
 func label_size() -> int:
-	var w := _font.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, LABEL_SIZE).x
+	var preferred := maxi(LABEL_MIN, roundi(LABEL_SIZE * ThemeFactory.text_scale))
+	var w := _font.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, preferred).x
 	if w <= LABEL_MAX_W:
-		return LABEL_SIZE
-	return maxi(LABEL_MIN, floori(LABEL_SIZE * LABEL_MAX_W / w))
+		return preferred
+	return maxi(LABEL_MIN, floori(float(preferred) * LABEL_MAX_W / w))
 
 
 func label_width() -> float:
 	return _font.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size()).x
 
 
+func _map_view() -> Node2D:
+	var parent := get_parent()
+	if parent == null:
+		return null
+	for property: Dictionary in parent.get_property_list():
+		if String(property.get("name", "")) == "view":
+			var candidate: Variant = parent.get("view")
+			if candidate is Node2D and candidate.has_method("frame_to"):
+				return candidate as Node2D
+	return null
+
+
 func label_rect_local() -> Rect2:
 	var w := label_width()
-	return Rect2(-w * 0.5 - 8.0, 6, w + 16.0, 21)
+	var rect := Rect2(-w * 0.5 - 8.0, 6.0, w + 16.0, 19.0)
+	var map_view := _map_view()
+	if tag == null or map_view == null:
+		return rect
+	var field_value: Variant = map_view.get("_field")
+	if not field_value is Rect2:
+		return rect
+	var field: Rect2 = field_value
+	if field.size.x <= 0.0 or field.size.y <= 0.0:
+		return rect
+	var safe := field.grow(-4.0)
+	if safe.size.x <= 0.0 or safe.size.y <= 0.0:
+		return rect
+	var transform := tag.get_global_transform_with_canvas()
+	var a := transform * rect.position
+	var b := transform * rect.end
+	var screen_rect := Rect2(a, b - a).abs()
+	var shift := Vector2.ZERO
+	if screen_rect.size.x > safe.size.x:
+		shift.x = safe.get_center().x - screen_rect.get_center().x
+	elif screen_rect.position.x < safe.position.x:
+		shift.x = safe.position.x - screen_rect.position.x
+	elif screen_rect.end.x > safe.end.x:
+		shift.x = safe.end.x - screen_rect.end.x
+	if screen_rect.size.y > safe.size.y:
+		shift.y = safe.get_center().y - screen_rect.get_center().y
+	elif screen_rect.position.y < safe.position.y:
+		shift.y = safe.position.y - screen_rect.position.y
+	elif screen_rect.end.y > safe.end.y:
+		shift.y = safe.end.y - screen_rect.end.y
+	if shift != Vector2.ZERO:
+		rect.position += transform.affine_inverse().basis_xform(shift)
+	return rect
 
 
 func body_rect_local() -> Rect2:
@@ -762,7 +807,7 @@ func set_highlight(on: bool) -> void:
 ## Где стрелка метки «Вы» — для самотестов, в координатах экрана.
 func marker_rect_global() -> Rect2:
 	var h := look.height if look != null else 1.0
-	return _global_rect(Rect2(-9, -FIG_TOP * h - 26, 18, 16))
+	return _tag_global_rect(Rect2(-9, -FIG_TOP * h - 26, 18, 16))
 
 
 ## Зона касания в координатах экрана: не меньше 84×108 px (≈ 48 dp), даже если фигурка мелкая.
@@ -803,6 +848,13 @@ func _global_rect(r: Rect2) -> Rect2:
 	return Rect2(a, b - a).abs()
 
 
+func _tag_global_rect(r: Rect2) -> Rect2:
+	var t := tag.get_global_transform_with_canvas() if tag != null else get_global_transform_with_canvas()
+	var a := t * r.position
+	var b := t * r.end
+	return Rect2(a, b - a).abs()
+
+
 ## Точка над головой — сюда указывает хвостик пузыря с репликой.
 func head_global() -> Vector2:
 	var h := look.height if look != null else 1.0
@@ -817,7 +869,7 @@ func over_marks(global_pos: Vector2) -> bool:
 
 
 func label_rect_global() -> Rect2:
-	return _global_rect(label_rect_local())
+	return _tag_global_rect(label_rect_local())
 
 
 func body_rect_global() -> Rect2:
@@ -994,6 +1046,12 @@ func _settle_idle() -> void:
 
 
 func _process(delta: float) -> void:
+	if tag != null:
+		var map_view := _map_view()
+		var zoom := maxf(map_view.scale.x, 0.01) if map_view != null else 1.0
+		var tag_scale := 1.0 / zoom
+		if not is_equal_approx(tag.scale.x, tag_scale):
+			tag.scale = Vector2.ONE * tag_scale
 	_t += delta
 	var travelled := position.distance_to(_last_position) if _last_position != Vector2.INF else 0.0
 	_last_position = position

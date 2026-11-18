@@ -899,18 +899,20 @@ func _rain_prop_rect(at: Vector2, width: float, tex: Texture2D) -> Rect2:
 
 ## Таблички открытых убежищ — капсулы на доме над дверью; рисуются над толпой.
 func _draw_plaques() -> void:
+	var font_size := plaque_size()
 	for i in range(open_count):
 		var r := shelter_label_rect_local(i)
 		var sel := i == selected_house
-		Art.shape(_labels, Art.rrect(r, 4.0), Color(0.10, 0.065, 0.045, 0.9), ThemeFactory.LAMP if sel else ThemeFactory.EDGE, 2.0 if sel else 1.2)
-		var name_w := _font.get_string_size(_title(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE).x
-		var x2 := r.position.x + 8.0
-		_labels.draw_string(_font, Vector2(x2, r.end.y - 4.5), _title(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE, Color(1, 1, 1))
+		Art.shape(_labels, Art.rrect(r, 4.0), Color(0.10, 0.065, 0.045, 0.9), ThemeFactory.LAMP if sel else ThemeFactory.EDGE, 1.6 if sel else 1.0)
+		var name_w := _font.get_string_size(_title(i), HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+		var x2 := r.position.x + 6.0
+		_labels.draw_string(_font, Vector2(x2, r.end.y - 3.5), _title(i), HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(1, 1, 1))
 		if _going_text(i) != "":
-			_labels.draw_string(_font, Vector2(x2 + name_w, r.end.y - 4.5), _going_text(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE, ThemeFactory.LAMP)
+			_labels.draw_string(_font, Vector2(x2 + name_w, r.end.y - 3.5), _going_text(i), HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, ThemeFactory.LAMP)
 
 
-const PLAQUE_SIZE := 14
+func plaque_size() -> int:
+	return maxi(10, roundi(12.0 * ThemeFactory.text_scale))
 const ART_DIR := "res://assets/village/"
 const REALISTIC_ART_DIR := "res://assets/village/realistic/"
 ## Вид дома -> [картинка, ширина на поле в долях h.size.x, дверь на картинке в долях].
@@ -1304,16 +1306,47 @@ func _going_text(i: int) -> String:
 ## Табличка с названием убежища в координатах посёлка: над дверью, но не шире картинки дома.
 func shelter_label_rect_local(i: int) -> Rect2:
 	var h: HouseDef = def.shelters[i]
-	var w := _font.get_string_size(_title(i) + _going_text(i), HORIZONTAL_ALIGNMENT_LEFT, -1, PLAQUE_SIZE).x + 16.0
+	var font_size := plaque_size()
+	var w := _font.get_string_size(_title(i) + _going_text(i), HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x + 12.0
 	var top := h.pos.y - h.size.y
 	var hr := house_rect(h)
 	var x := clampf(h.pos.x - w * 0.5, hr.position.x + 4.0, maxf(hr.position.x + 4.0, hr.end.x - w - 4.0))
-	return Rect2(x, top + 3.0, w, 19.0)
+	var rect := Rect2(x, top + 3.0, w, 17.0)
+	if _field.size.x <= 0.0 or _field.size.y <= 0.0:
+		return rect
+	var transform := get_global_transform_with_canvas()
+	var house_a := transform * hr.position
+	var house_b := transform * hr.end
+	var safe := _field.grow(-8.0)
+	if safe.size.x <= 0.0 or safe.size.y <= 0.0:
+		return rect
+	var a := transform * rect.position
+	var b := transform * rect.end
+	var screen_rect := Rect2(a, b - a).abs()
+	if not _field.grow(80.0).intersects(screen_rect):
+		return rect
+	var shift := Vector2.ZERO
+	if screen_rect.size.x > safe.size.x:
+		shift.x = safe.get_center().x - screen_rect.get_center().x
+	elif screen_rect.position.x < safe.position.x:
+		shift.x = safe.position.x - screen_rect.position.x
+	elif screen_rect.end.x > safe.end.x:
+		shift.x = safe.end.x - screen_rect.end.x
+	if screen_rect.position.y < safe.position.y:
+		shift.y = safe.position.y - screen_rect.position.y
+	elif screen_rect.end.y > safe.end.y:
+		shift.y = safe.end.y - screen_rect.end.y
+	if shift != Vector2.ZERO:
+		rect.position += transform.affine_inverse().basis_xform(shift)
+	return rect
 
 
 func shelter_label_rect_global(i: int) -> Rect2:
 	var r := shelter_label_rect_local(i)
-	return Rect2(to_global(r.position), r.size * scale)
+	var transform := get_global_transform_with_canvas()
+	var a := transform * r.position
+	var b := transform * r.end
+	return Rect2(a, b - a).abs()
 
 
 ## Лужи, кровь и следы — плоские картинки на земле, под людьми.

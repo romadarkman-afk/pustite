@@ -4,8 +4,8 @@ extends Control
 ## был одного читаемого размера на любом телефоне. Пузыри не налезают друг на друга:
 ## новый поднимается над старыми, а если места в поле нет — уходит самый старый.
 
-const FONT_SIZE := 14        ## компактнее, но учитывает настройку масштаба текста
-const NAME_SIZE := 11
+const FONT_SIZE := 13        ## компактнее, но учитывает настройку масштаба текста
+const NAME_SIZE := 10
 const PAD := Vector2(9, 6)
 const MAX_ON_SCREEN := 2
 const PREVIEW_LINES := 2
@@ -68,7 +68,7 @@ func say(who: String, text: String, head: Vector2, mine: bool, fig: Node2D = nul
 			_kill(b)
 	var fsz := ThemeFactory.fs(FONT_SIZE)
 	var nsz := ThemeFactory.fs(NAME_SIZE)
-	var maxw := minf(270.0 * ThemeFactory.text_scale, field.size.x * minf(0.56, 0.46 * ThemeFactory.text_scale))
+	var maxw := minf(240.0 * ThemeFactory.text_scale, field.size.x * minf(0.52, 0.44 * ThemeFactory.text_scale))
 	var inner := maxf(1.0, maxw - PAD.x * 2.0)
 	# На карте показываем до двух строк; целая реплика остаётся в журнале и открывается по нажатию.
 	var preview := _preview(text, inner, fsz)
