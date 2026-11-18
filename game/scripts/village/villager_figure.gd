@@ -738,12 +738,28 @@ func label_width() -> float:
 	return _font.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size()).x
 
 
+func _map_view() -> Node2D:
+	var parent := get_parent()
+	if parent == null:
+		return null
+	for property: Dictionary in parent.get_property_list():
+		if String(property.get("name", "")) == "view":
+			var candidate: Variant = parent.get("view")
+			if candidate is Node2D and candidate.has_method("frame_to"):
+				return candidate as Node2D
+	return null
+
+
 func label_rect_local() -> Rect2:
 	var w := label_width()
 	var rect := Rect2(-w * 0.5 - 8.0, 6.0, w + 16.0, 19.0)
-	if tag == null or Nav.village == null or not Nav.village.is_ancestor_of(self):
+	var map_view := _map_view()
+	if tag == null or map_view == null:
 		return rect
-	var field: Rect2 = Nav.village._field
+	var field_value: Variant = map_view.get("_field")
+	if not field_value is Rect2:
+		return rect
+	var field: Rect2 = field_value
 	if field.size.x <= 0.0 or field.size.y <= 0.0:
 		return rect
 	var safe := field.grow(-4.0)
@@ -1032,9 +1048,8 @@ func _settle_idle() -> void:
 
 func _process(delta: float) -> void:
 	if tag != null:
-		var zoom := 1.0
-		if Nav.village != null and Nav.village.is_ancestor_of(self):
-			zoom = maxf(Nav.village.scale.x, 0.01)
+		var map_view := _map_view()
+		var zoom := maxf(map_view.scale.x, 0.01) if map_view != null else 1.0
 		var tag_scale := 1.0 / zoom
 		if not is_equal_approx(tag.scale.x, tag_scale):
 			tag.scale = Vector2.ONE * tag_scale
