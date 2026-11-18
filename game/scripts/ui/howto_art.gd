@@ -100,42 +100,42 @@ func _layout() -> void:
 	match kind:
 		"day":
 			for i in range(figures.size()):
-				figures[i].position = Vector2(w * (0.14 + 0.18 * i), h * 0.82)
+				figures[i].position = Vector2(w * (0.14 + 0.18 * i), h * 0.76)
 		"night":
-			figures[0].position = Vector2(w * 0.20, h * 0.86)
+			figures[0].position = Vector2(w * 0.20, h * 0.76)
 			figures[1].position = Vector2(w * 0.34, h * 0.76)
 			figures[2].position = Vector2(w * 0.66, h * 0.76)
-			figures[3].position = Vector2(w * 0.76, h * 0.86)
-			figures[4].position = Vector2(w * 0.44, h * 0.92)
+			figures[3].position = Vector2(w * 0.76, h * 0.76)
+			figures[4].position = Vector2(w * 0.44, h * 0.76)
 		"door":
-			figures[0].position = Vector2(w * 0.30, h * 0.90)
-			figures[1].position = Vector2(w * 0.70, h * 0.90)
+			figures[0].position = Vector2(w * 0.30, h * 0.76)
+			figures[1].position = Vector2(w * 0.70, h * 0.76)
 		"talisman":
-			figures[0].position = Vector2(w * 0.18, h * 0.92)
-			figures[1].position = Vector2(w * 0.82, h * 0.92)
+			figures[0].position = Vector2(w * 0.18, h * 0.76)
+			figures[1].position = Vector2(w * 0.82, h * 0.76)
 		"marks":
 			for i in range(figures.size()):
-				figures[i].position = Vector2(w * (0.12 + 0.19 * i), h * 0.90)
+				figures[i].position = Vector2(w * (0.12 + 0.19 * i), h * 0.76)
 		"jobs":
-			figures[0].position = Vector2(w * 0.20, h * 0.92)
-			figures[1].position = Vector2(w * 0.50, h * 0.92)
-			figures[2].position = Vector2(w * 0.80, h * 0.92)
+			figures[0].position = Vector2(w * 0.20, h * 0.76)
+			figures[1].position = Vector2(w * 0.50, h * 0.76)
+			figures[2].position = Vector2(w * 0.80, h * 0.76)
 		"events":
-			figures[0].position = Vector2(w * 0.20, h * 0.84)
-			figures[1].position = Vector2(w * 0.80, h * 0.84)
+			figures[0].position = Vector2(w * 0.20, h * 0.76)
+			figures[1].position = Vector2(w * 0.80, h * 0.76)
 			for i in range(_glyphs.size()):
 				_glyphs[i].size = Vector2(56, 56)
 				_glyphs[i].position = Vector2(w * (0.14 + 0.24 * i) - 28.0, h * 0.14)
 		"roles":
 			for i in range(figures.size()):
-				figures[i].position = Vector2(w * (0.20 + 0.30 * i), h * 0.90)
+				figures[i].position = Vector2(w * (0.20 + 0.30 * i), h * 0.76)
 			if not _glyphs.is_empty():
 				_glyphs[0].size = Vector2(64, 64)
 				_glyphs[0].position = Vector2(w * 0.5 - 32.0, h * 0.10)
 		"campaign":
-			figures[0].position = Vector2(w * 0.62, h * 0.88)
-			figures[1].position = Vector2(w * 0.77, h * 0.88)
-			figures[2].position = Vector2(w * 0.92, h * 0.88)
+			figures[0].position = Vector2(w * 0.62, h * 0.76)
+			figures[1].position = Vector2(w * 0.77, h * 0.76)
+			figures[2].position = Vector2(w * 0.92, h * 0.76)
 	queue_redraw()
 
 

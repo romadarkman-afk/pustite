@@ -8,6 +8,7 @@ static func run() -> void:
 	await _check_menu_music(tree, problems)
 	checks += await _check_menu_layout(tree, problems)
 	checks += await _check_menu_devices(tree, problems)
+	checks += await _check_howto_layout(tree, problems)
 	checks += _expect(problems, Nav.host.current is MenuScreen, "перед тестом раскладки открылось не меню")
 	Nav.start_match()
 	await SelfTest._settle(tree)
@@ -263,6 +264,60 @@ static func _check_menu_music(tree: SceneTree, problems: PackedStringArray) -> v
 	_expect(problems, Sfx.music_name == next, "песня прерывается при возвращении в главное меню")
 
 
+static func _check_howto_layout(tree: SceneTree, problems: PackedStringArray) -> int:
+	var checks := 0
+	var wanted := ["Apple iPhone SE (2016)", "Samsung Galaxy S25 Ultra", "Samsung Galaxy Tab S4"]
+	for profile: Array in SelfTest.device_profiles():
+		var model := String(profile[3])
+		if model not in wanted:
+			continue
+		tree.root.size = profile[0]
+		tree.root.content_scale_factor = float(profile[2])
+		Nav.frame.debug_insets = profile[1]
+		await SelfTest._settle(tree)
+		Nav.frame.refresh()
+		Nav.show_howto(false)
+		await SelfTest._settle(tree)
+		var screen := Nav.host.current as HowToScreen
+		if screen == null:
+			problems.append("%s: обучение не открылось" % model)
+			checks += 1
+			continue
+		for page_index in [4, 5]:
+			screen.page = page_index
+			screen.build()
+			await SelfTest._settle(tree)
+			var art := screen.art
+			var art_bounds := Rect2(Vector2.ZERO, art.size)
+			for figure: VillagerFigure in art.figures:
+				var label := figure.label_rect_local()
+				var label_a := figure.position + label.position * figure.scale
+				var label_b := figure.position + label.end * figure.scale
+				var label_bounds := Rect2(label_a, label_b - label_a).abs()
+				if not art_bounds.grow(1.0).encloses(label_bounds):
+					problems.append("%s: имя жителя обрезано на карточке обучения %d" % [model, page_index + 1])
+					checks += 1
+			var vp := Nav.frame.get_viewport_rect()
+			var footer := screen.footer.get_global_rect()
+			if footer.position.y < -1.0 or footer.end.y > vp.size.y + 1.0:
+				problems.append("%s: кнопки обучения вышли за экран на карточке %d" % [model, page_index + 1])
+				checks += 1
+			for row: Node in screen.body.get_children():
+				if row is Control and String(row.name).begins_with("Row_"):
+					var row_rect := (row as Control).get_global_rect()
+					if row_rect.position.x < -1.0 or row_rect.end.x > vp.size.x + 1.0:
+						problems.append("%s: строка значков обрезана на карточке %d" % [model, page_index + 1])
+						checks += 1
+		break
+	Nav.frame.debug_insets = Vector4(-1, -1, -1, -1)
+	tree.root.size = Vector2i(720, 1280)
+	tree.root.content_scale_factor = 1.0
+	Nav.frame.refresh()
+	Nav.show_menu()
+	await SelfTest._settle(tree)
+	return checks
+
+
 static func _check_day(tag: String, problems: PackedStringArray) -> int:
 	var screen := Nav.host.current as DayScreen
 	if screen == null:
@@ -278,6 +333,20 @@ static func _check_day(tag: String, problems: PackedStringArray) -> int:
 			last_button_bottom = maxf(last_button_bottom, control.get_global_rect().end.y)
 	if last_button_bottom > vp.y - 12.0:
 		problems.append("%s: нижние кнопки слишком близко к краю экрана (%d из %d)" % [tag, int(last_button_bottom), int(vp.y)])
+	var field := Nav.village._field.grow(-4.0)
+	var view := Nav.village
+	for figure: VillagerFigure in view.crowd.figures.values():
+		if not is_instance_valid(figure) or not figure.is_visible_in_tree() or figure.state == VillagerFigure.State.GONE:
+			continue
+		var body_screen := figure._global_rect(figure.body_rect_local())
+		if not field.grow(40.0).intersects(body_screen):
+			continue
+		if not field.encloses(figure.label_rect_global()):
+			problems.append("%s: подпись жителя выходит за поле: %s" % [tag, figure.who])
+	for i in range(view.open_count):
+		var plaque := view.shelter_label_rect_global(i)
+		if field.intersects(plaque) and not field.encloses(plaque):
+			problems.append("%s: табличка убежища обрезана: %s" % [tag, view._title(i)])
 	var bounds := Nav.village._ground_draw_rect()
 	var left_edge := Nav.village.position.x + bounds.position.x * Nav.village.scale.x
 	var right_edge := Nav.village.position.x + bounds.end.x * Nav.village.scale.x
