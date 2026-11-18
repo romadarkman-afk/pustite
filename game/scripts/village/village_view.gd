@@ -1317,15 +1317,14 @@ func shelter_label_rect_local(i: int) -> Rect2:
 	var transform := get_global_transform_with_canvas()
 	var house_a := transform * hr.position
 	var house_b := transform * hr.end
-	var house_screen := Rect2(house_a, house_b - house_a).abs()
-	if not _field.grow(80.0).intersects(house_screen):
-		return rect
 	var safe := _field.grow(-8.0)
 	if safe.size.x <= 0.0 or safe.size.y <= 0.0:
 		return rect
 	var a := transform * rect.position
 	var b := transform * rect.end
 	var screen_rect := Rect2(a, b - a).abs()
+	if not _field.grow(80.0).intersects(screen_rect):
+		return rect
 	var shift := Vector2.ZERO
 	if screen_rect.size.x > safe.size.x:
 		shift.x = safe.get_center().x - screen_rect.get_center().x
