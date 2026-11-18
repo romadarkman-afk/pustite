@@ -266,9 +266,12 @@ static func _check_menu_music(tree: SceneTree, problems: PackedStringArray) -> v
 
 static func _check_howto_layout(tree: SceneTree, problems: PackedStringArray) -> int:
 	var checks := 0
+	var tested := 0
 	var wanted := ["Apple iPhone SE (2016)", "Samsung Galaxy S25 Ultra", "Samsung Galaxy Tab S4"]
 	for profile: Array in SelfTest.device_profiles():
 		var model := String(profile[3])
+		if model in wanted:
+			tested += 1
 		if model not in wanted:
 			continue
 		tree.root.size = profile[0]
@@ -308,7 +311,10 @@ static func _check_howto_layout(tree: SceneTree, problems: PackedStringArray) ->
 					if row_rect.position.x < -1.0 or row_rect.end.x > vp.size.x + 1.0:
 						problems.append("%s: строка значков обрезана на карточке %d" % [model, page_index + 1])
 						checks += 1
-		break
+		# Проверяем все целевые размеры, а не только первый телефон.
+	if tested != wanted.size():
+		problems.append("Проверены не все профили обучения (%d/%d)" % [tested, wanted.size()])
+		checks += 1
 	Nav.frame.debug_insets = Vector4(-1, -1, -1, -1)
 	tree.root.size = Vector2i(720, 1280)
 	tree.root.content_scale_factor = 1.0
