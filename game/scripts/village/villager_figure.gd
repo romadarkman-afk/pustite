@@ -787,14 +787,6 @@ func label_rect_local() -> Rect2:
 	return rect
 
 
-func label_rect_global() -> Rect2:
-	var rect := label_rect_local()
-	var transform := tag.get_global_transform_with_canvas() if tag != null else get_global_transform_with_canvas()
-	var a := transform * rect.position
-	var b := transform * rect.end
-	return Rect2(a, b - a).abs()
-
-
 func body_rect_local() -> Rect2:
 	var h := look.height if look != null else 1.0
 	var extra := 26.0 if highlight else 0.0
@@ -815,7 +807,7 @@ func set_highlight(on: bool) -> void:
 ## Где стрелка метки «Вы» — для самотестов, в координатах экрана.
 func marker_rect_global() -> Rect2:
 	var h := look.height if look != null else 1.0
-	return _global_rect(Rect2(-9, -FIG_TOP * h - 26, 18, 16))
+	return _tag_global_rect(Rect2(-9, -FIG_TOP * h - 26, 18, 16))
 
 
 ## Зона касания в координатах экрана: не меньше 84×108 px (≈ 48 dp), даже если фигурка мелкая.
@@ -856,6 +848,13 @@ func _global_rect(r: Rect2) -> Rect2:
 	return Rect2(a, b - a).abs()
 
 
+func _tag_global_rect(r: Rect2) -> Rect2:
+	var t := tag.get_global_transform_with_canvas() if tag != null else get_global_transform_with_canvas()
+	var a := t * r.position
+	var b := t * r.end
+	return Rect2(a, b - a).abs()
+
+
 ## Точка над головой — сюда указывает хвостик пузыря с репликой.
 func head_global() -> Vector2:
 	var h := look.height if look != null else 1.0
@@ -870,7 +869,7 @@ func over_marks(global_pos: Vector2) -> bool:
 
 
 func label_rect_global() -> Rect2:
-	return _global_rect(label_rect_local())
+	return _tag_global_rect(label_rect_local())
 
 
 func body_rect_global() -> Rect2:
