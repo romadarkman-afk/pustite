@@ -1320,7 +1320,7 @@ func shelter_label_rect_local(i: int) -> Rect2:
 	var house_screen := Rect2(house_a, house_b - house_a).abs()
 	if not _field.grow(80.0).intersects(house_screen):
 		return rect
-	var safe := _field.grow(-4.0)
+	var safe := _field.grow(-8.0)
 	if safe.size.x <= 0.0 or safe.size.y <= 0.0:
 		return rect
 	var a := transform * rect.position
