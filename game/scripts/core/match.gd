@@ -72,10 +72,18 @@ var last_exiled: Villager
 var last_tally: Dictionary[int, int] = {}
 var rng := RandomNumberGenerator.new()
 
-## Дела по посёлку и запасы дня. Запасы снижают шанс погибнуть ночью на улице
-## и одному в доме: фонари горят, обереги держатся.
-const SUPPLY_BONUS := 0.2           ## полные запасы срезают столько от шанса гибели
+## Дела по посёлку. У каждого припаса свой эффект на ночь и на настроение жителей.
 const DEFAULT_VILLAGE := "res://config/village_default.tres"
+const WATER_RISK_PER := 0.04
+const WATER_MAX := 3
+const WOOD_RISK_PER := 0.03
+const WOOD_MAX := 2
+const WOOD_REST_PER := 0.10
+const LAMP_TELL_PER := 0.06
+const LAMP_MAX := 2
+const FISH_HOPE_PER := 0.10
+const FISH_DESPAIR_PER := 0.12
+const FISH_MAX := 2
 var jobs: Array[JobDef] = []                 ## дела сегодняшнего дня: обычные и починка оберегов
 var base_jobs: Array[JobDef] = []            ## обычные дела из карты посёлка
 var village: VillageDef
@@ -96,6 +104,14 @@ var talisman: PackedInt32Array = PackedInt32Array()
 var job_left: PackedInt32Array = PackedInt32Array()
 var supply_done: int = 0
 var supply_total: int = 0
+var resource_done_by_kind := PackedInt32Array()
+var resource_total_by_kind := PackedInt32Array()
+var resource_day_sum := 0.0
+var resource_day_count := 0
+var resource_day_active := false
+var resource_report_visible := false
+var resource_tips_seen: Dictionary = {}
+var provision_legacy := ""
 
 ## Подражатель (со второй ночи): тварь стучит в одну из дверей голосом жителя,
 ## который сейчас в другом доме или уже погиб. Впустили — забирает одного из тех, кто внутри.
@@ -338,6 +354,16 @@ func post(line: ChatLine) -> void:
 # =============================================================
 func start(cfg: GameConfig, seed_value: int = 0) -> void:
 	config = cfg.sanitized()
+	resource_done_by_kind.resize(4)
+	resource_done_by_kind.fill(0)
+	resource_total_by_kind.resize(4)
+	resource_total_by_kind.fill(0)
+	resource_day_sum = 0.0
+	resource_day_count = 0
+	resource_day_active = false
+	resource_report_visible = false
+	resource_tips_seen.clear()
+	provision_legacy = ""
 	story_pages_found.clear()
 	box_notes.clear()
 	if seed_value != 0:
@@ -634,6 +660,16 @@ func begin_day() -> void:
 		job_left.append(j.portions)
 		supply_total += j.portions
 	supply_done = 0
+	resource_done_by_kind.resize(4)
+	resource_done_by_kind.fill(0)
+	resource_total_by_kind.resize(4)
+	resource_total_by_kind.fill(0)
+	resource_report_visible = false
+	resource_day_active = true
+	for j: JobDef in jobs:
+		var slot := _resource_slot(j.kind)
+		if slot >= 0:
+			resource_total_by_kind[slot] += j.portions
 	if plant_chapter != "" and day == 2:
 		clues.plant(plant_chapter)
 	# «Пустая лодка» (TASK-018): в первый день главы — находка у реки
@@ -647,7 +683,7 @@ func begin_day() -> void:
 
 
 ## Сделал дело. Засчитывается, если работа настоящая и у дела ещё есть порции.
-## Возвращает true, если запасы выросли.
+## Возвращает true, если порция дела выполнена.
 func do_job(_v: Villager, ji: int, real: bool) -> bool:
 	if phase != Phase.DAY or ji < 0 or ji >= job_left.size():
 		return false
@@ -655,6 +691,9 @@ func do_job(_v: Villager, ji: int, real: bool) -> bool:
 		return false
 	job_left[ji] -= 1
 	supply_done += 1
+	var slot := _resource_slot(jobs[ji].kind)
+	if slot >= 0:
+		resource_done_by_kind[slot] += 1
 	if jobs[ji].house >= 0 and jobs[ji].house < talisman.size():
 		talisman[jobs[ji].house] = mini(TALISMAN_MAX, talisman[jobs[ji].house] + 1)
 	return true
@@ -707,15 +746,141 @@ func job_available(ji: int) -> bool:
 	return ji >= 0 and ji < job_left.size() and job_left[ji] > 0
 
 
-## Запасы дня 0..1.
+## Количество каждого припаса считается отдельно от ремонта оберегов.
+func _resource_slot(kind: int) -> int:
+	match kind:
+		JobDef.Kind.WATER: return 0
+		JobDef.Kind.WOOD: return 1
+		JobDef.Kind.LAMP: return 2
+		JobDef.Kind.FISH: return 3
+	return -1
+
+
+func resource_kind_key(kind: int) -> String:
+	match kind:
+		JobDef.Kind.WATER: return "water"
+		JobDef.Kind.WOOD: return "wood"
+		JobDef.Kind.LAMP: return "lamp"
+		JobDef.Kind.FISH: return "fish"
+	return ""
+
+
+func resource_count(kind: int) -> int:
+	var slot := _resource_slot(kind)
+	return resource_done_by_kind[slot] if slot >= 0 and resource_done_by_kind.size() > slot else 0
+
+
+func resource_kind_total(kind: int) -> int:
+	var slot := _resource_slot(kind)
+	return resource_total_by_kind[slot] if slot >= 0 and resource_total_by_kind.size() > slot else 0
+
+
+func resource_completed() -> int:
+	var result := 0
+	for count: int in resource_done_by_kind:
+		result += count
+	return result
+
+
+func resource_available() -> int:
+	var result := 0
+	for count: int in resource_total_by_kind:
+		result += count
+	return result
+
+
+## Запасы дня 0..1, без ремонта оберегов.
+func resource_ratio() -> float:
+	var total := resource_available()
+	return float(resource_completed()) / float(total) if total > 0 else 0.0
+
+
 func supplies() -> float:
-	return float(supply_done) / float(supply_total) if supply_total > 0 else 0.0
+	return resource_ratio()
+
+
+func mark_resource_tip(kind: int) -> bool:
+	var key := resource_kind_key(kind)
+	if key.is_empty() or resource_tips_seen.has(key):
+		return false
+	resource_tips_seen[key] = true
+	return true
+
+
+func resource_info_lines() -> Array:
+	var out: Array = []
+	var water_total := resource_kind_total(JobDef.Kind.WATER)
+	if water_total > 0:
+		var water_effect := mini(resource_count(JobDef.Kind.WATER), WATER_MAX) * roundi(WATER_RISK_PER * 100.0)
+		out.append(["", L.t("supply.info.water", {"done": resource_count(JobDef.Kind.WATER), "total": water_total, "effect": water_effect})])
+	var wood_total := resource_kind_total(JobDef.Kind.WOOD)
+	if wood_total > 0:
+		var wood_count := mini(resource_count(JobDef.Kind.WOOD), WOOD_MAX)
+		var wood_risk := roundi(100.0 * wood_count * WOOD_RISK_PER) if night_event != Event.RAIN else 0
+		var wood_rest := roundi(100.0 * wood_count * WOOD_REST_PER)
+		out.append(["", L.t("supply.info.wood", {"done": resource_count(JobDef.Kind.WOOD), "total": wood_total, "risk": wood_risk, "rest": wood_rest})])
+	var lamp_total := resource_kind_total(JobDef.Kind.LAMP)
+	if lamp_total > 0:
+		var lamp_count := mini(resource_count(JobDef.Kind.LAMP), LAMP_MAX)
+		var lamp_effect := roundi(100.0 * lamp_count * LAMP_TELL_PER) if night_event != Event.RAIN else 0
+		out.append(["", L.t("supply.info.lamp", {"done": resource_count(JobDef.Kind.LAMP), "total": lamp_total, "effect": lamp_effect})])
+	var fish_total := resource_kind_total(JobDef.Kind.FISH)
+	if fish_total > 0:
+		var fish_count := mini(resource_count(JobDef.Kind.FISH), FISH_MAX)
+		out.append(["", L.t("supply.info.fish", {"done": resource_count(JobDef.Kind.FISH), "total": fish_total,
+			"hope": roundi(100.0 * fish_count * FISH_HOPE_PER), "despair": roundi(100.0 * fish_count * FISH_DESPAIR_PER)})])
+	return out
+
+
+func resource_average() -> float:
+	var total_days := resource_day_count
+	var sum := resource_day_sum
+	if resource_day_active:
+		total_days += 1
+		sum += resource_ratio()
+	return sum / float(total_days) if total_days > 0 else 0.0
+
+
+func resource_grade() -> String:
+	var average := resource_average()
+	if resource_day_count <= 0 and not resource_day_active:
+		return "mixed"
+	if average >= 0.7:
+		return "steady"
+	if average < 0.35:
+		return "scarce"
+	return "mixed"
+
+
+func _record_resource_day() -> void:
+	if not resource_day_active:
+		return
+	resource_day_sum += resource_ratio()
+	resource_day_count += 1
+	resource_day_active = false
+	resource_report_visible = true
+
+
+func _apply_morning_resources() -> void:
+	var fish_count := mini(resource_count(JobDef.Kind.FISH), FISH_MAX)
+	var wood_count := mini(resource_count(JobDef.Kind.WOOD), WOOD_MAX)
+	for v: Villager in alive():
+		if v.is_upyr:
+			continue
+		if fish_count > 0:
+			feelings.add(v.id, Feelings.F.HOPE, fish_count * FISH_HOPE_PER)
+			feelings.add(v.id, Feelings.F.DESPAIR, -fish_count * FISH_DESPAIR_PER)
+		if wood_count > 0 and v.night_house >= 0:
+			feelings.add(v.id, Feelings.F.EXHAUSTION, -wood_count * WOOD_REST_PER)
 
 
 func outside_death_chance() -> float:
 	var p := config.outside_death_chance(day)
+	var water := minf(float(resource_count(JobDef.Kind.WATER)) * WATER_RISK_PER, WATER_MAX * WATER_RISK_PER)
+	p -= water
 	if night_event != Event.RAIN:
-		p -= SUPPLY_BONUS * supplies()
+		var wood := minf(float(resource_count(JobDef.Kind.WOOD)) * WOOD_RISK_PER, WOOD_MAX * WOOD_RISK_PER)
+		p -= wood
 	match night_event:
 		Event.FOG: p += FOG_DEATH
 		Event.QUIET: p -= QUIET_SAFE
@@ -742,6 +907,9 @@ func sabotage(ji: int) -> bool:
 		return false
 	job_left[ji] += 1
 	supply_done -= 1
+	var slot := _resource_slot(jobs[ji].kind)
+	if slot >= 0 and resource_done_by_kind.size() > slot:
+		resource_done_by_kind[slot] = maxi(0, resource_done_by_kind[slot] - 1)
 	return true
 
 
@@ -760,7 +928,7 @@ func _roll_box() -> void:
 	box_loot = Loot.NOTE if r < 0.5 else (Loot.OIL if r < 0.75 else Loot.CHALK)
 
 
-## Ящик появился на площади: становится делом дня «Открыть ящик». Запасов не прибавляет.
+## Ящик появился на площади: становится делом дня «Открыть ящик». Найденное масло входит в запас фонарей.
 func place_box() -> int:
 	if not box_today or phase != Phase.DAY or job_index(&"box") >= 0:
 		return job_index(&"box")
@@ -818,6 +986,10 @@ func open_box(v: Villager) -> Dictionary:
 				job_left[tj] = maxi(0, job_left[tj] - 1)
 	if loot == Loot.OIL:
 		supply_done = mini(supply_total, supply_done + BOX_OIL)
+		var lamp_slot := _resource_slot(JobDef.Kind.LAMP)
+		if resource_done_by_kind.size() > lamp_slot and resource_total_by_kind.size() > lamp_slot:
+			resource_total_by_kind[lamp_slot] += BOX_OIL
+			resource_done_by_kind[lamp_slot] += BOX_OIL
 	out["loot"] = loot
 	if loot == Loot.NOTE and out.has("a") and out.has("b"):
 		box_notes.append({"owner": v.id, "day": day, "a": (out.a as Villager).id, "b": (out.b as Villager).id})
@@ -1409,7 +1581,10 @@ func door_sign_for(visitor: Villager, seat: Seat) -> StringName:
 	dice.seed = hash("door-sign:%d:%d:%d:%d" % [day, visitor.id, seat.house, case_id])
 	var is_creature := visitor == seat.mimic or visitor.is_upyr
 	var lamp := candle_for(seat) + 1
-	if dice.randf() >= (CANDLE_TELL_CREATURE[lamp] if is_creature else CANDLE_TELL_HUMAN[lamp]):
+	var tell_chance := CANDLE_TELL_CREATURE[lamp] if is_creature else CANDLE_TELL_HUMAN[lamp]
+	if night_event != Event.RAIN:
+		tell_chance = minf(0.95, tell_chance + mini(resource_count(JobDef.Kind.LAMP), LAMP_MAX) * LAMP_TELL_PER)
+	if dice.randf() >= tell_chance:
 		return &"ordinary"
 	var preferred: StringName = [&"breath", &"shadow", &"rhythm"][posmod(case_id, 3)]
 	if dice.randf() < 0.55:
@@ -1442,13 +1617,14 @@ func inspect_visitor(seat: Seat, vid: int, limit: int = 2) -> StringName:
 
 func resolve_night() -> NightReport:
 	assert(phase == Phase.DOOR)
+	_record_resource_day()
 	var r := NightReport.new()
 	var p_out := outside_death_chance()
 	r.p_out = p_out
 	for s0: Seat in seats:
 		r.p_alone[s0.house] = alone_death_chance(s0.house, p_out, candle_press(s0))
-	if supply_total > 0:
-		_log("night", "log.supplies", {"p": roundi(100.0 * supplies())})
+	if resource_available() > 0:
+		_log("night", "log.supplies", {"p": roundi(100.0 * resource_ratio())})
 
 	var was_fed: Dictionary[int, bool] = {}
 	for v: Villager in villagers:
@@ -1645,6 +1821,7 @@ func resolve_night() -> NightReport:
 	_dilemma_fate(r)
 	_apply_grief(r)
 	feelings.morning(r)
+	_apply_morning_resources()
 	_sail(r)
 	_ring_bells()
 	_night_trust(r)

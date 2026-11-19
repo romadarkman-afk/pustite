@@ -4581,7 +4581,7 @@ static func village() -> void:
 	await Nav._frame_field(day)
 	# 2. Запасы и значки дел
 	ok += _expect(fails, m.supply_total == _portions(m) and m.supply_total >= 8, "запасов на день %d — ждём сумму порций дел" % m.supply_total)
-	ok += _expect(fails, day.supplies != null and day.supplies.text() == "Запасы 0 из %d" % m.supply_total, "капсула запасов не показана или врёт")
+	ok += _expect(fails, day.supplies != null and day.supplies.text() == "Запасы 0 из %d" % m.resource_available(), "капсула припасов не показана или врёт")
 	ok += _expect(fails, v.jobs_layer.visible and m.jobs.size() >= 5, "значков дел нет на поле")
 	var small := false
 	for ji in range(m.jobs.size()):
@@ -4626,7 +4626,7 @@ static func village() -> void:
 	ok += _expect(fails, m.supply_done == 1 and m.job_left[ji] == left0 - 1, "дело не засчиталось (запасы %d, осталось %d)" % [m.supply_done, m.job_left[ji]])
 	ok += _expect(fails, waited >= m.jobs[ji].work_sec - 0.6, "дело сделалось слишком быстро (%.1f с)" % waited)
 	ok += _expect(fails, Sfx.played.has(&"job_done") and not me.working, "без звука «готово» или игрок всё ещё работает")
-	ok += _expect(fails, day.supplies.text() == "Запасы 1 из %d" % m.supply_total, "капсула запасов не обновилась: «%s»" % day.supplies.text())
+	ok += _expect(fails, m.resource_count(JobDef.Kind.WATER) == 1 and day.supplies.text() == "Запасы %d из %d" % [m.resource_completed(), m.resource_available()], "капсула припасов не обновилась: «%s»" % day.supplies.text())
 
 	# 5. Ушёл от дела — работа брошена, запасы не растут
 	var wood := m.job_index(&"wood")
@@ -4768,8 +4768,15 @@ static func village() -> void:
 
 	# 11. Ночь: горит столько фонарей, сколько заправили; полные запасы — меньше гибели на улице
 	m.supply_done = m.supply_total
+	m.resource_done_by_kind[0] = m.resource_kind_total(JobDef.Kind.WATER)
+	m.resource_done_by_kind[1] = m.resource_kind_total(JobDef.Kind.WOOD)
+	m.resource_done_by_kind[2] = v.def.lamps.size()
+	m.resource_total_by_kind[2] = v.def.lamps.size()
 	var full := m.outside_death_chance()
-	ok += _expect(fails, absf(m.config.outside_death_chance(m.day) - full - Match.SUPPLY_BONUS) < 0.001, "полные запасы не снижают шанс гибели на улице")
+	var water_safety := minf(float(m.resource_count(JobDef.Kind.WATER)) * Match.WATER_RISK_PER, Match.WATER_MAX * Match.WATER_RISK_PER)
+	var wood_safety := minf(float(m.resource_count(JobDef.Kind.WOOD)) * Match.WOOD_RISK_PER, Match.WOOD_MAX * Match.WOOD_RISK_PER)
+	var expected_safety := water_safety + wood_safety
+	ok += _expect(fails, absf(m.config.outside_death_chance(m.day) - full - expected_safety) < 0.001, "вода и дрова не снижают риск на улице")
 	Game.end_day()
 	await _settle(tree)
 	if m.phase == Match.Phase.VOTE:
@@ -5493,17 +5500,27 @@ static func events() -> void:
 	# 2. Что меняет каждое событие
 	var fog := _rules_to_night(5, 2, Match.Event.FOG)
 	var calm := _rules_to_night(5, 2, Match.Event.NONE)
-	fog.supply_done = fog.supply_total      # подальше от потолка 95%: туман должен прибавить ровно свои 10%
+	fog.supply_done = fog.supply_total
 	calm.supply_done = calm.supply_total
+	for stocked: Match in [fog, calm]:
+		stocked.resource_done_by_kind[0] = stocked.resource_kind_total(JobDef.Kind.WATER)
+		stocked.resource_done_by_kind[1] = stocked.resource_kind_total(JobDef.Kind.WOOD)
 	ok += _expect(fails, fog.run_seconds() == fog.config.run_seconds - Match.FOG_RUN and calm.run_seconds() == calm.config.run_seconds, "туман не укорачивает звон")
 	ok += _expect(fails, absf(fog.outside_death_chance() - calm.outside_death_chance() - Match.FOG_DEATH) < 0.001, "в тумане улица не опаснее")
 	var quiet := _rules_to_night(5, 2, Match.Event.QUIET)
 	quiet.supply_done = quiet.supply_total
+	quiet.resource_done_by_kind[0] = quiet.resource_kind_total(JobDef.Kind.WATER)
+	quiet.resource_done_by_kind[1] = quiet.resource_kind_total(JobDef.Kind.WOOD)
 	ok += _expect(fails, absf(calm.outside_death_chance() - quiet.outside_death_chance() - Match.QUIET_SAFE) < 0.001, "тихая ночь не бережёт на улице")
 	var rain := _rules_to_night(5, 2, Match.Event.RAIN)
 	calm.supply_done = calm.supply_total
 	rain.supply_done = rain.supply_total
-	ok += _expect(fails, rain.outside_death_chance() > calm.outside_death_chance() + Match.SUPPLY_BONUS - 0.001, "в ливень запасы всё ещё спасают на улице")
+	rain.resource_done_by_kind[0] = rain.resource_kind_total(JobDef.Kind.WATER)
+	rain.resource_done_by_kind[1] = rain.resource_kind_total(JobDef.Kind.WOOD)
+	var rain_wood_loss := minf(float(calm.resource_count(JobDef.Kind.WOOD)) * Match.WOOD_RISK_PER, Match.WOOD_MAX * Match.WOOD_RISK_PER)
+	var rain_water := minf(float(rain.resource_count(JobDef.Kind.WATER)) * Match.WATER_RISK_PER, Match.WATER_MAX * Match.WATER_RISK_PER)
+	ok += _expect(fails, absf(rain.outside_death_chance() - calm.outside_death_chance() - rain_wood_loss) < 0.001, "ливень должен отменять только защиту дров")
+	ok += _expect(fails, absf(rain.config.outside_death_chance(rain.day) - rain.outside_death_chance() - rain_water) < 0.001, "ливень отменил защиту от воды")
 	# полная луна: к утру слабеют все обереги
 	var moon := _rules_to_night(5, 2, Match.Event.MOON)
 	var d := Director.new()
@@ -5577,6 +5594,8 @@ static func events() -> void:
 		Game.m.day = 2
 		Game.m.config.vote_from_day = 9
 		Game.m.supply_done = Game.m.supply_total
+		Game.m.resource_done_by_kind[2] = v.def.lamps.size()
+		Game.m.resource_total_by_kind[2] = v.def.lamps.size()
 		await _to_night(tree)
 		var lit := v.lamps_fueled
 		if ev == Match.Event.RAIN:
@@ -5872,7 +5891,7 @@ static func sabotage() -> void:
 		if p.text == "−1":
 			popped = true
 	ok += _expect(fails, m.supply_done == 0 and popped and Sfx.played.has(&"job_fail"), "на поле не видно, что дело испортили")
-	ok += _expect(fails, day.supplies.text() == "Запасы 0 из %d" % m.supply_total, "капсула запасов не обновилась")
+	ok += _expect(fails, day.supplies.text() == "Запасы 0 из %d" % m.resource_available(), "капсула припасов не обновилась")
 
 	# 5. Игрок-упырь: у сделанного дела выбор «работать или испортить»; человек выбора не видит
 	m.do_job(m.player(), ji, true)
@@ -5943,6 +5962,8 @@ static func box() -> void:
 			supply_ok = false
 		var opener: Villager = m.alive_bots()[0]
 		var before := m.supply_done
+		var lamp_before := m.resource_count(JobDef.Kind.LAMP)
+		var lamp_total_before := m.resource_kind_total(JobDef.Kind.LAMP)
 		var res := m.open_box(opener)
 		loot[int(res.loot)] = loot.get(int(res.loot), 0) + 1
 		if not m.open_box(m.alive_bots()[1]).is_empty() or m.box_opened_by != opener.id:
@@ -5961,12 +5982,16 @@ static func box() -> void:
 			Match.Loot.OIL:
 				if m.supply_done != mini(m.supply_total, before + Match.BOX_OIL):
 					supply_ok = false
+				var oil_stock_added := m.resource_count(JobDef.Kind.LAMP) == lamp_before + Match.BOX_OIL
+				var oil_capacity_added := m.resource_kind_total(JobDef.Kind.LAMP) == lamp_total_before + Match.BOX_OIL
+				if not oil_stock_added or not oil_capacity_added:
+					supply_ok = false
 	print("ящик: в первый день %d, во второй %d из 400; находки %s" % [day1, day2, loot])
 	ok += _expect(fails, day1 == 0, "ящик в первый день")
 	ok += _expect(fails, absf(day2 / 400.0 - Match.BOX_P) < 0.08, "ящик во второй день %d из 400, ждём около 60%%" % day2)
 	ok += _expect(fails, loot.size() == 3, "бывают не все находки: %s" % loot)
 	ok += _expect(fails, note_ok, "записка не честная или ящик открыли дважды")
-	ok += _expect(fails, supply_ok, "ящик меняет план запасов или масло не прибавило запасов")
+	ok += _expect(fails, supply_ok, "ящик меняет план запасов или масло не прибавило запасов фонаря")
 
 	# 2. Что говорит бот: человек — правду, упырь — называет двух людей
 	var mm := Match.new()

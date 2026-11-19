@@ -108,6 +108,48 @@ static func epilogue_lines(m: Match, ending: String) -> PackedStringArray:
 	return out
 
 
+## Припасы завершённой главы оставляют след в следующей: настроение людей меняется по сохранённой оценке.
+static func provision_before(chapter_id: String) -> String:
+	var current_index := ORDER.find(chapter_id)
+	if current_index <= 0:
+		return ""
+	var best_index := -1
+	var grade := ""
+	for rec: Dictionary in Save.campaign_memory:
+		var kind := String(rec.get("kind", ""))
+		if not kind.begins_with("provisions_"):
+			continue
+		var previous_index := ORDER.find(String(rec.get("ch", "")))
+		if previous_index < 0 or previous_index >= current_index or previous_index < best_index:
+			continue
+		best_index = previous_index
+		grade = kind.substr("provisions_".length())
+	return grade
+
+
+static func apply_provision_legacy(m: Match) -> void:
+	if m == null:
+		return
+	match m.provision_legacy:
+		"steady":
+			for v: Villager in m.alive():
+				if v.is_upyr:
+					continue
+				m.feelings.add(v.id, Feelings.F.HOPE, 0.12)
+				m.feelings.add(v.id, Feelings.F.TRUST, 0.07)
+				m.feelings.add(v.id, Feelings.F.DESPAIR, -0.10)
+		"mixed":
+			for v: Villager in m.alive():
+				if not v.is_upyr:
+					m.feelings.add(v.id, Feelings.F.HOPE, 0.04)
+		"scarce":
+			for v: Villager in m.alive():
+				if v.is_upyr:
+					continue
+				m.feelings.add(v.id, Feelings.F.HOPE, -0.06)
+				m.feelings.add(v.id, Feelings.F.DESPAIR, 0.14)
+
+
 ## Доверие группы переходит из главы в главу акта III (TASK-030): последняя запись "trust" в памяти.
 static func trust_start(id: String) -> int:
 	if id == "a3c1":
@@ -448,11 +490,17 @@ static func finish(m: Match, ch: Dictionary, d: Director = null) -> Dictionary:
 	if passed and replay:
 		Save.raise_stars(String(ch.id), stars)      # повтор: в историю посёлка ничего не пишется
 	elif passed:
-		var mem := m.world.campaign_records(m, Save.MEMORY_PER_CHAPTER - 2)
-		mem.append_array(boat_records(m))
-		mem.append_array(miller_records(m))
+		var boats := boat_records(m)
+		var millers := miller_records(m)
+		var reserved_memory := 1 + boats.size() + millers.size() + (1 if m.trust_on else 0)
+		var mem := m.world.campaign_records(m, Save.MEMORY_PER_CHAPTER - reserved_memory)
+		mem.append_array(boats)
+		mem.append_array(millers)
 		if m.trust_on:
 			mem.append({"kind": "trust", "who": -1, "day": m.trust, "knew": []})   # доверие группы — в следующую главу акта
+		var provision_average := m.resource_average()
+		mem.append({"kind": "provisions_" + m.resource_grade(), "who": -1,
+			"day": roundi(provision_average * 100.0), "knew": []})
 		Save.record_chapter(String(ch.id), stars, lost, lost_guests, mem, d.campaign_bonds() if d != null else {})
 	return {"passed": passed, "stars": stars, "goals": g, "lost": lost, "lost_guests": lost_guests, "id": String(ch.id),
 		"replay": replay, "best": int(Save.campaign_stars.get(String(ch.id), 0))}

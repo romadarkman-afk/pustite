@@ -7,6 +7,7 @@ extends Screen
 var journal_button: Button
 var diary_button: Button
 var supplies: SuppliesBadge
+var supply_info_button: Button
 var journal_preview: Label
 var _question_prompt_open := false
 var _contact_hint: Label
@@ -63,6 +64,14 @@ func build() -> void:
 		supplies = SuppliesBadge.new()
 		field_spacer.add_child(supplies)
 		supplies.position = Vector2(14, 28)
+		supply_info_button = W.button("?", &"Compact", 40)
+		supply_info_button.name = "SupplyInfo"
+		supply_info_button.tooltip_text = L.t("supply.info.title")
+		supply_info_button.accessibility_name = L.t("supply.info.title")
+		supply_info_button.custom_minimum_size = Vector2(40, 40)
+		supply_info_button.pressed.connect(func() -> void: InfoSheet.open(self, _supply_info()))
+		field_spacer.add_child(supply_info_button)
+		supply_info_button.position = Vector2(242, 33)
 		update_supplies()
 	var jr := W.hbox(10)
 	journal_button = W.button(L.t("day.journal"), &"Compact", ACTION_HEIGHT)
@@ -178,7 +187,14 @@ func field_zoom() -> float:
 
 func update_supplies() -> void:
 	if is_instance_valid(supplies) and m != null:
-		supplies.set_value(m.supply_done, m.supply_total)
+		supplies.set_value(m.resource_completed(), m.resource_available())
+
+
+func _supply_info() -> Array:
+	var out: Array = [["", L.t("supply.info.title")]]
+	if m != null:
+		out.append_array(m.resource_info_lines())
+	return out
 
 
 func hint_id() -> String:

@@ -526,9 +526,9 @@ func _on_phase(phase: Match.Phase) -> void:
 	village.set_tunnel(Game.m.tunnel)
 	village.crowd.sync(Game.m, phase)
 	village.eyes.set_enabled(phase == Match.Phase.NIGHT or phase == Match.Phase.DOOR)
-	# ночью горит столько фонарей, сколько заправили днём
+	# ночью горит столько фонарей, сколько фонарного масла удалось собрать
 	var night_phase := phase == Match.Phase.NIGHT or phase == Match.Phase.DOOR
-	var fueled := 0 if Game.m.night_event == Match.Event.RAIN else roundi(Game.m.supplies() * village.def.lamps.size())
+	var fueled := 0 if Game.m.night_event == Match.Event.RAIN else mini(Game.m.resource_count(JobDef.Kind.LAMP), village.def.lamps.size())
 	village.set_lamps_fueled(fueled if night_phase else 99)
 	village.set_unease(Game.m.day if night_phase else 0)
 	_sync_traces(phase)
@@ -1011,6 +1011,11 @@ func _on_job_finished(vid: int, ji: int, counted: bool, real: bool) -> void:
 		village.crowd.at_job.erase(0)
 		if counted:
 			Juice.haptic(Juice.Haptic.SUCCESS)
+			if Game.m != null and ji >= 0 and ji < Game.m.jobs.size():
+				var resource_kind: int = Game.m.jobs[ji].kind
+				var resource_key := Game.m.resource_kind_key(resource_kind)
+				if not resource_key.is_empty() and Game.m.mark_resource_tip(resource_kind):
+					toast(L.t("supply.tip." + resource_key), 3.5)
 	else:
 		village.crowd.leave_job(vid)
 
