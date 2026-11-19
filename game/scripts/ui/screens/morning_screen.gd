@@ -327,6 +327,16 @@ func _reveal(r: NightReport) -> void:
 	for c: Dictionary in Guests.morning_clues(m):
 		body.add_child(guest_card(c))
 		await Juice.wait(0.4)
+	var resource_lines := m.resource_info_lines()
+	if m.resource_report_visible and not resource_lines.is_empty():
+		var resource_card := W.panel(&"Card")
+		var resource_box := W.vbox(6)
+		resource_box.add_child(W.label(L.t("supply.report.title"), &"Speaker"))
+		for row: Array in resource_lines:
+			resource_box.add_child(W.label(String(row[1]), &"Small"))
+		resource_card.add_child(resource_box)
+		body.add_child(resource_card)
+		Juice.pop_in(resource_card)
 	body.add_child(people_strip())
 	var dead := you_died() and m.phase == Match.Phase.MORNING and m.winner == Match.Team.NONE
 	var next := W.button(L.t("mo.watch") if dead else L.t("ui.next"))

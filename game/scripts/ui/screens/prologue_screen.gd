@@ -94,6 +94,12 @@ func build() -> void:
 	facts.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
 	facts.modulate.a = 0.0
 	_cast.add_child(facts)
+	var provision_card: Control
+	if not m.provision_legacy.is_empty():
+		provision_card = W.panel(&"Card")
+		provision_card.modulate.a = 0.0
+		provision_card.add_child(W.label(L.t("supply.legacy." + m.provision_legacy), &"Small"))
+		_cast.add_child(provision_card)
 	_go = W.button(L.t("ui.next"), &"Primary", 58)
 	_go.name = "PrologueNext"
 	_go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -109,6 +115,8 @@ func build() -> void:
 	actions.add_child(_go)
 	footer.add_child(actions)
 	_reveal_nodes = [role, story, role_l, case_card, facts]
+	if provision_card != null:
+		_reveal_nodes.append(provision_card)
 	if _comics_due() or _act_prologue_due():
 		_play_intros.call_deferred()
 

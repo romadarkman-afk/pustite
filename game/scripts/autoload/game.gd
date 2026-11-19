@@ -118,6 +118,8 @@ func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = 
 		m.guests = PackedStringArray([Guests.IDS[randi() % Guests.IDS.size()]])
 	m.start(cfg, Challenge.seed_for(daily) if daily != "" else 0)
 	if not chapter.is_empty():
+		m.provision_legacy = Campaign.provision_before(String(chapter.id))
+		Campaign.apply_provision_legacy(m)
 		for v: Villager in m.villagers:
 			if not v.is_player and v.guest_id.is_empty():
 				v.story_step = Campaign.story_before(String(chapter.id), v.story_id)

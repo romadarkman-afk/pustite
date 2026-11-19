@@ -125,6 +125,7 @@ func _info() -> Array:
 	var out: Array = [["bell", L.t("night.rule")]]
 	if m.night_event != Match.Event.NONE:
 		out.append([MorningScreen.event_glyph(m.night_event), Match.event_text(m.night_event)])
+	out.append_array(m.resource_info_lines())
 	return out
 
 
