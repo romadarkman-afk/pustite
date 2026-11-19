@@ -14,6 +14,7 @@ var day_life := false           ## днём жители переминаютс�
 var _whisper_in := 4.0
 var _fidget_clock := 2.0
 var _life_rng := RandomNumberGenerator.new()
+var _label_layout_clock := 0.0
 var place_grade := Color.WHITE
 var _layout_heights: Array[float] = []    ## рост жителей текущей расстановки (имя закрыто телом того, кто стоит ближе)
 var whispers := 0               ## для самотеста
@@ -127,7 +128,7 @@ const QUEUE_ROW := 122.0
 ## Проверяется только против табличек, поэтому места в ряду меньше не становится.
 static func fig_rect(p: Vector2, w: float) -> Rect2:
 	var ww := maxf(w, MIN_W)
-	var left := maxf(ww * 0.5, 19.0)
+	var left := maxf(ww * 0.5, VillagerFigure.MARK_X + 14.0)
 	var right := maxf(ww * 0.5, VillagerFigure.MARK_X + 14.0)
 	# высота — по самому высокому жителю (рост до 1.07 с шапкой): иначе макушка задевает табличку дома
 	var top := VillagerFigure.FIG_TOP * 1.08
@@ -416,11 +417,34 @@ func _layout_day(widths: Array[float], wide: bool, walls: Array[Rect2]) -> Array
 				# мест без наложения нет: встаём туда, где просторнее всего, но не за дом и не в стену
 				best = _roomiest_spot(out, widths, i, obs, walls)
 			if best == Vector2.INF:
-				best = Vector2(c.x, y3)
+				best = _visible_fallback_spot(c, w - GAP, walls, obs + c_used)
 			out[i] = best
 			c_used.append(fig_rect(best, w - GAP))
 		side = -side
 	return out
+
+
+## Последний предохранитель: если дома заняли привычные ряды, ищем точку внутри видимого поля.
+## Житель не должен пропасть в фасаде из-за неудачной раскладки.
+func _visible_fallback_spot(center: Vector2, width: float, walls: Array[Rect2], obs: Array[Rect2]) -> Vector2:
+	var top := VillageView.BAND.position.y + VillagerFigure.FIG_TOP * VillagerFigure.LOOK_HEIGHT_MAX + 8.0
+	var bottom := VillageView.BAND.end.y - 30.0
+	var best := Vector2.INF
+	var best_cost := INF
+	for y in range(roundi(top), roundi(bottom), 8):
+		for x in range(roundi(VillageView.SAFE_X.x + width * 0.5), roundi(VillageView.SAFE_X.y - width * 0.5), 8):
+			var p := Vector2(x, y)
+			if _hidden(p, true) or _point_in_walls(p, walls):
+				continue
+			var rect := fig_rect(p, width)
+			var cost := p.distance_to(center)
+			for obstacle: Rect2 in obs:
+				if rect.intersects(obstacle):
+					cost += rect.intersection(obstacle).get_area() * 0.02
+			if cost < best_cost:
+				best_cost = cost
+				best = p
+	return best
 
 
 ## Очередь у двери: ряды по 3+ человек, от двери к площади. Ряд целиком сдвигается
@@ -878,6 +902,8 @@ func sync(m: Match, phase: Match.Phase) -> void:
 			else:
 				f.die()
 			continue
+		if f.state in [VillagerFigure.State.DEAD, VillagerFigure.State.GONE] or not f.visible or (f.body != null and not f.body.visible):
+			f.restore_alive(ring.get(v.id, f.position))
 		f.fidgets_on = phase == Match.Phase.DAY
 		f.fidgets_managed = f.fidgets_on
 		if not f.fidgets_on:
@@ -939,6 +965,68 @@ func flinch_all() -> void:
 
 func _process(delta: float) -> void:
 	life_step(delta)
+	_label_layout_clock -= delta
+	if _label_layout_clock <= 0.0:
+		_label_layout_clock = 0.16
+		_layout_name_plaques()
+
+
+## Подписи выбирают свободное место рядом со своим жителем. При упоре в край или соседа
+## смещается только плашка, а тонкий шнурок остаётся привязан к фигуре.
+func _layout_name_plaques() -> void:
+	if view == null or view._field.size.x <= 0.0 or view._field.size.y <= 0.0:
+		return
+	var field := view._field.grow(-5.0)
+	var ordered: Array[VillagerFigure] = []
+	for f: VillagerFigure in figures.values():
+		if is_instance_valid(f) and f.visible and f.state != VillagerFigure.State.GONE:
+			ordered.append(f)
+	ordered.sort_custom(func(a: VillagerFigure, b: VillagerFigure) -> bool:
+		if a.is_player != b.is_player:
+			return a.is_player
+		return a.position.distance_squared_to(view.def.square_center) < b.position.distance_squared_to(view.def.square_center))
+	var occupied: Array[Rect2] = []
+	for i in range(view.open_count):
+		var plaque := view.shelter_label_rect_global(i)
+		if field.intersects(plaque):
+			occupied.append(plaque.grow(2.0))
+	var candidates: Array[Vector2] = [
+		Vector2.ZERO, Vector2(-36.0, 0.0), Vector2(36.0, 0.0), Vector2(-68.0, 0.0), Vector2(68.0, 0.0),
+		Vector2(0.0, 26.0), Vector2(-36.0, 26.0), Vector2(36.0, 26.0), Vector2(-68.0, 26.0), Vector2(68.0, 26.0),
+		Vector2(0.0, 50.0), Vector2(-36.0, 50.0), Vector2(36.0, 50.0), Vector2(0.0, -118.0)
+	]
+	for f: VillagerFigure in ordered:
+		var old_shift := f.label_shift
+		var best_shift := old_shift
+		var best_cost := INF
+		var options: Array[Vector2] = [old_shift]
+		for candidate: Vector2 in candidates:
+			if not options.has(candidate):
+				options.append(candidate)
+		for candidate: Vector2 in options:
+			f.label_shift = candidate
+			var rect := f.label_rect_global()
+			var cost := candidate.length() * 0.02
+			if not field.encloses(rect):
+				cost += 100000.0
+			for other: Rect2 in occupied:
+				if rect.intersects(other):
+					cost += 10000.0 + rect.intersection(other).get_area()
+			for other_figure: VillagerFigure in ordered:
+				if other_figure == f:
+					continue
+				var body_rect := other_figure.body_rect_global()
+				if rect.intersects(body_rect):
+					cost += 5000.0 + rect.intersection(body_rect).get_area()
+			if cost < best_cost:
+				best_cost = cost
+				best_shift = candidate
+			if cost < 0.01:
+				break
+		f.label_shift = best_shift
+		if f.tag != null and f.label_shift != old_shift:
+			f.tag.queue_redraw()
+		occupied.append(f.label_rect_global().grow(2.0))
 
 
 ## Раз в 6–12 секунд двое соседей по ряду шепчутся: один наклоняется к другому, второй поворачивает голову.
