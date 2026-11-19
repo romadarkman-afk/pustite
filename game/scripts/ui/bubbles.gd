@@ -24,6 +24,7 @@ class Bubble:
 	var mine: bool
 	var rect: Rect2
 	var anchor: Vector2
+	var offset: Vector2 ## исходный отступ от головы; ограничение поля не накапливает дрейф
 	var tail_x: float
 	var age: float = 0.0
 	var life: float = 4.0
@@ -77,8 +78,12 @@ func say(who: String, text: String, head: Vector2, mine: bool, fig: Node2D = nul
 	var w := minf(field.size.x - 8.0, ceilf(maxf(ts.x, nw)) + PAD.x * 2.0)
 	var h := ceilf(ts.y) + nsz + 4.0 + PAD.y * 2.0
 	var x := clampf(head.x - w * 0.5, field.position.x + 4.0, field.end.x - 4.0 - w)
-	var y0 := minf(head.y - 12.0 - h, field.end.y - h - 4.0)
-	var r := Rect2(x, maxf(y0, field.position.y + 2.0), w, h)
+	var top := field.position.y + 2.0
+	var bottom := field.end.y - h - 4.0
+	var above := head.y - 12.0 - h
+	var below := head.y + 16.0
+	var y0 := above if above >= top else (below if below <= bottom else clampf(above, top, bottom))
+	var r := Rect2(x, clampf(y0, top, bottom), w, h)
 	for attempt in range(8):
 		var hit := _first_overlap(r)
 		if hit == null:
@@ -99,6 +104,7 @@ func say(who: String, text: String, head: Vector2, mine: bool, fig: Node2D = nul
 	b.mine = mine
 	b.rect = r
 	b.anchor = head
+	b.offset = r.position - head
 	b.tail_x = clampf(head.x, r.position.x + 14.0, r.end.x - 14.0)
 	b.life = clampf(1.8 + 0.045 * text.length(), 2.6, 5.2)
 	b.text_w = inner
@@ -149,22 +155,21 @@ func bubble_at(point: Vector2) -> Bubble:
 ## Пузырь сдвинулся за говорящим и наехал на соседа — встать над ним.
 ## Если сверху места нет, гаснет более старый пузырь: реплика остаётся над говорящим.
 func _unstack(b: Bubble) -> void:
-	for attempt in range(4):
+	for _attempt in range(4):
 		var hit: Bubble = null
-		for o: Bubble in bubbles:
-			if o != b and not o.dying and o.rect.grow(GAP * 0.5).intersects(b.rect.grow(GAP * 0.5)):
-				hit = o
+		for other: Bubble in bubbles:
+			if other != b and not other.dying and other.rect.grow(GAP * 0.5).intersects(b.rect.grow(GAP * 0.5)):
+				hit = other
 				break
 		if hit == null:
 			return
 		var up := hit.rect.position.y - GAP - b.rect.size.y
 		if up >= field.position.y + 2.0:
 			b.rect.position.y = up
+			b.offset = b.rect.position - b.anchor
 		else:
 			_kill(b if b.order < hit.order else hit)
 			return
-
-
 func _first_overlap(r: Rect2) -> Bubble:
 	for b: Bubble in bubbles:
 		if not b.dying and b.rect.grow(GAP * 0.5).intersects(r.grow(GAP * 0.5)):
@@ -194,14 +199,16 @@ func tick(delta: float) -> void:
 	for b: Bubble in bubbles:
 		if b.fig != null and is_instance_valid(b.fig) and b.fig.has_method("head_global"):
 			var h: Vector2 = b.fig.head_global()
-			var dv := h - b.anchor
-			if dv.length_squared() > 0.01:
+			if h.distance_squared_to(b.anchor) > 0.01:
 				b.anchor = h
-				b.rect.position += dv
-				# поле не покидает: если говорящий ушёл за край, пузырь ждёт у края со стрелкой
-				b.rect.position.x = clampf(b.rect.position.x, field.position.x + 4.0, field.end.x - 4.0 - b.rect.size.x)
-				b.rect.position.y = clampf(b.rect.position.y, field.position.y + 2.0, field.end.y - b.rect.size.y - 4.0)
-				_unstack(b)
+				# Положение пересчитывается от головы и исходного отступа.
+				# Clamp больше не сдвигает пузырь навсегда к краю экрана.
+				var anchored := h + b.offset
+				anchored.x = clampf(anchored.x, field.position.x + 4.0, field.end.x - 4.0 - b.rect.size.x)
+				anchored.y = clampf(anchored.y, field.position.y + 2.0, field.end.y - b.rect.size.y - 4.0)
+				if anchored.distance_squared_to(b.rect.position) > 0.01:
+					b.rect.position = anchored
+					_unstack(b)
 				b.tail_x = clampf(h.x, b.rect.position.x + 14.0, b.rect.end.x - 14.0)
 				changed = true
 	for b: Bubble in bubbles:
@@ -225,12 +232,52 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	# сначала все указатели — чтобы ни один не перечёркивал чужой пузырь
 	for b: Bubble in bubbles:
-		var tip0 := Vector2(b.tail_x, b.rect.end.y + 9.0)
-		if b.alpha > 0.0 and b.anchor.y - tip0.y > 10.0:
-			var edge0 := ThemeFactory.LAMP_D if b.mine else ThemeFactory.EDGE
-			draw_line(tip0, Vector2(b.tail_x + (b.anchor.x - b.tail_x) * 0.2, b.anchor.y - 4.0), Color(edge0, 0.52 * b.alpha), 1.5)
+		if b.alpha <= 0.0:
+			continue
+		var bg := ThemeFactory.MINE if b.mine else ThemeFactory.PANEL_2
+		var edge := ThemeFactory.LAMP_D if b.mine else ThemeFactory.EDGE
+		var r := b.rect
+		var point := b.anchor
+		var on_screen := Vector2(
+			clampf(point.x, field.position.x, field.end.x),
+			clampf(point.y, field.position.y, field.end.y)
+		)
+		if not r.has_point(on_screen):
+			var dx := r.position.x - on_screen.x if on_screen.x < r.position.x else (on_screen.x - r.end.x if on_screen.x > r.end.x else 0.0)
+			var dy := r.position.y - on_screen.y if on_screen.y < r.position.y else (on_screen.y - r.end.y if on_screen.y > r.end.y else 0.0)
+			var tip := Vector2.ZERO
+			var base_a := Vector2.ZERO
+			var base_b := Vector2.ZERO
+			if absf(dy) >= absf(dx):
+				var tx := clampf(on_screen.x, r.position.x + 14.0, r.end.x - 14.0)
+				if on_screen.y >= r.end.y:
+					tip = Vector2(tx, r.end.y + 8.0)
+					base_a = Vector2(tx - 6.0, r.end.y - 1.0)
+					base_b = Vector2(tx + 6.0, r.end.y - 1.0)
+				else:
+					tip = Vector2(tx, r.position.y - 8.0)
+					base_a = Vector2(tx - 6.0, r.position.y + 1.0)
+					base_b = Vector2(tx + 6.0, r.position.y + 1.0)
+			else:
+				var ty := clampf(on_screen.y, r.position.y + 10.0, r.end.y - 10.0)
+				if on_screen.x >= r.end.x:
+					tip = Vector2(r.end.x + 8.0, ty)
+					base_a = Vector2(r.end.x - 1.0, ty - 6.0)
+					base_b = Vector2(r.end.x - 1.0, ty + 6.0)
+				else:
+					tip = Vector2(r.position.x - 8.0, ty)
+					base_a = Vector2(r.position.x + 1.0, ty - 6.0)
+					base_b = Vector2(r.position.x + 1.0, ty + 6.0)
+			var link_end := on_screen if point.distance_squared_to(on_screen) > 0.01 else point
+			draw_colored_polygon(PackedVector2Array([base_a, base_b, tip]), Color(bg, 0.72 * b.alpha))
+			draw_line(tip, link_end, Color(edge, 0.58 * b.alpha), 1.5)
+		if point.x < field.position.x or point.x > field.end.x:
+			var left := point.x < field.position.x
+			var ax := r.position.x - 2.0 if left else r.end.x + 2.0
+			var ay := clampf(on_screen.y, r.position.y + 8.0, r.end.y - 8.0)
+			var direction := -1.0 if left else 1.0
+			draw_colored_polygon(PackedVector2Array([Vector2(ax, ay - 7.0), Vector2(ax, ay + 7.0), Vector2(ax + direction * 9.0, ay)]), Color(edge, b.alpha))
 	for b: Bubble in bubbles:
 		var a := b.alpha
 		if a <= 0.0:
@@ -245,16 +292,7 @@ func _draw() -> void:
 		sb.border_color = Color(edge, 0.82 * a)
 		sb.set_border_width_all(1)
 		sb.set_corner_radius_all(6)
-		var tip := Vector2(b.tail_x, b.rect.end.y + 9.0)
-		draw_colored_polygon(PackedVector2Array([Vector2(b.tail_x - 7, b.rect.end.y - 1), Vector2(b.tail_x + 7, b.rect.end.y - 1), tip]), Color(bg, 0.72 * a))
 		draw_style_box(sb, b.rect)
-		# говорящий за краем кадра — стрелка в его сторону
-		if b.anchor.x < field.position.x or b.anchor.x > field.end.x:
-			var left := b.anchor.x < field.position.x
-			var ax := b.rect.position.x - 2.0 if left else b.rect.end.x + 2.0
-			var ay := b.rect.get_center().y
-			var d := -1.0 if left else 1.0
-			draw_colored_polygon(PackedVector2Array([Vector2(ax, ay - 8), Vector2(ax, ay + 8), Vector2(ax + d * 10.0, ay)]), Color(edge, a))
 		var x := b.rect.position.x + PAD.x
 		var y := b.rect.position.y + PAD.y
 		draw_string(_font, Vector2(x, y + _font.get_ascent(b.nsize)), b.who, HORIZONTAL_ALIGNMENT_LEFT, -1, b.nsize,

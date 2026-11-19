@@ -633,11 +633,7 @@ func _walk_walls(door_house: int = -1) -> Array[Rect2]:
 	houses.append_array(view.def.decor)
 	for i in range(houses.size()):
 		var h: HouseDef = houses[i]
-		var r := view.house_rect(h)
-		# Коллизия совпадает с областью, за которой дом закрывает фигуру.
-		# Дорожка и очередь перед основанием остаются свободны.
-		var footprint := Rect2(r.position.x + r.size.x * 0.08, r.position.y,
-			r.size.x * 0.84, h.pos.y - r.position.y)
+		var footprint := view.house_occlusion_rect(h)
 		if i != door_house:
 			out.append(footprint)
 			continue

@@ -858,7 +858,8 @@ func _tag_global_rect(r: Rect2) -> Rect2:
 ## Точка над головой — сюда указывает хвостик пузыря с репликой.
 func head_global() -> Vector2:
 	var h := look.height if look != null else 1.0
-	return get_global_transform_with_canvas() * Vector2(0, -FIG_TOP * h)
+	var source := body if body != null else self
+	return source.get_global_transform_with_canvas() * Vector2(0, -FIG_TOP * h)
 
 
 ## Палец на голове или на значках справа от неё (выше плеч), а не у ног.
@@ -1113,11 +1114,11 @@ func _process(delta: float) -> void:
 			elif fidget != "":
 				_anim_step(delta)
 			var s := sin(_t * 1.7 + _phase)
-			var breath_size := 0.0055
+			var breath_size := 0.0085
 			body.scale = Vector2(_face, 1.0 + breath_size * s)
 			var chill_speed := 2.4
-			var chill_size := 0.12
-			body.position = Vector2(sin(_t * chill_speed + _phase) * chill_size if cold else 0.0, 0.0)
+			var sway_size := 0.22 if cold else 0.10
+			body.position = Vector2(sin(_t * chill_speed + _phase) * sway_size, 0.0)
 			if door_portrait:
 				body.queue_redraw()
 		State.RUN:
@@ -1255,6 +1256,12 @@ func _draw_tag() -> void:
 		var y0 := -FIG_TOP * hh - 10.0 + 3.0 * sin(_t * 5.0)
 		tag.draw_colored_polygon(PackedVector2Array([Vector2(-9, y0 - 12), Vector2(9, y0 - 12), Vector2(0, y0)]), ThemeFactory.LAMP)
 	var lr := label_rect_local()
+	var label_anchor := Vector2(
+		clampf(0.0, lr.position.x + 5.0, lr.end.x - 5.0),
+		clampf(0.0, lr.position.y, lr.end.y)
+	)
+	if label_anchor.length_squared() > 26.0 * 26.0:
+		tag.draw_line(Vector2.ZERO, label_anchor, Color(ThemeFactory.EDGE, 0.68), 1.15)
 	var col := ThemeFactory.LAMP if is_player else Color(1, 1, 1, 0.95 if state != State.DEAD else 0.45)
 	Art.shape(tag, Art.rrect(lr, 4.0), Color(0.10, 0.065, 0.045, 0.88 if state != State.DEAD else 0.5), Color(ThemeFactory.LAMP_D, 0.62), 1.2)
 	if state != State.DEAD:
