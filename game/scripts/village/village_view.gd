@@ -911,7 +911,9 @@ func _draw_plaques() -> void:
 		while size > 9 and _font.get_string_size(shown, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > available:
 			size -= 1
 		var outer := Color(ThemeFactory.LAMP, 0.94) if sel else Color(ThemeFactory.LAMP_D, 0.9)
-		Art.shape(_labels, Art.rrect(r.grow(1.0).translated(Vector2(1.0, 2.0)), 4.0), Color(0.015, 0.012, 0.01, 0.68))
+		var shadow_rect := r.grow(1.0)
+		shadow_rect.position += Vector2(1.0, 2.0)
+		Art.shape(_labels, Art.rrect(shadow_rect, 4.0), Color(0.015, 0.012, 0.01, 0.68), Color(0, 0, 0, 0), 0.0)
 		Art.shape(_labels, Art.rrect(r, 4.0), Color("24170f", 0.97), outer, 1.6 if sel else 1.3)
 		Art.shape(_labels, Art.rrect(r.grow(-2.5), 2.5), Color(0, 0, 0, 0), Color(ThemeFactory.BONE, 0.18), 0.8)
 		_labels.draw_line(Vector2(r.position.x + 5.0, r.position.y + 3.0), Vector2(r.end.x - 5.0, r.position.y + 3.0), Color(ThemeFactory.LAMP, 0.28), 0.8)
