@@ -1093,8 +1093,7 @@ func house_depth_y(h: HouseDef) -> float:
 ## Персонажи обходят всю видимую ширину крыши, а не только центр фасада.
 func house_occlusion_rect(h: HouseDef) -> Rect2:
 	var r := house_rect(h)
-	var side_pad := maxf(4.0, r.size.x * 0.02)
-	return Rect2(r.position.x - side_pad, r.position.y, r.size.x + side_pad * 2.0, maxf(0.0, h.pos.y - r.position.y))
+	return Rect2(r.position.x + r.size.x * 0.08, r.position.y, r.size.x * 0.84, maxf(0.0, h.pos.y - r.position.y))
 
 
 ## Дверь дома на поле: доски у заколоченных, оберег рядом.
