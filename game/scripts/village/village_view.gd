@@ -897,18 +897,39 @@ func _rain_prop_rect(at: Vector2, width: float, tex: Texture2D) -> Rect2:
 	return Rect2(at.x - width * 0.5, at.y - height, width, height)
 
 
-## Таблички открытых убежищ — капсулы на доме над дверью; рисуются над толпой.
+## Таблички убежищ — тёмная доска с кованым контуром и знаком домика.
 func _draw_plaques() -> void:
 	var font_size := plaque_size()
 	for i in range(open_count):
 		var r := shelter_label_rect_local(i)
 		var sel := i == selected_house
-		Art.shape(_labels, Art.rrect(r, 4.0), Color(0.10, 0.065, 0.045, 0.9), ThemeFactory.LAMP if sel else ThemeFactory.EDGE, 1.6 if sel else 1.0)
-		var name_w := _font.get_string_size(_title(i), HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-		var x2 := r.position.x + 6.0
-		_labels.draw_string(_font, Vector2(x2, r.end.y - 3.5), _title(i), HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(1, 1, 1))
-		if _going_text(i) != "":
-			_labels.draw_string(_font, Vector2(x2 + name_w, r.end.y - 3.5), _going_text(i), HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, ThemeFactory.LAMP)
+		var title := _title(i)
+		var going := _going_text(i)
+		var shown := title + going
+		var size := font_size
+		var available := maxf(8.0, r.size.x - 31.0)
+		while size > 9 and _font.get_string_size(shown, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > available:
+			size -= 1
+		var outer := Color(ThemeFactory.LAMP, 0.94) if sel else Color(ThemeFactory.LAMP_D, 0.9)
+		Art.shape(_labels, Art.rrect(r.grow(1.0).translated(Vector2(1.0, 2.0)), 4.0), Color(0.015, 0.012, 0.01, 0.68))
+		Art.shape(_labels, Art.rrect(r, 4.0), Color("24170f", 0.97), outer, 1.6 if sel else 1.3)
+		Art.shape(_labels, Art.rrect(r.grow(-2.5), 2.5), Color(0, 0, 0, 0), Color(ThemeFactory.BONE, 0.18), 0.8)
+		_labels.draw_line(Vector2(r.position.x + 5.0, r.position.y + 3.0), Vector2(r.end.x - 5.0, r.position.y + 3.0), Color(ThemeFactory.LAMP, 0.28), 0.8)
+		for px: float in [r.position.x + 4.0, r.end.x - 4.0]:
+			_labels.draw_circle(Vector2(px, r.get_center().y), 1.1, ThemeFactory.LAMP_D)
+		var roof := Vector2(r.position.x + 12.0, r.position.y + 6.0)
+		_labels.draw_polyline(PackedVector2Array([roof + Vector2(-6, 5), roof + Vector2(0, 0), roof + Vector2(6, 5)]), ThemeFactory.LAMP, 1.5, true)
+		_labels.draw_rect(Rect2(roof.x - 4.0, roof.y + 5.0, 8.0, 6.0), Color("a6743e"))
+		_labels.draw_rect(Rect2(roof.x - 4.0, roof.y + 5.0, 8.0, 6.0), Art.INK, false, 1.0)
+		var title_x := r.position.x + 23.0
+		var baseline := Vector2(title_x, r.end.y - 3.0)
+		var title_w := _font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		_labels.draw_string_outline(_font, baseline, title, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 2, Color(Art.INK, 0.95))
+		_labels.draw_string(_font, baseline, title, HORIZONTAL_ALIGNMENT_LEFT, -1, size, ThemeFactory.BONE)
+		if going != "":
+			_labels.draw_string_outline(_font, Vector2(title_x + title_w, baseline.y), going, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 2, Color(Art.INK, 0.95))
+			_labels.draw_string(_font, Vector2(title_x + title_w, baseline.y), going, HORIZONTAL_ALIGNMENT_LEFT, -1, size, ThemeFactory.LAMP)
+
 
 
 func plaque_size() -> int:
@@ -1321,7 +1342,7 @@ func _going_text(i: int) -> String:
 func shelter_label_rect_local(i: int) -> Rect2:
 	var h: HouseDef = def.shelters[i]
 	var font_size := plaque_size()
-	var w := _font.get_string_size(_title(i) + _going_text(i), HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x + 12.0
+	var w := _font.get_string_size(_title(i) + _going_text(i), HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x + 31.0
 	var top := h.pos.y - h.size.y
 	var hr := house_rect(h)
 	var x := clampf(h.pos.x - w * 0.5, hr.position.x + 4.0, maxf(hr.position.x + 4.0, hr.end.x - w - 4.0))
