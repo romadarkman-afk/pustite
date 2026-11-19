@@ -1300,7 +1300,9 @@ func _draw_tag() -> void:
 	var plaque_alpha := 0.9 if state != State.DEAD else 0.55
 	var wood := Color(0.16, 0.105, 0.07, plaque_alpha)
 	var edge := Color(ThemeFactory.LAMP_D, 0.86 if state != State.DEAD else 0.5)
-	Art.shape(tag, Art.rrect(lr.grow(1.0).translated(Vector2(1.0, 2.0)), 4.0), Color(0.015, 0.012, 0.01, 0.65))
+	var shadow_rect := lr.grow(1.0)
+	shadow_rect.position += Vector2(1.0, 2.0)
+	Art.shape(tag, Art.rrect(shadow_rect, 4.0), Color(0.015, 0.012, 0.01, 0.65), Color(0, 0, 0, 0), 0.0)
 	Art.shape(tag, Art.rrect(lr, 4.0), wood, edge, 1.6)
 	Art.shape(tag, Art.rrect(lr.grow(-3.0), 2.5), Color(0, 0, 0, 0), Color(ThemeFactory.BONE, 0.16), 0.8)
 	tag.draw_line(Vector2(lr.position.x + 7.0, lr.position.y + 3.0), Vector2(lr.end.x - 7.0, lr.position.y + 3.0), Color(ThemeFactory.LAMP, 0.28), 0.8)
