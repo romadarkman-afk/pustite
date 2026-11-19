@@ -1114,7 +1114,7 @@ func _process(delta: float) -> void:
 			elif fidget != "":
 				_anim_step(delta)
 			var s := sin(_t * 1.7 + _phase)
-			var breath_size := 0.0085
+			var breath_size := 0.0055
 			body.scale = Vector2(_face, 1.0 + breath_size * s)
 			var chill_speed := 2.4
 			var sway_size := 0.22 if cold else 0.10
