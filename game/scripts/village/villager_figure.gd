@@ -131,6 +131,8 @@ static var _hero_hat_tex: Dictionary = {}
 var sprite_id: int = 0
 var hero_hat_id: String = "own"
 var tag: Node2D               ## слой подписи над всем посёлком
+var label_shift := Vector2.ZERO ## небольшое смещение плашки, чтобы имена не перекрывались
+var marks_left := false        ## у правого края отметки переходят на левую сторону фигуры
 
 const CAST_KX := 0.4        ## те же числа, что у теней домов (VillageView.SHADOW_KX / SHADOW_KY)
 const CAST_KY := 0.17
@@ -722,8 +724,8 @@ func body_scale() -> Vector2:
 
 ## Прямоугольники для раскладки и самотестов, в координатах фигурки.
 ## Длинное имя уменьшается до ширины таблички, не залезая на соседнее поле.
-const LABEL_MAX_W := 54.0
-const LABEL_MIN := 9
+const LABEL_MAX_W := 72.0
+const LABEL_MIN := 10
 
 
 func label_size() -> int:
@@ -752,7 +754,8 @@ func _map_view() -> Node2D:
 
 func label_rect_local() -> Rect2:
 	var w := label_width()
-	var rect := Rect2(-w * 0.5 - 8.0, 6.0, w + 16.0, 19.0)
+	var rect := Rect2(-w * 0.5 - 10.0, 6.0, w + 20.0, 22.0)
+	rect.position += label_shift
 	var map_view := _map_view()
 	if tag == null or map_view == null:
 		return rect
@@ -790,9 +793,10 @@ func label_rect_local() -> Rect2:
 func body_rect_local() -> Rect2:
 	var h := look.height if look != null else 1.0
 	var extra := 26.0 if highlight else 0.0
-	# колонка отметок справа от головы занята, только когда отметки есть
-	var right := MARK_X + 12.0 if has_marks() else 23.0
-	return Rect2(-23, -FIG_TOP * h - extra, 23 + right, FIG_TOP * h + 2 + extra)
+	# Отметки переходят на свободную сторону, у поля оставляем одинаковый запас.
+	var left := MARK_X + 12.0 if marks_left and has_marks() else 23.0
+	var right := MARK_X + 12.0 if not marks_left and has_marks() else 23.0
+	return Rect2(-left, -FIG_TOP * h - extra, left + right, FIG_TOP * h + 2 + extra)
 
 
 func has_marks() -> bool:
@@ -1039,6 +1043,25 @@ func walk_off(dir: float) -> void:
 	_tw.chain().tween_callback(func() -> void: visible = false)
 
 
+## Модель матча имеет приоритет над старой анимацией ухода или смерти.
+func restore_alive(target: Vector2) -> void:
+	if _tw != null and _tw.is_running():
+		_tw.kill()
+	_tw = null
+	state = State.IDLE
+	position = target
+	visible = true
+	modulate.a = 1.0
+	if body != null:
+		body.visible = true
+		body.modulate.a = 1.0
+		body.position = Vector2.ZERO
+		body.scale = Vector2(_face, 1.0)
+	if tag != null:
+		tag.visible = true
+	_redraw()
+
+
 func _settle_idle() -> void:
 	state = State.IDLE
 	body.position = Vector2.ZERO
@@ -1053,6 +1076,17 @@ func _process(delta: float) -> void:
 		var tag_scale := 1.0 / zoom
 		if not is_equal_approx(tag.scale.x, tag_scale):
 			tag.scale = Vector2.ONE * tag_scale
+		if has_marks() and map_view != null:
+			var field_value: Variant = map_view.get("_field")
+			if field_value is Rect2:
+				var bounds: Rect2 = field_value
+				var screen_x := tag.get_global_transform_with_canvas().origin.x
+				var left_room := screen_x - bounds.position.x
+				var right_room := bounds.end.x - screen_x
+				var next_marks_left := right_room < left_room and right_room < MARK_X + 20.0
+				if next_marks_left != marks_left:
+					marks_left = next_marks_left
+					tag.queue_redraw()
 	_t += delta
 	var travelled := position.distance_to(_last_position) if _last_position != Vector2.INF else 0.0
 	_last_position = position
@@ -1263,10 +1297,20 @@ func _draw_tag() -> void:
 	if label_anchor.length_squared() > 26.0 * 26.0:
 		tag.draw_line(Vector2.ZERO, label_anchor, Color(ThemeFactory.EDGE, 0.68), 1.15)
 	var col := ThemeFactory.LAMP if is_player else Color(1, 1, 1, 0.95 if state != State.DEAD else 0.45)
-	Art.shape(tag, Art.rrect(lr, 4.0), Color(0.10, 0.065, 0.045, 0.88 if state != State.DEAD else 0.5), Color(ThemeFactory.LAMP_D, 0.62), 1.2)
+	var plaque_alpha := 0.9 if state != State.DEAD else 0.55
+	var wood := Color(0.16, 0.105, 0.07, plaque_alpha)
+	var edge := Color(ThemeFactory.LAMP_D, 0.86 if state != State.DEAD else 0.5)
+	Art.shape(tag, Art.rrect(lr.grow(1.0).translated(Vector2(1.0, 2.0)), 4.0), Color(0.015, 0.012, 0.01, 0.65))
+	Art.shape(tag, Art.rrect(lr, 4.0), wood, edge, 1.6)
+	Art.shape(tag, Art.rrect(lr.grow(-3.0), 2.5), Color(0, 0, 0, 0), Color(ThemeFactory.BONE, 0.16), 0.8)
+	tag.draw_line(Vector2(lr.position.x + 7.0, lr.position.y + 3.0), Vector2(lr.end.x - 7.0, lr.position.y + 3.0), Color(ThemeFactory.LAMP, 0.28), 0.8)
+	for nail_x: float in [lr.position.x + 4.0, lr.end.x - 4.0]:
+		tag.draw_circle(Vector2(nail_x, lr.get_center().y), 1.2, Color(ThemeFactory.LAMP_D, 0.8))
 	if state != State.DEAD:
-		tag.draw_line(Vector2(lr.position.x + 9, lr.end.y - 1.5), Vector2(lr.end.x - 9, lr.end.y - 1.5), Color(identity_color, 0.85 + 0.15 * _tap_glow), 2.2 + _tap_glow)
-	tag.draw_string(_font, Vector2(lr.position.x + 8.0, lr.end.y - 5.0), who, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size(), col)
+		tag.draw_line(Vector2(lr.position.x + 9, lr.end.y - 2.0), Vector2(lr.end.x - 9, lr.end.y - 2.0), Color(identity_color, 0.9 + 0.1 * _tap_glow), 2.0 + _tap_glow)
+	var baseline := Vector2(lr.position.x + 8.0, lr.end.y - 6.0)
+	tag.draw_string_outline(_font, baseline, who, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size(), 2, Color(Art.INK, 0.9))
+	tag.draw_string(_font, baseline, who, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size(), col)
 
 
 const EYE_COLORS := [Color(0, 0, 0, 0), Color("8fa3ab"), Color("d9a24e"), Color("d0683a"), Color("c23a33")]
@@ -1323,12 +1367,13 @@ func _draw_marks() -> void:
 	drawn_strokes = 0
 	if pact:
 		paint_pact(tag, Vector2(0, 2))
+	var mark_x := -MARK_X if marks_left else MARK_X
 	if eye_level > 0:
-		drawn_strokes = paint_eye(tag, Vector2(MARK_X, -66), eye_level, MARK_SCALE * (1.0 + 0.5 * _eye_pop))
-	var y := -46.0
+		drawn_strokes = paint_eye(tag, Vector2(mark_x, -66), eye_level, MARK_SCALE * (1.0 + 0.5 * _eye_pop))
+	var y := -47.0
 	for b: String in badges.slice(0, 2):
-		drawn_frames.append(paint_badge(tag, b, Vector2(MARK_X, y)))
-		y += 19.0
+		drawn_frames.append(paint_badge(tag, b, Vector2(mark_x, y)))
+		y += 25.0
 
 
 ## Отметки рисуются одними и теми же функциями на поле и в пояснении «что значат значки».
@@ -1342,9 +1387,14 @@ static func paint_pact(ci: CanvasItem, c: Vector2) -> void:
 
 ## Глаз подозрения; возвращает число штрихов над ним.
 static func paint_eye(ci: CanvasItem, c: Vector2, level: int, s: float = 1.0) -> int:
-	var bg := Color(ThemeFactory.NIGHT, 0.8)
 	var col: Color = EYE_COLORS[clampi(level, 0, 4)]
-	ci.draw_circle(c, 11.0 * s, bg)
+	var plate := Art.rrect(Rect2(c.x - 13.0 * s, c.y - 11.5 * s, 26.0 * s, 23.0 * s), 4.0 * s)
+	ci.draw_colored_polygon(plate, Color("211813", 0.96))
+	var edge := plate.duplicate()
+	edge.append(plate[0])
+	ci.draw_polyline(edge, Color(ThemeFactory.LAMP_D, 0.9), 1.2 * s, true)
+	for px: float in [-9.0, 9.0]:
+		ci.draw_circle(c + Vector2(px * s, -7.5 * s), 0.9 * s, ThemeFactory.LAMP_D)
 	var open := (2.5 + level * 1.1) * s
 	var pts := PackedVector2Array()
 	for i in range(9):
@@ -1372,6 +1422,13 @@ static func paint_badge(ci: CanvasItem, b: String, c: Vector2) -> int:
 	ci.draw_set_transform(c * (1.0 - MARK_SCALE), 0.0, Vector2.ONE * MARK_SCALE)
 	var x := c.x
 	var y := c.y
+	var plate := Art.rrect(Rect2(x - 13.0, y - 11.5, 26.0, 23.0), 4.0)
+	ci.draw_colored_polygon(plate, Color("211813", 0.96))
+	var plate_edge := plate.duplicate()
+	plate_edge.append(plate[0])
+	ci.draw_polyline(plate_edge, Color(ThemeFactory.LAMP_D, 0.9), 1.1, true)
+	for px: float in [-9.0, 9.0]:
+		ci.draw_circle(Vector2(x + px, y - 7.5), 0.8, ThemeFactory.LAMP_D)
 	var accent := ThemeFactory.LAMP
 	match b:
 		"liar", "death", "sabotage": accent = Color("e0533f")
