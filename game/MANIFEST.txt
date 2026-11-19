@@ -156,6 +156,7 @@ scripts/village/weather_layer.gd
 shaders/atmos.gdshader
 shaders/cloud_shadow.gdshader
 shaders/figure_weather.gdshader
+shaders/foliage_wind.gdshader
 shaders/grass_sway.gdshader
 shaders/ground_weather.gdshader
 shaders/night_grade.gdshader

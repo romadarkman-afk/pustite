@@ -778,10 +778,11 @@ func _build_props() -> void:
 	_props.clear()
 	for i in range(def.shelters.size()):
 		var idx := i
-		_add_prop(def.shelters[i].pos, func(ci: CanvasItem) -> void: _paint_shelter(ci, idx))
+		var h := def.shelters[i]
+		_add_prop(Vector2(h.pos.x, house_depth_y(h)), func(ci: CanvasItem) -> void: _paint_shelter(ci, idx))
 	for hd: HouseDef in def.decor:
 		var h := hd
-		_add_prop(h.pos, func(ci: CanvasItem) -> void: _draw_house(ci, h, 0, _nq(), _lit(h, _nq()), 2))
+		_add_prop(Vector2(h.pos.x, house_depth_y(h)), func(ci: CanvasItem) -> void: _draw_house(ci, h, 0, _nq(), _lit(h, _nq()), 2))
 	if def.well_sprite:
 		_add_prop(def.well, func(ci: CanvasItem) -> void: _draw_well(ci, _nq()))
 	for li in range(def.lamps.size()):
@@ -852,8 +853,7 @@ func _paint_shelter(ci: CanvasItem, i: int) -> void:
 func hidden_zones() -> Array[Rect2]:
 	var out: Array[Rect2] = []
 	for h: HouseDef in def.shelters + def.decor:
-		var r := house_rect(h)
-		out.append(Rect2(r.position.x + r.size.x * 0.08, r.position.y, r.size.x * 0.84, h.pos.y - r.position.y))
+		out.append(house_occlusion_rect(h))
 	out.append(Rect2(def.well.x - 30.0, def.well.y - 70.0, 60.0, 70.0))
 	for pr: Dictionary in def.props:
 		var w := float(pr.get("w", 60.0))
@@ -991,6 +991,8 @@ func _load_art() -> void:
 		var realistic_sky := REALISTIC_ART_DIR + f + ".jpg"
 		if ResourceLoader.exists(realistic_sky):
 			_tex["real_" + f] = load(realistic_sky) as Texture2D
+	if is_instance_valid(_backdrop):
+		_backdrop.refresh_wind_sky()
 
 
 ## Дома слева от площади смотрят дверью вправо, к площади: картинку отражаем.
@@ -1080,6 +1082,18 @@ func house_rect(h: HouseDef) -> Rect2:
 	if _flip(h):
 		ax = 1.0 - ax
 	return Rect2(h.pos.x - ax * w, h.pos.y - door.end.y * hh, w, hh)
+
+
+## Пивот глубины совпадает с видимым основанием картинки, включая нижний напуск под порогом.
+func house_depth_y(h: HouseDef) -> float:
+	var r := house_rect(h)
+	return maxf(h.pos.y, lerpf(h.pos.y, r.end.y, 0.45))
+
+
+## Персонажи обходят всю видимую ширину крыши, а не только центр фасада.
+func house_occlusion_rect(h: HouseDef) -> Rect2:
+	var r := house_rect(h)
+	return Rect2(r.position.x + r.size.x * 0.08, r.position.y, r.size.x * 0.84, maxf(0.0, h.pos.y - r.position.y))
 
 
 ## Дверь дома на поле: доски у заколоченных, оберег рядом.
@@ -1839,9 +1853,68 @@ class Backdrop extends Node2D:
 	var view: VillageView
 	var part := "sky"
 	var speed := 0.65
+	var _sky_layers: Array[Sprite2D] = []
+	var _sky_material: ShaderMaterial
 
 	func _ready() -> void:
 		show_behind_parent = true
+		refresh_wind_sky()
+
+
+	func refresh_wind_sky() -> void:
+		for layer: Sprite2D in _sky_layers:
+			remove_child(layer)
+			layer.queue_free()
+		_sky_layers.clear()
+		_sky_material = null
+		if part != "sky" or view == null or not view._tex.has("real_sky_day"):
+			return
+		var shader := load("res://shaders/foliage_wind.gdshader") as Shader
+		if shader == null:
+			return
+		_sky_material = ShaderMaterial.new()
+		_sky_material.shader = shader
+		for key: String in ["real_sky_day", "real_sky_dusk", "real_sky_night"]:
+			var tex := view._tex.get(key) as Texture2D
+			if tex == null:
+				continue
+			var layer := Sprite2D.new()
+			layer.texture = tex
+			layer.centered = true
+			layer.material = _sky_material
+			layer.name = key
+			add_child(layer)
+			_sky_layers.append(layer)
+
+
+	func _process(_delta: float) -> void:
+		if _sky_layers.is_empty() or view == null or view.def == null:
+			return
+		var n := view._nq()
+		var wind := 0.22
+		if bool(view.weather_state.get("active", false)):
+			wind = float(view.weather_state.get("wind", 0.0))
+		var strength := 0.0012 + clampf(wind, 0.0, 1.0) * 0.0018
+		if view.simplified_graphics:
+			strength *= 0.45
+		_sky_material.set_shader_parameter("strength", strength)
+		var bottom := view.def.ground_rect.position.y + 10.0
+		var target_w := strip_width(SKY_W)
+		for i in range(_sky_layers.size()):
+			var layer := _sky_layers[i]
+			var tex := layer.texture
+			if tex == null:
+				continue
+			var h := target_w * tex.get_height() / tex.get_width()
+			layer.position = Vector2(VillageView.LOGICAL.x * 0.5, bottom - h * 0.5)
+			layer.scale = Vector2(target_w / tex.get_width(), h / tex.get_height())
+			var alpha := 1.0
+			if i == 1:
+				alpha = clampf(n * 2.2, 0.0, 1.0)
+			elif i == 2:
+				alpha = clampf((n - 0.5) * 2.2, 0.0, 1.0)
+			layer.modulate = Color(1.0, 1.0, 1.0, alpha)
+			layer.visible = alpha > 0.001
 
 	func _draw() -> void:
 		if view == null or view.def == null or view._ground_is_composite:
@@ -1853,6 +1926,8 @@ class Backdrop extends Node2D:
 		var realistic := view._tex.has("real_sky_day") and view._tex.has("real_sky_dusk") and view._tex.has("real_sky_night")
 		if realistic:
 			if part != "sky":
+				return
+			if not _sky_layers.is_empty():
 				return
 			var realistic_layers := [["real_sky_day", 1.0], ["real_sky_dusk", clampf(n * 2.2, 0.0, 1.0)], ["real_sky_night", clampf((n - 0.5) * 2.2, 0.0, 1.0)]]
 			for l: Array in realistic_layers:
