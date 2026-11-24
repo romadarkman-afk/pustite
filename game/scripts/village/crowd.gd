@@ -967,7 +967,7 @@ func _process(delta: float) -> void:
 	life_step(delta)
 	_label_layout_clock -= delta
 	if _label_layout_clock <= 0.0:
-		_label_layout_clock = 0.16
+		_label_layout_clock = 0.20
 		_layout_name_plaques()
 
 
@@ -990,11 +990,32 @@ func _layout_name_plaques() -> void:
 		var plaque := view.shelter_label_rect_global(i)
 		if field.intersects(plaque):
 			occupied.append(plaque.grow(2.0))
-	var candidates: Array[Vector2] = [
-		Vector2.ZERO, Vector2(-36.0, 0.0), Vector2(36.0, 0.0), Vector2(-68.0, 0.0), Vector2(68.0, 0.0),
-		Vector2(0.0, 26.0), Vector2(-36.0, 26.0), Vector2(36.0, 26.0), Vector2(-68.0, 26.0), Vector2(68.0, 26.0),
-		Vector2(0.0, 50.0), Vector2(-36.0, 50.0), Vector2(36.0, 50.0), Vector2(0.0, -118.0)
-	]
+	var view_transform := view.get_global_transform_with_canvas()
+	for house: HouseDef in view.def.shelters:
+		var local_rect := view.house_rect(house)
+		var a := view_transform * local_rect.position
+		var b := view_transform * local_rect.end
+		var screen_rect := Rect2(a, b - a).abs()
+		if field.intersects(screen_rect):
+			occupied.append(screen_rect.grow(3.0))
+	for house: HouseDef in view.def.decor:
+		var decor_rect := view.house_rect(house)
+		var decor_a := view_transform * decor_rect.position
+		var decor_b := view_transform * decor_rect.end
+		var decor_screen_rect := Rect2(decor_a, decor_b - decor_a).abs()
+		if field.intersects(decor_screen_rect):
+			occupied.append(decor_screen_rect.grow(3.0))
+	if view.jobs_layer != null and view.jobs_layer.visible and view.jobs_layer.m != null:
+		for i in range(view.jobs_layer.m.jobs.size()):
+			var sign := view.jobs_layer.sign_rect_global(i)
+			if field.intersects(sign):
+				occupied.append(sign.grow(4.0))
+	var candidates: Array[Vector2] = [Vector2.ZERO]
+	var xs: Array[float] = [0.0, -48.0, 48.0, -96.0, 96.0]
+	var ys: Array[float] = [0.0, 32.0, 64.0, 96.0, -64.0]
+	for y: float in ys:
+		for x: float in xs:
+			candidates.append(Vector2(x, y))
 	for f: VillagerFigure in ordered:
 		var old_shift := f.label_shift
 		var best_shift := old_shift

@@ -6,10 +6,10 @@ extends Control
 ## считается их размер. Контейнер и Label с переносом считали высоту при нулевой
 ## ширине и раздувались на два экрана.
 
-const PAD := Vector2(14, 10)
+const PAD := Vector2(12, 8)
 const ARROW := 12.0
 
-const FONT_SIZE := 18
+const FONT_SIZE := 16
 
 var text: String = ""
 var card_rect: Rect2 = Rect2()

@@ -102,11 +102,8 @@ func _layout() -> void:
 			for i in range(figures.size()):
 				figures[i].position = Vector2(w * (0.14 + 0.18 * i), h * 0.76)
 		"night":
-			figures[0].position = Vector2(w * 0.20, h * 0.76)
-			figures[1].position = Vector2(w * 0.34, h * 0.76)
-			figures[2].position = Vector2(w * 0.66, h * 0.76)
-			figures[3].position = Vector2(w * 0.76, h * 0.76)
-			figures[4].position = Vector2(w * 0.44, h * 0.76)
+			for i in range(figures.size()):
+				figures[i].position = Vector2(w * (0.12 + 0.19 * i), h * 0.76)
 		"door":
 			figures[0].position = Vector2(w * 0.30, h * 0.76)
 			figures[1].position = Vector2(w * 0.70, h * 0.76)
@@ -177,8 +174,7 @@ func _draw() -> void:
 		"night":
 			_house(Rect2(w * 0.10, h * 0.28, w * 0.28, h * 0.34), true)
 			_house(Rect2(w * 0.62, h * 0.28, w * 0.28, h * 0.34), true)
-			var out := figures[4]
-			draw_string(_font, out.position + Vector2(22.0 * out.scale.x, -22.0 * out.scale.y), L.t("howto.art_street"), HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(ThemeFactory.BLOOD, 0.95))
+			_draw_night_location()
 		"door":
 			var dh := h * 0.74
 			var dw := minf(w * 0.34, dh * DOOR_CLOSED.get_width() / maxf(DOOR_CLOSED.get_height(), 1.0))
@@ -201,6 +197,22 @@ func _draw() -> void:
 				var cw := ch * float(_cover.get_width()) / float(_cover.get_height())
 				draw_texture_rect(_cover, Rect2(w * 0.06, h * 0.06, cw, ch), false)
 	draw_style_box(corner, Rect2(Vector2.ZERO, size))
+
+
+## Статус вынесен в свободный промежуток над жителями, чтобы не закрывать их силуэты.
+func _draw_night_location() -> void:
+	var label := L.t("howto.art_street").to_upper()
+	var text_w := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
+	var label_y := maxf(4.0, size.y * 0.28 - 26.0)
+	var r := Rect2(size.x * 0.5 - (text_w + 18.0) * 0.5, label_y, text_w + 18.0, 24.0)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("211813", 0.92)
+	sb.border_color = Color(ThemeFactory.BLOOD, 0.9)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(5)
+	draw_style_box(sb, r)
+	draw_string(_font, Vector2(r.position.x + 9.0, r.position.y + 16.0), label,
+		HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 18.0, 13, ThemeFactory.BLOOD)
 
 
 ## Значок дела на площади: белый круг с рисунком по виду дела.

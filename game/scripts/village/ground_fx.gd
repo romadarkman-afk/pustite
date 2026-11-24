@@ -14,9 +14,8 @@ const SH_CLOUDS := "res://shaders/cloud_shadow.gdshader"
 const SH_GRASS := "res://shaders/grass_sway.gdshader"
 
 const MAX_TUFTS := 150
-## Трава выключена, пока нет настоящих картинок: заглушки выглядят как жёлтые палки.
-## Когда ChatGPT-листы grass_green_sheet и grass_dry_sheet лягут на место, поставить true.
-static var grass_enabled := false
+## Листы травы лежат в проекте; шейдер качает пучки только на участках с растительностью.
+static var grass_enabled := true
 const TUFT_W := 40.0                   ## ширина пучка на переднем плане, пиксели посёлка
 const GRASS_FRAMES := 8
 

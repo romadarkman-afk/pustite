@@ -3,7 +3,7 @@ extends Node2D
 ## Места работы: предмет на земле и деревянный указатель с названием и остатком дел.
 ## Маркер привязан к координатам посёлка; касание работает по указателю и рабочей точке.
 
-const ICON_Y := -112.0
+const ICON_Y := -62.0
 const HIT := 46.0
 const SIGN_H := 38.0
 
@@ -23,36 +23,113 @@ func _ready() -> void:
 func _sign_width(title: String) -> float:
 	var f := _font if _font != null else ThemeFactory.font_bold()
 	var size := maxi(9, roundi(10.0 * ThemeFactory.text_scale))
-	return clampf(f.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + 43.0, 100.0, 148.0)
+	return clampf(f.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + 36.0, 90.0, 126.0)
 
 
 ## На краю карты указатель остаётся в поле, стойка указывает на место работы.
+func _ui_scale() -> float:
+	return 1.0 / maxf(absf(view.scale.x), 0.5) if view != null else 1.0
+
+
+## Положение таблички задаётся в экранных координатах, чтобы зум карты не раздувал её.
 func icon_pos(ji: int) -> Vector2:
 	if m == null or ji < 0 or ji >= m.jobs.size():
 		return Vector2.ZERO
-	var p: Vector2 = m.jobs[ji].pos + Vector2(0, ICON_Y)
-	if view == null or view._field.size.x <= 0.0 or view._field.size.y <= 0.0:
-		return p
 	var transform := get_global_transform_with_canvas()
-	var screen := transform * p
+	if view == null or view._field.size.x <= 0.0 or view._field.size.y <= 0.0:
+		return m.jobs[ji].pos + Vector2(0.0, ICON_Y)
 	var safe := view._field.grow(-5.0)
-	var sx := maxf(view.scale.x, 0.5)
-	var half_w := _sign_width(m.jobs[ji].title) * sx * 0.5 + 4.0
-	if safe.size.x > half_w * 2.0:
-		screen.x = clampf(screen.x, safe.position.x + half_w, safe.end.x - half_w)
-	else:
-		screen.x = safe.get_center().x
-	var half_h := SIGN_H * sx * 0.5 + 4.0
-	if safe.size.y > half_h * 2.0:
-		screen.y = clampf(screen.y, safe.position.y + half_h, safe.end.y - half_h)
-	return transform.affine_inverse() * screen
+	var obstacles := _screen_obstacles()
+	var occupied: Array[Rect2] = []
+	for previous in range(ji):
+		var prior_center := _choose_screen_center(previous, transform, safe, obstacles, occupied)
+		occupied.append(_screen_sign_rect(previous, prior_center).grow(6.0))
+	var center := _choose_screen_center(ji, transform, safe, obstacles, occupied)
+	return transform.affine_inverse() * center
 
 
-## Указатель дела в координатах экрана — для касаний и самотестов.
+## Разводим таблички по свободным точкам вокруг дела, не меняя масштаб интерфейса.
+func _choose_screen_center(ji: int, transform: Transform2D, safe: Rect2,
+		obstacles: Array[Rect2], occupied: Array[Rect2]) -> Vector2:
+	var preferred := transform * m.jobs[ji].pos + Vector2(0.0, ICON_Y)
+	var width := _sign_width(m.jobs[ji].title)
+	var half := Vector2(width * 0.5 + 4.0, SIGN_H * 0.5 + 8.0)
+	var offsets: Array[Vector2] = [
+		Vector2.ZERO, Vector2(0, -34), Vector2(-62, -12), Vector2(62, -12),
+		Vector2(0, 38), Vector2(-62, 32), Vector2(62, 32),
+		Vector2(0, -76), Vector2(-112, -24), Vector2(112, -24)
+	]
+	var best := preferred
+	var best_cost := INF
+	for offset: Vector2 in offsets:
+		var candidate := preferred + offset
+		candidate.x = clampf(candidate.x, safe.position.x + half.x, safe.end.x - half.x)
+		candidate.y = clampf(candidate.y, safe.position.y + half.y, safe.end.y - half.y)
+		var rect := _screen_sign_rect(ji, candidate)
+		var cost := offset.length() * 0.04
+		for blocker: Rect2 in obstacles:
+			if rect.intersects(blocker):
+				cost += 5000.0 + rect.intersection(blocker).get_area()
+		for other: Rect2 in occupied:
+			if rect.intersects(other):
+				cost += 50000.0 + rect.intersection(other).get_area()
+		if cost < best_cost:
+			best_cost = cost
+			best = candidate
+	return best
+
+
+func _screen_sign_rect(ji: int, center: Vector2) -> Rect2:
+	var size := Vector2(_sign_width(m.jobs[ji].title), SIGN_H)
+	return Rect2(center - size * 0.5, size)
+
+
+## Не ставим указатели поверх людей, подписей, домов и реплик.
+func _screen_obstacles() -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	if view == null:
+		return out
+	if view.crowd != null:
+		for figure: VillagerFigure in view.crowd.figures.values():
+			if not is_instance_valid(figure) or not figure.is_visible_in_tree():
+				continue
+			var body := figure.body_rect_global()
+			var label := figure.label_rect_global()
+			if view._field.intersects(body):
+				out.append(body.grow(4.0))
+			if view._field.intersects(label):
+				out.append(label.grow(4.0))
+	for house: HouseDef in view.def.shelters:
+		_add_house_obstacle(out, house)
+	for house: HouseDef in view.def.decor:
+		_add_house_obstacle(out, house)
+	return out
+
+
+func _add_house_obstacle(out: Array[Rect2], house: HouseDef) -> void:
+	var local_rect := view.house_rect(house)
+	var transform := view.get_global_transform_with_canvas()
+	var a := transform * local_rect.position
+	var b := transform * local_rect.end
+	var screen_rect := Rect2(a, b - a).abs()
+	if view._field.intersects(screen_rect):
+		out.append(screen_rect.grow(3.0))
+
+
+## Точный прямоугольник таблички в экранных координатах.
+func sign_rect_global(ji: int) -> Rect2:
+	if m == null or ji < 0 or ji >= m.jobs.size():
+		return Rect2()
+	var c := get_global_transform_with_canvas() * icon_pos(ji)
+	var width := _sign_width(m.jobs[ji].title)
+	return Rect2(c - Vector2(width * 0.5, SIGN_H * 0.5), Vector2(width, SIGN_H))
+
+
+## Указатель дела — увеличенная зона касания вокруг таблички.
 func icon_rect_global(ji: int) -> Rect2:
-	var c := view.to_global(icon_pos(ji))
-	var r := maxf(HIT * view.scale.x, 42.0)
-	return Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0)
+	var sign := sign_rect_global(ji)
+	var size := Vector2(maxf(sign.size.x, 84.0), maxf(sign.size.y, 84.0))
+	return Rect2(sign.get_center() - size * 0.5, size)
 
 
 ## Дело под пальцем: указатель или рабочая точка. -1 означает, что игрок нажал мимо.
@@ -83,7 +160,7 @@ func pop(ji: int, kind: String) -> void:
 	match kind:
 		"done", "box": col = ThemeFactory.LAMP
 		"spoil": col = Color("e0533f")
-	_pops.append({"pos": icon_pos(ji) + Vector2(0, -SIGN_H * 0.5 - 8.0), "text": text, "col": col, "t": 0.0})
+	_pops.append({"pos": icon_pos(ji) + Vector2(0, -SIGN_H * 0.5 - 8.0) * _ui_scale(), "text": text, "col": col, "t": 0.0})
 	queue_redraw()
 
 
@@ -116,31 +193,42 @@ func _draw() -> void:
 		_draw_station(j.kind, site + Vector2(-30.0, 2.0), done)
 		_draw_sign(j, c, site, left, done)
 		if i == progress_job and progress >= 0.0:
+			var ui_scale := _ui_scale()
+			draw_set_transform(c * (1.0 - ui_scale), 0.0, Vector2.ONE * ui_scale)
 			var w := _sign_width(j.title) - 18.0
 			var p := c + Vector2(0.0, 23.0)
 			draw_rect(Rect2(p.x - w * 0.5, p.y, w, 3.5), Color(ink, 0.85))
 			draw_rect(Rect2(p.x - w * 0.5, p.y, w * clampf(progress, 0.0, 1.0), 3.5), ThemeFactory.LAMP)
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	for p: Dictionary in _pops:
 		var t: float = p.t
-		var pc: Vector2 = p.pos + Vector2(0, -28.0 * t)
+		var ui_scale := _ui_scale()
+		var pc: Vector2 = p.pos + Vector2(0, -28.0 * t * ui_scale)
 		var al := clampf(1.6 - t * 1.4, 0.0, 1.0)
 		var txt: String = p.text
 		var w := _font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
-		draw_string_outline(_font, pc + Vector2(-w * 0.5, 0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, 5, Color(ink, al))
-		draw_string(_font, pc + Vector2(-w * 0.5, 0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(p.col, al))
+		draw_set_transform(pc * (1.0 - ui_scale), 0.0, Vector2.ONE * ui_scale)
+		draw_string_outline(_font, Vector2(-w * 0.5, 0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, 5, Color(ink, al))
+		draw_string(_font, Vector2(-w * 0.5, 0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(p.col, al))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
-func _draw_sign(j: JobDef, c: Vector2, site: Vector2, left: int, done: bool) -> void:
+func _draw_sign(j: JobDef, c: Vector2, _site: Vector2, left: int, done: bool) -> void:
+	var ui_scale := _ui_scale()
+	draw_set_transform(c * (1.0 - ui_scale), 0.0, Vector2.ONE * ui_scale)
 	var width := _sign_width(j.title)
 	var r := Rect2(c.x - width * 0.5, c.y - SIGN_H * 0.5, width, SIGN_H)
 	var alpha := 0.62 if done else 1.0
 	var wood := Color("39271b", alpha)
 	var edge := Color(ThemeFactory.LAMP_D, 0.95 * alpha)
-	var post := site + Vector2(-30.0, -5.0)
-	var foot := c + Vector2(-width * 0.34, SIGN_H * 0.5 - 1.0)
-	draw_line(post + Vector2(1.5, 0), foot + Vector2(1.5, 0), Color("17110d", 0.9 * alpha), 7.0, true)
-	draw_line(post, foot, Color("795333", 0.98 * alpha), 4.0, true)
-	draw_line(post + Vector2(-1.0, 0), foot + Vector2(-1.0, 0), Color("bd8d55", 0.55 * alpha), 1.0, true)
+	var pointer := PackedVector2Array([
+		Vector2(c.x - 5.0, r.end.y - 2.0), Vector2(c.x + 5.0, r.end.y - 2.0), Vector2(c.x, r.end.y + 7.0)
+	])
+	var station_top := _site + Vector2(0.0, -16.0)
+	if pointer[2].distance_to(station_top) > 18.0:
+		draw_line(pointer[2], station_top, Color(ThemeFactory.LAMP_D, 0.56 * alpha), 1.0, true)
+	draw_colored_polygon(pointer, wood)
+	draw_polyline(PackedVector2Array([pointer[0], pointer[1], pointer[2], pointer[0]]), edge, 1.4, true)
 	var shadow_rect := r.grow(2.0)
 	shadow_rect.position += Vector2(1.0, 3.0)
 	Art.shape(self, Art.rrect(shadow_rect, 5.0), Color(0.01, 0.008, 0.005, 0.62), Color(0, 0, 0, 0), 0.0)
@@ -166,6 +254,7 @@ func _draw_sign(j: JobDef, c: Vector2, site: Vector2, left: int, done: bool) -> 
 		draw_circle(stamp, 5.5, Color("20150f", 0.96))
 		draw_arc(stamp, 5.5, 0.0, TAU, 16, Color(ThemeFactory.LAMP_D, 0.9), 1.0, true)
 		draw_polyline(PackedVector2Array([stamp + Vector2(-2.5, 0), stamp + Vector2(-0.5, 2.0), stamp + Vector2(3.0, -2.0)]), Color("6da56a"), 1.8, true)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 ## У каждого дела свой предмет на земле, рядом с тем местом, где житель работает.

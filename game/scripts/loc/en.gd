@@ -1053,7 +1053,7 @@ func data() -> Dictionary:
 		"day.say": "Say…",
 		"day.bell": "Meeting!",
 		"day.ready": "Ready for night",
-		"day.hint": "Tap a villager: accuse them, invite them along or ask where they're sleeping. Tap a job icon: supplies light the lamps at night. To look around, drag the village with your finger. Your hero stays put.",
+		"day.hint": "Tap a villager to talk, accuse or invite them. Tap a job sign to assign supply gathering for the night. Drag the village to look around.",
 		"day.bell_ask": "Ring the bell? Everyone gathers to vote right away. You can do this once a game.",
 		"day.bell_do": "Ring the bell",
 		"day.preview": "{who}: {text}",

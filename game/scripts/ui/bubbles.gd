@@ -77,13 +77,8 @@ func say(who: String, text: String, head: Vector2, mine: bool, fig: Node2D = nul
 	var nw := _font.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, nsz).x
 	var w := minf(field.size.x - 8.0, ceilf(maxf(ts.x, nw)) + PAD.x * 2.0)
 	var h := ceilf(ts.y) + nsz + 4.0 + PAD.y * 2.0
-	var x := clampf(head.x - w * 0.5, field.position.x + 4.0, field.end.x - 4.0 - w)
-	var top := field.position.y + 2.0
-	var bottom := field.end.y - h - 4.0
-	var above := head.y - 12.0 - h
-	var below := head.y + 16.0
-	var y0 := above if above >= top else (below if below <= bottom else clampf(above, top, bottom))
-	var r := Rect2(x, clampf(y0, top, bottom), w, h)
+	var r := _place_near_speaker(head, Vector2(w, h), fig)
+	var y0 := r.position.y
 	for attempt in range(8):
 		var hit := _first_overlap(r)
 		if hit == null:
@@ -141,6 +136,67 @@ func _preview(text: String, width: float, font_size: int) -> String:
 	if boundary > 0 and shown.length() - boundary <= 10:
 		shown = shown.left(boundary).strip_edges()
 	return shown + "…"
+
+
+## Выбираем ближайшее свободное место у говорящего; имя, фигуры и дела остаются видны.
+func _place_near_speaker(head: Vector2, bubble_size: Vector2, speaker: Node2D) -> Rect2:
+	var w := bubble_size.x
+	var h := bubble_size.y
+	var safe := Rect2(field.position + Vector2(4.0, 2.0), field.size - Vector2(8.0, 6.0))
+	var preferred := head + Vector2(-w * 0.5, -h - 12.0)
+	var offsets: Array[Vector2] = [
+		Vector2(-w * 0.5, -h - 10.0),
+		Vector2(-w - 14.0, -h - 10.0),
+		Vector2(14.0, -h - 10.0),
+		Vector2(-w * 0.5, -h - 28.0),
+		Vector2(-w * 0.5, -h - 46.0),
+		Vector2(-w * 0.72, -h - 10.0),
+		Vector2(-w * 0.28, -h - 10.0)
+	]
+	var obstacles := _scene_obstacles(speaker)
+	var best := Rect2(preferred, bubble_size)
+	var best_cost := INF
+	for offset: Vector2 in offsets:
+		var pos := head + offset
+		pos.x = clampf(pos.x, safe.position.x, safe.end.x - w)
+		var highest_safe_y := minf(safe.end.y - h, head.y - h - 2.0)
+		pos.y = safe.position.y if highest_safe_y < safe.position.y else clampf(pos.y, safe.position.y, highest_safe_y)
+		var rect := Rect2(pos, bubble_size)
+		var cost := pos.distance_to(preferred) * 0.18
+		for blocker: Rect2 in obstacles:
+			if rect.intersects(blocker):
+				cost += 6000.0 + rect.intersection(blocker).get_area()
+		if cost < best_cost:
+			best_cost = cost
+			best = rect
+	return best
+
+
+func _scene_obstacles(speaker: Node2D) -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	if Nav.village == null:
+		return out
+	var view := Nav.village
+	if view.crowd != null:
+		for figure: VillagerFigure in view.crowd.figures.values():
+			if not is_instance_valid(figure) or not figure.is_visible_in_tree():
+				continue
+			var body := figure.body_rect_global()
+			var label := figure.label_rect_global()
+			if field.intersects(body):
+				out.append(body.grow(4.0))
+			if field.intersects(label):
+				out.append(label.grow(4.0))
+	if speaker is VillagerFigure:
+		var own := (speaker as VillagerFigure).body_rect_global()
+		if field.intersects(own):
+			out.append(own.grow(4.0))
+	if view.jobs_layer != null and view.jobs_layer.visible and view.jobs_layer.m != null:
+		for i in range(view.jobs_layer.m.jobs.size()):
+			var touch_area := view.jobs_layer.icon_rect_global(i)
+			if field.intersects(touch_area):
+				out.append(touch_area.grow(4.0))
+	return out
 
 
 ## Экранные координаты совпадают с координатами поля в Nav.
