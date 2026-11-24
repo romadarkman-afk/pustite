@@ -103,10 +103,6 @@ func _screen_obstacles() -> Array[Rect2]:
 		_add_house_obstacle(out, house)
 	for house: HouseDef in view.def.decor:
 		_add_house_obstacle(out, house)
-	if Nav.bubbles != null:
-		for bubble in Nav.bubbles.alive():
-			if view._field.intersects(bubble.rect):
-				out.append(bubble.rect.grow(4.0))
 	return out
 
 
