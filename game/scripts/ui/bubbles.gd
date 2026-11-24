@@ -78,6 +78,7 @@ func say(who: String, text: String, head: Vector2, mine: bool, fig: Node2D = nul
 	var w := minf(field.size.x - 8.0, ceilf(maxf(ts.x, nw)) + PAD.x * 2.0)
 	var h := ceilf(ts.y) + nsz + 4.0 + PAD.y * 2.0
 	var r := _place_near_speaker(head, Vector2(w, h), fig)
+	var y0 := r.position.y
 	for attempt in range(8):
 		var hit := _first_overlap(r)
 		if hit == null:
