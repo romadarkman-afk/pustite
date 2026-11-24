@@ -21,7 +21,7 @@ func is_busy() -> bool:
 
 
 func field_ratio() -> float:
-	return 0.54
+	return 0.43
 
 
 func title() -> String:
@@ -179,7 +179,7 @@ func _show_beat() -> void:
 			art.texture = tex
 			art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-			art.custom_minimum_size = Vector2(0, clampf(size.y * 0.22, 130.0, 220.0) if size.y > 0.0 else 170.0)
+			art.custom_minimum_size = Vector2(0, clampf(size.y * 0.18, 105.0, 170.0) if size.y > 0.0 else 135.0)
 			(_beat_card.get_child(0) as Control).add_child(art)
 			(_beat_card.get_child(0) as Control).move_child(art, 0)
 	var art_node := _beat_card.find_child("Art", true, false) as Control
