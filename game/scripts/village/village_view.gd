@@ -1110,7 +1110,7 @@ func house_rect(h: HouseDef) -> Rect2:
 ## Пивот глубины совпадает с видимым основанием картинки, включая нижний напуск под порогом.
 func house_depth_y(h: HouseDef) -> float:
 	var r := house_rect(h)
-	return maxf(h.pos.y, lerpf(h.pos.y, r.end.y, 0.45))
+	return maxf(h.pos.y, lerpf(h.pos.y, r.end.y, 0.82))
 
 
 ## Персонажи обходят всю видимую ширину крыши, а не только центр фасада.
