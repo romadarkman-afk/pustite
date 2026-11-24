@@ -3773,12 +3773,10 @@ static func weather() -> void:
 	await _frames(tree, 2)
 	var gmat := (view.ground_fx.get_child(0) as ColorRect).material as ShaderMaterial
 	ok += _expect(fails, float(gmat.get_shader_parameter("cover")) > 0.5 and view.ground_fx.get_child(0).visible, "зимой снег на земле не включился в шейдере")
-	ok += _expect(fails, not GroundFx.grass_enabled and view.ground_fx.tuft_count() == 0, "трава-заглушка выключена: %d пучков" % view.ground_fx.tuft_count())
-	GroundFx.grass_enabled = true
+	ok += _expect(fails, GroundFx.grass_enabled, "анимация травы выключена")
 	view.set_weather(Weather.state("a3c1", 3))
 	await _frames(tree, 2)
-	ok += _expect(fails, view.ground_fx.tuft_count() > 20 and view.ground_fx.tuft_count() <= GroundFx.MAX_TUFTS, "трава (когда включена): %d пучков" % view.ground_fx.tuft_count())
-	GroundFx.grass_enabled = false
+	ok += _expect(fails, view.ground_fx.tuft_count() > 20 and view.ground_fx.tuft_count() <= GroundFx.MAX_TUFTS, "анимируемых пучков травы: %d" % view.ground_fx.tuft_count())
 	view.set_weather(Weather.state("a2c1", 2))
 	gmat = (view.ground_fx.get_child(0) as ColorRect).material as ShaderMaterial
 	ok += _expect(fails, float(gmat.get_shader_parameter("cover")) == 0.0 and float(gmat.get_shader_parameter("wet")) > 0.4, "осенью дождь не намочил землю в шейдере")
