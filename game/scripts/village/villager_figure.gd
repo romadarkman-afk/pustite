@@ -1420,8 +1420,9 @@ static func paint_eye(ci: CanvasItem, c: Vector2, level: int, s: float = 1.0) ->
 
 
 ## Значок улики в своей рамке; возвращает число вершин рамки (для самотеста силуэтов).
-static func paint_badge(ci: CanvasItem, b: String, c: Vector2) -> int:
-	ci.draw_set_transform(c * (1.0 - MARK_SCALE), 0.0, Vector2.ONE * MARK_SCALE)
+static func paint_badge(ci: CanvasItem, b: String, c: Vector2, icon_scale: float = 1.0, origin: Vector2 = Vector2.ZERO) -> int:
+	var badge_scale := MARK_SCALE * icon_scale
+	ci.draw_set_transform(origin + c * (1.0 - badge_scale), 0.0, Vector2.ONE * badge_scale)
 	var x := c.x
 	var y := c.y
 	var plate := Art.rrect(Rect2(x - 13.0, y - 11.5, 26.0, 23.0), 4.0)
