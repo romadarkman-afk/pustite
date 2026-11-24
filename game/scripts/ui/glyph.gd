@@ -164,14 +164,13 @@ func _draw() -> void:
 			draw_line(Vector2(10, 34), Vector2(38, 34), c, w)
 			draw_circle(Vector2(24, 39), 3.0, c)
 		"mark_eye":
-			draw_set_transform(o + Vector2(24, 24) * s, 0.0, Vector2(s, s) * 1.6)
+			draw_set_transform(o + Vector2(24, 24) * s, 0.0, Vector2(s, s))
 			VillagerFigure.paint_eye(self, Vector2.ZERO, 3)
 		"mark_pact":
-			draw_set_transform(o + Vector2(24, 30) * s, 0.0, Vector2(s, s) * 1.25)
+			draw_set_transform(o + Vector2(24, 24) * s, 0.0, Vector2(s, s))
 			VillagerFigure.paint_pact(self, Vector2.ZERO)
 		"mark_street", "mark_liar", "mark_death", "mark_fake", "mark_tunnel", "mark_sabotage":
-			draw_set_transform(o + Vector2(24, 24) * s, 0.0, Vector2(s, s) * 1.7)
-			VillagerFigure.paint_badge(self, kind.substr(5), Vector2.ZERO)
+			VillagerFigure.paint_badge(self, kind.substr(5), Vector2(24, 24), s, o)
 		"info":
 			draw_arc(Vector2(24, 24), 16.0, 0.0, TAU, 24, c, 2.6)
 			draw_circle(Vector2(24, 15), 2.6, c)
