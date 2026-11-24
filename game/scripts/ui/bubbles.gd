@@ -145,13 +145,13 @@ func _place_near_speaker(head: Vector2, bubble_size: Vector2, speaker: Node2D) -
 	var safe := Rect2(field.position + Vector2(4.0, 2.0), field.size - Vector2(8.0, 6.0))
 	var preferred := head + Vector2(-w * 0.5, -h - 12.0)
 	var offsets: Array[Vector2] = [
-		Vector2(-w * 0.5, -h - 12.0),
-		Vector2(-w - 14.0, -h * 0.55),
-		Vector2(14.0, -h * 0.55),
-		Vector2(-w * 0.5, 18.0),
-		Vector2(-w * 0.5, -h - 30.0),
-		Vector2(-w * 0.72, -h * 0.9),
-		Vector2(-w * 0.28, -h * 0.9)
+		Vector2(-w * 0.5, -h - 10.0),
+		Vector2(-w - 14.0, -h - 10.0),
+		Vector2(14.0, -h - 10.0),
+		Vector2(-w * 0.5, -h - 28.0),
+		Vector2(-w * 0.5, -h - 46.0),
+		Vector2(-w * 0.72, -h - 10.0),
+		Vector2(-w * 0.28, -h - 10.0)
 	]
 	var obstacles := _scene_obstacles(speaker)
 	var best := Rect2(preferred, bubble_size)
@@ -159,7 +159,8 @@ func _place_near_speaker(head: Vector2, bubble_size: Vector2, speaker: Node2D) -
 	for offset: Vector2 in offsets:
 		var pos := head + offset
 		pos.x = clampf(pos.x, safe.position.x, safe.end.x - w)
-		pos.y = clampf(pos.y, safe.position.y, safe.end.y - h)
+		var highest_safe_y := minf(safe.end.y - h, head.y - h - 2.0)
+		pos.y = safe.position.y if highest_safe_y < safe.position.y else clampf(pos.y, safe.position.y, highest_safe_y)
 		var rect := Rect2(pos, bubble_size)
 		var cost := pos.distance_to(preferred) * 0.18
 		for blocker: Rect2 in obstacles:
@@ -192,9 +193,9 @@ func _scene_obstacles(speaker: Node2D) -> Array[Rect2]:
 			out.append(own.grow(4.0))
 	if view.jobs_layer != null and view.jobs_layer.visible and view.jobs_layer.m != null:
 		for i in range(view.jobs_layer.m.jobs.size()):
-			var sign := view.jobs_layer.sign_rect_global(i)
-			if field.intersects(sign):
-				out.append(sign.grow(4.0))
+			var touch_area := view.jobs_layer.icon_rect_global(i)
+			if field.intersects(touch_area):
+				out.append(touch_area.grow(4.0))
 	return out
 
 
