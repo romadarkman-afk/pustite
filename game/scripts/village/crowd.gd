@@ -1011,8 +1011,8 @@ func _layout_name_plaques() -> void:
 			if field.intersects(sign):
 				occupied.append(sign.grow(4.0))
 	var candidates: Array[Vector2] = [Vector2.ZERO]
-	var xs: Array[float] = [0.0, -42.0, 42.0, -84.0, 84.0, -126.0, 126.0]
-	var ys: Array[float] = [24.0, 48.0, 72.0, 96.0, -48.0, -72.0, -96.0]
+	var xs: Array[float] = [0.0, -48.0, 48.0, -96.0, 96.0]
+	var ys: Array[float] = [0.0, 32.0, 64.0, 96.0, -64.0]
 	for y: float in ys:
 		for x: float in xs:
 			candidates.append(Vector2(x, y))
