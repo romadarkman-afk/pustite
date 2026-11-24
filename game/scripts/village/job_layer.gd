@@ -36,21 +36,88 @@ func icon_pos(ji: int) -> Vector2:
 	if m == null or ji < 0 or ji >= m.jobs.size():
 		return Vector2.ZERO
 	var transform := get_global_transform_with_canvas()
-	var screen := transform * m.jobs[ji].pos + Vector2(0.0, ICON_Y)
 	if view == null or view._field.size.x <= 0.0 or view._field.size.y <= 0.0:
 		return m.jobs[ji].pos + Vector2(0.0, ICON_Y)
 	var safe := view._field.grow(-5.0)
-	var half_w := _sign_width(m.jobs[ji].title) * 0.5 + 4.0
-	var half_h := SIGN_H * 0.5 + 10.0
-	if safe.size.x > half_w * 2.0:
-		screen.x = clampf(screen.x, safe.position.x + half_w, safe.end.x - half_w)
-	else:
-		screen.x = safe.get_center().x
-	if safe.size.y > half_h * 2.0:
-		screen.y = clampf(screen.y, safe.position.y + half_h, safe.end.y - half_h)
-	else:
-		screen.y = safe.get_center().y
-	return transform.affine_inverse() * screen
+	var obstacles := _screen_obstacles()
+	var occupied: Array[Rect2] = []
+	for previous in range(ji):
+		var prior_center := _choose_screen_center(previous, transform, safe, obstacles, occupied)
+		occupied.append(_screen_sign_rect(previous, prior_center).grow(6.0))
+	var center := _choose_screen_center(ji, transform, safe, obstacles, occupied)
+	return transform.affine_inverse() * center
+
+
+## Разводим таблички по свободным точкам вокруг дела, не меняя масштаб интерфейса.
+func _choose_screen_center(ji: int, transform: Transform2D, safe: Rect2,
+		obstacles: Array[Rect2], occupied: Array[Rect2]) -> Vector2:
+	var preferred := transform * m.jobs[ji].pos + Vector2(0.0, ICON_Y)
+	var width := _sign_width(m.jobs[ji].title)
+	var half := Vector2(width * 0.5 + 4.0, SIGN_H * 0.5 + 8.0)
+	var offsets: Array[Vector2] = [
+		Vector2.ZERO, Vector2(0, -34), Vector2(-62, -12), Vector2(62, -12),
+		Vector2(0, 38), Vector2(-62, 32), Vector2(62, 32),
+		Vector2(0, -76), Vector2(-112, -24), Vector2(112, -24)
+	]
+	var best := preferred
+	var best_cost := INF
+	for offset: Vector2 in offsets:
+		var candidate := preferred + offset
+		candidate.x = clampf(candidate.x, safe.position.x + half.x, safe.end.x - half.x)
+		candidate.y = clampf(candidate.y, safe.position.y + half.y, safe.end.y - half.y)
+		var rect := _screen_sign_rect(ji, candidate)
+		var cost := offset.length() * 0.04
+		for blocker: Rect2 in obstacles:
+			if rect.intersects(blocker):
+				cost += 5000.0 + rect.intersection(blocker).get_area()
+		for other: Rect2 in occupied:
+			if rect.intersects(other):
+				cost += 50000.0 + rect.intersection(other).get_area()
+		if cost < best_cost:
+			best_cost = cost
+			best = candidate
+	return best
+
+
+func _screen_sign_rect(ji: int, center: Vector2) -> Rect2:
+	var size := Vector2(_sign_width(m.jobs[ji].title), SIGN_H)
+	return Rect2(center - size * 0.5, size)
+
+
+## Не ставим указатели поверх людей, подписей, домов и реплик.
+func _screen_obstacles() -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	if view == null:
+		return out
+	if view.crowd != null:
+		for figure: VillagerFigure in view.crowd.figures.values():
+			if not is_instance_valid(figure) or not figure.is_visible_in_tree():
+				continue
+			var body := figure.body_rect_global()
+			var label := figure.label_rect_global()
+			if view._field.intersects(body):
+				out.append(body.grow(4.0))
+			if view._field.intersects(label):
+				out.append(label.grow(4.0))
+	for house: HouseDef in view.def.shelters:
+		_add_house_obstacle(out, house)
+	for house: HouseDef in view.def.decor:
+		_add_house_obstacle(out, house)
+	if Nav.bubbles != null:
+		for bubble in Nav.bubbles.alive():
+			if view._field.intersects(bubble.rect):
+				out.append(bubble.rect.grow(4.0))
+	return out
+
+
+func _add_house_obstacle(out: Array[Rect2], house: HouseDef) -> void:
+	var local_rect := view.house_rect(house)
+	var transform := view.get_global_transform_with_canvas()
+	var a := transform * local_rect.position
+	var b := transform * local_rect.end
+	var screen_rect := Rect2(a, b - a).abs()
+	if view._field.intersects(screen_rect):
+		out.append(screen_rect.grow(3.0))
 
 
 ## Точный прямоугольник таблички в экранных координатах.
@@ -64,9 +131,9 @@ func sign_rect_global(ji: int) -> Rect2:
 
 ## Указатель дела — увеличенная зона касания вокруг таблички.
 func icon_rect_global(ji: int) -> Rect2:
-	var c := get_global_transform_with_canvas() * icon_pos(ji)
-	var r := maxf(HIT, 44.0)
-	return Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0)
+	var sign := sign_rect_global(ji)
+	var size := Vector2(maxf(sign.size.x, 84.0), maxf(sign.size.y, 56.0))
+	return Rect2(sign.get_center() - size * 0.5, size)
 
 
 ## Дело под пальцем: указатель или рабочая точка. -1 означает, что игрок нажал мимо.
@@ -161,6 +228,9 @@ func _draw_sign(j: JobDef, c: Vector2, _site: Vector2, left: int, done: bool) ->
 	var pointer := PackedVector2Array([
 		Vector2(c.x - 5.0, r.end.y - 2.0), Vector2(c.x + 5.0, r.end.y - 2.0), Vector2(c.x, r.end.y + 7.0)
 	])
+	var station_top := _site + Vector2(0.0, -16.0)
+	if pointer[2].distance_to(station_top) > 18.0:
+		draw_line(pointer[2], station_top, Color(ThemeFactory.LAMP_D, 0.56 * alpha), 1.0, true)
 	draw_colored_polygon(pointer, wood)
 	draw_polyline(PackedVector2Array([pointer[0], pointer[1], pointer[2], pointer[0]]), edge, 1.4, true)
 	var shadow_rect := r.grow(2.0)
