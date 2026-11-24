@@ -132,7 +132,7 @@ func sign_rect_global(ji: int) -> Rect2:
 ## Указатель дела — увеличенная зона касания вокруг таблички.
 func icon_rect_global(ji: int) -> Rect2:
 	var sign := sign_rect_global(ji)
-	var size := Vector2(maxf(sign.size.x, 84.0), maxf(sign.size.y, 56.0))
+	var size := Vector2(maxf(sign.size.x, 84.0), maxf(sign.size.y, 84.0))
 	return Rect2(sign.get_center() - size * 0.5, size)
 
 
