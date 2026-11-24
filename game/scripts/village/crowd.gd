@@ -999,12 +999,12 @@ func _layout_name_plaques() -> void:
 		if field.intersects(screen_rect):
 			occupied.append(screen_rect.grow(3.0))
 	for house: HouseDef in view.def.decor:
-		var local_rect := view.house_rect(house)
-		var a := view_transform * local_rect.position
-		var b := view_transform * local_rect.end
-		var screen_rect := Rect2(a, b - a).abs()
-		if field.intersects(screen_rect):
-			occupied.append(screen_rect.grow(3.0))
+		var decor_rect := view.house_rect(house)
+		var decor_a := view_transform * decor_rect.position
+		var decor_b := view_transform * decor_rect.end
+		var decor_screen_rect := Rect2(decor_a, decor_b - decor_a).abs()
+		if field.intersects(decor_screen_rect):
+			occupied.append(decor_screen_rect.grow(3.0))
 	if view.jobs_layer != null and view.jobs_layer.visible and view.jobs_layer.m != null:
 		for i in range(view.jobs_layer.m.jobs.size()):
 			var sign := view.jobs_layer.sign_rect_global(i)
