@@ -404,6 +404,8 @@ func data() -> Dictionary:
 		"job.fish.done": "Рыба на ужин есть.",
 		"job.talisman.title": "Подправить оберег",
 		"job.talisman.marker": "Оберег: {house}",
+		"job.npc_working": "Занимается этим делом: {job}",
+		"job.npc_heading": "Идёт к месту работы: {job}",
 		"job.talisman.place": "у оберега",
 		"job.talisman.done": "Оберег как новый.",
 		"job.box.title": "Открыть ящик",

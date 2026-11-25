@@ -2593,17 +2593,24 @@ static func bubbles() -> void:
 						problems.append("%s: таймер не продолжился после закрытия реплики" % tag)
 			Nav.bubbles.clear()
 			await _frames(tree, 2)
-			var wood := Game.m.job_index(&"wood")
-			var icon_pos := Nav.village.jobs_layer.icon_rect_global(wood).get_center()
-			var over_icon := Bubbles.Bubble.new()
-			over_icon.rect = Rect2(icon_pos - Vector2(24, 24), Vector2(48, 48))
-			over_icon.entry = original
-			Nav.bubbles.bubbles.append(over_icon)
-			Nav.handle_intent(Intent.FIELD_TAP, {"pos": icon_pos}, Nav.host.current)
-			await tree.process_frame
+			var visible_job := -1
+			for ji in range(Game.m.jobs.size()):
+				if Game.m.job_available(ji) and Nav.village.jobs_layer.sign_rect_global(ji).has_area():
+					visible_job = ji
+					break
 			checks += 1
-			if Game.player_job != wood or Nav.host.current.find_child("JournalSheet", true, false) != null:
-				problems.append("%s: пузырь перекрыл нажатие на значок дела" % tag)
+			if visible_job < 0:
+				problems.append("%s: нет видимых табличек доступных дел" % tag)
+			else:
+				var icon_pos := Nav.village.jobs_layer.sign_rect_global(visible_job).get_center()
+				var over_icon := Bubbles.Bubble.new()
+				over_icon.rect = Rect2(icon_pos - Vector2(24, 24), Vector2(48, 48))
+				over_icon.entry = original
+				Nav.bubbles.bubbles.append(over_icon)
+				Nav.handle_intent(Intent.FIELD_TAP, {"pos": icon_pos}, Nav.host.current)
+				await tree.process_frame
+				if Game.player_job != visible_job or Nav.host.current.find_child("JournalSheet", true, false) != null:
+					problems.append("%s: пузырь перекрыл нажатие на значок дела" % tag)
 			Game.cancel_player_job()
 			Nav.bubbles.clear()
 		for k in range(14):
@@ -4581,12 +4588,18 @@ static func village() -> void:
 	ok += _expect(fails, m.supply_total == _portions(m) and m.supply_total >= 8, "запасов на день %d — ждём сумму порций дел" % m.supply_total)
 	ok += _expect(fails, day.supplies != null and day.supplies.text() == "Запасы 0 из %d" % m.resource_available(), "капсула припасов не показана или врёт")
 	ok += _expect(fails, v.jobs_layer.visible and m.jobs.size() >= 5, "значков дел нет на поле")
-	var small := false
+	var bad_marker := false
+	var visible_markers := 0
 	for ji in range(m.jobs.size()):
-		var r := v.jobs_layer.icon_rect_global(ji)
-		if r.size.x < 84.0 or r.size.y < 84.0:
-			small = true
-	ok += _expect(fails, not small, "значок дела меньше 84 px (48 dp)")
+		var sign := v.jobs_layer.sign_rect_global(ji)
+		var touch := v.jobs_layer.icon_rect_global(ji)
+		if not sign.has_area():
+			bad_marker = bad_marker or touch.has_area()
+			continue
+		visible_markers += 1
+		bad_marker = bad_marker or touch.size.x < 84.0 or touch.size.y < 84.0
+		bad_marker = bad_marker or not v._field.encloses(sign) or v.jobs_layer.job_at(sign.get_center()) != ji
+	ok += _expect(fails, visible_markers > 0 and not bad_marker, "видимые таблички должны быть в поле и иметь зону нажатия от 84 px")
 
 	# 3. Ходьба тапом и камера за игроком
 	var target_g := v.to_global(Vector2(150, 420))

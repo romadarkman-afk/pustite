@@ -359,6 +359,8 @@ func data() -> Dictionary:
 		"job.fish.done": "Fish for supper.",
 		"job.talisman.title": "Fix the charm",
 		"job.talisman.marker": "Charm: {house}",
+		"job.npc_working": "Working on: {job}",
+		"job.npc_heading": "Heading to: {job}",
 		"job.talisman.place": "by the charm",
 		"job.talisman.done": "Charm's as good as new.",
 		"job.box.title": "Open the box",

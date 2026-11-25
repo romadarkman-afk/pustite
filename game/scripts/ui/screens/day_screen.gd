@@ -323,6 +323,12 @@ func person_actions(v: Villager) -> void:
 	var ev := director.evidence_text(v) if director != null else ""
 	var head := v.name
 	head += "\n" + SocialContent.person_title(v)
+	var crowd := Nav.village.crowd
+	var job := int(crowd.at_job.get(v.id, -1))
+	var figure := crowd.figures.get(v.id) as VillagerFigure
+	if job >= 0 and job < m.jobs.size() and figure != null:
+		var status := "job.npc_working" if figure.working else "job.npc_heading"
+		head += "\n" + L.t(status, {"job": m.jobs[job].title})
 	var state := m.feelings.status_text(v)     # что с человеком сейчас: словами, без цифр (TASK-009)
 	if not state.is_empty():
 		head += "\n" + state
