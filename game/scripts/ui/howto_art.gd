@@ -6,6 +6,9 @@ extends Control
 const COVER_PATH := "res://assets/ui/campaign_cover.png"
 const GROUND_DAY := preload("res://assets/village/realistic/ground_day.jpg")
 const GROUND_NIGHT := preload("res://assets/village/realistic/ground_night.jpg")
+const GROUND_MILL := preload("res://assets/village/realistic/ground_mill_day.jpg")
+const GROUND_STATION := preload("res://assets/village/realistic/ground_station_day.jpg")
+const GROUND_MONASTERY := preload("res://assets/village/realistic/ground_monastery_night.jpg")
 const HOUSE_DAY := preload("res://assets/village/realistic/house_day.png")
 const HOUSE_NIGHT := preload("res://assets/village/realistic/house_night.png")
 const DOOR_CLOSED := preload("res://assets/ui/door_closed.png")
@@ -51,7 +54,6 @@ func _build() -> void:
 		"door": idx = [3, 7]
 		"talisman": idx = [-1, 4]
 		"marks": idx = [0, 1, 3, 5, 8]
-		"jobs": idx = [2, 6, -1]
 		"events": idx = [-1, 7]
 		"roles": idx = [7, 10, 4]
 		"campaign": idx = [0, 5, -1]
@@ -113,10 +115,6 @@ func _layout() -> void:
 		"marks":
 			for i in range(figures.size()):
 				figures[i].position = Vector2(w * (0.12 + 0.19 * i), h * 0.76)
-		"jobs":
-			figures[0].position = Vector2(w * 0.20, h * 0.76)
-			figures[1].position = Vector2(w * 0.50, h * 0.76)
-			figures[2].position = Vector2(w * 0.80, h * 0.76)
 		"events":
 			figures[0].position = Vector2(w * 0.20, h * 0.76)
 			figures[1].position = Vector2(w * 0.80, h * 0.76)
@@ -148,6 +146,10 @@ func _draw() -> void:
 	var night := _is_night()
 	# Та же карта, что в партии: кадрирование без растягивания.
 	var ground: Texture2D = GROUND_NIGHT if night else GROUND_DAY
+	match kind:
+		"jobs": ground = GROUND_MILL
+		"roles", "campaign": ground = GROUND_STATION
+		"talisman", "events": ground = GROUND_MONASTERY
 	var source := Rect2(Vector2.ZERO, ground.get_size())
 	var target_ratio := w / maxf(h, 1.0)
 	var source_ratio := source.size.x / maxf(source.size.y, 1.0)
@@ -170,27 +172,25 @@ func _draw() -> void:
 		"day":
 			_house(Rect2(w * 0.08, h * 0.30, w * 0.22, h * 0.30), false)
 			_house(Rect2(w * 0.70, h * 0.30, w * 0.22, h * 0.30), false)
-			_speech(Vector2(w * 0.14, h * 0.82 - figures[0].scale.y * 62.0), L.t("howto.art_accuse"))
+			_speech(Vector2(w * 0.14, maxf(35.0, h * 0.20)), L.t("howto.art_accuse"))
 		"night":
 			_house(Rect2(w * 0.10, h * 0.28, w * 0.28, h * 0.34), true)
 			_house(Rect2(w * 0.62, h * 0.28, w * 0.28, h * 0.34), true)
 			_draw_night_location()
 		"door":
-			var dh := h * 0.74
-			var dw := minf(w * 0.34, dh * DOOR_CLOSED.get_width() / maxf(DOOR_CLOSED.get_height(), 1.0))
-			draw_texture_rect(DOOR_CLOSED, Rect2(w * 0.5 - dw * 0.5, h * 0.10, dw, dh), false)
+			var dh := h * 0.53
+			var dw := minf(w * 0.27, dh * DOOR_CLOSED.get_width() / maxf(DOOR_CLOSED.get_height(), 1.0))
+			draw_texture_rect(DOOR_CLOSED, Rect2(w * 0.5 - dw * 0.5, h * 0.22, dw, dh), false)
 
 		"talisman":
 			# те же обереги, что у двери в игре: целый, треснувший, расколотый
-			_house(Rect2(w * 0.36, h * 0.54, w * 0.28, h * 0.26), true)
+			_house(Rect2(w * 0.30, h * 0.43, w * 0.40, h * 0.48), true)
 			var charm_size := clampf(h * 0.25, 36.0, 62.0)
 			for i in range(3):
 				var c := Vector2(w * (0.22 + 0.28 * i), h * 0.24)
 				draw_texture_rect(CHARMS[i], Rect2(c - Vector2.ONE * charm_size * 0.5, Vector2.ONE * charm_size), false)
 		"jobs":
-			var tokens: Array = [[0.14, "water"], [0.38, "wood"], [0.62, "lamp"], [0.86, "box"]]
-			for tk: Array in tokens:
-				_job_token(Vector2(w * float(tk[0]), h * 0.30), String(tk[1]), clampf(h / 230.0, 1.0, 1.6))
+			_draw_job_examples()
 		"campaign":
 			if _cover != null:
 				var ch := h * 0.84
@@ -215,33 +215,29 @@ func _draw_night_location() -> void:
 		HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 18.0, 13, ThemeFactory.BLOOD)
 
 
-## Значок дела на площади: белый круг с рисунком по виду дела.
-func _job_token(c: Vector2, which: String, s: float) -> void:
-	# Формы и цвета соответствуют значкам JobLayer на игровом поле.
-	var ink := Art.INK
-	draw_circle(c, 24.5 * s, ink)
-	draw_circle(c, 22.0 * s, Color(1, 1, 1, 0.95))
-	draw_set_transform(c, 0.0, Vector2(s, s))
-	match which:
-		"water":
-			Art.shape(self, PackedVector2Array([Vector2(-9, -6), Vector2(9, -6), Vector2(7, 9), Vector2(-7, 9)]), Color(0.45, 0.72, 0.95), ink, 2.0)
-			draw_arc(Vector2(0, -6), 9, PI, TAU, 10, ink, 1.8, true)
-			draw_circle(Vector2(0, -1), 2.5, Color(1, 1, 1, 0.8))
-		"wood":
-			for o: Vector2 in [Vector2(-6, 4), Vector2(6, 4), Vector2(0, -6)]:
-				Art.shape(self, Art.ellipse(o, Vector2(6, 5.5), 10), Color(0.69, 0.48, 0.29), ink, 1.8)
-				draw_circle(o, 2.5, Color(0.91, 0.77, 0.56))
-		"lamp":
-			Art.shape(self, Art.rrect(Rect2(-6, -8, 12, 15), 3), Color(1.0, 0.81, 0.42), ink, 2.0)
-			draw_line(Vector2(-6, -3), Vector2(6, -3), ink, 1.6)
-			draw_line(Vector2(0, -12), Vector2(0, -8), ink, 2.0)
-			draw_colored_polygon(PackedVector2Array([Vector2(-2, 3), Vector2(2, 3), Vector2(0, -2)]), Color(0.95, 0.45, 0.2))
-		"box":
-			Art.shape(self, Art.rrect(Rect2(-10, -7, 20, 15), 2), Color(0.72, 0.52, 0.32), ink, 2.0)
-			draw_line(Vector2(-10, -1), Vector2(10, -1), ink, 1.6)
-			draw_line(Vector2(-4, -7), Vector2(-4, 8), Color(ink, 0.6), 1.2)
-			draw_line(Vector2(4, -7), Vector2(4, 8), Color(ink, 0.6), 1.2)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+## Образцы тех же указателей, которые появляются на карте.
+func _draw_job_examples() -> void:
+	var kinds: Array[JobDef.Kind] = [JobDef.Kind.WATER, JobDef.Kind.WOOD, JobDef.Kind.LAMP,
+		JobDef.Kind.FISH, JobDef.Kind.TALISMAN, JobDef.Kind.BOX]
+	var keys: Array[String] = ["water", "wood", "lamp", "fish", "talisman", "box"]
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color("39271b", 0.98)
+	box.border_color = ThemeFactory.LAMP_D
+	box.set_border_width_all(1)
+	box.set_corner_radius_all(4)
+	var width := minf(144.0, size.x * 0.30)
+	for i in range(kinds.size()):
+		var center := Vector2(size.x * (float(i % 3) + 0.5) / 3.0, size.y * (0.28 if i < 3 else 0.67))
+		var r := Rect2(center - Vector2(width * 0.5, 14.0), Vector2(width, 28.0))
+		draw_style_box(box, r)
+		JobLayer.draw_job_icon(self, kinds[i], Vector2(r.position.x + 13.0, center.y))
+		var label := L.t("job." + keys[i] + ".title")
+		var font_size := 10
+		while font_size > 8 and _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > width - 27.0:
+			font_size -= 1
+		draw_string(_font, Vector2(r.position.x + 25.0, center.y + 4.0), label,
+			HORIZONTAL_ALIGNMENT_LEFT, width - 27.0, font_size, ThemeFactory.BONE)
+
 
 func _house(r: Rect2, lit: bool) -> void:
 	var tex: Texture2D = HOUSE_NIGHT if lit else HOUSE_DAY
@@ -250,13 +246,14 @@ func _house(r: Rect2, lit: bool) -> void:
 
 
 func _speech(anchor: Vector2, text: String) -> void:
-	var tw := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
-	var r := Rect2(clampf(anchor.x - 20, 6, size.x - tw - 30), anchor.y - 44, tw + 24, 34)
+	var tw := minf(size.x - 32.0, _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x)
+	var r := Rect2(clampf(anchor.x - tw * 0.5 - 9.0, 6.0, size.x - tw - 24.0), maxf(5.0, anchor.y - 30.0), tw + 18.0, 24.0)
+	var tail_x := clampf(anchor.x, r.position.x + 8.0, r.end.x - 8.0)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = ThemeFactory.PANEL_2
 	sb.border_color = ThemeFactory.EDGE
 	sb.set_border_width_all(1)
 	sb.set_corner_radius_all(8)
 	draw_style_box(sb, r)
-	draw_colored_polygon(PackedVector2Array([Vector2(anchor.x - 6, r.end.y - 1), Vector2(anchor.x + 6, r.end.y - 1), Vector2(anchor.x, r.end.y + 8)]), ThemeFactory.PANEL_2)
-	draw_string(_font, Vector2(r.position.x + 12, r.position.y + 24), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, ThemeFactory.BONE)
+	draw_colored_polygon(PackedVector2Array([Vector2(tail_x - 5, r.end.y - 1), Vector2(tail_x + 5, r.end.y - 1), Vector2(tail_x, r.end.y + 6)]), ThemeFactory.PANEL_2)
+	draw_string(_font, Vector2(r.position.x + 9, r.position.y + 16), text, HORIZONTAL_ALIGNMENT_LEFT, tw, 13, ThemeFactory.BONE)

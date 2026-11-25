@@ -13,10 +13,10 @@ const SH_GROUND := "res://shaders/ground_weather.gdshader"
 const SH_CLOUDS := "res://shaders/cloud_shadow.gdshader"
 const SH_GRASS := "res://shaders/grass_sway.gdshader"
 
-const MAX_TUFTS := 150
+const MAX_TUFTS := 76
 ## Листы травы лежат в проекте; шейдер качает пучки только на участках с растительностью.
 static var grass_enabled := true
-const TUFT_W := 40.0                   ## ширина пучка на переднем плане, пиксели посёлка
+const TUFT_W := 26.0                   ## ширина пучка на переднем плане, пиксели посёлка
 const GRASS_FRAMES := 8
 
 static var _mask_tex: ImageTexture
@@ -215,7 +215,7 @@ static func grass_spots(img: Image, rect: Rect2, seed_value: int, limit: int) ->
 		var u := rng.randf()
 		var v := rng.randf()
 		var c := img.get_pixel(clampi(int(u * iw), 0, iw - 1), clampi(int(v * ih), 0, ih - 1))
-		var greenish := c.h > 0.14 and c.h < 0.42 and c.s > 0.22 and c.v > 0.1 and c.v < 0.8
+		var greenish := c.h > 0.16 and c.h < 0.36 and c.s > 0.30 and c.v > 0.12 and c.v < 0.58
 		if not greenish:
 			continue
 		out.append(Vector3(rect.position.x + u * rect.size.x, rect.position.y + v * rect.size.y, rng.randf()))

@@ -139,7 +139,7 @@ func _preview(text: String, width: float, font_size: int) -> String:
 
 
 ## Выбираем ближайшее свободное место у говорящего; имя, фигуры и дела остаются видны.
-func _place_near_speaker(head: Vector2, bubble_size: Vector2, speaker: Node2D) -> Rect2:
+func _place_near_speaker(head: Vector2, bubble_size: Vector2, speaker: Node2D, moving: Bubble = null) -> Rect2:
 	var w := bubble_size.x
 	var h := bubble_size.y
 	var safe := Rect2(field.position + Vector2(4.0, 2.0), field.size - Vector2(8.0, 6.0))
@@ -151,9 +151,15 @@ func _place_near_speaker(head: Vector2, bubble_size: Vector2, speaker: Node2D) -
 		Vector2(-w * 0.5, -h - 28.0),
 		Vector2(-w * 0.5, -h - 46.0),
 		Vector2(-w * 0.72, -h - 10.0),
-		Vector2(-w * 0.28, -h - 10.0)
+		Vector2(-w * 0.28, -h - 10.0),
+		Vector2(-w * 0.5, -h - 68.0),
+		Vector2(-w - 14.0, -h - 42.0),
+		Vector2(14.0, -h - 42.0)
 	]
 	var obstacles := _scene_obstacles(speaker)
+	for other: Bubble in bubbles:
+		if other != moving and not other.dying and _speaker_on_field(other):
+			obstacles.append(other.rect.grow(GAP))
 	var best := Rect2(preferred, bubble_size)
 	var best_cost := INF
 	for offset: Vector2 in offsets:
@@ -193,17 +199,35 @@ func _scene_obstacles(speaker: Node2D) -> Array[Rect2]:
 			out.append(own.grow(4.0))
 	if view.jobs_layer != null and view.jobs_layer.visible and view.jobs_layer.m != null:
 		for i in range(view.jobs_layer.m.jobs.size()):
-			var touch_area := view.jobs_layer.icon_rect_global(i)
-			if field.intersects(touch_area):
-				out.append(touch_area.grow(4.0))
+			var marker := view.jobs_layer.sign_rect_global(i)
+			if field.intersects(marker):
+				out.append(marker.grow(8.0))
 	return out
+
+
+func _speaker_on_field(b: Bubble) -> bool:
+	if is_instance_valid(b.fig) and b.fig is VillagerFigure:
+		return (b.fig as VillagerFigure).at_field_edge_or_inside()
+	return not is_instance_valid(b.fig) or field.grow(10.0).has_point(b.anchor)
+
+
+func _covers_job(b: Bubble) -> bool:
+	if Nav.village == null or Nav.village.jobs_layer == null or not Nav.village.jobs_layer.visible:
+		return false
+	var layer := Nav.village.jobs_layer
+	if layer.m == null:
+		return false
+	for i in range(layer.m.jobs.size()):
+		if b.rect.intersects(layer.sign_rect_global(i)):
+			return true
+	return false
 
 
 ## Экранные координаты совпадают с координатами поля в Nav.
 func bubble_at(point: Vector2) -> Bubble:
 	for i in range(bubbles.size() - 1, -1, -1):
 		var bubble := bubbles[i]
-		if not bubble.dying and bubble.rect.has_point(point):
+		if not bubble.dying and bubble.rect.has_point(point) and _speaker_on_field(bubble) and not _covers_job(bubble):
 			return bubble
 	return null
 
@@ -259,12 +283,8 @@ func tick(delta: float) -> void:
 				b.anchor = h
 				# Положение пересчитывается от головы и исходного отступа.
 				# Clamp больше не сдвигает пузырь навсегда к краю экрана.
-				var anchored := h + b.offset
-				anchored.x = clampf(anchored.x, field.position.x + 4.0, field.end.x - 4.0 - b.rect.size.x)
-				anchored.y = clampf(anchored.y, field.position.y + 2.0, field.end.y - b.rect.size.y - 4.0)
-				if anchored.distance_squared_to(b.rect.position) > 0.01:
-					b.rect.position = anchored
-					_unstack(b)
+				b.rect = _place_near_speaker(h, b.rect.size, b.fig, b)
+				_unstack(b)
 				b.tail_x = clampf(h.x, b.rect.position.x + 14.0, b.rect.end.x - 14.0)
 				changed = true
 	for b: Bubble in bubbles:
@@ -289,7 +309,7 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	for b: Bubble in bubbles:
-		if b.alpha <= 0.0:
+		if b.alpha <= 0.0 or not _speaker_on_field(b) or _covers_job(b):
 			continue
 		var bg := ThemeFactory.MINE if b.mine else ThemeFactory.PANEL_2
 		var edge := ThemeFactory.LAMP_D if b.mine else ThemeFactory.EDGE
@@ -336,7 +356,7 @@ func _draw() -> void:
 			draw_colored_polygon(PackedVector2Array([Vector2(ax, ay - 7.0), Vector2(ax, ay + 7.0), Vector2(ax + direction * 9.0, ay)]), Color(edge, b.alpha))
 	for b: Bubble in bubbles:
 		var a := b.alpha
-		if a <= 0.0:
+		if a <= 0.0 or not _speaker_on_field(b) or _covers_job(b):
 			continue
 		var s := 0.9 + 0.1 * a
 		var c := b.rect.get_center()
@@ -344,7 +364,7 @@ func _draw() -> void:
 		var bg := ThemeFactory.MINE if b.mine else ThemeFactory.PANEL_2
 		var edge := ThemeFactory.LAMP_D if b.mine else ThemeFactory.EDGE
 		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(bg, 0.72 * a)
+		sb.bg_color = Color(bg, 0.93 * a)
 		sb.border_color = Color(edge, 0.82 * a)
 		sb.set_border_width_all(1)
 		sb.set_corner_radius_all(6)

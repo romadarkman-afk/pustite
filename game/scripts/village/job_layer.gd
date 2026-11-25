@@ -4,8 +4,18 @@ extends Node2D
 ## Маркер привязан к координатам посёлка; касание работает по указателю и рабочей точке.
 
 const ICON_Y := -62.0
-const HIT := 46.0
-const SIGN_H := 38.0
+const SIGN_H := 32.0
+const TOUCH_SIZE := 84.0
+const MARKER_REACH := 116.0
+const STATION_OFFSET := Vector2(-19, 2)
+const STATION_ART := {
+	JobDef.Kind.WATER: preload("res://assets/village/realistic/barrel.png"),
+	JobDef.Kind.WOOD: preload("res://assets/village/realistic/prop_stump_axe.png"),
+	JobDef.Kind.LAMP: preload("res://assets/village/realistic/lamp_day.png"),
+	JobDef.Kind.TALISMAN: preload("res://assets/village/talisman.png"),
+	JobDef.Kind.FISH: preload("res://assets/village/realistic/prop_nets.png"),
+	JobDef.Kind.BOX: preload("res://assets/village/realistic/prop_crates.png")
+}
 
 var view: VillageView
 var m: Match
@@ -14,6 +24,10 @@ var progress: float = 0.0
 var _pops: Array[Dictionary] = []
 var _t := 0.0
 var _font: Font
+var _marker_rects: Array[Rect2] = []
+var _layout_frame := -1
+var _layout_transform := Transform2D.IDENTITY
+var _layout_match: Match
 
 
 func _ready() -> void:
@@ -26,7 +40,13 @@ func _sign_width(title: String) -> float:
 	return clampf(f.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + 36.0, 90.0, 126.0)
 
 
-## На краю карты указатель остаётся в поле, стойка указывает на место работы.
+func _marker_title(job: JobDef) -> String:
+	if job.house >= 0 and view != null and job.house < view.def.shelters.size():
+		return L.t("job.talisman.marker", {"house": view._title(job.house)})
+	return job.title
+
+
+## Фиксированный экранный размер независимо от приближения камеры.
 func _ui_scale() -> float:
 	return 1.0 / maxf(absf(view.scale.x), 0.5) if view != null else 1.0
 
@@ -35,70 +55,69 @@ func _ui_scale() -> float:
 func icon_pos(ji: int) -> Vector2:
 	if m == null or ji < 0 or ji >= m.jobs.size():
 		return Vector2.ZERO
+	var rect := sign_rect_global(ji)
+	if not rect.has_area():
+		return m.jobs[ji].pos + Vector2(0, ICON_Y)
+	return get_global_transform_with_canvas().affine_inverse() * rect.get_center()
+
+
+func _layout_markers() -> void:
+	var frame := Engine.get_process_frames()
 	var transform := get_global_transform_with_canvas()
-	if view == null or view._field.size.x <= 0.0 or view._field.size.y <= 0.0:
-		return m.jobs[ji].pos + Vector2(0.0, ICON_Y)
-	var safe := view._field.grow(-5.0)
-	var obstacles := _screen_obstacles()
+	if _layout_frame == frame and _layout_transform == transform and _layout_match == m and _marker_rects.size() == m.jobs.size():
+		return
+	_layout_frame = frame
+	_layout_transform = transform
+	_layout_match = m
+	_marker_rects.clear()
+	var field := view._field if view != null else Rect2()
+	var safe := field.grow(-5.0)
+	var obstacles: Array[Rect2] = []
+	if field.has_area():
+		obstacles = _screen_obstacles()
 	var occupied: Array[Rect2] = []
-	for previous in range(ji):
-		var prior_center := _choose_screen_center(previous, transform, safe, obstacles, occupied)
-		occupied.append(_screen_sign_rect(previous, prior_center).grow(6.0))
-	var center := _choose_screen_center(ji, transform, safe, obstacles, occupied)
-	return transform.affine_inverse() * center
-
-
-## Разводим таблички по свободным точкам вокруг дела, не меняя масштаб интерфейса.
-func _choose_screen_center(ji: int, transform: Transform2D, safe: Rect2,
-		obstacles: Array[Rect2], occupied: Array[Rect2]) -> Vector2:
-	var preferred := transform * m.jobs[ji].pos + Vector2(0.0, ICON_Y)
-	var width := _sign_width(m.jobs[ji].title)
-	var half := Vector2(width * 0.5 + 4.0, SIGN_H * 0.5 + 8.0)
 	var offsets: Array[Vector2] = [
-		Vector2.ZERO, Vector2(0, -34), Vector2(-62, -12), Vector2(62, -12),
-		Vector2(0, 38), Vector2(-62, 32), Vector2(62, 32),
-		Vector2(0, -76), Vector2(-112, -24), Vector2(112, -24)
+		Vector2(0, -48), Vector2(-56, -48), Vector2(56, -48),
+		Vector2(0, 28), Vector2(-62, 18), Vector2(62, 18),
+		Vector2(0, -88), Vector2(-86, -14), Vector2(86, -14)
 	]
-	var best := preferred
-	var best_cost := INF
-	for offset: Vector2 in offsets:
-		var candidate := preferred + offset
-		candidate.x = clampf(candidate.x, safe.position.x + half.x, safe.end.x - half.x)
-		candidate.y = clampf(candidate.y, safe.position.y + half.y, safe.end.y - half.y)
-		var rect := _screen_sign_rect(ji, candidate)
-		var cost := offset.length() * 0.04
-		for blocker: Rect2 in obstacles:
-			if rect.intersects(blocker):
-				cost += 5000.0 + rect.intersection(blocker).get_area()
-		for other: Rect2 in occupied:
-			if rect.intersects(other):
-				cost += 50000.0 + rect.intersection(other).get_area()
-		if cost < best_cost:
-			best_cost = cost
-			best = candidate
-	return best
+	for job: JobDef in m.jobs:
+		var anchor := transform * (job.pos + STATION_OFFSET)
+		var size := Vector2(_sign_width(_marker_title(job)), SIGN_H)
+		if not field.has_area():
+			_marker_rects.append(Rect2(anchor + Vector2(0, ICON_Y) - size * 0.5, size))
+			continue
+		var best := Rect2()
+		var best_cost := INF
+		if field.grow(12.0).has_point(anchor) and safe.size.x >= size.x and safe.size.y >= size.y:
+			for offset: Vector2 in offsets:
+				var minimum := safe.position + size * 0.5
+				var maximum := safe.end - size * 0.5
+				var center := (anchor + offset).clamp(minimum, maximum)
+				if center.distance_to(anchor) > MARKER_REACH:
+					continue
+				var rect := Rect2(center - size * 0.5, size)
+				if occupied.any(func(other: Rect2) -> bool: return rect.intersects(other)):
+					continue
+				var cost := center.distance_squared_to(anchor + offsets[0])
+				for blocker: Rect2 in obstacles:
+					if rect.intersects(blocker):
+						cost += 600.0 + rect.intersection(blocker).get_area() * 5.0
+				if cost < best_cost:
+					best_cost = cost
+					best = rect
+		_marker_rects.append(best)
+		if best.has_area():
+			occupied.append(best.grow(5.0))
 
 
-func _screen_sign_rect(ji: int, center: Vector2) -> Rect2:
-	var size := Vector2(_sign_width(m.jobs[ji].title), SIGN_H)
-	return Rect2(center - size * 0.5, size)
-
-
-## Не ставим указатели поверх людей, подписей, домов и реплик.
+## Постройки и их подписи не зависят от движения жителей и не раскачивают таблички.
 func _screen_obstacles() -> Array[Rect2]:
 	var out: Array[Rect2] = []
-	if view == null:
-		return out
-	if view.crowd != null:
-		for figure: VillagerFigure in view.crowd.figures.values():
-			if not is_instance_valid(figure) or not figure.is_visible_in_tree():
-				continue
-			var body := figure.body_rect_global()
-			var label := figure.label_rect_global()
-			if view._field.intersects(body):
-				out.append(body.grow(4.0))
-			if view._field.intersects(label):
-				out.append(label.grow(4.0))
+	for i in range(view.open_count):
+		var plaque := view.shelter_label_rect_global(i)
+		if view._field.intersects(plaque):
+			out.append(plaque.grow(6.0))
 	for house: HouseDef in view.def.shelters:
 		_add_house_obstacle(out, house)
 	for house: HouseDef in view.def.decor:
@@ -120,33 +139,51 @@ func _add_house_obstacle(out: Array[Rect2], house: HouseDef) -> void:
 func sign_rect_global(ji: int) -> Rect2:
 	if m == null or ji < 0 or ji >= m.jobs.size():
 		return Rect2()
-	var c := get_global_transform_with_canvas() * icon_pos(ji)
-	var width := _sign_width(m.jobs[ji].title)
-	return Rect2(c - Vector2(width * 0.5, SIGN_H * 0.5), Vector2(width, SIGN_H))
+	_layout_markers()
+	return _marker_rects[ji]
 
 
 ## Указатель дела — увеличенная зона касания вокруг таблички.
 func icon_rect_global(ji: int) -> Rect2:
 	var sign := sign_rect_global(ji)
-	var size := Vector2(maxf(sign.size.x, 84.0), maxf(sign.size.y, 84.0))
+	if not sign.has_area():
+		return Rect2()
+	var size := Vector2(maxf(sign.size.x, TOUCH_SIZE), maxf(sign.size.y, TOUCH_SIZE))
 	return Rect2(sign.get_center() - size * 0.5, size)
 
 
-## Дело под пальцем: указатель или рабочая точка. -1 означает, что игрок нажал мимо.
+## Сначала проверяем видимую табличку, потом расширенную область и рабочую точку.
+func marker_at(global_pos: Vector2) -> int:
+	var best := -1
+	var distance := INF
+	for i in range(m.jobs.size()):
+		var marker := sign_rect_global(i)
+		if marker.has_point(global_pos):
+			return i
+		var hit := icon_rect_global(i)
+		if hit.has_point(global_pos):
+			var candidate := hit.get_center().distance_squared_to(global_pos)
+			if candidate < distance:
+				best = i
+				distance = candidate
+	return best
+
+
 func job_at(global_pos: Vector2) -> int:
 	if not visible or m == null or m.jobs.size() != m.job_left.size():
 		return -1
+	var marker := marker_at(global_pos)
+	if marker >= 0:
+		return marker
 	var best := -1
-	var best_d := INF
+	var distance := INF
+	var transform := get_global_transform_with_canvas()
 	for i in range(m.jobs.size()):
-		var spot := view.to_global(m.jobs[i].pos + Vector2(0, -36))
-		var spot_rect := Rect2(spot - Vector2(30, 40) * view.scale.x, Vector2(60, 80) * view.scale.x)
-		var marker := icon_rect_global(i)
-		if marker.has_point(global_pos) or spot_rect.has_point(global_pos):
-			var d := minf(marker.get_center().distance_to(global_pos), spot.distance_to(global_pos))
-			if d < best_d:
-				best_d = d
-				best = i
+		var spot := transform * (m.jobs[i].pos + STATION_OFFSET + Vector2(0, -16))
+		var offset := spot.distance_squared_to(global_pos)
+		if offset <= 26.0 * 26.0 and offset < distance:
+			best = i
+			distance = offset
 	return best
 
 
@@ -189,14 +226,17 @@ func _draw() -> void:
 		var left := m.job_left[i] if i < m.job_left.size() else 0
 		var done := left <= 0
 		var site: Vector2 = j.pos
+		_draw_station(j.kind, site + STATION_OFFSET, done or (j.kind == JobDef.Kind.BOX and m.box_opened_by >= 0))
+		var marker := sign_rect_global(i)
+		if not marker.has_area():
+			continue
 		var c := icon_pos(i)
-		_draw_station(j.kind, site + Vector2(-30.0, 2.0), done)
-		_draw_sign(j, c, site, left, done)
+		_draw_sign(j, c, site + STATION_OFFSET, left, done)
 		if i == progress_job and progress >= 0.0:
 			var ui_scale := _ui_scale()
 			draw_set_transform(c * (1.0 - ui_scale), 0.0, Vector2.ONE * ui_scale)
-			var w := _sign_width(j.title) - 18.0
-			var p := c + Vector2(0.0, 23.0)
+			var w := _sign_width(_marker_title(j)) - 18.0
+			var p := c + Vector2(0.0, 18.0)
 			draw_rect(Rect2(p.x - w * 0.5, p.y, w, 3.5), Color(ink, 0.85))
 			draw_rect(Rect2(p.x - w * 0.5, p.y, w * clampf(progress, 0.0, 1.0), 3.5), ThemeFactory.LAMP)
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -216,19 +256,16 @@ func _draw() -> void:
 func _draw_sign(j: JobDef, c: Vector2, _site: Vector2, left: int, done: bool) -> void:
 	var ui_scale := _ui_scale()
 	draw_set_transform(c * (1.0 - ui_scale), 0.0, Vector2.ONE * ui_scale)
-	var width := _sign_width(j.title)
+	var width := _sign_width(_marker_title(j))
 	var r := Rect2(c.x - width * 0.5, c.y - SIGN_H * 0.5, width, SIGN_H)
 	var alpha := 0.62 if done else 1.0
 	var wood := Color("39271b", alpha)
 	var edge := Color(ThemeFactory.LAMP_D, 0.95 * alpha)
-	var pointer := PackedVector2Array([
-		Vector2(c.x - 5.0, r.end.y - 2.0), Vector2(c.x + 5.0, r.end.y - 2.0), Vector2(c.x, r.end.y + 7.0)
-	])
-	var station_top := _site + Vector2(0.0, -16.0)
-	if pointer[2].distance_to(station_top) > 18.0:
-		draw_line(pointer[2], station_top, Color(ThemeFactory.LAMP_D, 0.56 * alpha), 1.0, true)
-	draw_colored_polygon(pointer, wood)
-	draw_polyline(PackedVector2Array([pointer[0], pointer[1], pointer[2], pointer[0]]), edge, 1.4, true)
+	var direction := (_site - c).normalized()
+	var stem := Vector2(clampf(direction.x * 26.0, -width * 0.36, width * 0.36), SIGN_H * 0.5 * signf(direction.y))
+	var base := c + stem
+	var tip := base + Vector2(direction.x * 9.0, signf(direction.y) * 7.0)
+	draw_colored_polygon(PackedVector2Array([base - Vector2(5, 0), base + Vector2(5, 0), tip]), edge)
 	var shadow_rect := r.grow(2.0)
 	shadow_rect.position += Vector2(1.0, 3.0)
 	Art.shape(self, Art.rrect(shadow_rect, 5.0), Color(0.01, 0.008, 0.005, 0.62), Color(0, 0, 0, 0), 0.0)
@@ -238,16 +275,17 @@ func _draw_sign(j: JobDef, c: Vector2, _site: Vector2, left: int, done: bool) ->
 	for nail: Vector2 in [Vector2(r.position.x + 4.5, r.position.y + 5.0), Vector2(r.end.x - 4.5, r.position.y + 5.0),
 			Vector2(r.position.x + 4.5, r.end.y - 5.0), Vector2(r.end.x - 4.5, r.end.y - 5.0)]:
 		draw_circle(nail, 1.25, Color(ThemeFactory.LAMP_D, 0.85 * alpha))
-	_icon(j.kind, Vector2(r.position.x + 17.0, r.get_center().y), done)
+	draw_job_icon(self, j.kind, Vector2(r.position.x + 17.0, r.get_center().y), done)
 	var text_x := r.position.x + 31.0
-	var available := width - 48.0
+	var title := _marker_title(j)
+	var available := width - 39.0
 	var size := maxi(8, roundi(10.0 * ThemeFactory.text_scale))
-	while size > 8 and _font.get_string_size(j.title, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > available:
+	while size > 8 and _font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > available:
 		size -= 1
-	var baseline := Vector2(text_x, r.position.y + 21.0)
-	draw_string_outline(_font, baseline, j.title, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 2, Color(Art.INK, 0.95 * alpha))
-	draw_string(_font, baseline, j.title, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(ThemeFactory.BONE, alpha))
-	var count := "%d/%d" % [maxi(left, 0), j.portions]
+	var baseline := Vector2(text_x, r.position.y + 20.0)
+	draw_string_outline(_font, baseline, title, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 2, Color(Art.INK, 0.95 * alpha))
+	draw_string(_font, baseline, title, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(ThemeFactory.BONE, alpha))
+	var count := "%d/%d" % [j.portions - maxi(left, 0), j.portions]
 	draw_string(_font, Vector2(r.end.x - 27.0, r.end.y - 4.0), count, HORIZONTAL_ALIGNMENT_RIGHT, 26.0, 8, Color(ThemeFactory.LAMP, alpha))
 	if done:
 		var stamp := Vector2(r.end.x - 11.0, r.position.y + 9.0)
@@ -259,76 +297,48 @@ func _draw_sign(j: JobDef, c: Vector2, _site: Vector2, left: int, done: bool) ->
 
 ## У каждого дела свой предмет на земле, рядом с тем местом, где житель работает.
 func _draw_station(kind: JobDef.Kind, p: Vector2, done: bool) -> void:
-	var dim := 0.55 if done else 1.0
-	var ink := Art.INK
-	Art.shape(self, Art.ellipse(p + Vector2(0, 4), Vector2(26, 7), 18), Color(0, 0, 0, 0.28), Color(0, 0, 0, 0), 0.0)
-	match kind:
-		JobDef.Kind.WATER:
-			draw_colored_polygon(PackedVector2Array([p + Vector2(-11, -18), p + Vector2(11, -18), p + Vector2(8, 3), p + Vector2(-8, 3)]), Color("8a603d", dim))
-			draw_arc(p + Vector2(0, -18), 11.0, PI, TAU, 16, Color(ink, dim), 2.0, true)
-			draw_line(p + Vector2(-9, -8), p + Vector2(9, -8), Color("b8874e", dim), 2.0, true)
-			draw_line(p + Vector2(-6, -3), p + Vector2(6, -3), Color(ink, 0.7 * dim), 1.4, true)
-			draw_arc(p + Vector2(19, 2), 9.0, PI, TAU, 18, Color("779eb0", 0.7 * dim), 1.4, true)
-		JobDef.Kind.WOOD:
-			for k in range(3):
-				var center := p + Vector2(0.0, -5.0 - k * 7.0)
-				draw_line(center + Vector2(-19, 0), center + Vector2(18, 0), Color(ink, dim), 7.0, true)
-				draw_line(center + Vector2(-18, -1), center + Vector2(17, -1), Color("96683d", dim), 4.5, true)
-				draw_circle(center + Vector2(-18, -1), 3.0, Color("c7a16c", dim))
-				draw_circle(center + Vector2(-18, -1), 1.3, Color("65442d", dim))
-		JobDef.Kind.LAMP:
-			draw_line(p + Vector2(-8, 3), p + Vector2(8, 3), Color("65442d", dim), 4.0, true)
-			draw_line(p + Vector2(0, 1), p + Vector2(0, -22), Color("65442d", dim), 3.0, true)
-			draw_line(p + Vector2(-6, -18), p + Vector2(6, -18), Color("65442d", dim), 2.0, true)
-			Art.shape(self, Art.rrect(Rect2(p.x - 5.0, p.y - 17.0, 10.0, 13.0), 2.0), Color("f3b75c", dim), ink, 1.6)
-			draw_colored_polygon(PackedVector2Array([p + Vector2(-2, -7), p + Vector2(2, -7), p + Vector2(0, -13)]), Color("fff0b0", dim))
-			draw_circle(p + Vector2(0, -11), 11.0, Color(ThemeFactory.LAMP, 0.1 * dim))
-		JobDef.Kind.TALISMAN:
-			draw_line(p + Vector2(0, 3), p + Vector2(0, -21), Color("65442d", dim), 3.0, true)
-			draw_line(p + Vector2(-10, -19), p + Vector2(10, -19), Color("9a7046", dim), 3.0, true)
-			draw_line(p + Vector2(-6, -16), p + Vector2(-6, -7), Color("b14e3c", dim), 2.0, true)
-			draw_line(p + Vector2(6, -16), p + Vector2(6, -7), Color("c8a365", dim), 2.0, true)
-			draw_colored_polygon(PackedVector2Array([p + Vector2(-8, -11), p + Vector2(0, -5), p + Vector2(8, -11), p + Vector2(0, -15)]), Color("9b3f32", dim))
-		JobDef.Kind.BOX:
-			_crate(p, done)
-		JobDef.Kind.FISH:
-			Art.shape(self, Art.rrect(Rect2(p.x - 15, p.y - 12, 29, 16), 4.0), Color("855738", dim), ink, 1.7)
-			draw_line(p + Vector2(-12, -8), p + Vector2(12, -8), Color("c39a66", dim), 1.3, true)
-			for x: float in [-8.0, -2.0, 4.0, 10.0]:
-				draw_line(p + Vector2(x, -11), p + Vector2(x - 2, 3), Color(ink, 0.5 * dim), 1.0, true)
-			draw_colored_polygon(PackedVector2Array([p + Vector2(1, -17), p + Vector2(10, -13), p + Vector2(1, -9), p + Vector2(-7, -13)]), Color("9aa6aa", dim))
-			draw_circle(p + Vector2(7, -13), 1.1, ink)
+	if kind == JobDef.Kind.BOX and done:
+		_crate(p, true)
+		return
+	var tex := STATION_ART[kind] as Texture2D
+	var height := 44.0 if kind == JobDef.Kind.LAMP else 28.0
+	var width := minf(64.0, height * float(tex.get_width()) / maxf(1.0, float(tex.get_height())))
+	var rect := Rect2(p.x - width * 0.5, p.y - height, width, height)
+	draw_texture_rect(tex, rect, false, Color(0.75, 0.72, 0.68) if done else Color.WHITE)
+	if kind == JobDef.Kind.BOX:
+		var glow := 0.65 + 0.25 * sin(_t * 3.5)
+		draw_circle(rect.get_center() + Vector2(0, 3), 3.5, Color(ThemeFactory.LAMP, glow))
 
 
 ## Гравированный знак на табличке. У каждого дела свой силуэт и цвет.
-func _icon(kind: JobDef.Kind, c: Vector2, dim: bool) -> void:
+static func draw_job_icon(canvas: CanvasItem, kind: JobDef.Kind, c: Vector2, dim: bool = false) -> void:
 	var a := 0.58 if dim else 1.0
 	var ink := Art.INK
 	match kind:
 		JobDef.Kind.WATER:
-			Art.shape(self, PackedVector2Array([c + Vector2(-7, -5), c + Vector2(7, -5), c + Vector2(5, 7), c + Vector2(-5, 7)]), Color("78a8bb", a), ink, 1.5)
-			draw_arc(c + Vector2(0, -5), 7.0, PI, TAU, 12, Color(ink, a), 1.5, true)
-			draw_line(c + Vector2(-5, -1), c + Vector2(5, -1), Color("d4bd91", a), 1.4, true)
+			Art.shape(canvas, PackedVector2Array([c + Vector2(-7, -5), c + Vector2(7, -5), c + Vector2(5, 7), c + Vector2(-5, 7)]), Color("78a8bb", a), ink, 1.5)
+			canvas.draw_arc(c + Vector2(0, -5), 7.0, PI, TAU, 12, Color(ink, a), 1.5, true)
+			canvas.draw_line(c + Vector2(-5, -1), c + Vector2(5, -1), Color("d4bd91", a), 1.4, true)
 		JobDef.Kind.WOOD:
 			for y: float in [-4.0, 1.0, 6.0]:
-				draw_line(c + Vector2(-7, y), c + Vector2(7, y), Color("a97849", a), 3.6, true)
-				draw_circle(c + Vector2(-6.0, y), 1.5, Color("d2aa72", a))
+				canvas.draw_line(c + Vector2(-7, y), c + Vector2(7, y), Color("a97849", a), 3.6, true)
+				canvas.draw_circle(c + Vector2(-6.0, y), 1.5, Color("d2aa72", a))
 		JobDef.Kind.LAMP:
-			Art.shape(self, Art.rrect(Rect2(c.x - 5.0, c.y - 6.0, 10.0, 13.0), 2.0), Color("f1b457", a), ink, 1.4)
-			draw_line(c + Vector2(-6, -3), c + Vector2(6, -3), Color(ink, a), 1.3, true)
-			draw_colored_polygon(PackedVector2Array([c + Vector2(-2, 2), c + Vector2(2, 2), c + Vector2(0, -3)]), Color("fff0b0", a))
+			Art.shape(canvas, Art.rrect(Rect2(c.x - 5.0, c.y - 6.0, 10.0, 13.0), 2.0), Color("f1b457", a), ink, 1.4)
+			canvas.draw_line(c + Vector2(-6, -3), c + Vector2(6, -3), Color(ink, a), 1.3, true)
+			canvas.draw_colored_polygon(PackedVector2Array([c + Vector2(-2, 2), c + Vector2(2, 2), c + Vector2(0, -3)]), Color("fff0b0", a))
 		JobDef.Kind.TALISMAN:
-			draw_line(c + Vector2(0, -8), c + Vector2(0, 8), Color("c8a365", a), 2.0, true)
-			draw_line(c + Vector2(-6, -4), c + Vector2(6, -4), Color("c8a365", a), 2.0, true)
-			draw_colored_polygon(PackedVector2Array([c + Vector2(-4, 1), c + Vector2(0, 7), c + Vector2(4, 1), c + Vector2(0, -3)]), Color("a64335", a))
+			canvas.draw_line(c + Vector2(0, -8), c + Vector2(0, 8), Color("c8a365", a), 2.0, true)
+			canvas.draw_line(c + Vector2(-6, -4), c + Vector2(6, -4), Color("c8a365", a), 2.0, true)
+			canvas.draw_colored_polygon(PackedVector2Array([c + Vector2(-4, 1), c + Vector2(0, 7), c + Vector2(4, 1), c + Vector2(0, -3)]), Color("a64335", a))
 		JobDef.Kind.BOX:
-			Art.shape(self, Art.rrect(Rect2(c.x - 7.0, c.y - 5.0, 14.0, 11.0), 1.0), Color("a8794e", a), ink, 1.5)
-			draw_line(c + Vector2(-7, -1), c + Vector2(7, -1), Color(ink, a), 1.2, true)
-			draw_line(c + Vector2(0, -5), c + Vector2(0, 6), Color("e0b476", a), 1.0, true)
+			Art.shape(canvas, Art.rrect(Rect2(c.x - 7.0, c.y - 5.0, 14.0, 11.0), 1.0), Color("a8794e", a), ink, 1.5)
+			canvas.draw_line(c + Vector2(-7, -1), c + Vector2(7, -1), Color(ink, a), 1.2, true)
+			canvas.draw_line(c + Vector2(0, -5), c + Vector2(0, 6), Color("e0b476", a), 1.0, true)
 		JobDef.Kind.FISH:
-			Art.shape(self, Art.ellipse(c + Vector2(-1, 0), Vector2(7, 4.5), 12), Color("9aadb0", a), ink, 1.3)
-			draw_colored_polygon(PackedVector2Array([c + Vector2(5, 0), c + Vector2(10, -4), c + Vector2(10, 4)]), Color("9aadb0", a))
-			draw_circle(c + Vector2(-4, -1), 1.0, ink)
+			Art.shape(canvas, Art.ellipse(c + Vector2(-1, 0), Vector2(7, 4.5), 12), Color("9aadb0", a), ink, 1.3)
+			canvas.draw_colored_polygon(PackedVector2Array([c + Vector2(5, 0), c + Vector2(10, -4), c + Vector2(10, 4)]), Color("9aadb0", a))
+			canvas.draw_circle(c + Vector2(-4, -1), 1.0, ink)
 
 
 ## Ящик на земле: открытый показывает тёмную пустоту, закрытый закреплён планкой.
