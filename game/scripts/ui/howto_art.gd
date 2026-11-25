@@ -118,8 +118,8 @@ func _layout() -> void:
 				figures[i].position = Vector2(w * (0.12 + 0.19 * i), h * 0.76)
 		"jobs":
 			for i in range(figures.size()):
-				figures[i].scale = Vector2.ONE * sc * 0.60
-				figures[i].position = Vector2(w * (0.17 + 0.33 * i), h * 0.84)
+				figures[i].scale = Vector2.ONE * sc * 0.77
+				figures[i].position = Vector2(w * (0.17 + 0.33 * i), h * 0.86)
 		"events":
 			figures[0].position = Vector2(w * 0.20, h * 0.76)
 			figures[1].position = Vector2(w * 0.80, h * 0.76)
@@ -232,7 +232,7 @@ func _draw_job_examples() -> void:
 	box.set_corner_radius_all(4)
 	var width := minf(144.0, size.x * 0.30)
 	for i in range(kinds.size()):
-		var center := Vector2(size.x * (float(i % 3) + 0.5) / 3.0, size.y * (0.16 if i < 3 else 0.42))
+		var center := Vector2(size.x * (float(i % 3) + 0.5) / 3.0, size.y * (0.15 if i < 3 else 0.36))
 		var r := Rect2(center - Vector2(width * 0.5, 14.0), Vector2(width, 28.0))
 		draw_style_box(box, r)
 		JobLayer.draw_job_icon(self, kinds[i], Vector2(r.position.x + 13.0, center.y))
