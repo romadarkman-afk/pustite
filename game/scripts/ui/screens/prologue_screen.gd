@@ -111,6 +111,11 @@ func build() -> void:
 	actions.add_child(_go)
 	footer.add_child(actions)
 	_reveal_nodes = [role, story, role_l, case_card, facts]
+	if not Game.chapter.is_empty() and not bool(Game.chapter.get("cold_open", false)):
+		var goals := goals_card(m, Game.chapter, {})
+		goals.modulate.a = 0.0
+		_cast.add_child(goals)
+		_reveal_nodes.append(goals)
 	if provision_card != null:
 		_reveal_nodes.append(provision_card)
 	if _comics_due() or _act_prologue_due():
