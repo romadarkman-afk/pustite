@@ -54,6 +54,7 @@ func _build() -> void:
 		"door": idx = [3, 7]
 		"talisman": idx = [-1, 4]
 		"marks": idx = [0, 1, 3, 5, 8]
+		"jobs": idx = [2, 6, -1]
 		"events": idx = [-1, 7]
 		"roles": idx = [7, 10, 4]
 		"campaign": idx = [0, 5, -1]
@@ -115,6 +116,10 @@ func _layout() -> void:
 		"marks":
 			for i in range(figures.size()):
 				figures[i].position = Vector2(w * (0.12 + 0.19 * i), h * 0.76)
+		"jobs":
+			for i in range(figures.size()):
+				figures[i].scale = Vector2.ONE * sc * 0.60
+				figures[i].position = Vector2(w * (0.17 + 0.33 * i), h * 0.84)
 		"events":
 			figures[0].position = Vector2(w * 0.20, h * 0.76)
 			figures[1].position = Vector2(w * 0.80, h * 0.76)
@@ -227,7 +232,7 @@ func _draw_job_examples() -> void:
 	box.set_corner_radius_all(4)
 	var width := minf(144.0, size.x * 0.30)
 	for i in range(kinds.size()):
-		var center := Vector2(size.x * (float(i % 3) + 0.5) / 3.0, size.y * (0.28 if i < 3 else 0.67))
+		var center := Vector2(size.x * (float(i % 3) + 0.5) / 3.0, size.y * (0.16 if i < 3 else 0.42))
 		var r := Rect2(center - Vector2(width * 0.5, 14.0), Vector2(width, 28.0))
 		draw_style_box(box, r)
 		JobLayer.draw_job_icon(self, kinds[i], Vector2(r.position.x + 13.0, center.y))

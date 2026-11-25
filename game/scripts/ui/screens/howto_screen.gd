@@ -107,7 +107,8 @@ func _size_art() -> void:
 	if is_instance_valid(art):
 		var rows: int = (PAGES[page][3] as Array).size()
 		var share := 0.28 if rows <= 3 else 0.19
-		art.custom_minimum_size = Vector2(0, clampf(size.y * share, 120.0, 200.0) if size.y > 0.0 else 150.0)
+		var minimum := 175.0 if art.kind == "jobs" else 120.0
+		art.custom_minimum_size = Vector2(0, clampf(size.y * share, minimum, 200.0) if size.y > 0.0 else maxf(minimum, 150.0))
 
 
 func next_page() -> void:
