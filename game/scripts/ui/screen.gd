@@ -343,6 +343,10 @@ func _capsule(inner: Control) -> Control:
 
 
 
+func show_navigation() -> bool:
+	return screen_id() != "menu"
+
+
 func _chrome() -> void:
 	var col := W.vbox(10 if field_ratio() > 0.0 else 14)
 	chrome = col
@@ -381,7 +385,7 @@ func _chrome() -> void:
 		_clock_capsule = _capsule(_clock) if over_sky else _clock
 		_clock_capsule.visible = false
 		bar.add_child(_clock_capsule)
-		if screen_id() != "menu":
+		if show_navigation():
 			var menu := W.button(_navigation_label(), &"Compact", ThemeFactory.COMPACT_TOUCH)
 			menu.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
 			menu.accessibility_name = L.t("ui.menu") if m != null else L.t("ui.back")

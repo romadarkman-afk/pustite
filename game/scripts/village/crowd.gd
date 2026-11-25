@@ -609,6 +609,12 @@ func walk_route(from: Vector2, destination: Vector2, door_house: int = -1) -> Pa
 				var id := Vector2i(x, y)
 				if wall.has_point(grid.get_point_position(id)):
 					grid.set_point_solid(id, true)
+	if view.water_image() != null:
+		for y in range(GRID.y):
+			for x in range(GRID.x):
+				var id := Vector2i(x, y)
+				if view.water_at(grid.get_point_position(id)):
+					grid.set_point_solid(id, true)
 	var start_id := _free_cell(grid, from, CELL, GRID)
 	var end_id := _free_cell(grid, target, CELL, GRID)
 	if grid.is_point_solid(start_id) or grid.is_point_solid(end_id):
@@ -682,6 +688,8 @@ func _walk_walls(door_house: int = -1) -> Array[Rect2]:
 			out.append(Rect2(Vector2(footprint.position.x, gap.position.y), Vector2(gap.position.x - footprint.position.x, gap.size.y)))
 		if gap.end.x < footprint.end.x:
 			out.append(Rect2(Vector2(gap.end.x, gap.position.y), Vector2(footprint.end.x - gap.end.x, gap.size.y)))
+	# Основание колодца лежит ниже навеса и остаётся твёрдым на всех картах.
+	out.append(Rect2(view.def.well + Vector2(-31, -34), Vector2(62, 45)))
 	# перед дверью пустого дома погибшего никто не стоит и не ходит (TASK-079)
 	for i in range(view.def.shelters.size()):
 		if i != door_house and view.dead_house(i):
@@ -693,6 +701,8 @@ func _segment_clear(a: Vector2, b: Vector2, walls: Array[Rect2]) -> bool:
 	var steps := maxi(1, ceili(a.distance_to(b) / 6.0))
 	for i in range(steps + 1):
 		var p := a.lerp(b, float(i) / float(steps))
+		if view.water_at(p):
+			return false
 		for wall: Rect2 in walls:
 			if wall.has_point(p):
 				return false

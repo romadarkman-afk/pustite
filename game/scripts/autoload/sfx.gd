@@ -109,9 +109,10 @@ const VOICE_DIR := "res://assets/voice/"
 const BARK_MOOD := {"grief": "grief", "despair": "grief", "guilt": "grief", "exhaustion": "grief", "fear": "fear", "rage": "rage"}
 const BARKS_PER_SET := 8
 ## Музыка в момент озвучки тише на столько дБ.
-const DUCK_DB := 10.0
-const VOICE_EFFECT_DUCK_DB := -14.0
-const VOICE_AMBIENCE_DUCK_DB := -12.0
+const DUCK_DB := 6.0
+const VOICE_EFFECT_DUCK_DB := -11.0
+const VOICE_AMBIENCE_DUCK_DB := -5.0
+const EFFECT_TRIM := {&"knock": -5.0, &"slam": -5.0, &"scratch": -3.0, &"death": -4.0}
 ## Музыка по главам (TASK-123): day_a1c2 … night_a4c3. У быстрой партии на карте «посёлок» играют общие day и night. С 0.68.0 свои дорожки day_<глава> и night_<глава> есть у всех двенадцати глав.
 ## Файлов может не быть: тогда играет общая дорожка. Их делает tools/make_stage_music.py.
 const STAGE_KEYS: PackedStringArray = ["a1c1", "a1c2", "a1c3", "a2c1", "a2c2", "a2c3", "a3c1", "a3c2", "a3c3", "a4c1", "a4c2", "a4c3"]
@@ -176,6 +177,7 @@ var _bark_cache: Dictionary = {}      ## "f_old_calm" -> Array[AudioStream]; п�
 var _bark_last: Dictionary = {}       ## id говорящего -> номер последнего возгласа
 var _voice_duck_sfx: AudioEffectAmplify
 var _voice_duck_amb: AudioEffectAmplify
+var _voice_duck_tween: Tween
 var _muted_by_os := false
 var _tw: Dictionary = {}
 
@@ -316,7 +318,7 @@ func play(n: StringName, pitch: float = 1.0, vol_db: float = 0.0) -> void:
 	p.bus = &"Sfx"
 	p.stream = _one_shot(stream_name, n)
 	p.pitch_scale = clampf(pitch, 0.25, 4.0)
-	p.volume_db = vol_db
+	p.volume_db = vol_db + float(EFFECT_TRIM.get(n, 0.0))
 	p.play()
 
 
@@ -449,10 +451,20 @@ func play_voice_line(path: String, vol_db: float = 0.0) -> float:
 ## Отдельные эффекты не меняют громкость каналов, заданную в настройках.
 func _voice_mix_update() -> void:
 	var on := voice_line_playing() and not is_bus_muted(&"Voice")
-	if _voice_duck_sfx != null:
-		_voice_duck_sfx.volume_db = VOICE_EFFECT_DUCK_DB if on else 0.0
-	if _voice_duck_amb != null:
-		_voice_duck_amb.volume_db = VOICE_AMBIENCE_DUCK_DB if on else 0.0
+	if _voice_duck_sfx == null or _voice_duck_amb == null:
+		return
+	if _voice_duck_tween != null:
+		_voice_duck_tween.kill()
+	var fx_db := VOICE_EFFECT_DUCK_DB if on else 0.0
+	var amb_db := VOICE_AMBIENCE_DUCK_DB if on else 0.0
+	var time := 0.18 if on else 0.65
+	if Juice.instant:
+		_voice_duck_sfx.volume_db = fx_db
+		_voice_duck_amb.volume_db = amb_db
+	else:
+		_voice_duck_tween = create_tween().set_parallel()
+		_voice_duck_tween.tween_property(_voice_duck_sfx, "volume_db", fx_db, time)
+		_voice_duck_tween.tween_property(_voice_duck_amb, "volume_db", amb_db, time)
 
 
 func _voice_finished() -> void:
@@ -866,7 +878,7 @@ func _music_target_db() -> float:
 	var base: float = MUSIC_LEVEL.get(music_name, MUSIC_LEVEL.get(StringName(String(music_name).get_slice("_", 0)), -8.0))
 	if heart_on:
 		base -= 5.0
-	if voice_line_playing():
+	if voice_line_playing() and not is_bus_muted(&"Voice"):
 		base -= DUCK_DB
 	return base
 

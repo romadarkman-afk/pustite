@@ -27,7 +27,7 @@ var _eye_pop: float = 0.0
 var highlight: bool = false        ## метка «Вы»: стрелка над головой и кольцо под ногами
 
 const MARK_X := 31.0       ## колонка отметок справа от головы
-const MARK_SCALE := 0.82     ## метки чуть компактнее; зона выбора жителя остаётся прежней
+const MARK_SCALE := 1.0     ## отметки различимы при общем плане
 const S := 0.62            ## масштаб рисунка жителя (Folk) в единицах посёлка
 const FIG_TOP := 88.0      ## высота жителя с шапкой, логических единиц
 
@@ -550,6 +550,9 @@ func _apply_lantern_tint(tex: Texture2D) -> void:
 ## Ночью фонарь игрока светит, днём погашен; ночью у всех встревоженные лица.
 func set_night(n: float) -> void:
 	night = n
+	if body != null:
+		var night_tint := Color(0.63, 0.69, 0.83) if is_player else Color(0.50, 0.57, 0.73)
+		body.modulate = Color(Color.WHITE.lerp(night_tint, n), body.modulate.a)
 	if _door_rig != null and _door_rig.material is ShaderMaterial:
 		(_door_rig.material as ShaderMaterial).set_shader_parameter("night", n)
 	if lantern_light != null:

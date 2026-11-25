@@ -7,7 +7,7 @@ func screen_id() -> String:
 
 
 func title() -> String:
-	return L.t("end.title")
+	return ""
 
 
 func mood() -> Vector2:
@@ -36,26 +36,30 @@ func build() -> void:
 	body.add_child(_steps)
 	var summary := _add_page("end.step_result")
 	summary.add_child(ending_card(people_won, won))
-	if not Game.chapter_result.is_empty():
-		summary.add_child(chapter_card(Game.chapter_result))
-	var verdict := _verdict_card()
-	summary.add_child(verdict)
+	var result := Game.chapter_result
+	if not result.is_empty():
+		summary.add_child(chapter_card(result, true))
+	summary.add_child(_verdict_card(true))
+	var earned := int(Game.progress_result.get("gained", 0))
+	if earned > 0:
+		summary.add_child(W.label(L.t("end.earned", {"xp": earned}), &"Speaker"))
+	for i in range(summary.get_child_count()):
+		Juice.pop_in(summary.get_child(i) as Control, i * 0.19)
 	var villagers := _add_page("end.step_cast")
 	_cast_page = _pages.size() - 1
 	var reveal := reveal_cards()
 	if reveal != null:
 		villagers.add_child(reveal)
+	var cast := HFlowContainer.new()
 	for v: Villager in m.villagers:
 		if not v.alive and (not v.is_upyr or v.is_player):
-			villagers.add_child(_resident_fate(v))
-	var survivors := HFlowContainer.new()
+			cast.add_child(_resident_fate(v))
 	for v: Villager in m.alive():
-		survivors.add_child(_resident_fate(v))
-	if survivors.get_child_count() > 0:
-		villagers.add_child(W.label(L.t("end.cast_survived"), &"Speaker"))
-		villagers.add_child(survivors)
+		cast.add_child(_resident_fate(v))
+	if cast.get_child_count() > 0:
+		villagers.add_child(cast)
 	else:
-		survivors.free()
+		cast.free()
 	var mem := memory_card(m)
 	if mem != null:
 		villagers.add_child(mem)
@@ -65,7 +69,11 @@ func build() -> void:
 		if not Game.progress_result.is_empty():
 			rewards.add_child(progress_card(Game.progress_result))
 		_add_unlocks(rewards)
-	_add_details(_add_page("end.step_details"), won)
+	var details := _add_page("end.step_details")
+	if not result.is_empty():
+		details.add_child(chapter_card(result))
+	details.add_child(_verdict_card())
+	_add_details(details, won)
 	var scrollbar := scroll.get_v_scroll_bar()
 	scrollbar.changed.connect(_update_more)
 	scrollbar.value_changed.connect(func(_value: float) -> void: _update_more())
@@ -89,10 +97,9 @@ func _add_page(key: String) -> VBoxContainer:
 func _resident_fate(v: Villager) -> PanelContainer:
 	var card := W.panel(&"Card")
 	card.name = "Fate_%d" % v.id
-	var row: BoxContainer = W.vbox(5) if v.alive else W.hbox(10)
-	if v.alive:
-		card.custom_minimum_size.x = 104.0
-	var portrait := W.portrait(v, Vector2(46, 72))
+	var row := W.vbox(4)
+	card.custom_minimum_size.x = 104.0
+	var portrait := W.portrait(v, Vector2(46, 67))
 	portrait.active = false
 	portrait.name = "FatePortrait"
 	if not v.alive:
@@ -102,11 +109,12 @@ func _resident_fate(v: Villager) -> PanelContainer:
 	var copy := W.vbox(3)
 	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var name_label := W.label(v.name, &"Speaker")
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER if v.alive else HORIZONTAL_ALIGNMENT_LEFT
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	copy.add_child(name_label)
 	var fate := "end.cast_alive" if v.alive else ("end.cast_exiled" if v.exiled else "end.cast_dead")
-	if not v.alive:
-		copy.add_child(W.label(L.t(fate), &"Small"))
+	var status := W.label(L.t(fate), &"Small")
+	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	copy.add_child(status)
 	row.add_child(copy)
 	card.add_child(row)
 	return card
@@ -137,7 +145,7 @@ func _show_page(index: int) -> void:
 		back.pressed.connect(func() -> void: _show_page(_page - 1))
 		footer.add_child(back)
 	if _page == 0:
-		# Финальный выбор остаётся на первом экране последней главы.
+		# На первой странице можно перейти к следующей главе или повторить текущую.
 		_exit_buttons(true)
 	elif _page == _reward_page and not _rewards_played:
 		_rewards_played = true
@@ -150,7 +158,10 @@ func _show_page(index: int) -> void:
 			for portrait: Node in reveal.find_children("Portrait", "TextureRect", true, false):
 				_bleed(portrait as TextureRect, delay)
 				delay += 0.18
-		for child: Node in _pages[_page].get_children():
+		var delay := 0.0
+		for child: Node in _pages[_page].find_children("Fate_*", "PanelContainer", true, false):
+			Juice.pop_in(child as Control, delay)
+			delay += 0.10
 			if child.has_meta("lost") and not Juice.instant:
 				var portrait := child.find_child("FatePortrait", true, false) as TextureRect
 				if portrait != null:
@@ -340,7 +351,7 @@ static func level_bar(xp: int) -> Control:
 
 
 ## Итог главы: пройдена или нет, звёзды, цели, концовка акта.
-func chapter_card(res: Dictionary) -> PanelContainer:
+func chapter_card(res: Dictionary, compact: bool = false) -> PanelContainer:
 	var card := W.panel(&"Sheet")
 	card.name = "ChapterResult"
 	var box := W.vbox(8)
@@ -354,7 +365,13 @@ func chapter_card(res: Dictionary) -> PanelContainer:
 		st.name = "Stars"
 		st.add_theme_color_override("font_color", ThemeFactory.LAMP)
 		box.add_child(st)
-	box.add_child(PrologueScreen.goals_card(m, Game.chapter, res))
+	if compact:
+		var goals: Array = res.get("goals", [])
+		var complete := goals.filter(func(goal: Dictionary) -> bool: return bool(goal.done)).size()
+		if not goals.is_empty():
+			box.add_child(W.label(L.t("end.goals_summary", {"done": complete, "count": goals.size()}), &"Small"))
+	else:
+		box.add_child(PrologueScreen.goals_card(m, Game.chapter, res))
 	var lost: Array = res.get("lost", [])
 	if bool(res.passed) and bool(res.get("replay", false)):
 		var note := W.label(L.t("camp.replay_note", {"stars": Campaign.stars_text(int(res.get("best", res.stars)))}), &"Hint")
@@ -369,16 +386,15 @@ func chapter_card(res: Dictionary) -> PanelContainer:
 		box.add_child(W.label(L.t("camp.lost_for_good", {"list": names}), &"Hint"))
 	elif not bool(res.passed):
 		box.add_child(W.label(L.t("camp.retry_note"), &"Hint"))
-	if bool(res.passed) and Campaign.last_of_act(id):
+	if compact and bool(res.passed) and id == "a4c3":
+		var final_button := W.button(L.t("fin.btn"))
+		final_button.name = "FinalNight"
+		final_button.pressed.connect(func() -> void: _final_night(box, final_button))
+		box.add_child(final_button)
+	if not compact and bool(res.passed) and Campaign.last_of_act(id):
 		var end := W.label(Campaign.act_ending(int(Game.chapter.get("act", 1))), &"Tale")
 		end.name = "ActEnd"
 		box.add_child(end)
-		# финал кампании (TASK-035): последняя ночь, выбор и эпилог
-		if id == "a4c3":
-			var fb := W.button(L.t("fin.btn"))
-			fb.name = "FinalNight"
-			fb.pressed.connect(func() -> void: _final_night(box, fb))
-			box.add_child(fb)
 		# разгадка «Пустой лодки» (TASK-018): только если игрок собрал достаточно находок
 		if id == "a1c3" and Campaign.boat_clues() >= Campaign.BOAT_SOLVED:
 			var b := Revelations.beat("boat_answer", m)
@@ -508,6 +524,7 @@ func ending_card(people_won: bool, won: bool) -> PanelContainer:
 	var box := W.vbox(10)
 	card.add_child(box)
 	var title := W.label(L.t("end.people" if people_won else "end.upyri"), &"Title")
+	title.add_theme_font_size_override("font_size", ThemeFactory.fs(29))
 	title.add_theme_color_override("font_color", ThemeFactory.LAMP if people_won else ThemeFactory.BLOOD)
 	box.add_child(title)
 	box.add_child(W.label(L.t("end.won" if won else "end.lost"), &"Tale"))
@@ -517,8 +534,11 @@ func ending_card(people_won: bool, won: bool) -> PanelContainer:
 		art.name = "EndArt"
 		art.texture = load(art_path)
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		art.custom_minimum_size = Vector2(0, 156)
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var fit_art := func() -> void:
+			art.custom_minimum_size.y = clampf(size.y * 0.30, 130.0, 345.0)
+		resized.connect(fit_art)
+		fit_art.call()
 		box.add_child(art)
 	var alive: Array[Villager] = m.alive()
 	var survivors := W.label(L.t("end.survivors", {"list": alive}) if not alive.is_empty() else L.t("end.nobody"), &"Small")
@@ -763,13 +783,15 @@ func _bleed(p: TextureRect, delay: float) -> void:
 
 
 ## Главное в разборе: что решило твою партию — и, если тебя не стало, почему.
-func _verdict_card() -> Control:
+func _verdict_card(compact: bool = false) -> Control:
 	var card := W.panel(&"Sheet")
 	card.name = "Verdict"
 	var box := W.vbox(8)
 	card.add_child(box)
 	box.add_child(W.label(L.t("end.verdict"), &"Speaker"))
 	box.add_child(W.label(Recap.verdict(m, director), &"Body"))
+	if compact:
+		return card
 	var more := PackedStringArray()
 	if m.player().exiled:
 		more = Recap.exile_lines(m, director).slice(1)

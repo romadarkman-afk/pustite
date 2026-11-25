@@ -20,6 +20,7 @@ const PLACES: Array[Dictionary] = [
 const SEASON_COLORS := {"summer": Color("c8d98a"), "autumn": Color("f0b060"), "winter": Color("b5d3f0"), "spring": Color("a8dcb0")}
 const LINE := Color(1.0, 0.78, 0.4, 0.6)
 
+var height_limit := INF
 var _art: TextureRect
 var _lines: Control
 var _items: Array[Dictionary] = []
@@ -41,7 +42,6 @@ func build() -> void:
 	_art.texture = load(MAP_PATH) as Texture2D if ResourceLoader.exists(MAP_PATH) else null
 	_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_art.stretch_mode = TextureRect.STRETCH_SCALE
-	_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_art)
 	_lines = Control.new()
@@ -102,33 +102,42 @@ func _place(act: int, p: Dictionary) -> Dictionary:
 
 
 func map_height() -> float:
-	return size.x * RATIO
+	return minf(size.x * RATIO, height_limit)
 
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
-		var h := map_height()
-		if absf(custom_minimum_size.y - h) > 0.5:
-			custom_minimum_size.y = h
+		fit_height()
+
+
+func fit_height() -> void:
+	var h := map_height()
+	if absf(custom_minimum_size.y - h) > 0.5:
+		custom_minimum_size.y = h
+	if is_instance_valid(_art) and is_instance_valid(_lines):
+		_layout()
 
 
 ## Пины ставятся на места картинки, подписи рядом и целиком внутри карты.
 func _layout() -> void:
-	var w := size.x
 	var h := map_height()
+	var w := h / RATIO
+	var left := (size.x - w) * 0.5
 	if w <= 0.0:
 		return
+	_art.position = Vector2(left, 0)
+	_art.size = Vector2(w, h)
 	for it: Dictionary in _items:
 		var pin: Control = it.pin
 		var tag: Control = it.tag
 		var at: Vector2 = it.at
 		var lab: Vector2 = it.label
 		pin.size = Vector2(PIN, PIN)
-		pin.position = Vector2(at.x * w, at.y * h) - pin.size * 0.5
+		pin.position = Vector2(left + at.x * w, at.y * h) - pin.size * 0.5
 		var tsz := tag.get_combined_minimum_size()
 		tag.size = tsz
-		var pos := Vector2(lab.x * w, lab.y * h) - tsz * 0.5
-		pos.x = clampf(pos.x, EDGE, maxf(EDGE, w - tsz.x - EDGE))
+		var pos := Vector2(left + lab.x * w, lab.y * h) - tsz * 0.5
+		pos.x = clampf(pos.x, EDGE, maxf(EDGE, size.x - tsz.x - EDGE))
 		pos.y = clampf(pos.y, EDGE, maxf(EDGE, h - tsz.y - EDGE))
 		tag.position = pos
 	_lines.queue_redraw()

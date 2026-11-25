@@ -27,6 +27,7 @@ var _done := false
 var _in_choice := false
 var _art: TextureRect
 var _portrait_box: CenterContainer
+var _portrait_tween: Tween
 var _dim: ColorRect
 var _fog: ColorRect
 var _wx: WeatherOverlay             ## осадки и туман главы: те же атласы, что на поле
@@ -77,7 +78,8 @@ func _build() -> void:
 	_portrait_box = CenterContainer.new()
 	_portrait_box.name = "Portrait"
 	_portrait_box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_portrait_box.offset_bottom = -260
+	_portrait_box.anchor_bottom = 0.72
+	_portrait_box.offset_bottom = 0
 	_portrait_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_portrait_box)
 	_fog = ColorRect.new()
@@ -178,15 +180,32 @@ func _next_frame() -> void:
 		var tw := create_tween()
 		tw.tween_property(_art, "scale", Vector2.ONE * float(zoom[1]), dur)
 	# Крупный портрет: пропорции исходника и свободное место для выбора внизу.
+	if _portrait_tween != null:
+		_portrait_tween.kill()
 	for child: Node in _portrait_box.get_children():
+		_portrait_box.remove_child(child)
 		child.queue_free()
 	var who: Variant = f.get("portrait", null)
 	var available := get_viewport_rect().size
-	var portrait_h := minf(available.y * 0.44, 530.0)
-	var portrait_size := Vector2(minf(available.x * 0.50, portrait_h * 0.56), portrait_h)
+	var portrait_h := minf(available.y * 0.40, 490.0)
+	var portrait_size := Vector2(minf(available.x * 0.73, portrait_h * 0.95), portrait_h)
 	var pic: TextureRect = null
 	if who is Villager:
 		pic = W.portrait(who as Villager, portrait_size, Color(0.92, 0.92, 0.95))
+		if pic.texture != null:
+			var full := pic.texture.get_size()
+			var closeup := AtlasTexture.new()
+			closeup.atlas = pic.texture
+			closeup.region = Rect2(full * Vector2(0.14, 0.02), full * Vector2(0.72, 0.56))
+			closeup.filter_clip = true
+			pic.texture = closeup
+			var living := pic as LivingPortrait
+			if living.blink_texture != null:
+				var blink := AtlasTexture.new()
+				blink.atlas = living.blink_texture
+				blink.region = closeup.region
+				blink.filter_clip = true
+				living.blink_texture = blink
 	elif who is String and ResourceLoader.exists(String(who)):
 		pic = TextureRect.new()
 		pic.texture = load(String(who)) as Texture2D
@@ -198,10 +217,11 @@ func _next_frame() -> void:
 		# Наезд целой фигуры не искажает голову и конечности.
 		if not Juice.instant and not Save.simplified_graphics:
 			pic.pivot_offset = portrait_size * 0.5
-			pic.scale = Vector2.ONE * 0.96
-			var portrait_tween := pic.create_tween()
-			portrait_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-			portrait_tween.tween_property(pic, "scale", Vector2.ONE * 1.02, maxf(2.0, dur))
+			_portrait_tween = _portrait_box.create_tween()
+			_portrait_box.pivot_offset = _portrait_box.size * 0.5
+			_portrait_box.scale = Vector2.ONE * 0.96
+			_portrait_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+			_portrait_tween.tween_property(_portrait_box, "scale", Vector2.ONE * 1.035, maxf(2.0, dur))
 	_fog.color.a = 0.22 if String(f.get("weather", "")) == "fog" else 0.0
 	var kind := String(f.get("weather", ""))
 	var light := String(f.get("light", "night"))

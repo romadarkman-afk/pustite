@@ -5,6 +5,7 @@ extends Screen
 signal death_fx
 
 var revealed := false
+var _details: VBoxContainer
 
 
 func screen_id() -> String:
@@ -35,7 +36,7 @@ func build() -> void:
 		L.t("mo.all_alive") if deaths.is_empty()
 		else (L.t("mo.one_dead") if deaths.size() == 1 else L.t("mo.dead_n", {"n": deaths.size()})),
 		&"Title")
-	head.add_theme_font_size_override("font_size", ThemeFactory.fs(44))
+	head.add_theme_font_size_override("font_size", ThemeFactory.fs(30))
 	body.add_child(head)
 	if not deaths.is_empty():
 		var portraits := HFlowContainer.new()
@@ -43,13 +44,16 @@ func build() -> void:
 			var v: Villager = death.who
 			if v != null:
 				var tile := W.vbox(4)
-				tile.add_child(W.portrait(v, Vector2(70, 96), Color(0.67, 0.70, 0.72)))
+				tile.custom_minimum_size.x = 78
+				tile.add_child(W.portrait(v, Vector2(58, 78), Color(0.67, 0.70, 0.72)))
 				var name := W.label(v.name, &"Small")
 				name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 				tile.add_child(name)
 				portraits.add_child(tile)
 		if portraits.get_child_count() > 0:
 			body.add_child(portraits)
+			for i in range(portraits.get_child_count()):
+				Juice.pop_in(portraits.get_child(i) as Control, i * 0.15)
 		else:
 			portraits.free()
 	# тебя не стало этой ночью — сразу видно почему: кто был рядом, кто открыл дверь
@@ -60,6 +64,22 @@ func build() -> void:
 		body.add_child(you_dead_card(r))
 		Sfx.set_music(&"", 0.3)
 
+	var toggle := W.button(L.t("mo.details"), &"Ghost", 45)
+	toggle.name = "NightDetailsToggle"
+	toggle.toggle_mode = true
+	body.add_child(toggle)
+	_details = W.vbox(9)
+	_details.name = "NightDetails"
+	_details.hide()
+	body.add_child(_details)
+	if you_died():
+		for reason: String in Recap.death_lines(m, m.player_death, r).slice(1):
+			_details.add_child(W.label(reason, &"Small"))
+	toggle.toggled.connect(func(open: bool) -> void:
+		_details.visible = open
+		toggle.text = L.t("mo.hide_details" if open else "mo.details")
+		if not open:
+			scroll.scroll_vertical = 0)
 	bell_lines()
 	_scene_then_reveal(r)
 
@@ -71,7 +91,7 @@ func bell_lines() -> void:
 		var l := W.label(L.t("mo.bell", {"n": n}), &"Hint")
 		l.name = "Bell%d" % n
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		body.add_child(l)
+		_details.add_child(l)
 	if not m.last_bells.is_empty() and not Juice.instant:
 		_ring.call_deferred(m.last_bells[0])
 
@@ -258,8 +278,9 @@ func you_dead_card(r: NightReport) -> PanelContainer:
 	t.add_theme_color_override("font_color", ThemeFactory.BLOOD)
 	box.add_child(t)
 	box.add_child(W.label(L.t("mo.why"), &"Small"))
-	for l: String in Recap.death_lines(m, e, r):
-		box.add_child(W.label(l, &"Small"))
+	var reasons := Recap.death_lines(m, e, r)
+	if not reasons.is_empty():
+		box.add_child(W.label(reasons[0], &"Small"))
 	var heard := W.label(last_heard(m, e), &"Tale")
 	heard.name = "LastHeard"
 	box.add_child(heard)
@@ -285,6 +306,11 @@ static func last_heard(mm: Match, e: NightReport.Entry) -> String:
 
 
 func _reveal(r: NightReport) -> void:
+	if not is_inside_tree():
+		await ready
+	await get_tree().process_frame
+	if not is_instance_valid(self) or not is_inside_tree():
+		return
 	# каждая строка сводки — карточка со значком события: смерть видно до того, как прочитал
 	var lines: Array[Array] = []
 	for e: NightReport.Entry in r.entries:
@@ -296,7 +322,6 @@ func _reveal(r: NightReport) -> void:
 	if m.night_event != Match.Event.NONE:
 		lines.append([Match.event_text(m.night_event), &"Small", false, event_glyph(m.night_event)])
 
-	await Juice.wait(0.6)
 	for l: Array in lines:
 		if not is_instance_valid(self):
 			return
@@ -308,36 +333,17 @@ func _reveal(r: NightReport) -> void:
 			card = W.panel(&"Card")
 			card.add_child(W.icon_line(l[3], l[0], l[1], 44, ThemeFactory.BLOOD if l[2] else Color(0, 0, 0, 0)))
 		card.set_meta("entry", true)
-		body.add_child(card)
-		Juice.pop_in(card)
-		if lost != null and not lost.is_player:
-			# утрата: тишина вместо музыки, крик, долгая пауза — строку не пролистнуть за полсекунды
-			Juice.haptic(Juice.Haptic.DEATH)
-			Sfx.play(&"death")
-			Sfx.play(&"human_cry_f" if lost.female else &"human_cry_m", 0.96 + randf() * 0.08, -8.0)
-			Sfx.play(Dread.death_sound(l[5]), 1.0, -9.0)
-			death_fx.emit()
-			Juice.shake(self, 8.0, 0.25)
-			await Juice.wait(LOSS_HOLD)
-		elif l[2]:
-			Juice.haptic(Juice.Haptic.DEATH)
-			var player_loss := lost != null and lost.is_player
-			if player_loss:
-				Sfx.play_grief_cue()
-			else:
-				Sfx.play(&"death")
-				Sfx.play(&"human_cry_f" if m.player().female else &"human_cry_m", 0.96 + randf() * 0.08, -8.0)
-				Sfx.play(Dread.death_sound(l[5]), 1.0, -9.0)
-			death_fx.emit()
-			if not player_loss:
-				Juice.shake(self, 8.0, 0.25)
-			await Juice.wait(1.3 if player_loss else 0.7)
-		else:
-			await Juice.wait(0.32)
-
-	for c: Dictionary in Guests.morning_clues(m):
-		body.add_child(guest_card(c))
-		await Juice.wait(0.4)
+		_details.add_child(card)
+	for clue: Dictionary in Guests.morning_clues(m):
+		_details.add_child(guest_card(clue))
+	if you_died():
+		Juice.haptic(Juice.Haptic.DEATH)
+		Sfx.play_grief_cue()
+		death_fx.emit()
+	elif not r.deaths().is_empty():
+		Juice.haptic(Juice.Haptic.DEATH)
+		Sfx.play(&"death", 1.0, -5.0)
+		death_fx.emit()
 	var resource_lines := m.resource_info_lines()
 	if m.resource_report_visible and not resource_lines.is_empty():
 		var resource_card := W.panel(&"Card")
@@ -346,9 +352,8 @@ func _reveal(r: NightReport) -> void:
 		for row: Array in resource_lines:
 			resource_box.add_child(W.label(String(row[1]), &"Small"))
 		resource_card.add_child(resource_box)
-		body.add_child(resource_card)
-		Juice.pop_in(resource_card)
-	body.add_child(people_strip())
+		_details.add_child(resource_card)
+	_details.add_child(people_strip())
 	var dead := you_died() and m.phase == Match.Phase.MORNING and m.winner == Match.Team.NONE
 	var next := W.button(L.t("mo.watch") if dead else L.t("ui.next"))
 	next.pressed.connect(func() -> void: commit(Intent.CONTINUE))
@@ -360,9 +365,6 @@ func _reveal(r: NightReport) -> void:
 		stop.pressed.connect(func() -> void: commit(Intent.SKIP_TO_END))
 		footer.add_child(stop)
 	revealed = true
-
-
-const LOSS_HOLD := 1.6
 
 
 ## Сцена утраты: портрет, кем был человек, его последние слова и как горюют близкие.

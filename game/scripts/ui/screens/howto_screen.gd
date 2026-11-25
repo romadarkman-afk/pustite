@@ -29,6 +29,10 @@ var art: HowToArt
 var _press_x := INF
 
 
+func show_navigation() -> bool:
+	return not then_play
+
+
 func screen_id() -> String:
 	return "howto"
 
@@ -63,15 +67,15 @@ func build() -> void:
 	body.add_child(art)
 
 	var heading := W.label(L.t(String(card[0])), &"Title")
-	heading.add_theme_font_size_override("font_size", ThemeFactory.fs(20))
+	heading.add_theme_font_size_override("font_size", ThemeFactory.fs(24))
 	body.add_child(heading)
 	var description := W.label(L.t(String(card[1])), &"Tale")
-	description.add_theme_font_size_override("font_size", ThemeFactory.fs(15))
+	description.add_theme_font_size_override("font_size", ThemeFactory.fs(17))
 	body.add_child(description)
 	for row: Array in card[3]:
-		var line := W.icon_line(String(row[0]), L.t(String(row[1])), &"Small", 40.0)
+		var line := W.icon_line(String(row[0]), L.t(String(row[1])), &"Small", 46.0)
 		var row_label := line.get_child(1) as Label
-		row_label.add_theme_font_size_override("font_size", ThemeFactory.fs(14))
+		row_label.add_theme_font_size_override("font_size", ThemeFactory.fs(16))
 		line.name = "Row_" + String(row[0])
 		body.add_child(line)
 	var last := page == page_count() - 1
@@ -80,16 +84,16 @@ func build() -> void:
 
 	var controls := W.hbox(8)
 	if page > 0:
-		var previous := W.button(L.t("ui.back"), &"Ghost", 50)
+		var previous := W.button(L.t("ui.back"), &"Ghost", 55)
 		previous.name = "PreviousPage"
 		previous.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		previous.add_theme_font_size_override("font_size", ThemeFactory.fs(15))
 		previous.pressed.connect(prev_page)
 		controls.add_child(previous)
-	var next := W.button(L.t(("menu.play" if then_play else "howto.got_it") if last else "ui.next"), &"Primary", 56)
+	var next := W.button(L.t(("menu.play" if then_play else "howto.got_it") if last else "ui.next"), &"Primary", 62)
 	next.name = "NextPage"
 	next.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	next.add_theme_font_size_override("font_size", ThemeFactory.fs(16))
+	next.add_theme_font_size_override("font_size", ThemeFactory.fs(18))
 	next.pressed.connect(next_page)
 	controls.add_child(next)
 	footer.add_child(controls)
@@ -106,9 +110,9 @@ func build() -> void:
 func _size_art() -> void:
 	if is_instance_valid(art):
 		var rows: int = (PAGES[page][3] as Array).size()
-		var share := 0.28 if rows <= 3 else 0.19
-		var minimum := 175.0 if art.kind == "jobs" else 120.0
-		art.custom_minimum_size = Vector2(0, clampf(size.y * share, minimum, 200.0) if size.y > 0.0 else maxf(minimum, 150.0))
+		var share := 0.34 if rows <= 3 else 0.26
+		var minimum := 178.0 if art.kind == "jobs" else 138.0
+		art.custom_minimum_size = Vector2(0, clampf(size.y * share, minimum, 255.0))
 
 
 func next_page() -> void:
@@ -127,6 +131,7 @@ func prev_page() -> void:
 
 func _refresh() -> void:
 	build()
+	scroll.scroll_vertical = 0
 	if _title_label != null:
 		_title_label.text = title()
 	Juice.haptic(Juice.Haptic.TAP)

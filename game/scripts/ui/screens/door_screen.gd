@@ -36,6 +36,7 @@ var _asked := false            ## вопрос «Кто там?» — один �
 var _ask_rows: Dictionary[int, Button] = {}
 var _name_labels: Dictionary[int, Label] = {}
 var _portraits: Dictionary[int, Control] = {}
+var _opening_scene := false
 var _touched := false          ## игрок что-то сделал у двери: повторный стук больше не нужен
 const IDLE_KNOCK := 5.5        ## молчишь у двери — через столько секунд стучат снова
 const IDLE_KNOCKS := 3
@@ -57,6 +58,8 @@ func hint_id() -> String:
 
 
 func hint_text() -> String:
+	if _opening_scene:
+		return ""
 	match role:
 		Match.DoorRole.HOST:
 			return L.t("door.hint_host")
@@ -160,6 +163,11 @@ func _build_host() -> void:
 	if not Save.hint_seen("door_tools"):
 		var help := W.label(L.t("door.candle_info") + "\n" + L.t("door.tal_hint"), &"Small")
 		help.name = "DoorToolsGuide"
+		var tools_help := W.button(L.t("door.tools_button"), &"Ghost", 45)
+		tools_help.toggle_mode = true
+		help.hide()
+		tools_help.toggled.connect(func(open: bool) -> void: help.visible = open)
+		_box.add_child(tools_help)
 		_box.add_child(help)
 		Save.mark_hint("door_tools")
 	if not dilemma.is_empty():
@@ -288,6 +296,7 @@ func _build_host() -> void:
 func _start_knocks() -> void:
 	if String(Game.chapter.get("id", "")) == "a1c1" and m.day == 1 and not Game.opening_done:
 		Game.opening_done = true
+		_opening_scene = true
 		var choice: String = await ScenePlayer.play(self, Scenes.river(m), m)
 		if not is_instance_valid(self):
 			return
@@ -299,6 +308,9 @@ func _start_knocks() -> void:
 		await ScenePlayer.play(self, Scenes.first_knock(choice == "answer"), m)
 		if not is_instance_valid(self):
 			return
+		_opening_scene = false
+		if not Save.hint_seen(hint_id()):
+			show_hint()
 	# ветка (TASK-077): до настоящего стука что-то стукнуло в окно; очередь и правила не затронуты
 	if Dread.branch_due(m.day):
 		Sfx.play(&"knock", 1.3, -12.0)
