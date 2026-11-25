@@ -44,6 +44,10 @@ static func voice_asset_checks(fails: PackedStringArray) -> int:
 		["act1_intro", 2, "sl.act1_intro.03.0", "res://assets/voice/act1_intro/03_0.ogg"],
 		["a1c1_intro", 2, "sl.a1c1_intro.03.0", "res://assets/voice/a1c1_intro/03_0.ogg"],
 	]
+	for deck: String in ["a1c1_win", "a1c1_twist"]:
+		for i in range(4):
+			var line := "%02d" % (i + 1)
+			voice_samples.append([deck, i, "sl.%s.%s.0" % [deck, line], "res://assets/voice/%s/%s_0.ogg" % [deck, line]])
 	for sample: Array in voice_samples:
 		var deck_id := String(sample[0])
 		var panel_i := int(sample[1])

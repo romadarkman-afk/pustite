@@ -155,8 +155,8 @@ static func _check_prologue_layout(screen: PrologueScreen, problems: PackedStrin
 	var skip := screen.find_child("SkipIntro", true, false) as Button
 	var next := screen.find_child("PrologueNext", true, false) as Button
 	var checks := 0
-	checks += _expect(problems, screen.field_spacer != null and screen.field_spacer.size.y >= vp.y * 0.46,
-		"720×1280: вступление оставляет игре меньше 46% экрана")
+	checks += _expect(problems, screen.field_spacer == null,
+		"720×1280: игровая карта отнимает место у вступления")
 	checks += _expect(problems, skip != null and skip.is_visible_in_tree() and skip.get_global_rect().size.x >= 96.0,
 		"720×1280: кнопка пропуска вступления не видна или слишком узкая")
 	checks += _expect(problems, next != null and next.is_visible_in_tree(),

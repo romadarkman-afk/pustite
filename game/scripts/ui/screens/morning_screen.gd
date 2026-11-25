@@ -15,10 +15,6 @@ func is_busy() -> bool:
 	return not revealed
 
 
-func field_ratio() -> float:
-	return 0.32
-
-
 func title() -> String:
 	return L.t("mo.title")
 
@@ -41,6 +37,21 @@ func build() -> void:
 		&"Title")
 	head.add_theme_font_size_override("font_size", ThemeFactory.fs(44))
 	body.add_child(head)
+	if not deaths.is_empty():
+		var portraits := HFlowContainer.new()
+		for death in deaths:
+			var v: Villager = death.who
+			if v != null:
+				var tile := W.vbox(4)
+				tile.add_child(W.portrait(v, Vector2(70, 96), Color(0.67, 0.70, 0.72)))
+				var name := W.label(v.name, &"Small")
+				name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				tile.add_child(name)
+				portraits.add_child(tile)
+		if portraits.get_child_count() > 0:
+			body.add_child(portraits)
+		else:
+			portraits.free()
 	# тебя не стало этой ночью — сразу видно почему: кто был рядом, кто открыл дверь
 	# первая глава началась со стука: цели главы — после первой ночи, когда игрок уже понял, что тут происходит
 	if bool(Game.chapter.get("cold_open", false)) and m.day == 1:

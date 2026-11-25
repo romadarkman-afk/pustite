@@ -20,15 +20,6 @@ func is_busy() -> bool:
 	return not revealed
 
 
-func field_ratio() -> float:
-	return 0.48
-
-
-func field_height(h: float) -> float:
-	# Вступление сохраняет крупный игровой кадр даже при длинной карточке текста.
-	return minf(h, get_viewport_rect().size.y * 0.47)
-
-
 func title() -> String:
 	return L.t("prologue.title")
 

@@ -1192,6 +1192,9 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 	var t0 := Time.get_ticks_msec()
 	Nav.handle_intent(Intent.START, {}, Nav.host.current)
 	await _settle(tree)
+	if Nav.host.current is HowToScreen:
+		Nav.handle_intent(Intent.HOWTO_DONE, {"play": true}, Nav.host.current)
+		await _settle(tree)
 	var ds := Nav.host.current as DoorScreen
 	var knock_ok := ds != null and ds.role == Match.DoorRole.HOST and not ds.seat.knockers().is_empty()
 	if knock_ok:
@@ -1269,7 +1272,8 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 		nxt.pressed.emit()
 		await _settle(tree)
 	var ps := Nav.host.current as PrologueScreen
-	ok += _expect(fails, ps != null and ps._beat_text.text in [L.t("camp.a1c2.beat1"), L.t("camp.a1c2.beat2"), String(Revelations.beat("boat", Game.m)[1])] and ps._cast.find_child("Goals", true, false) != null,
+	ok += _expect(fails, ps != null and String(Game.chapter.get("id", "")) == "a1c2" and not ps._beat_text.text.is_empty()
+		and ps._cast.find_child("Goals", true, false) != null,
 		"вторая глава началась без своей сцены и целей")
 	ok += _expect(fails, Game.m.force_event == Match.Event.FOG and Game.m.villagers.size() == int(Campaign.chapter("a1c2").players), "во второй главе нет тумана или не тот состав")
 
@@ -6953,6 +6957,10 @@ static func recap() -> void:
 	var et := _all_text(Nav.host.current)
 	var role_holder := m.role_holder(Match.Role.ELDER)
 	ok += _expect(fails, et.contains("Что решило партию") and et.contains("Ты погиб в ночь"), "на финале нет итога партии")
+	var summary_screen := Nav.host.current as EndScreen
+	summary_screen._show_page(summary_screen._pages.size() - 1)
+	await _frames(tree, 2)
+	et = _all_text(summary_screen)
 	ok += _expect(fails, role_holder == null or et.contains("%s — человек, старожил" % role_holder.name), "на финале не видно ролей")
 	ok += _expect(fails, et.contains("Ночь 1") and et.contains("Проверка ленты."), "на финале нет ленты по ночам")
 	# 5. Голоса жителей (51): у каждого свой характер, банк большой, реплики не повторяются
@@ -7254,13 +7262,21 @@ static func recap() -> void:
 		if v.is_upyr and not v.is_player:
 			bot_upyri += 1
 			var rc := es.find_child("Reveal_%d" % v.id, true, false)
-			if rc == null or not _all_text(rc).contains(v.name):
+			if rc == null or not _all_text_raw(rc).contains(v.name):
 				reveal_ok = false
 	ok += _expect(fails, es.find_child("Ending", true, false) != null and es.find_child("Survivors", true, false) != null, "в конце главы нет исхода и списка выживших")
 	ok += _expect(fails, reveal_ok and bot_upyri > 0, "в конце не разоблачены упыри (%d)" % bot_upyri)
 	ok += _expect(fails, es.find_child("Dilemmas", true, false) != null, "в конце нет решений у двери")
 	ok += _expect(fails, not _all_text(es).contains("{"), "в конце главы осталась метка подстановки")
 	var end_s := es as EndScreen
+	ok += _expect(fails, end_s.field_spacer == null and is_zero_approx(Nav.village.modulate.a), "итог главы перекрыт игровой картой")
+	var step := end_s.find_child("ResultNext", true, false) as Button
+	ok += _expect(fails, step != null and step.is_visible_in_tree(), "переход к судьбам жителей не виден")
+	if step != null:
+		step.pressed.emit()
+		await _frames(tree, 2)
+		var cast := end_s.find_child("Reveal", true, false) as Control
+		ok += _expect(fails, cast != null and cast.is_visible_in_tree(), "раскрытие упырей не видно на странице жителей")
 	var sl := end_s.open_slides()
 	await _frames(tree, 2)
 	var art := sl.find_child("Art", true, false) as TextureRect if sl != null else null
