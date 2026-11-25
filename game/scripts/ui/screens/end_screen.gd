@@ -6,10 +6,6 @@ func screen_id() -> String:
 	return "end"
 
 
-func field_ratio() -> float:
-	return 0.28
-
-
 func title() -> String:
 	return L.t("end.title")
 
@@ -20,62 +16,172 @@ func mood() -> Vector2:
 
 var offer: String = ""          ## ступень, которую предложить: проиграл — легче, две победы — сложнее
 var difficulty: String = "easy"
+var _pages: Array[VBoxContainer] = []
+var _page_titles: PackedStringArray = []
+var _page := 0
+var _steps: Label
+var _scroll_more: Button
+var _rewards_played := false
+var _cast_played := false
+var _reward_page := -1
+var _cast_page := -1
 
 
 func build() -> void:
 	var you := m.player()
 	var people_won := m.winner == Match.Team.PEOPLE
 	var won := people_won != you.is_upyr
-	body.add_child(ending_card(people_won, won))
-	if _comics_end_due():
-		_play_comics_end.call_deferred()
-	elif not Juice.instant:
-		open_slides.call_deferred()
-	Juice.haptic(Juice.Haptic.SUCCESS if won else Juice.Haptic.DEATH)
-	Sfx.play(&"win" if won else &"lose")
-	if people_won:
-		Sfx.play(&"upyr_cry", 0.9, -7.0)
-	else:
-		Sfx.play(&"growl", 0.9, -9.0)
+	_steps = W.label("", &"Speaker")
+	_steps.name = "ResultSteps"
+	body.add_child(_steps)
+	var summary := _add_page("end.step_result")
+	summary.add_child(ending_card(people_won, won))
 	if not Game.chapter_result.is_empty():
-		body.add_child(chapter_card(Game.chapter_result))
-		var mem := memory_card(m)
-		if mem != null:
-			body.add_child(mem)
-	if not Game.progress_result.is_empty():
-		body.add_child(progress_card(Game.progress_result))
-	body.add_child(_verdict_card())
+		summary.add_child(chapter_card(Game.chapter_result))
+	var verdict := _verdict_card()
+	summary.add_child(verdict)
+	var villagers := _add_page("end.step_cast")
+	_cast_page = _pages.size() - 1
 	var reveal := reveal_cards()
 	if reveal != null:
-		body.add_child(reveal)
-	var dl := Recap.dilemma_lines(m)
-	if not dl.is_empty():
-		var dc := W.panel(&"Card")
-		dc.name = "Dilemmas"
-		var db := W.vbox(6)
-		db.add_child(W.label(L.t("end.dilemmas"), &"Speaker"))
-		for l: String in dl:
-			db.add_child(W.label(l, &"Small"))
-		dc.add_child(db)
-		body.add_child(dc)
-	var case_card := W.panel(&"Card")
-	case_card.name = "CaseRecap"
-	var case_box := W.vbox(8)
-	case_box.add_child(W.label(SocialContent.case_recap(m.case_id, m.door_inspections.size()), &"Small"))
-	for record: Dictionary in m.door_inspections:
-		var visitor := m.get_villager(int(record.villager))
-		var revealed := SocialContent.door_mimic_title() if bool(record.get("mimic", false)) else L.t("end.upyr" if visitor != null and visitor.is_upyr else "end.human")
-		case_box.add_child(W.label(L.t("end.chip", {"who": String(record.get("name", "")), "what": revealed})
-			+ "\n" + SocialContent.door_record(int(record.day), StringName(record.tell)), &"Small"))
-	case_card.add_child(case_box)
-	body.add_child(case_card)
-	if m.rule != "":
-		var card := W.panel(&"Card")
-		card.name = "Daily"
-		var date := Challenge.today()
-		card.add_child(W.icon_line("safe" if won else "skull",
-			L.t("daily.won" if won else "daily.lost") + ". " + L.t("daily.streak", {"n": Save.daily_streak_on(Game.daily if Game.daily != "" else date)}) + ". " + L.t("daily.tomorrow"), &"Body"))
-		body.add_child(card)
+		villagers.add_child(reveal)
+	for v: Villager in m.villagers:
+		if not v.alive and (not v.is_upyr or v.is_player):
+			villagers.add_child(_resident_fate(v))
+	var survivors := HFlowContainer.new()
+	for v: Villager in m.alive():
+		survivors.add_child(_resident_fate(v))
+	if survivors.get_child_count() > 0:
+		villagers.add_child(W.label(L.t("end.cast_survived"), &"Speaker"))
+		villagers.add_child(survivors)
+	else:
+		survivors.free()
+	var mem := memory_card(m)
+	if mem != null:
+		villagers.add_child(mem)
+	if not Game.progress_result.is_empty() or not Game.new_items.is_empty():
+		var rewards := _add_page("end.step_rewards")
+		_reward_page = _pages.size() - 1
+		if not Game.progress_result.is_empty():
+			rewards.add_child(progress_card(Game.progress_result))
+		_add_unlocks(rewards)
+	_add_details(_add_page("end.step_details"), won)
+	var scrollbar := scroll.get_v_scroll_bar()
+	scrollbar.changed.connect(_update_more)
+	scrollbar.value_changed.connect(func(_value: float) -> void: _update_more())
+	scroll.resized.connect(_update_more)
+	_show_page(0)
+	if _comics_end_due():
+		_play_comics_end.call_deferred()
+	Juice.haptic(Juice.Haptic.SUCCESS if won else Juice.Haptic.DEATH)
+	Sfx.play(&"win" if won else &"lose")
+
+
+func _add_page(key: String) -> VBoxContainer:
+	var page := W.vbox(14)
+	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_child(page)
+	_pages.append(page)
+	_page_titles.append(L.t(key))
+	return page
+
+
+func _resident_fate(v: Villager) -> PanelContainer:
+	var card := W.panel(&"Card")
+	card.name = "Fate_%d" % v.id
+	var row: BoxContainer = W.vbox(5) if v.alive else W.hbox(10)
+	if v.alive:
+		card.custom_minimum_size.x = 104.0
+	var portrait := W.portrait(v, Vector2(46, 72))
+	portrait.active = false
+	portrait.name = "FatePortrait"
+	if not v.alive:
+		card.set_meta("lost", true)
+		portrait.modulate = Color(0.63, 0.66, 0.69, 0.60)
+	row.add_child(portrait)
+	var copy := W.vbox(3)
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var name_label := W.label(v.name, &"Speaker")
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER if v.alive else HORIZONTAL_ALIGNMENT_LEFT
+	copy.add_child(name_label)
+	var fate := "end.cast_alive" if v.alive else ("end.cast_exiled" if v.exiled else "end.cast_dead")
+	if not v.alive:
+		copy.add_child(W.label(L.t(fate), &"Small"))
+	row.add_child(copy)
+	card.add_child(row)
+	return card
+
+
+func _show_page(index: int) -> void:
+	_page = clampi(index, 0, _pages.size() - 1)
+	for i in range(_pages.size()):
+		_pages[i].visible = i == _page
+	_steps.text = L.t("end.steps", {"name": _page_titles[_page], "a": _page + 1, "b": _pages.size()})
+	scroll.scroll_vertical = 0
+	W.clear(footer)
+	_scroll_more = W.button(L.t("end.more_below"), &"Ghost", 40)
+	_scroll_more.name = "ResultScrollMore"
+	_scroll_more.pressed.connect(func() -> void:
+		scroll.scroll_vertical += maxi(80, roundi(scroll.size.y * 0.76)))
+	footer.add_child(_scroll_more)
+	_scroll_more.hide()
+	if _page + 1 < _pages.size():
+		var next := W.button(L.t("end.next_page", {"name": _page_titles[_page + 1]}))
+		next.name = "ResultNext"
+		next.pressed.connect(func() -> void: _show_page(_page + 1))
+		footer.add_child(next)
+	else:
+		_exit_buttons()
+	if _page > 0:
+		var back := W.button(L.t("ui.back"), &"Ghost", 46)
+		back.pressed.connect(func() -> void: _show_page(_page - 1))
+		footer.add_child(back)
+	if _page == 0:
+		# Финальный выбор остаётся на первом экране последней главы.
+		_exit_buttons(true)
+	elif _page == _reward_page and not _rewards_played:
+		_rewards_played = true
+		_animate_rewards(_pages[_page])
+	elif _page == _cast_page and not _cast_played:
+		_cast_played = true
+		var reveal := _pages[_page].find_child("Reveal", true, false)
+		if reveal != null:
+			var delay := 0.0
+			for portrait: Node in reveal.find_children("Portrait", "TextureRect", true, false):
+				_bleed(portrait as TextureRect, delay)
+				delay += 0.18
+		for child: Node in _pages[_page].get_children():
+			if child.has_meta("lost") and not Juice.instant:
+				var portrait := child.find_child("FatePortrait", true, false) as TextureRect
+				if portrait != null:
+					portrait.modulate.a = 1.0
+					create_tween().tween_property(portrait, "modulate:a", 0.60, 0.45)
+	_update_more.call_deferred()
+
+
+func _update_more() -> void:
+	if not is_instance_valid(_scroll_more) or not _scroll_more.is_inside_tree():
+		return
+	var bar := scroll.get_v_scroll_bar()
+	var remaining := bar.max_value - bar.page - bar.value
+	# Не прячем кнопку у самого низа, чтобы высота списка не менялась во время чтения.
+	_scroll_more.visible = bar.max_value - bar.page > 4.0
+	_scroll_more.disabled = remaining <= 2.0
+
+
+func _exit_buttons(quick: bool = false) -> void:
+	if not Game.chapter_result.is_empty():
+		_chapter_buttons(Game.chapter_result, quick)
+	elif not quick:
+		var again := W.button(L.t("end.again"))
+		again.pressed.connect(func() -> void: commit(Intent.AGAIN))
+		footer.add_child(again)
+		var opts := W.button(L.t("settings.difficulty"), &"Ghost")
+		opts.pressed.connect(func() -> void: commit(Intent.OPEN_SETTINGS))
+		footer.add_child(opts)
+
+
+func _add_unlocks(rewards: Control) -> void:
 	if not Game.new_items.is_empty():
 		var names := PackedStringArray()
 		for key: String in Game.new_items:
@@ -89,9 +195,40 @@ func build() -> void:
 		wear.pressed.connect(func() -> void: commit(Intent.OPEN_WARDROBE))
 		nb.add_child(wear)
 		nc.add_child(nb)
-		body.add_child(nc)
+		rewards.add_child(nc)
+
+
+func _add_details(details: Control, won: bool) -> void:
+	var dl := Recap.dilemma_lines(m)
+	if not dl.is_empty():
+		var dc := W.panel(&"Card")
+		dc.name = "Dilemmas"
+		var db := W.vbox(6)
+		db.add_child(W.label(L.t("end.dilemmas"), &"Speaker"))
+		for l: String in dl:
+			db.add_child(W.label(l, &"Small"))
+		dc.add_child(db)
+		details.add_child(dc)
+	var case_card := W.panel(&"Card")
+	case_card.name = "CaseRecap"
+	var case_box := W.vbox(8)
+	case_box.add_child(W.label(SocialContent.case_recap(m.case_id, m.door_inspections.size()), &"Small"))
+	for record: Dictionary in m.door_inspections:
+		var visitor := m.get_villager(int(record.villager))
+		var revealed := SocialContent.door_mimic_title() if bool(record.get("mimic", false)) else L.t("end.upyr" if visitor != null and visitor.is_upyr else "end.human")
+		case_box.add_child(W.label(L.t("end.chip", {"who": String(record.get("name", "")), "what": revealed})
+			+ "\n" + SocialContent.door_record(int(record.day), StringName(record.tell)), &"Small"))
+	case_card.add_child(case_box)
+	details.add_child(case_card)
+	if m.rule != "":
+		var card := W.panel(&"Card")
+		card.name = "Daily"
+		var date := Challenge.today()
+		card.add_child(W.icon_line("safe" if won else "skull",
+			L.t("daily.won" if won else "daily.lost") + ". " + L.t("daily.streak", {"n": Save.daily_streak_on(Game.daily if Game.daily != "" else date)}) + ". " + L.t("daily.tomorrow"), &"Body"))
+		details.add_child(card)
 	if offer != "" and m.rule == "" and Game.chapter.is_empty():
-		body.add_child(_offer_card())
+		details.add_child(_offer_card())
 	var known := W.vbox(8)
 	for resident: Villager in m.villagers:
 		var ending := SocialContent.epilogue(resident) if not resident.is_player else ""
@@ -106,11 +243,11 @@ func build() -> void:
 		chapter_box.add_child(W.label((String((StoryLoc.get_v("misc") as Array)[0]) if StoryLoc.has("misc") else ("После последней ночи" if L.code == "ru" else "After the last night")), &"Speaker"))
 		chapter_box.add_child(known)
 		chapter.add_child(chapter_box)
-		body.add_child(chapter)
+		details.add_child(chapter)
 	else:
 		known.queue_free()
 
-	body.add_child(W.label(L.t("end.who"), &"Hint"))
+	details.add_child(W.label(L.t("end.who"), &"Hint"))
 	var flow := HFlowContainer.new()
 	var i := 0
 	for v: Villager in m.villagers:
@@ -123,24 +260,30 @@ func build() -> void:
 		flow.add_child(c)
 		Juice.pop_in(c, 0.4 + 0.12 * i)
 		i += 1
-	body.add_child(flow)
+	details.add_child(flow)
 
-	body.add_child(W.label(L.t("end.how"), &"Hint"))
+	details.add_child(W.label(L.t("end.how"), &"Hint"))
 	for sec: Dictionary in Recap.timeline(m):
 		if String(sec.title) != "":
-			body.add_child(W.label(sec.title, &"Speaker"))
+			details.add_child(W.label(sec.title, &"Speaker"))
 		for line: String in sec.lines:
-			body.add_child(W.label(line, &"Small"))
+			details.add_child(W.label(line, &"Small"))
 
-	if not Game.chapter_result.is_empty():
-		_chapter_buttons(Game.chapter_result)
-		return
-	var again := W.button(L.t("end.again"))
-	again.pressed.connect(func() -> void: commit(Intent.AGAIN))
-	footer.add_child(again)
-	var opts := W.button(L.t("settings.difficulty"), &"Ghost")
-	opts.pressed.connect(func() -> void: commit(Intent.OPEN_SETTINGS))
-	footer.add_child(opts)
+
+
+func _animate_rewards(page: Control) -> void:
+	var bar := page.find_child("LevelBar", true, false)
+	if not Juice.instant and bar != null:
+		var update_xp: Callable = bar.get_meta("update_xp")
+		var data := Game.progress_result
+		update_xp.call(int(data.before))
+		var fill := create_tween()
+		fill.tween_method(update_xp, int(data.before), int(data.after), 0.95).set_trans(Tween.TRANS_LINEAR)
+		var rewards: PackedStringArray = data.new_ach
+		for i in range(rewards.size()):
+			var ach := page.find_child("Ach_" + rewards[i], true, false) as Control
+			if ach != null:
+				Juice.pop_in(ach, 0.10 + i * 0.11)
 
 
 ## Опыт за партию, уровень посёлка и новые достижения (Task 62).
@@ -155,7 +298,6 @@ static func progress_card(p: Dictionary) -> PanelContainer:
 	var parts := PackedStringArray()
 	for l: Array in p.lines:
 		parts.append(L.t(String(l[0]), {"n": int(l[2])}) + " +" + str(int(l[1])))
-	box.add_child(W.label(" · ".join(parts), &"Small"))
 	var lv := int(p.level_after)
 	box.add_child(level_bar(int(p.after)))
 	if lv > int(p.level_before):
@@ -167,27 +309,33 @@ static func progress_card(p: Dictionary) -> PanelContainer:
 		var al := W.icon_line("street_ok", L.t("end.new_ach", {"name": L.t("ach.%s.name" % a)}), &"Small", 32, ThemeFactory.LAMP)
 		al.name = "Ach_" + a
 		box.add_child(al)
+	for part: String in parts:
+		box.add_child(W.label(part, &"Small"))
 	return card
 
 
 ## Уровень посёлка полоской: «Уровень 3 · Сосед» и сколько до следующего.
 static func level_bar(xp: int) -> Control:
-	var lv := Progress.level_of(xp)
-	var span := Progress.level_span(xp)
-	var col := W.vbox(4)
+	var col := W.vbox(5)
 	col.name = "LevelBar"
-	col.add_child(W.label(L.t("end.level", {"n": lv, "title": Progress.title(lv), "a": span.x, "b": span.y}), &"Small"))
-	var track := ColorRect.new()
-	track.color = ThemeFactory.EDGE
-	track.custom_minimum_size = Vector2(0, 8)
-	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var fill := ColorRect.new()
-	fill.color = ThemeFactory.LAMP
-	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	track.add_child(fill)
-	var frac := clampf(float(span.x) / maxf(1.0, float(span.y)), 0.0, 1.0)
-	track.resized.connect(func() -> void: fill.size = Vector2(track.size.x * frac, track.size.y))
-	col.add_child(track)
+	var title := W.label("", &"Body")
+	col.add_child(title)
+	var bar := ProgressBar.new()
+	bar.show_percentage = false
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.custom_minimum_size.y = 10
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = ThemeFactory.LAMP
+	bar.add_theme_stylebox_override("fill", fill)
+	col.add_child(bar)
+	var update_xp := func(value: int) -> void:
+		var lv := Progress.level_of(value)
+		var span := Progress.level_span(value)
+		title.text = L.t("end.level", {"n": lv, "title": Progress.title(lv), "a": span.x, "b": span.y})
+		bar.max_value = span.y
+		bar.value = span.x
+	col.set_meta("update_xp", update_xp)
+	update_xp.call(xp)
 	return col
 
 
@@ -321,7 +469,7 @@ static func memory_card(mm: Match) -> PanelContainer:
 	return card
 
 
-func _chapter_buttons(res: Dictionary) -> void:
+func _chapter_buttons(res: Dictionary, quick: bool = false) -> void:
 	var id := String(res.id)
 	var next := Campaign.next_of(id)
 	var main: Button
@@ -336,6 +484,11 @@ func _chapter_buttons(res: Dictionary) -> void:
 		main.pressed.connect(func() -> void: commit(Intent.PLAY_CHAPTER, {"id": id}))
 	main.name = "ChapterNext"
 	footer.add_child(main)
+	if quick:
+		main.theme_type_variation = &"Ghost"
+		if bool(res.passed) and not next.is_empty():
+			main.text = L.t("end.quick_next", {"title": L.t("camp.%s.title" % next)})
+		return
 	var chapters := W.button(L.t("camp.chapters"), &"Ghost")
 	chapters.pressed.connect(func() -> void: commit(Intent.OPEN_CAMPAIGN))
 	footer.add_child(chapters)
@@ -354,6 +507,10 @@ func ending_card(people_won: bool, won: bool) -> PanelContainer:
 	card.set_meta("people_won", people_won)
 	var box := W.vbox(10)
 	card.add_child(box)
+	var title := W.label(L.t("end.people" if people_won else "end.upyri"), &"Title")
+	title.add_theme_color_override("font_color", ThemeFactory.LAMP if people_won else ThemeFactory.BLOOD)
+	box.add_child(title)
+	box.add_child(W.label(L.t("end.won" if won else "end.lost"), &"Tale"))
 	var art_path: String = END_ART[people_won]
 	if ResourceLoader.exists(art_path):
 		var art := TextureRect.new()
@@ -361,12 +518,8 @@ func ending_card(people_won: bool, won: bool) -> PanelContainer:
 		art.texture = load(art_path)
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		art.custom_minimum_size = Vector2(0, 300)
+		art.custom_minimum_size = Vector2(0, 156)
 		box.add_child(art)
-	var title := W.label(L.t("end.people" if people_won else "end.upyri"), &"Title")
-	title.add_theme_color_override("font_color", ThemeFactory.LAMP if people_won else ThemeFactory.BLOOD)
-	box.add_child(title)
-	box.add_child(W.label(L.t("end.won" if won else "end.lost"), &"Tale"))
 	var alive: Array[Villager] = m.alive()
 	var survivors := W.label(L.t("end.survivors", {"list": alive}) if not alive.is_empty() else L.t("end.nobody"), &"Small")
 	survivors.name = "Survivors"
@@ -579,6 +732,8 @@ func reveal_cards() -> Control:
 		card.name = "Reveal_%d" % v.id
 		var row := W.hbox(14)
 		var p := W.portrait(v, Vector2(64, 116))
+		if not v.alive:
+			p.modulate.a = 0.72
 		row.add_child(p)
 		var box := W.vbox(4)
 		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -592,19 +747,19 @@ func reveal_cards() -> Control:
 		row.add_child(box)
 		card.add_child(row)
 		col.add_child(card)
-		_bleed(p, 0.6 + 0.5 * k)
 		k += 1
 	return col
 
 
 ## Лицо медленно наливается красным: был человеком — оказался упырём.
 func _bleed(p: TextureRect, delay: float) -> void:
+	var shade := Color(1.0, 0.45, 0.42, p.modulate.a)
 	if Juice.instant:
-		p.modulate = Color(1.0, 0.45, 0.42)
+		p.modulate = shade
 		return
 	await Juice.wait(delay)
 	if is_instance_valid(p):
-		Juice.tween().tween_property(p, "modulate", Color(1.0, 0.45, 0.42), 0.9)
+		Juice.tween().tween_property(p, "modulate", shade, 0.55)
 
 
 ## Главное в разборе: что решило твою партию — и, если тебя не стало, почему.
