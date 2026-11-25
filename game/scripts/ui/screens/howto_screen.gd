@@ -42,6 +42,10 @@ func title() -> String:
 	return L.t("howto.title", {"a": page + 1, "b": page_count()})
 
 
+func music() -> StringName:
+	return Sfx.menu_music()
+
+
 func mood() -> Vector2:
 	return Vector2(0.8, 0.6)
 
@@ -62,12 +66,12 @@ func build() -> void:
 	heading.add_theme_font_size_override("font_size", ThemeFactory.fs(20))
 	body.add_child(heading)
 	var description := W.label(L.t(String(card[1])), &"Tale")
-	description.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
+	description.add_theme_font_size_override("font_size", ThemeFactory.fs(15))
 	body.add_child(description)
 	for row: Array in card[3]:
 		var line := W.icon_line(String(row[0]), L.t(String(row[1])), &"Small", 40.0)
 		var row_label := line.get_child(1) as Label
-		row_label.add_theme_font_size_override("font_size", ThemeFactory.fs(12))
+		row_label.add_theme_font_size_override("font_size", ThemeFactory.fs(14))
 		line.name = "Row_" + String(row[0])
 		body.add_child(line)
 	var last := page == page_count() - 1
@@ -103,7 +107,8 @@ func _size_art() -> void:
 	if is_instance_valid(art):
 		var rows: int = (PAGES[page][3] as Array).size()
 		var share := 0.28 if rows <= 3 else 0.19
-		art.custom_minimum_size = Vector2(0, clampf(size.y * share, 120.0, 200.0) if size.y > 0.0 else 150.0)
+		var minimum := 175.0 if art.kind == "jobs" else 120.0
+		art.custom_minimum_size = Vector2(0, clampf(size.y * share, minimum, 200.0) if size.y > 0.0 else maxf(minimum, 150.0))
 
 
 func next_page() -> void:

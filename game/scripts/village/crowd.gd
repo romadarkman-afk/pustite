@@ -556,7 +556,12 @@ func walk_clamp(p: Vector2) -> Vector2:
 		p = c + d * r
 	p.x = clampf(p.x, VillageView.SAFE_X.x, VillageView.SAFE_X.y)
 	var walls := _walk_walls()
-	if _point_in_walls(p, walls):
+	return open_ground(p, walls, c, r)
+
+
+## Рабочая точка должна быть на проходе, даже когда исходная позиция в данных карты перекрыта постройкой.
+func open_ground(p: Vector2, walls: Array[Rect2], c: Vector2, r: Vector2) -> Vector2:
+	if _point_in_walls(p, walls) or view.water_at(p):
 		var found := false
 		for radius in range(1, 33):
 			for step in range(16):
@@ -564,7 +569,7 @@ func walk_clamp(p: Vector2) -> Vector2:
 				var candidate := p + Vector2(cos(a), sin(a)) * float(radius * 6)
 				if candidate.x < VillageView.SAFE_X.x or candidate.x > VillageView.SAFE_X.y:
 					continue
-				if ((candidate - c) / r).length() > 1.0 or _point_in_walls(candidate, walls):
+				if ((candidate - c) / r).length() > 1.0 or _point_in_walls(candidate, walls) or view.water_at(candidate):
 					continue
 				p = candidate
 				found = true
@@ -612,7 +617,7 @@ func walk_route(from: Vector2, destination: Vector2, door_house: int = -1) -> Pa
 	if cells.is_empty():
 		return PackedVector2Array([from])
 	var raw: Array[Vector2] = []
-	for i in range(1, cells.size()):
+	for i in range(cells.size()):
 		raw.append(grid.get_point_position(cells[i]))
 	raw.append(target)
 	var smooth := PackedVector2Array()
@@ -979,7 +984,7 @@ func _layout_name_plaques() -> void:
 	var field := view._field.grow(-5.0)
 	var ordered: Array[VillagerFigure] = []
 	for f: VillagerFigure in figures.values():
-		if is_instance_valid(f) and f.visible and f.state != VillagerFigure.State.GONE:
+		if is_instance_valid(f) and f.visible and f.state != VillagerFigure.State.GONE and f.at_field_edge_or_inside():
 			ordered.append(f)
 	ordered.sort_custom(func(a: VillagerFigure, b: VillagerFigure) -> bool:
 		if a.is_player != b.is_player:

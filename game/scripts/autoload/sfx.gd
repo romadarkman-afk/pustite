@@ -135,6 +135,8 @@ var music_name: StringName = &""
 var _menu_song_pick: StringName = &""
 var _last_menu_song: StringName = &""
 var _menu_song_bag: Array[StringName] = []
+var _menu_gap := false
+const MENU_SONG_GAP := 1.15
 var ambience_name: StringName = &""
 var _ambience_level_db := -4.0
 var heart_on := false
@@ -511,7 +513,13 @@ func pause_voice_line(on: bool) -> void:
 func menu_music() -> StringName:
 	if _menu_song_pick != &"" and has_sound(_menu_song_pick):
 		return _menu_song_pick
+	var history := ConfigFile.new()
+	if _last_menu_song == &"" and history.load(Diag.test_path("menu_music.cfg")) == OK:
+		_last_menu_song = StringName(history.get_value("menu", "last_song", ""))
 	_menu_song_pick = _pick_menu_song()
+	if _menu_song_pick != &"":
+		history.set_value("menu", "last_song", String(_menu_song_pick))
+		history.save(Diag.test_path("menu_music.cfg"))
 	return _menu_song_pick if _menu_song_pick != &"" else &"menu"
 
 
@@ -543,14 +551,24 @@ func _music_stream(n: StringName) -> AudioStream:
 
 
 func _on_music_finished() -> void:
-	if _menu_song_pick == &"" or music_name != _menu_song_pick or _music_p == null:
+	if _menu_song_pick == &"" or music_name != _menu_song_pick or _music_p == null or _menu_gap:
 		return
+	if not Juice.instant:
+		var generation := _music_gen
+		_menu_gap = true
+		await get_tree().create_timer(MENU_SONG_GAP).timeout
+		if generation != _music_gen or not _menu_gap:
+			return
+		_menu_gap = false
 	var next := _pick_menu_song()
 	if next == &"":
 		_menu_song_pick = &""
 		set_music(&"menu", 1.6)
 		return
 	_menu_song_pick = next
+	var history := ConfigFile.new()
+	history.set_value("menu", "last_song", String(next))
+	history.save(Diag.test_path("menu_music.cfg"))
 	if next == music_name:
 		_music_p.stream = _music_stream(next)
 		_music_p.volume_db = -80.0
@@ -790,7 +808,10 @@ func _process(delta: float) -> void:
 func set_music(n: StringName, fade: float = 2.8) -> void:
 	if n != _menu_song_pick:
 		_menu_song_pick = &""
+		_menu_gap = false
 	if n == music_name:
+		if _menu_gap:
+			return
 		if n != &"" and _music_p != null and not _music_p.playing and has_sound(n):
 			_music_p.stream = _music_stream(n)
 			_music_p.volume_db = -80.0

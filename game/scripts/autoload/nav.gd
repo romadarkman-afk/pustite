@@ -961,7 +961,10 @@ func go_work(ji: int, sab: bool = false) -> void:
 	Sfx.play(&"tap")
 	f.arrived.connect(func() -> void:
 		if gen == _walk_gen and Game.m != null and Game.m.phase == Match.Phase.DAY:
-			if not Game.start_player_job(ji, sab):
+			if f.position.distance_to(spot) >= 2.0:
+				cr.at_job.erase(0)
+				toast(L.t("toast.job_unreachable"))
+			elif not Game.start_player_job(ji, sab):
 				toast(_done_text(ji)), CONNECT_ONE_SHOT)
 	f.walk_to(spot)
 
@@ -978,7 +981,10 @@ func _on_sabotaged(_vid: int, ji: int) -> void:
 	Sfx.play(&"job_fail")
 
 
-func _on_box_appeared(_ji: int) -> void:
+func _on_box_appeared(ji: int) -> void:
+	var job: JobDef = Game.m.jobs[ji]
+	job.pos = village.crowd.walk_clamp(job.pos)
+	Game.m.box_pos = job.pos
 	Sfx.play(&"knock", 0.7, -4.0)
 	toast(L.t("toast.box"))
 

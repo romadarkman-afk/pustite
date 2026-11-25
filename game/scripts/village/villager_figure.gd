@@ -131,6 +131,7 @@ static var _hero_hat_tex: Dictionary = {}
 var sprite_id: int = 0
 var hero_hat_id: String = "own"
 var tag: Node2D               ## слой подписи над всем посёлком
+var _tag_in_field := true
 var label_shift := Vector2.ZERO ## небольшое смещение плашки, чтобы имена не перекрывались
 var marks_left := false        ## у правого края отметки переходят на левую сторону фигуры
 
@@ -881,6 +882,18 @@ func body_rect_global() -> Rect2:
 	return _global_rect(body_rect_local())
 
 
+## На краю поля подпись следует за видимой фигурой, а не за её точкой за кадром.
+func at_field_edge_or_inside() -> bool:
+	var map_view := _map_view()
+	if map_view == null:
+		return true
+	var field: Rect2 = map_view.get("_field")
+	if not field.has_area():
+		return true
+	var torso := get_global_transform_with_canvas() * Vector2(0, -39)
+	return field.grow(7.0).has_point(torso)
+
+
 ## Самый высокий рост среди внешностей (config/looks*.tres); проверяется тестом --crowd.
 const LOOK_HEIGHT_MAX := 1.07
 
@@ -897,8 +910,8 @@ func run_to(target: Vector2, dur: float = 0.75, delay: float = 0.0, door_house: 
 	if _tw != null:
 		_tw.kill()
 	var path := _path_to(target, door_house)
-	if path.is_empty() or path[path.size() - 1].distance_to(target) > 1.0:
-		path.append(target)   # маршрут не дошёл (нет пути или последний шаг упёрся в стену): последний отрезок напрямик, чтобы встать на отведённое место, а не посреди чужой очереди
+	if path.is_empty():
+		path.append(position)
 	if Juice.instant:
 		position = target if path.is_empty() else path[path.size() - 1]
 		_settle_idle()
@@ -1071,6 +1084,10 @@ func _settle_idle() -> void:
 
 func _process(delta: float) -> void:
 	if tag != null:
+		var in_field := at_field_edge_or_inside()
+		if in_field != _tag_in_field:
+			_tag_in_field = in_field
+			tag.queue_redraw()
 		var map_view := _map_view()
 		var zoom := maxf(map_view.scale.x, 0.01) if map_view != null else 1.0
 		var tag_scale := 1.0 / zoom
@@ -1281,7 +1298,7 @@ func _draw() -> void:
 
 ## Отметки, стрелка «Вы» и имя в тёмной капсуле.
 func _draw_tag() -> void:
-	if state == State.GONE:
+	if state == State.GONE or not at_field_edge_or_inside():
 		return
 	if state != State.DEAD:
 		_draw_marks()
@@ -1299,7 +1316,7 @@ func _draw_tag() -> void:
 	var col := ThemeFactory.LAMP if is_player else Color(1, 1, 1, 0.95 if state != State.DEAD else 0.45)
 	var plaque_alpha := 0.9 if state != State.DEAD else 0.55
 	var wood := Color(0.16, 0.105, 0.07, plaque_alpha)
-	var edge := Color(ThemeFactory.LAMP_D, 0.86 if state != State.DEAD else 0.5)
+	var edge := Color(ThemeFactory.LAMP_D, 0.67 if state != State.DEAD else 0.4)
 	var shadow_rect := lr.grow(1.0)
 	shadow_rect.position += Vector2(1.0, 2.0)
 	Art.shape(tag, Art.rrect(shadow_rect, 4.0), Color(0.015, 0.012, 0.01, 0.65), Color(0, 0, 0, 0), 0.0)
@@ -1310,7 +1327,8 @@ func _draw_tag() -> void:
 		tag.draw_circle(Vector2(nail_x, lr.get_center().y), 1.2, Color(ThemeFactory.LAMP_D, 0.8))
 	if state != State.DEAD:
 		tag.draw_line(Vector2(lr.position.x + 9, lr.end.y - 2.0), Vector2(lr.end.x - 9, lr.end.y - 2.0), Color(identity_color, 0.9 + 0.1 * _tap_glow), 2.0 + _tap_glow)
-	var baseline := Vector2(lr.position.x + 8.0, lr.end.y - 6.0)
+	var w := _font.get_string_size(who, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size()).x
+	var baseline := Vector2(lr.get_center().x - w * 0.5, lr.end.y - 6.0)
 	tag.draw_string_outline(_font, baseline, who, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size(), 2, Color(Art.INK, 0.9))
 	tag.draw_string(_font, baseline, who, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size(), col)
 
@@ -1390,13 +1408,7 @@ static func paint_pact(ci: CanvasItem, c: Vector2) -> void:
 ## Глаз подозрения; возвращает число штрихов над ним.
 static func paint_eye(ci: CanvasItem, c: Vector2, level: int, s: float = 1.0) -> int:
 	var col: Color = EYE_COLORS[clampi(level, 0, 4)]
-	var plate := Art.rrect(Rect2(c.x - 13.0 * s, c.y - 11.5 * s, 26.0 * s, 23.0 * s), 4.0 * s)
-	ci.draw_colored_polygon(plate, Color("211813", 0.96))
-	var edge := plate.duplicate()
-	edge.append(plate[0])
-	ci.draw_polyline(edge, Color(ThemeFactory.LAMP_D, 0.9), 1.2 * s, true)
-	for px: float in [-9.0, 9.0]:
-		ci.draw_circle(c + Vector2(px * s, -7.5 * s), 0.9 * s, ThemeFactory.LAMP_D)
+	ci.draw_colored_polygon(_oval(c, Vector2(12.0, 9.0) * s), Color("141417", 0.82))
 	var open := (2.5 + level * 1.1) * s
 	var pts := PackedVector2Array()
 	for i in range(9):
@@ -1425,22 +1437,12 @@ static func paint_badge(ci: CanvasItem, b: String, c: Vector2, icon_scale: float
 	ci.draw_set_transform(origin + c * (1.0 - badge_scale), 0.0, Vector2.ONE * badge_scale)
 	var x := c.x
 	var y := c.y
-	var plate := Art.rrect(Rect2(x - 13.0, y - 11.5, 26.0, 23.0), 4.0)
-	ci.draw_colored_polygon(plate, Color("211813", 0.96))
-	var plate_edge := plate.duplicate()
-	plate_edge.append(plate[0])
-	ci.draw_polyline(plate_edge, Color(ThemeFactory.LAMP_D, 0.9), 1.1, true)
-	for px: float in [-9.0, 9.0]:
-		ci.draw_circle(Vector2(x + px, y - 7.5), 0.8, ThemeFactory.LAMP_D)
 	var accent := ThemeFactory.LAMP
 	match b:
 		"liar", "death", "sabotage": accent = Color("e0533f")
-	# у каждой улики свой силуэт рамки: круг, ромб, щит… — различимы без цвета
+	# Знак виден на тёмной подложке; цветная рамка не конкурирует с рисунком.
 	var frame := badge_outline(b, c)
-	ci.draw_colored_polygon(frame, Color(ThemeFactory.NIGHT, 0.9))
-	var fo := frame.duplicate()
-	fo.append(frame[0])
-	ci.draw_polyline(fo, Color(accent, 0.9), 1.6)
+	ci.draw_colored_polygon(frame, Color("141417", 0.90))
 	match b:
 		"street":
 			ci.draw_colored_polygon(_oval(Vector2(x - 3.2, y + 2.5), Vector2(2.6, 4.2)), ThemeFactory.LAMP)
