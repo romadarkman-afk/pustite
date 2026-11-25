@@ -66,6 +66,8 @@ func _build() -> void:
 		var f := VillagerFigure.new()
 		f.setup(n[0], _book.for_name(n[0], n[1]), n[1])
 		add_child(f)
+		if _is_night():
+			f.set_night(0.86)
 		figures.append(f)
 	match kind:
 		"day":
@@ -97,7 +99,7 @@ func _layout() -> void:
 		return
 	var w := size.x
 	var h := size.y
-	var sc := clampf(h / 230.0, 1.0, 1.8)
+	var sc := clampf(minf(h / 172.0, w / 340.0), 0.75, 1.45)
 	for f: VillagerFigure in figures:
 		f.scale = Vector2(sc, sc)
 	match kind:
@@ -131,7 +133,7 @@ func _layout() -> void:
 				figures[i].position = Vector2(w * (0.20 + 0.30 * i), h * 0.76)
 			if not _glyphs.is_empty():
 				_glyphs[0].size = Vector2(64, 64)
-				_glyphs[0].position = Vector2(w * 0.5 - 32.0, h * 0.10)
+				_glyphs[0].position = Vector2(w * 0.5 - 32.0, 6.0)
 		"campaign":
 			figures[0].position = Vector2(w * 0.62, h * 0.76)
 			figures[1].position = Vector2(w * 0.77, h * 0.76)
@@ -226,19 +228,19 @@ func _draw_job_examples() -> void:
 		JobDef.Kind.FISH, JobDef.Kind.TALISMAN, JobDef.Kind.BOX]
 	var keys: Array[String] = ["water", "wood", "lamp", "fish", "talisman", "box"]
 	var box := StyleBoxFlat.new()
-	box.bg_color = Color("39271b", 0.98)
+	box.bg_color = Color("211811", 0.78)
 	box.border_color = ThemeFactory.LAMP_D
 	box.set_border_width_all(1)
 	box.set_corner_radius_all(4)
-	var width := minf(144.0, size.x * 0.30)
+	var width := minf(154.0, size.x * 0.31)
 	for i in range(kinds.size()):
 		var center := Vector2(size.x * (float(i % 3) + 0.5) / 3.0, size.y * (0.15 if i < 3 else 0.36))
 		var r := Rect2(center - Vector2(width * 0.5, 14.0), Vector2(width, 28.0))
 		draw_style_box(box, r)
 		JobLayer.draw_job_icon(self, kinds[i], Vector2(r.position.x + 13.0, center.y))
 		var label := L.t("job." + keys[i] + ".title")
-		var font_size := 10
-		while font_size > 8 and _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > width - 27.0:
+		var font_size := 12
+		while font_size > 9 and _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > width - 27.0:
 			font_size -= 1
 		draw_string(_font, Vector2(r.position.x + 25.0, center.y + 4.0), label,
 			HORIZONTAL_ALIGNMENT_LEFT, width - 27.0, font_size, ThemeFactory.BONE)

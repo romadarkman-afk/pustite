@@ -4,9 +4,9 @@ extends Node2D
 ## Маркер привязан к координатам посёлка; касание работает по указателю и рабочей точке.
 
 const ICON_Y := -62.0
-const SIGN_H := 32.0
+const SIGN_H := 26.0
 const TOUCH_SIZE := 84.0
-const MARKER_REACH := 116.0
+const MARKER_REACH := 72.0
 const STATION_OFFSET := Vector2(-19, 2)
 const STATION_ART := {
 	JobDef.Kind.WATER: preload("res://assets/village/realistic/barrel.png"),
@@ -37,13 +37,23 @@ func _ready() -> void:
 func _sign_width(title: String) -> float:
 	var f := _font if _font != null else ThemeFactory.font_bold()
 	var size := maxi(9, roundi(10.0 * ThemeFactory.text_scale))
-	return clampf(f.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + 36.0, 90.0, 126.0)
+	return clampf(f.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + 39.0, 68.0, 109.0)
 
 
 func _marker_title(job: JobDef) -> String:
 	if job.house >= 0 and view != null and job.house < view.def.shelters.size():
-		return L.t("job.talisman.marker", {"house": view._title(job.house)})
-	return job.title
+		return view._title(job.house)
+	return L.t("job.short.%s" % key_for(job.kind))
+
+
+static func key_for(kind: JobDef.Kind) -> String:
+	match kind:
+		JobDef.Kind.WATER: return "water"
+		JobDef.Kind.WOOD: return "wood"
+		JobDef.Kind.LAMP: return "lamp"
+		JobDef.Kind.TALISMAN: return "talisman"
+		JobDef.Kind.FISH: return "fish"
+		_: return "box"
 
 
 ## Фиксированный экранный размер независимо от приближения камеры.
@@ -77,9 +87,9 @@ func _layout_markers() -> void:
 		obstacles = _screen_obstacles()
 	var occupied: Array[Rect2] = []
 	var offsets: Array[Vector2] = [
-		Vector2(0, -48), Vector2(-56, -48), Vector2(56, -48),
-		Vector2(0, 28), Vector2(-62, 18), Vector2(62, 18),
-		Vector2(0, -88), Vector2(-86, -14), Vector2(86, -14)
+		Vector2(0, 19), Vector2(-35, 22), Vector2(35, 22),
+		Vector2(0, -34), Vector2(-43, -28), Vector2(43, -28),
+		Vector2(0, 48), Vector2(-53, 0), Vector2(53, 0)
 	]
 	for job: JobDef in m.jobs:
 		var anchor := transform * (job.pos + STATION_OFFSET)
@@ -258,18 +268,18 @@ func _draw_sign(j: JobDef, c: Vector2, _site: Vector2, left: int, done: bool) ->
 	draw_set_transform(c * (1.0 - ui_scale), 0.0, Vector2.ONE * ui_scale)
 	var width := _sign_width(_marker_title(j))
 	var r := Rect2(c.x - width * 0.5, c.y - SIGN_H * 0.5, width, SIGN_H)
-	var alpha := 0.62 if done else 1.0
-	var wood := Color("39271b", alpha)
-	var edge := Color(ThemeFactory.LAMP_D, 0.95 * alpha)
+	var alpha := 0.68 if done else 1.0
+	var wood := Color("1e1713", 0.79 * alpha)
+	var edge := Color(ThemeFactory.LAMP_D, 0.76 * alpha)
 	var direction := (_site - c).normalized()
-	var stem := Vector2(clampf(direction.x * 26.0, -width * 0.36, width * 0.36), SIGN_H * 0.5 * signf(direction.y))
+	var stem := Vector2(clampf(direction.x * 26.0, -width * 0.36, width * 0.36), SIGN_H * 0.5 * (1.0 if direction.y > 0.0 else -1.0))
 	var base := c + stem
 	var tip := base + Vector2(direction.x * 9.0, signf(direction.y) * 7.0)
 	draw_colored_polygon(PackedVector2Array([base - Vector2(5, 0), base + Vector2(5, 0), tip]), edge)
 	var shadow_rect := r.grow(2.0)
 	shadow_rect.position += Vector2(1.0, 3.0)
-	Art.shape(self, Art.rrect(shadow_rect, 5.0), Color(0.01, 0.008, 0.005, 0.62), Color(0, 0, 0, 0), 0.0)
-	Art.shape(self, Art.rrect(r, 5.0), wood, edge, 2.0)
+	Art.shape(self, Art.rrect(shadow_rect, 5.0), Color(0.01, 0.008, 0.005, 0.25), Color(0, 0, 0, 0), 0.0)
+	Art.shape(self, Art.rrect(r, 5.0), wood, edge, 1.0)
 	Art.shape(self, Art.rrect(r.grow(-3.0), 3.0), Color(0, 0, 0, 0), Color(ThemeFactory.BONE, 0.13 * alpha), 0.9)
 	draw_line(Vector2(r.position.x + 6.0, r.position.y + 4.0), Vector2(r.end.x - 6.0, r.position.y + 4.0), Color(ThemeFactory.LAMP, 0.38 * alpha), 1.0, true)
 	for nail: Vector2 in [Vector2(r.position.x + 4.5, r.position.y + 5.0), Vector2(r.end.x - 4.5, r.position.y + 5.0),
@@ -282,7 +292,7 @@ func _draw_sign(j: JobDef, c: Vector2, _site: Vector2, left: int, done: bool) ->
 	var size := maxi(8, roundi(10.0 * ThemeFactory.text_scale))
 	while size > 8 and _font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > available:
 		size -= 1
-	var baseline := Vector2(text_x, r.position.y + 20.0)
+	var baseline := Vector2(text_x, r.position.y + 13.0)
 	draw_string_outline(_font, baseline, title, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 2, Color(Art.INK, 0.95 * alpha))
 	draw_string(_font, baseline, title, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(ThemeFactory.BONE, alpha))
 	var count := "%d/%d" % [j.portions - maxi(left, 0), j.portions]

@@ -4,8 +4,8 @@ extends Screen
 ## Закрытые акты видны с названием: что будет дальше.
 
 
-const COVER_PATH := "res://assets/ui/campaign_cover.png"
-var _act_heads: Dictionary = {}     ## номер акта -> заголовок в списке глав
+var _map: CampaignMap
+var _selected_act := 0
 
 
 func screen_id() -> String:
@@ -16,8 +16,15 @@ func title() -> String:
 	return L.t("camp.title")
 
 
-func field_ratio() -> float:
-	return 0.34
+func show_navigation() -> bool:
+	return false
+
+
+func handle_back() -> bool:
+	if _selected_act == 0:
+		return false
+	_select_act(0)
+	return true
 
 
 func mood() -> Vector2:
@@ -27,23 +34,27 @@ func mood() -> Vector2:
 func build() -> void:
 	W.clear(body)
 	W.clear(footer)
-	body.add_child(W.label(L.t("camp.title"), &"Title"))
-	body.add_child(_book_header())
-	var map := CampaignMap.new()
-	map.build()
-	map.act_picked.connect(_scroll_to_act)
-	body.add_child(map)
-	_act_heads.clear()
+	_map = CampaignMap.new()
+	_map.build()
+	_map.act_picked.connect(_select_act)
+	_map.visible = _selected_act == 0
+	body.add_child(_map)
+	var map_caption := W.label(L.t("camp.pick_place"), &"Hint")
+	map_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	map_caption.visible = _map.visible
+	body.add_child(map_caption)
 	for act: Dictionary in Campaign.ACTS:
 		var aid := int(act.id)
+		var first := body.get_child_count()
 		var head := W.label(L.t("camp.act%d" % aid), &"Speaker")
 		head.name = "ActHead_%d" % aid
-		_act_heads[aid] = head
 		body.add_child(head)
 		var chapters: Array = act.chapters
+		head.visible = aid == _selected_act
 		if chapters.is_empty():
 			var soon := W.icon_line("lock", L.t("camp.act%d.hook" % aid) + " " + L.t("camp.soon"), &"Small")
 			soon.name = "Soon_%d" % aid
+			soon.visible = aid == _selected_act
 			body.add_child(soon)
 			continue
 		var n := 0
@@ -55,14 +66,18 @@ func build() -> void:
 			end.name = "ActEnd_%d" % aid
 			end.add_child(W.label(Campaign.act_ending(aid), &"Tale"))
 			body.add_child(end)
+		for i in range(first, body.get_child_count()):
+			(body.get_child(i) as Control).visible = aid == _selected_act
 	var fallen := Campaign.fallen()
 	if not fallen.is_empty():
 		var mem := W.icon_line("skull", L.t("camp.fallen", {"list": fallen}), &"Hint")
 		mem.name = "Fallen"
+		mem.visible = _selected_act != 0
 		body.add_child(mem)
 	if not Campaign.is_new():
 		var reset := W.wrap(W.button(L.t("camp.reset"), &"Ghost"))
 		reset.name = "Reset"
+		reset.visible = _selected_act != 0
 		reset.pressed.connect(_ask_reset)
 		body.add_child(reset)
 
@@ -70,42 +85,28 @@ func build() -> void:
 	var go := W.button(L.t("camp.continue", {"title": L.t("camp.%s.title" % cur)}) if not Campaign.is_new() else L.t("camp.start"))
 	go.name = "Continue"
 	go.pressed.connect(func() -> void: _play(cur))
+	go.visible = _selected_act == 0
 	footer.add_child(go)
 	var back := W.button(L.t("ui.back"), &"Ghost")
-	back.pressed.connect(func() -> void: emit_intent(Intent.BACK))
+	back.pressed.connect(func() -> void:
+		if not handle_back():
+			emit_intent(Intent.BACK))
 	footer.add_child(back)
+	_fit_map.call_deferred()
+	if not scroll.resized.is_connected(_fit_map):
+		scroll.resized.connect(_fit_map)
 
 
-## Обложка книги и вступление. В начале кампании обложка крупнее.
-func _book_header() -> Control:
-	var row := W.hbox(14)
-	row.name = "BookHeader"
-	var px := 150.0 if Campaign.is_new() else 88.0
-	var cover := TextureRect.new()
-	cover.name = "BookCover"
-	cover.texture = load(COVER_PATH) as Texture2D if ResourceLoader.exists(COVER_PATH) else null
-	cover.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	cover.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	cover.custom_minimum_size = Vector2(px, px * 1.5)
-	cover.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(cover)
-	var intro := W.label(L.t("camp.intro"), &"Tale")
-	intro.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(intro)
-	return row
+func _select_act(act: int) -> void:
+	_selected_act = act
+	build()
+	scroll.scroll_vertical = 0
 
 
-## Нажали на место на карте: список прокручивается к заголовку акта.
-func _scroll_to_act(act: int) -> void:
-	var head: Control = _act_heads.get(act)
-	if head == null or scroll == null or not is_instance_valid(head):
-		return
-	var y := int(head.global_position.y - scroll.global_position.y) + scroll.scroll_vertical - 8
-	if Juice.instant:
-		scroll.scroll_vertical = maxi(y, 0)
-	else:
-		Juice.tween().tween_property(scroll, "scroll_vertical", maxi(y, 0), 0.35)
+func _fit_map() -> void:
+	if is_instance_valid(_map) and _map.visible and scroll.size.y > 0:
+		_map.height_limit = maxf(210.0, scroll.size.y - 54.0)
+		_map.fit_height()
 
 
 func _chapter_row(id: String, n: int) -> Control:
@@ -124,7 +125,7 @@ func _chapter_row(id: String, n: int) -> Control:
 		art.texture = chapter_texture
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		art.custom_minimum_size = Vector2(92, 68)
+		art.custom_minimum_size = Vector2(115, 86)
 		art.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(art)

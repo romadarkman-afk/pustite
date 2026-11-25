@@ -1284,24 +1284,25 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 	var b1 := cs.find_child("Chapter_a1c1", true, false) as Button
 	var b3 := cs.find_child("Chapter_a1c3", true, false) as Button
 	ok += _expect(fails, b1 != null and not b1.disabled and b3 != null and b3.disabled and cs.find_child("Soon_4", true, false) == null and cs.find_child("Chapter_a4c3", true, false) != null and cs.find_child("Chapter_a2c1", true, false) != null
-		and cs.find_child("Fallen", true, false) != null and cs.find_child("BookCover", true, false) != null
+		and cs.find_child("Fallen", true, false) != null and cs.field_spacer == null
 		and cs.find_child("Replay_a1c1", true, false) is Button and cs.find_child("Replay_a1c3", true, false) == null
 		and cs.find_child("CampaignMap", true, false) != null and cs.find_child("ChapterArt_a1c1", true, false) != null,
-		"экран глав: не видно истории глав, обложки или карты")
+		"экран глав: отсутствуют история глав, карта или состояние прохождения")
 	var chapter_art_ok := true
 	for chapter_id: String in Campaign.ORDER:
 		var chapter_image := cs.find_child("ChapterArt_" + chapter_id, true, false) as TextureRect
 		var expected_image: Texture2D = Campaign.art(chapter_id)
 		chapter_art_ok = chapter_art_ok and chapter_image != null and expected_image != null and chapter_image.texture == expected_image
-	var book_cover := cs.find_child("BookCover", true, false) as TextureRect
 	var map_art := cs.find_child("MapArt", true, false) as TextureRect
-	chapter_art_ok = chapter_art_ok and book_cover != null and book_cover.texture != null and map_art != null and map_art.texture != null
-	ok += _expect(fails, chapter_art_ok, "экран кампании: обложка, карта или одна из 12 глав без своего изображения")
+	chapter_art_ok = chapter_art_ok and map_art != null and map_art.texture != null
+	ok += _expect(fails, chapter_art_ok, "экран кампании: карта или одна из 12 глав без своего изображения")
 	var none_lost: Array[int] = []
 	Save.record_chapter("a1c2", 3, none_lost)
 	Save.record_chapter("a1c3", 1, none_lost)
 	Nav.show_campaign()
 	await _settle(tree)
+	(Nav.host.current as CampaignScreen)._select_act(1)
+	await tree.process_frame
 	var act_end := Nav.host.current.find_child("ActEnd_1", true, false)
 	ok += _expect(fails, act_end != null and not _all_text(act_end).contains("{") and not _all_text(act_end).is_empty(), "после третьей главы нет концовки акта")
 	ok += _expect(fails, not _all_text(Nav.host.current).contains("{"), "на экране глав метка подстановки")
@@ -3329,7 +3330,7 @@ static func howto() -> void:
 			"перед первой партией показано %d карточек вместо основных %d" % [h.page_count(), HowToScreen.CORE])
 		for pg in range(h.page_count()):
 			var ar := h.art.get_global_rect()
-			ok += _expect(fails, h.page == pg and ar.size.y >= 140.0 and ar.size.y <= minf(230.0, host_h), "карточка %d: неподходящая высота картинки %d px" % [pg + 1, int(ar.size.y)])
+			ok += _expect(fails, h.page == pg and ar.size.y >= 140.0 and ar.size.y <= minf(255.0, host_h), "карточка %d: неподходящая высота картинки %d px" % [pg + 1, int(ar.size.y)])
 			var inside := true
 			for f: VillagerFigure in h.art.figures:
 				if not ar.grow(2.0).encloses(f.body_rect_global()):
@@ -4577,6 +4578,15 @@ static func village() -> void:
 			previous = point
 		route_ok = route.size() > 1 and route_clear
 	ok += _expect(fails, route_ok, "маршрут проходит сквозь фасад церкви или не обходит его")
+	var well_from := v.def.well + Vector2(-59, 0)
+	var well_to := v.def.well + Vector2(59, 0)
+	var well_route := cr.walk_route(well_from, well_to)
+	var path_clear := well_route.size() > 1 and well_route[-1].is_equal_approx(well_to)
+	var cursor := well_from
+	for point: Vector2 in well_route:
+		path_clear = path_clear and cr._segment_clear(cursor, point, cr._walk_walls())
+		cursor = point
+	ok += _expect(fails, path_clear, "житель не обошёл основание колодца")
 
 	# 1. Камера: днём ближе, игрок в кадре
 	ok += _expect(fails, v.scale.x > scale_wide * 1.2, "днём камера не приблизилась (%.2f против %.2f)" % [v.scale.x, scale_wide])
@@ -6949,7 +6959,11 @@ static func recap() -> void:
 	Nav.show(MorningScreen.new())
 	await _settle(tree)
 	var mt := _all_text(Nav.host.current)
-	ok += _expect(fails, mt.contains("Почему ты погиб") and mt.contains(m.alive_bots()[0].name) and mt.contains("90%"), "утром не видно, почему ты погиб")
+	ok += _expect(fails, mt.contains("Почему ты погиб") and mt.contains(m.alive_bots()[0].name) and not mt.contains("90%"), "с утра нет краткой причины гибели")
+	var more := Nav.host.current.find_child("NightDetailsToggle", true, false) as Button
+	more.button_pressed = true
+	await tree.process_frame
+	ok += _expect(fails, _all_text(Nav.host.current).contains("90%"), "в открытой сводке нет вероятности гибели")
 	m.winner = Match.Team.UPYRI
 	m.chron.append({"title": "Ночь 1", "text": "проверка ленты."})
 	Nav.show(EndScreen.new())
@@ -7067,6 +7081,9 @@ static func recap() -> void:
 	var loss: Control = null
 	for n: Node in Nav.host.current.find_children("Loss_*", "", true, false):
 		loss = n as Control
+	var toggle_loss := Nav.host.current.find_child("NightDetailsToggle", true, false) as Button
+	toggle_loss.button_pressed = true
+	await tree.process_frame
 	var portrait := loss.find_child("Portrait", true, false) as TextureRect if loss != null else null
 	var lt := _all_text(loss) if loss != null else ""
 	ok += _expect(fails, loss != null and loss.get_meta("loss", -1) == victim.id, "утром гибель жителя показана строкой без сцены потери")
@@ -7077,7 +7094,8 @@ static func recap() -> void:
 		if loss.find_child("Mourner_%d" % kin.id, true, false) == null:
 			kin_ok = false
 	ok += _expect(fails, kin_ok, "в сцене потери не видно, как горюют близкие")
-	ok += _expect(fails, MorningScreen.LOSS_HOLD >= 1.5, "сцену потери можно пролистнуть сразу")
+	ok += _expect(fails, Nav.host.current is MorningScreen and not (Nav.host.current as MorningScreen).is_busy(),
+		"подробности смерти задерживают доступ к кнопке продолжения")
 	# 8. Дилеммы у двери (56): семь видов, цена выбора, итог в разборе
 	var kinds_seen: Dictionary = {}
 	var dl_ok := true
@@ -10025,7 +10043,8 @@ static func campmap() -> void:
 					var hit := tg.find_child("Pick_%d" % act, true, false) as Button
 					if hit == null or hit.size.y < MIN_TOUCH - 0.5:
 						bad.append("%s: у места %d нет кнопки или она ниже %d" % [tag, act, int(MIN_TOUCH)])
-					var want := Vector2((it.at as Vector2).x * map.size.x, (it.at as Vector2).y * map.map_height())
+					var map_art := map.find_child("MapArt", true, false) as TextureRect
+					var want := map_art.position + (it.at as Vector2) * map_art.size
 					if pin.position.distance_to(want - pin.size * 0.5) > 1.5:
 						bad.append("%s: пин %d не на месте картинки" % [tag, act])
 					for prev: Rect2 in tags:
@@ -10038,7 +10057,7 @@ static func campmap() -> void:
 					bad.append("%s: в подписях метка или ключ: %s" % [tag, texts.substr(0, 60)])
 	ok += checked
 	ok += _expect(fails, bad.is_empty(), "карта кампании: %d нарушений, например %s" % [bad.size(), "; ".join(bad.slice(0, 6))])
-	# 3. нажатие на место прокручивает список к заголовку акта
+	# 3. место открывает самостоятельный список глав выбранного акта
 	L.use("ru")
 	Save.text_size = 0
 	ThemeFactory.text_scale = ThemeFactory.TEXT_SCALES[0]
@@ -10055,13 +10074,16 @@ static func campmap() -> void:
 	await tree.process_frame
 	ok += _expect(fails, picked[0] == 3, "нажатие на место не сообщило акт")
 	var head3 := cs2.find_child("ActHead_3", true, false) as Control
-	ok += _expect(fails, head3 != null and cs2.scroll.scroll_vertical > 0 and absf(head3.global_position.y - cs2.scroll.global_position.y) < 40.0,
-		"список не прокрутился к акту III: scroll %d" % cs2.scroll.scroll_vertical)
+	var other := cs2.find_child("ActHead_1", true, false) as Control
+	var visible_map := cs2.find_child("CampaignMap", true, false) as Control
+	ok += _expect(fails, head3 != null and head3.is_visible_in_tree() and not other.is_visible_in_tree()
+		and not visible_map.is_visible_in_tree() and cs2.scroll.scroll_vertical == 0, "не открылся отдельный список акта III")
+	ok += _expect(fails, cs2.handle_back(), "Назад не вернул карту из списка глав")
 	Save.campaign_stars = keep_stars
 	Save.text_size = keep_size
 	ThemeFactory.text_scale = ThemeFactory.TEXT_SCALES[keep_size]
 	L.use(keep_lang)
-	_finish(fails, ok, "Карта кампании", "четыре места на карте, состояния актов, сезоны, подписи внутри карты и не накладываются на 10 языках и трёх размерах текста, нажатие прокручивает к акту")
+	_finish(fails, ok, "Карта кампании", "четыре места на карте, состояния актов, сезоны, подписи внутри карты и не накладываются на 10 языках и трёх размерах текста, нажатие открывает главы акта")
 
 
 ## TASK-088: иконки достижений и страницы книги. У каждого достижения свой значок и тексты, картинка берётся, когда она есть.
