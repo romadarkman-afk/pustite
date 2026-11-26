@@ -62,7 +62,8 @@ func _place(act: int, p: Dictionary) -> Dictionary:
 	var season_col: Color = SEASON_COLORS.get(String(st.season), Color.WHITE)
 	var kind := "lock" if state == "locked" else ("safe" if state == "done" else "door")
 	var col := ThemeFactory.LAMP if state == "current" else (ThemeFactory.BONE if state != "locked" else Color(0.6, 0.6, 0.66))
-	var pin := Glyph.make(kind, PIN, col)
+	var pin_size := PIN + 8.0 if state != "done" else PIN
+	var pin := Glyph.make(kind, pin_size, col)
 	pin.name = "Pin_%d" % act
 	add_child(pin)
 	var tag := W.panel(&"Sheet")
@@ -74,11 +75,16 @@ func _place(act: int, p: Dictionary) -> Dictionary:
 	head.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	head.autowrap_mode = TextServer.AUTOWRAP_OFF
 	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if state == "current":
+		head.add_theme_color_override("font_color", ThemeFactory.LAMP)
+	elif state == "locked":
+		head.add_theme_color_override("font_color", Color("b3b4b9"))
 	box.add_child(head)
-	var sub := W.label("%s  %d/%d" % [L.t("camp.season.%s" % String(st.season)), int(st.done), int(st.total)], &"Small")
+	var caption := L.t("camp.locked_short") if state == "locked" else "%s  %d/%d" % [L.t("camp.season.%s" % String(st.season)), int(st.done), int(st.total)]
+	var sub := W.label(caption, &"Small")
 	sub.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	sub.autowrap_mode = TextServer.AUTOWRAP_OFF
-	sub.add_theme_color_override("font_color", season_col)
+	sub.add_theme_color_override("font_color", Color("a7a8af") if state == "locked" else season_col)
 	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(sub)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -88,17 +94,21 @@ func _place(act: int, p: Dictionary) -> Dictionary:
 	hit.name = "Pick_%d" % act
 	hit.flat = true
 	hit.custom_minimum_size = Vector2(0, ThemeFactory.TOUCH)
-	hit.focus_mode = Control.FOCUS_NONE
+	hit.focus_mode = Control.FOCUS_ALL
+	hit.accessibility_name = "%s · %s" % [head.text, sub.text]
 	for sb: String in ["normal", "hover", "pressed", "disabled", "focus"]:
 		hit.add_theme_stylebox_override(sb, StyleBoxEmpty.new())
 	hit.pressed.connect(func() -> void:
 		Sfx.play(&"tap", randf_range(0.95, 1.08), -4.0)
 		act_picked.emit(act))
 	tag.add_child(hit)
-	if state == "locked":
-		tag.modulate = Color(1, 1, 1, 0.78)
+	if state != "done":
+		var style := (tag.get_theme_stylebox("panel") as StyleBoxFlat).duplicate() as StyleBoxFlat
+		style.border_color = ThemeFactory.LAMP if state == "current" else Color("666970")
+		style.set_border_width_all(2)
+		tag.add_theme_stylebox_override("panel", style)
 	add_child(tag)
-	return {"act": act, "at": p.at, "label": p.label, "pin": pin, "tag": tag, "state": state}
+	return {"act": act, "at": p.at, "label": p.label, "pin": pin, "tag": tag, "state": state, "pin_size": pin_size}
 
 
 func map_height() -> float:
@@ -132,8 +142,9 @@ func _layout() -> void:
 		var tag: Control = it.tag
 		var at: Vector2 = it.at
 		var lab: Vector2 = it.label
-		pin.size = Vector2(PIN, PIN)
-		pin.position = Vector2(left + at.x * w, at.y * h) - pin.size * 0.5
+		pin.size = Vector2.ONE * float(it.pin_size)
+		pin.position = (Vector2(left + at.x * w, at.y * h) - pin.size * 0.5).clamp(
+			Vector2.ZERO, Vector2(size.x, h) - pin.size)
 		var tsz := tag.get_combined_minimum_size()
 		tag.size = tsz
 		var pos := Vector2(left + lab.x * w, lab.y * h) - tsz * 0.5

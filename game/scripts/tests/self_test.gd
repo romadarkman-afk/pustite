@@ -3042,7 +3042,9 @@ static func hints() -> void:
 		if Game.m != null and Game.m.phase == Match.Phase.DOOR and Nav.host.current is DoorScreen:
 			var ds := Nav.host.current as DoorScreen
 			if not Save.hint_seen("door"):
-				ok += _check_hint(ds, "door", vp, fails)
+				var inline := ds.find_child("DoorInlineHint", true, false) as Button
+				ok += _expect(fails, inline != null and inline.get_parent() != ds and ds.hint == null,
+					"подсказка двери должна прокручиваться вместе со списком")
 				shown["door"] = true
 				if ds.role == Match.DoorRole.GUEST:
 					Nav.handle_intent(Intent.PLEA, {"plea": "beg"}, ds)
@@ -4011,11 +4013,20 @@ static func checkpoint() -> void:
 	ok += _expect(fails, Game.has_day_checkpoint(), "снимок второго дня не записан до закрытия")
 	var continue_screen := CrashScreen.new()
 	ok += _expect(fails, continue_screen.title() == L.t("crash.saved_title"), "обычный перезапуск со снимком не предлагает продолжение дня")
-	Game._preserve_checkpoint_on_abandon = true
-	Game.abandon() # моделируем потерю процесса, файл снимка оставляем на диске
-	ok += _expect(fails, Game.m == null and Game.has_day_checkpoint(), "симуляция закрытия не сохранила снимок")
-	var resumed := Game.resume_day_checkpoint()
-	ok += _expect(fails, resumed, "игра отказалась восстанавливать снимок")
+	Nav.show_menu()
+	await _settle(tree)
+	ok += _expect(fails, Game.m == null and Game.has_day_checkpoint(), "выход в меню удалил снимок")
+	Nav.show_settings()
+	await _settle(tree)
+	Nav.show_menu()
+	await _settle(tree)
+	var resume := Nav.host.current.find_child("Continue", true, false) as Button
+	ok += _expect(fails, resume != null and Game.has_day_checkpoint(), "после настроек пропало продолжение дня")
+	if resume != null:
+		resume.pressed.emit()
+		await _settle(tree)
+	var resumed := Game.m != null
+	ok += _expect(fails, resumed, "кнопка продолжения не восстановила день")
 	if resumed and Game.m != null:
 		ok += _expect(fails, Game.m.day == 2 and Game.m.phase == Match.Phase.DAY, "загрузился день %d, фаза %s" % [Game.m.day, Match.Phase.keys()[Game.m.phase]])
 		ok += _expect(fails, _checkpoint_cast_signature(Game.m) == expected_cast, "состав, скрытые роли, живые жители или связи изменились")
@@ -5116,6 +5127,8 @@ static func talisman() -> void:
 	var ji := m.job_index(StringName("talisman_%d" % h))
 	ok += _expect(fails, h >= 0 and ji >= 0 and m.jobs[ji].kind == JobDef.Kind.TALISMAN, "у треснувшего оберега нет дела починки")
 	if ji >= 0:
+		v.pan_by(m.jobs[ji].pos.x - v.cam_x)
+		await _frames(tree, 2)
 		var icon := v.jobs_layer.icon_rect_global(ji)
 		var house_g := v.to_global(v.def.shelters[h].pos)
 		ok += _expect(fails, icon.get_center().distance_to(house_g) < 260.0 * v.scale.x, "значок починки далеко от своего дома")

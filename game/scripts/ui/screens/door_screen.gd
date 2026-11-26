@@ -37,6 +37,7 @@ var _ask_rows: Dictionary[int, Button] = {}
 var _name_labels: Dictionary[int, Label] = {}
 var _portraits: Dictionary[int, Control] = {}
 var _opening_scene := false
+var _inline_hint: Button
 var _touched := false          ## игрок что-то сделал у двери: повторный стук больше не нужен
 const IDLE_KNOCK := 5.5        ## молчишь у двери — через столько секунд стучат снова
 const IDLE_KNOCKS := 3
@@ -68,8 +69,21 @@ func hint_text() -> String:
 	return L.t("door.hint_alone")
 
 
-func hint_target() -> Rect2:
-	return Rect2(Vector2(size.x * 0.5, footer.get_global_rect().position.y - get_global_rect().position.y - 10.0), Vector2.ZERO)
+func show_hint() -> void:
+	if hint_text().is_empty() or not is_instance_valid(_box) or is_instance_valid(_inline_hint):
+		return
+	_inline_hint = W.button(L.t("door.visitor_help"), &"Ghost", 44)
+	_inline_hint.name = "DoorInlineHint"
+	_inline_hint.pressed.connect(func() -> void: InfoSheet.open(self, [["info", hint_text()]]))
+	_box.add_child(_inline_hint)
+	_box.move_child(_inline_hint, 0)
+
+
+func hide_hint() -> void:
+	if is_instance_valid(_inline_hint):
+		_inline_hint.hide()
+		_inline_hint.queue_free()
+		_inline_hint = null
 
 
 func _plate(side: int, top: int) -> PanelContainer:
@@ -475,6 +489,10 @@ func _toggle(gid: int, cap: int) -> void:
 		_rows[k].theme_type_variation = &"RowOn" if _selected.has(k) else &"Row"
 		_rows[k].text = L.t("door.admitting") if _selected.has(k) else L.t("door.admit")
 	_go.disabled = _selected.is_empty()
+	_go.text = L.t("door.open") if _selected.is_empty() else L.t("door.open_selected", {"n": _selected.size()})
+	if not _selected.is_empty():
+		hide_hint()
+		Save.mark_hint(hint_id())
 	var i := 0
 	for c: Node in _seats.get_children():
 		if c is Glyph and (c as Glyph).kind.begins_with("seat"):

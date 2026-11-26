@@ -67,17 +67,18 @@ func build() -> void:
 	body.add_child(art)
 
 	var heading := W.label(L.t(String(card[0])), &"Title")
-	heading.add_theme_font_size_override("font_size", ThemeFactory.fs(24))
+	heading.add_theme_font_size_override("font_size", ThemeFactory.fs(22))
 	body.add_child(heading)
 	var description := W.label(L.t(String(card[1])), &"Tale")
-	description.add_theme_font_size_override("font_size", ThemeFactory.fs(17))
+	description.add_theme_font_size_override("font_size", ThemeFactory.fs(19))
 	body.add_child(description)
-	for row: Array in card[3]:
-		var line := W.icon_line(String(row[0]), L.t(String(row[1])), &"Small", 46.0)
-		var row_label := line.get_child(1) as Label
-		row_label.add_theme_font_size_override("font_size", ThemeFactory.fs(16))
-		line.name = "Row_" + String(row[0])
-		body.add_child(line)
+	if art.kind == "marks":
+		_mark_picker(card[3])
+	else:
+		for row: Array in card[3]:
+			var line := W.icon_line(String(row[0]), L.t(String(row[1])), &"Small", 46.0)
+			line.name = "Row_" + String(row[0])
+			body.add_child(line)
 	var last := page == page_count() - 1
 	if last and then_play:
 		body.add_child(W.label(L.t("howto.more"), &"Hint"))
@@ -90,7 +91,7 @@ func build() -> void:
 		previous.add_theme_font_size_override("font_size", ThemeFactory.fs(15))
 		previous.pressed.connect(prev_page)
 		controls.add_child(previous)
-	var next := W.button(L.t(("menu.play" if then_play else "howto.got_it") if last else "ui.next"), &"Primary", 62)
+	var next := W.button(L.t(("menu.play" if then_play else "howto.got_it") if last else "ui.next"), &"Primary", 68)
 	next.name = "NextPage"
 	next.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	next.add_theme_font_size_override("font_size", ThemeFactory.fs(18))
@@ -106,18 +107,55 @@ func build() -> void:
 		footer.add_child(skip)
 
 
+func _mark_picker(rows: Array) -> void:
+	var grid := GridContainer.new()
+	grid.name = "MarkPicker"
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	body.add_child(grid)
+	var details := W.label(L.t(String(rows[0][1])), &"Small")
+	details.name = "MarkMeaning"
+	details.add_theme_font_size_override("font_size", ThemeFactory.fs(17))
+	var buttons: Array[Button] = []
+	for mark: Array in rows:
+		var kind := String(mark[0])
+		var text := L.t(String(mark[1]))
+		var button := W.button("", &"Row", 48)
+		button.name = "Row_" + kind
+		button.accessibility_name = text
+		button.tooltip_text = text
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var glyph := Glyph.make(kind, 37.0, Glyph.tint(kind))
+		button.add_child(glyph)
+		glyph.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
+		glyph.offset_left = -18.5
+		glyph.offset_top = -18.5
+		glyph.offset_right = 18.5
+		glyph.offset_bottom = 18.5
+		button.pressed.connect(func() -> void:
+			details.text = text
+			for other: Button in buttons:
+				other.theme_type_variation = &"RowOn" if other == button else &"Row")
+		buttons.append(button)
+		grid.add_child(button)
+	buttons[0].theme_type_variation = &"RowOn"
+	body.add_child(details)
+
+
 ## Иллюстрация занимает меньше места, чтобы текст и навигация оставались видны.
 func _size_art() -> void:
 	if is_instance_valid(art):
 		var rows: int = (PAGES[page][3] as Array).size()
-		var share := 0.34 if rows <= 3 else 0.26
-		var minimum := 178.0 if art.kind == "jobs" else 138.0
-		art.custom_minimum_size = Vector2(0, clampf(size.y * share, minimum, 255.0))
+		var share := 0.32 if rows <= 3 else 0.19
+		var minimum := 170.0 if art.kind in ["jobs", "marks"] else 138.0
+		var limit := 202.0 if art.kind == "marks" else 255.0
+		art.custom_minimum_size = Vector2(0, clampf(size.y * share, minimum, limit))
 
 
 func next_page() -> void:
 	if page >= page_count() - 1:
-		commit(Intent.HOWTO_DONE, {"play": then_play})
+		commit(Intent.HOWTO_DONE, {"play": then_play, "finished": true})
 		return
 	page += 1
 	_refresh()

@@ -20,6 +20,10 @@ func title() -> String:
 	return L.t("cos.title")
 
 
+func _navigation_label() -> String:
+	return "← " + L.t("ui.back")
+
+
 func mood() -> Vector2:
 	return Vector2(0.8, 0.6)
 
@@ -28,7 +32,7 @@ func build() -> void:
 	W.clear(body)
 	W.clear(footer)
 	_art = Control.new()
-	_art.custom_minimum_size = Vector2(0, 230)
+	_art.custom_minimum_size = Vector2(0, 266)
 	_art.clip_contents = true
 	_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	preview = VillagerFigure.new()
@@ -38,10 +42,17 @@ func build() -> void:
 	preview.set_hero_hat(Save.hat if Save.avatar_id == "hero" else "own")
 	preview.set_lantern(Save.lantern)
 	preview.set_brooch(Save.brooch)
-	preview.scale = Vector2(1.9, 1.9)
+	preview.scale = Vector2.ONE * 2.65
+	preview.tag.hide()
 	_art.add_child(preview)
-	_art.resized.connect(func() -> void: preview.position = Vector2(_art.size.x * 0.5, _art.size.y - 24.0))
+	var preview_control := _art
+	var figure := preview
+	_art.resized.connect(func() -> void: figure.position = Vector2(preview_control.size.x * 0.5, preview_control.size.y - 14.0))
 	body.add_child(_art)
+	var name_button := W.button(Save.player_display_name() + " · " + L.t("menu.name"), &"Ghost")
+	name_button.name = "EditPlayerName"
+	name_button.pressed.connect(func() -> void: emit_intent(Intent.SET_PLAYER_NAME))
+	body.add_child(name_button)
 
 	# четыре раздела вкладками: на телефоне всё сразу не помещалось, приходилось тянуть вниз
 	var tab_buttons: Array[Button] = []

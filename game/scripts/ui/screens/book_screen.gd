@@ -49,10 +49,6 @@ func title() -> String:
 	return L.t("book.title")
 
 
-func field_ratio() -> float:
-	return 0.3
-
-
 func mood() -> Vector2:
 	return Vector2(0.8, 0.7)
 
@@ -60,7 +56,6 @@ func mood() -> Vector2:
 func build() -> void:
 	W.clear(body)
 	W.clear(footer)
-	body.add_child(W.label(L.t("book.title"), &"Title"))
 	body.add_child(EndScreen.level_bar(Save.xp))
 
 	body.add_child(W.label(L.t("book.people"), &"Speaker"))

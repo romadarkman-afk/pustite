@@ -166,8 +166,11 @@
      "sound": [
       {
        "at": 0.0,
-       "do": "silence",
-       "fade": 0.6
+       "do": "start",
+       "layer": "amb",
+       "id": "amb_night",
+       "fade": 1.25,
+       "vol": -26.0
       }
      ],
      "cast": []
@@ -1880,8 +1883,9 @@
        "at": 0.0,
        "do": "start",
        "layer": "amb",
-       "id": "amb_wind",
-       "fade": 1.4
+       "id": "amb_dusk",
+       "fade": 2.2,
+       "vol": -18.0
       },
       {
        "at": 0.0,
@@ -1985,8 +1989,9 @@
        "at": 0.0,
        "do": "start",
        "layer": "amb",
-       "id": "amb_wind",
-       "fade": 1.4
+       "id": "amb_dusk",
+       "fade": 2.2,
+       "vol": -18.0
       },
       {
        "at": 0.0,

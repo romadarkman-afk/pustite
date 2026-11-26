@@ -32,7 +32,6 @@ var clock: PhaseClock
 var screen_kept_on: bool = false
 var _feed_gen: int = 0
 var _restoring_checkpoint := false
-var _preserve_checkpoint_on_abandon := false
 
 ## Дела дня. Время дня идёт вместе с часами фазы: пауза — стоят и дела.
 var tasks: Array[Director.JobTask] = []
@@ -147,10 +146,9 @@ func start(cfg: GameConfig, daily_date: String = "", chapter_data: Dictionary = 
 
 
 ## Бросить партию: остановить таймер и отменить очередь реплик.
-func abandon() -> void:
-	if not _preserve_checkpoint_on_abandon:
+func abandon(keep_checkpoint: bool = false) -> void:
+	if not keep_checkpoint:
 		DayCheckpoint.clear(_checkpoint_path())
-	_preserve_checkpoint_on_abandon = false
 	_feed_gen += 1
 	tasks.clear()
 	player_job = -1
@@ -470,8 +468,7 @@ func resume_day_checkpoint() -> bool:
 	var cfg := Save.config.duplicate() as GameConfig
 	if cfg == null:
 		return false
-	_preserve_checkpoint_on_abandon = true
-	abandon()
+	abandon(true)
 	chapter = saved_chapter
 	chapter_result = session.get("chapter_result", {})
 	progress_result = session.get("progress_result", {})
@@ -507,12 +504,14 @@ func resume_day_checkpoint() -> bool:
 	m.start(cfg, int(session.get("match_seed", 0)))
 	director = Director.new()
 	director.tune = 0.0 if daily != "" else Save.tune()
+	director.tune = minf(director.tune, -float(chapter.get("assist", 0.0)))
+	director.first_chapter = String(chapter.get("id", "")) == "a1c1"
+	director.chapter_id = String(chapter.get("id", ""))
 	director.attach(m)
 	m.phase_changed.connect(_on_phase)
 	m.chat_posted.connect(func(l: ChatLine) -> void: chat_line.emit(l))
 	if not DayCheckpoint.apply(m, director, payload):
-		_preserve_checkpoint_on_abandon = true
-		abandon()
+		abandon(true)
 		return false
 	_keep_screen(true)
 	_restoring_checkpoint = true

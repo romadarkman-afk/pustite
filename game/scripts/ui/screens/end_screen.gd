@@ -25,6 +25,11 @@ var _rewards_played := false
 var _cast_played := false
 var _reward_page := -1
 var _cast_page := -1
+var return_page := -1
+
+
+func result_page() -> int:
+	return _page
 
 
 func build() -> void:
@@ -43,8 +48,9 @@ func build() -> void:
 	var earned := int(Game.progress_result.get("gained", 0))
 	if earned > 0:
 		summary.add_child(W.label(L.t("end.earned", {"xp": earned}), &"Speaker"))
-	for i in range(summary.get_child_count()):
-		Juice.pop_in(summary.get_child(i) as Control, i * 0.19)
+	if return_page < 0:
+		for i in range(summary.get_child_count()):
+			Juice.pop_in(summary.get_child(i) as Control, i * 0.19)
 	var villagers := _add_page("end.step_cast")
 	_cast_page = _pages.size() - 1
 	var reveal := reveal_cards()
@@ -78,11 +84,16 @@ func build() -> void:
 	scrollbar.changed.connect(_update_more)
 	scrollbar.value_changed.connect(func(_value: float) -> void: _update_more())
 	scroll.resized.connect(_update_more)
-	_show_page(0)
-	if _comics_end_due():
-		_play_comics_end.call_deferred()
-	Juice.haptic(Juice.Haptic.SUCCESS if won else Juice.Haptic.DEATH)
-	Sfx.play(&"win" if won else &"lose")
+	if return_page >= 0:
+		_rewards_played = true
+		_cast_played = true
+		_show_page(return_page)
+	else:
+		_show_page(0)
+		if _comics_end_due():
+			_play_comics_end.call_deferred()
+		Juice.haptic(Juice.Haptic.SUCCESS if won else Juice.Haptic.DEATH)
+		Sfx.play(&"win" if won else &"lose")
 
 
 func _add_page(key: String) -> VBoxContainer:
@@ -149,6 +160,8 @@ func _show_page(index: int) -> void:
 		_exit_buttons(true)
 	elif _page == _reward_page and not _rewards_played:
 		_rewards_played = true
+		if bool(Game.chapter_result.get("passed", false)):
+			Sfx.set_music(&"end_dawn", 1.3)
 		_animate_rewards(_pages[_page])
 	elif _page == _cast_page and not _cast_played:
 		_cast_played = true
@@ -536,7 +549,7 @@ func ending_card(people_won: bool, won: bool) -> PanelContainer:
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		var fit_art := func() -> void:
-			art.custom_minimum_size.y = clampf(size.y * 0.30, 130.0, 345.0)
+			art.custom_minimum_size.y = clampf(size.y * 0.22, 112.0, 260.0)
 		resized.connect(fit_art)
 		fit_art.call()
 		box.add_child(art)
@@ -729,8 +742,9 @@ func _play_act_end() -> void:
 
 
 func music() -> StringName:
-	if m != null and m.winner == Match.Team.PEOPLE:
-		return Sfx.act_theme(int(Game.chapter.get("act", 0)))
+	if m != null and m.winner == Match.Team.PEOPLE and not Game.chapter.is_empty():
+		var theme := Sfx.act_theme(int(Game.chapter.get("act", 1)))
+		return theme if theme != &"" else &"theme_sad"
 	return &""
 
 

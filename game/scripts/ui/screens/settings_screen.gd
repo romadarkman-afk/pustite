@@ -8,7 +8,6 @@ var reset_hints: bool = false
 var difficulty: String = "custom"
 var _chips: Dictionary = {}
 var _tab := "sound"
-var _about_open := false
 ## Авторы записей звука и музыки с OpenGameArt.org (docs/sound-sources.md). Имена не переводятся.
 const AUDIO_AUTHORS := "rubberduck, Robin Lamb, Kistol, isaiah658, Ted Kerr, SketchMan3, RandomMind, AuraVoice, Nocturnal_Vanguard, HaelDB, marcelofg55, GboxMikeFozzy, Ogrebane. \"Oculus Audio Pack 01\" by Oculus VR, LLC (https://developers.meta.com/vr/downloads/package/oculus-audio-pack-1/), licensed under CC BY 4.0."
 var _taps := DebugScreen.TapCounter.new()
@@ -64,16 +63,14 @@ func build() -> void:
 func _about_block() -> Control:
 	var box := VBoxContainer.new()
 	box.name = "About"
-	var toggle := W.button(L.t("about.title"), &"RowOn" if _about_open else &"Row")
+	var toggle := W.button(L.t("about.title"), &"Ghost")
 	toggle.name = "AboutToggle"
-	toggle.pressed.connect(func() -> void:
-		_about_open = not _about_open
-		build())
+	toggle.pressed.connect(func() -> void: InfoSheet.open(self, [
+		["info", L.t("about.audio") + " " + AUDIO_AUTHORS],
+		["info", L.t("about.own")],
+		["info", L.t("about.fonts")],
+	]))
 	box.add_child(toggle)
-	if _about_open:
-		var text := W.label("%s %s\n%s\n%s" % [L.t("about.audio"), AUDIO_AUTHORS, L.t("about.own"), L.t("about.fonts")], &"Small")
-		text.name = "AboutText"
-		box.add_child(text)
 	return box
 
 

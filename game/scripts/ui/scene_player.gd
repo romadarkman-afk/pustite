@@ -28,6 +28,19 @@ var _in_choice := false
 var _art: TextureRect
 var _portrait_box: CenterContainer
 var _portrait_tween: Tween
+const PORTRAIT_EDGE := """
+shader_type canvas_item;
+uniform float edge_start = 0.0;
+uniform float edge_end = 1.0;
+varying float local_y;
+void vertex() {
+	local_y = VERTEX.y;
+}
+void fragment() {
+	COLOR.a *= 1.0 - smoothstep(edge_start, edge_end, local_y);
+}
+"""
+static var _edge_shader: Shader
 var _dim: ColorRect
 var _fog: ColorRect
 var _wx: WeatherOverlay             ## осадки и туман главы: те же атласы, что на поле
@@ -88,6 +101,7 @@ func _build() -> void:
 	_fog.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_cover(_fog)
 	add_child(_fog)
+	move_child(_fog, _portrait_box.get_index())
 	_wx = WeatherOverlay.new()
 	_wx.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_wx)
@@ -170,7 +184,7 @@ func _next_frame() -> void:
 		tex = load(art_path) as Texture2D
 	_art.texture = tex
 	_art.visible = tex != null
-	_dim.color.a = 1.0 if tex != null else (0.62 if bool(scene.get("show_world", false)) else 0.92)
+	_dim.color.a = 1.0 if tex != null or not bool(scene.get("show_world", false)) else 0.70
 	var zoom: Array = f.get("zoom", [1.0, 1.08])
 	_art.pivot_offset = get_viewport_rect().size * 0.5
 	_art.scale = Vector2.ONE * float(zoom[0])
@@ -187,8 +201,8 @@ func _next_frame() -> void:
 		child.queue_free()
 	var who: Variant = f.get("portrait", null)
 	var available := get_viewport_rect().size
-	var portrait_h := minf(available.y * 0.40, 490.0)
-	var portrait_size := Vector2(minf(available.x * 0.73, portrait_h * 0.95), portrait_h)
+	var portrait_h := minf(available.y * 0.45, 525.0)
+	var portrait_size := Vector2(minf(available.x * 0.84, portrait_h * 1.06), portrait_h)
 	var pic: TextureRect = null
 	if who is Villager:
 		pic = W.portrait(who as Villager, portrait_size, Color(0.92, 0.92, 0.95))
@@ -196,9 +210,10 @@ func _next_frame() -> void:
 			var full := pic.texture.get_size()
 			var closeup := AtlasTexture.new()
 			closeup.atlas = pic.texture
-			closeup.region = Rect2(full * Vector2(0.14, 0.02), full * Vector2(0.72, 0.56))
+			closeup.region = Rect2(full * Vector2(0.20, 0.012), full * Vector2(0.60, 0.47))
 			closeup.filter_clip = true
 			pic.texture = closeup
+			_soft_portrait_edge(pic, closeup.region.size)
 			var living := pic as LivingPortrait
 			if living.blink_texture != null:
 				var blink := AtlasTexture.new()
@@ -222,7 +237,7 @@ func _next_frame() -> void:
 			_portrait_box.scale = Vector2.ONE * 0.96
 			_portrait_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 			_portrait_tween.tween_property(_portrait_box, "scale", Vector2.ONE * 1.035, maxf(2.0, dur))
-	_fog.color.a = 0.22 if String(f.get("weather", "")) == "fog" else 0.0
+	_fog.color.a = (0.10 if pic != null else 0.18) if String(f.get("weather", "")) == "fog" else 0.0
 	var kind := String(f.get("weather", ""))
 	var light := String(f.get("light", "night"))
 	# явная погода кадра важнее; иначе идёт погода главы (снег зимой, дождь осенью)
@@ -231,6 +246,23 @@ func _next_frame() -> void:
 		modulate.a = 0.0 if frame_i == 0 else modulate.a
 		create_tween().tween_property(self, "modulate:a", 1.0, 0.35)
 	_next_line()
+
+
+func _soft_portrait_edge(pic: TextureRect, source: Vector2) -> void:
+	if _edge_shader == null:
+		_edge_shader = Shader.new()
+		_edge_shader.code = PORTRAIT_EDGE
+	var shade := ShaderMaterial.new()
+	shade.shader = _edge_shader
+	pic.material = shade
+	var resize_mask := func() -> void:
+		var height := minf(pic.size.y, pic.size.x * source.y / maxf(source.x, 1.0))
+		if height > 0.0:
+			var bottom := (pic.size.y + height) * 0.5
+			shade.set_shader_parameter("edge_start", bottom - height * 0.17)
+			shade.set_shader_parameter("edge_end", bottom)
+	pic.resized.connect(resize_mask)
+	resize_mask.call_deferred()
 
 
 func _light(kind: String) -> Color:

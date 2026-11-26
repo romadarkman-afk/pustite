@@ -65,10 +65,15 @@ func build() -> void:
 	story.modulate.a = 0.0
 	_cast.add_child(story)
 
-	var role_l := W.label(_role_text(you), &"Hint")
+	var role_l := W.panel(&"Card")
+	role_l.name = "ChapterRole"
 	role_l.modulate.a = 0.0
-	if role_l.text.is_empty():
-		role_l.visible = false
+	var role_description := _role_text(you)
+	var role_copy := W.vbox(5)
+	role_copy.add_child(W.label(L.t("prologue.role_title"), &"Speaker"))
+	role_copy.add_child(W.label(role_description, &"Small"))
+	role_l.add_child(role_copy)
+	role_l.visible = not role_description.is_empty()
 	_cast.add_child(role_l)
 
 	var case_card := W.panel(&"Card")
@@ -180,7 +185,9 @@ func _show_beat() -> void:
 			art.texture = tex
 			art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-			art.custom_minimum_size = Vector2(0, clampf(size.y * 0.18, 105.0, 170.0) if size.y > 0.0 else 135.0)
+			var fit := func() -> void: art.custom_minimum_size.y = clampf(size.y * 0.34, 180.0, 390.0)
+			resized.connect(fit)
+			fit.call()
 			(_beat_card.get_child(0) as Control).add_child(art)
 			(_beat_card.get_child(0) as Control).move_child(art, 0)
 	var art_node := _beat_card.find_child("Art", true, false) as Control

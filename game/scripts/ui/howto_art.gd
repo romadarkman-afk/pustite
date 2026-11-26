@@ -62,9 +62,14 @@ func _build() -> void:
 	var names: Array = []
 	for i: int in idx:
 		names.append([L.t("you_name"), true] if i < 0 else [String(all[i % all.size()][0]), false])
+	var used := {}
 	for n: Array in names:
 		var f := VillagerFigure.new()
 		f.setup(n[0], _book.for_name(n[0], n[1]), n[1])
+		if not bool(n[1]):
+			var sprite := VillagerFigure.pick_sprite(f.look, used)
+			used[sprite] = true
+			f.set_sprite(sprite)
 		add_child(f)
 		if _is_night():
 			f.set_night(0.86)

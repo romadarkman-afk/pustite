@@ -221,6 +221,9 @@ func plan_jobs(day_sec: float) -> Array[JobTask]:
 			var tired := m.feelings.get_f(bot.id, Feelings.F.EXHAUSTION)
 			next_start[bot.id] = t + WORK_SEC + rng.randf_range(4.0, 9.0) + tired * 8.0
 	out.sort_custom(func(a: JobTask, b: JobTask) -> bool: return a.start < b.start)
+	# Первую работу видно в начале дня. Состав, саботаж и две порции для игрока остаются прежними.
+	if not out.is_empty():
+		out[0].start = minf(out[0].start, 5.0)
 	return out
 
 

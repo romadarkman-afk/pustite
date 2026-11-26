@@ -263,7 +263,12 @@ jobs:
           fi
           unzip -tq "$APK"
           "$TOOLS/zipalign" -c 4 "$APK"
-          "$TOOLS/apksigner" verify --verbose --print-certs "$APK"
+          CERTS="$("$TOOLS/apksigner" verify --verbose --print-certs "$APK")"
+          printf '%s\n' "$CERTS"
+          if ! grep -Fq "Signer #1 certificate SHA-256 digest: $SIGNING_CERT_SHA256" <<< "$CERTS"; then
+            echo "::error title=Подпись APK не совпадает::Обновление нельзя установить поверх предыдущего релиза."
+            exit 1
+          fi
           BADGING="$("$TOOLS/aapt" dump badging "$APK")"
           echo "$BADGING" | sed -n '1,2p'
           EXPECTED="package: name='com.vladi.pustite' versionCode='$VERSION_CODE' versionName='$VERSION'"
@@ -291,7 +296,7 @@ jobs:
           path: build/pustite.apk
           retention-days: 30
 
-      # Релиз идёт с main и по ручному запуску с любой ветки (Actions → Сборка APK → Run workflow).
+      # Релиз идёт с main и по ручному запуску с любой ветки как предварительный (Actions → Сборка APK → Run workflow).
       # Каждая сильная версия выкладывается как релиз; ветку без PR в main тоже можно выложить,
       # поэтому тег ставится на коммит сборки (--target), а не на голову main.
       - name: Выложить релиз со ссылкой на APK
@@ -307,8 +312,12 @@ jobs:
             echo
             awk -v v="## $VER" 'index($0, v) == 1 {f = 1; next} f && /^## / {exit} f' CHANGELOG.md
           } > release-notes.md
+          CHANNEL=(--latest)
+          if [ "$GITHUB_REF_NAME" != "main" ]; then
+            CHANNEL=(--prerelease --latest=false)
+          fi
           gh release create "$TAG" "build/pustite.apk" \
             --target "$COMMIT" \
             --title "v$VER · $TAG" \
             --notes-file release-notes.md \
-            --latest
+            "${CHANNEL[@]}"

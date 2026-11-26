@@ -5,6 +5,8 @@ shader_type canvas_item;
 uniform sampler2D snow_tex : repeat_enable, filter_linear_mipmap;
 uniform sampler2D mask_tex : repeat_enable, filter_linear;
 uniform sampler2D ground_tex : filter_linear;
+uniform sampler2D water_mask : filter_linear, repeat_disable;
+uniform float river_strength = 0.0;
 uniform vec2 area_size = vec2(816.0, 609.0);
 uniform float tile_px = 420.0;
 uniform float cover : hint_range(0.0, 1.0) = 0.0;
@@ -76,5 +78,12 @@ void fragment() {
 
 	float out_a = max(base_a, a_snow * 0.97);
 	vec3 col = mix(base, snow, a_snow);
+	if (river_strength > 0.0) {
+		float water = smoothstep(0.52, 0.94, texture(water_mask, UV).r);
+		float flow = texture(mask_tex, pos / vec2(62.0, 12.0) + vec2(0.02, -0.16) * TIME).r;
+		float gleam = smoothstep(0.46, 0.79, flow) * water * river_strength * (1.0 - 0.38 * night);
+		col = mix(col, mix(vec3(0.54, 0.71, 0.77), vec3(0.26, 0.38, 0.52), night), gleam / max(out_a + gleam, 0.001));
+		out_a = min(1.0, out_a + gleam);
+	}
 	COLOR = vec4(col, out_a);
 }

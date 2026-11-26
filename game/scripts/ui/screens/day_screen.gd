@@ -12,7 +12,7 @@ var journal_preview: Label
 var _question_prompt_open := false
 var _contact_hint: Label
 
-const ACTION_HEIGHT := 48
+const ACTION_HEIGHT := 50
 
 
 func screen_id() -> String:
@@ -50,7 +50,7 @@ func mood() -> Vector2:
 
 func build() -> void:
 	Diag.step("день-экран: сборка")
-	footer.add_theme_constant_override("separation", 6)
+	footer.add_theme_constant_override("separation", 4)
 	if _title_label != null:
 		_title_label.add_theme_font_size_override("font_size", ThemeFactory.fs(15))
 	if _clock != null:
@@ -157,7 +157,7 @@ func _action_grid(buttons: Array[Button], columns: int, node_name: String) -> Gr
 	for button: Button in buttons:
 		button.custom_minimum_size = Vector2(0, ACTION_HEIGHT)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
+		button.add_theme_font_size_override("font_size", ThemeFactory.fs(15))
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		button.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 		button.tooltip_text = button.text

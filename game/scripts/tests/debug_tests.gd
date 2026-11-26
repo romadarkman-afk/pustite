@@ -42,16 +42,18 @@ static func run() -> void:
 	ok += SelfTest._expect(fails, version.text.begins_with("v%s" % ProjectSettings.get_setting("application/config/version", "?")), "версия в настройках «%s» не совпала с проектом" % version.text)
 	# «Об игре»: по нажатию раскрываются авторы звука и шрифты (аудит F-17), повторное нажатие сворачивает
 	var about := Nav.host.current.find_child("AboutToggle", true, false) as Button
-	ok += SelfTest._expect(fails, about != null and Nav.host.current.find_child("AboutText", true, false) == null, "в настройках нет свёрнутой кнопки «Об игре»")
+	ok += SelfTest._expect(fails, about != null and Nav.host.current.find_child("InfoSheet", true, false) == null, "в настройках нет отдельной кнопки «Об игре»")
 	if about != null:
 		about.pressed.emit()
 		await SelfTest._frames(tree, 3)
-		var about_text := Nav.host.current.find_child("AboutText", true, false) as Label
-		ok += SelfTest._expect(fails, about_text != null and about_text.text.contains("OpenGameArt") and about_text.text.contains("rubberduck")
-			and about_text.text.contains("Nunito"), "в «Об игре» нет авторов звука или шрифтов")
-		(Nav.host.current.find_child("AboutToggle", true, false) as Button).pressed.emit()
+		var about_sheet := Nav.host.current.find_child("InfoSheet", true, false) as InfoSheet
+		var about_text := SelfTest._all_text(about_sheet) if about_sheet != null else ""
+		ok += SelfTest._expect(fails, about_text.contains("OpenGameArt") and about_text.contains("rubberduck")
+			and about_text.contains("Nunito"), "в «Об игре» нет авторов звука или шрифтов")
+		if about_sheet != null:
+			about_sheet.close()
 		await SelfTest._frames(tree, 3)
-		ok += SelfTest._expect(fails, Nav.host.current.find_child("AboutText", true, false) == null, "«Об игре» не свернулась")
+		ok += SelfTest._expect(fails, Nav.host.current.find_child("InfoSheet", true, false) == null, "«Об игре» не закрылась")
 		version = Nav.host.current.find_child("Version", true, false) as Label
 	for i in range(4):
 		_tap(version)

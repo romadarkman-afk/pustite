@@ -32,6 +32,7 @@ var _walk_gen := 0                 ## каждая новая прогулка �
 var _spoiled_ji := -1              ## у этого дела только что испортили сделанное: всплывашка уже показана
 var _solo_after_howto := false
 var _chapter_after_howto := ""
+var _wardrobe_return_page := -1
 const SIDE_UP := 1
 const SIDE_DOWN := 3
 const SIDE_LEFT := 0
@@ -202,7 +203,8 @@ func _update_night_grade(amount: float) -> void:
 # Навигация
 # =============================================================
 func show_menu() -> void:
-	Game.abandon()
+	_wardrobe_return_page = -1
+	Game.abandon(true)
 	_solo_after_howto = false
 	_menu_village()
 	var s := MenuScreen.new()
@@ -212,7 +214,7 @@ func show_menu() -> void:
 
 
 func show_settings() -> void:
-	Game.abandon()
+	Game.abandon(true)
 	_home_village()
 	var s := SettingsScreen.new()
 	s.cfg = Save.config.duplicate() as GameConfig
@@ -225,15 +227,28 @@ func show_settings() -> void:
 func show_debug() -> void:
 	if not DebugScreen.available():
 		return
-	Game.abandon()
+	Game.abandon(true)
 	_home_village()
 	show(DebugScreen.new())
 
 
 func show_wardrobe() -> void:
-	Game.abandon()
-	_home_village()
+	var result := host.current as EndScreen
+	_wardrobe_return_page = result.result_page() if result != null else -1
+	if result == null:
+		Game.abandon(true)
+		_home_village()
 	show(WardrobeScreen.new())
+
+
+func _return_from_wardrobe() -> void:
+	if _wardrobe_return_page >= 0 and Game.m != null and Game.m.phase == Match.Phase.OVER:
+		var result := EndScreen.new()
+		result.return_page = _wardrobe_return_page
+		_wardrobe_return_page = -1
+		show(result)
+	else:
+		show_menu()
 
 
 func start_match(varied_solo_map: bool = false) -> void:
@@ -269,13 +284,13 @@ func start_chapter_with_intro(id: String = "") -> void:
 
 
 func show_book() -> void:
-	Game.abandon()
+	Game.abandon(true)
 	_home_village()
 	show(BookScreen.new())
 
 
 func show_campaign() -> void:
-	Game.abandon()
+	Game.abandon(true)
 	_home_village()
 	show(CampaignScreen.new())
 
@@ -291,7 +306,7 @@ func start_daily() -> bool:
 
 
 func show_howto(then_play: bool) -> void:
-	Game.abandon()
+	Game.abandon(true)
 	_home_village()
 	var s := HowToScreen.new()
 	s.then_play = then_play
@@ -349,7 +364,7 @@ func show(s: Screen) -> void:
 const HINT_DONE := {
 	"day": [&"field_tap", &"accuse", &"invite", &"ask", &"defend", &"say"],
 	"night": [&"choose_house", &"select_house"],
-	"door": [&"admit", &"plea"],
+	"door": [&"admit", &"plea", &"door_inspect"],
 }
 
 
@@ -711,6 +726,8 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 					start_match(_solo_after_howto)
 				_solo_after_howto = false
 			else:
+				if bool(data.get("finished", false)):
+					Save.mark_hint("campaign_basics_v2")
 				_solo_after_howto = false
 				show_menu()
 		Intent.OPEN_SETTINGS:
@@ -727,11 +744,20 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			get_tree().quit()
 		Intent.SET_PLAYER_NAME:
 			var entered := await TextSheet.ask(sender, SocialContent.name_prompt(), PackedStringArray(), Save.player_name, 20)
-			if Save.set_player_name(entered) and sender is MenuScreen:
-				(sender as MenuScreen).refresh(Save.difficulty, Save.config)
+			if Save.set_player_name(entered):
+				if sender is MenuScreen:
+					(sender as MenuScreen).refresh(Save.difficulty, Save.config)
+				elif sender is WardrobeScreen and sender == host.current:
+					sender.build()
 		Intent.BACK:
 			_apply_settings(data)
-			show_menu()
+			if sender is WardrobeScreen:
+				_return_from_wardrobe()
+			else:
+				show_menu()
+		Intent.RESUME_DAY:
+			if not Game.resume_day_checkpoint():
+				toast(L.t("menu.resume_unavailable"))
 		Intent.OPEN_CAMPAIGN:
 			show_campaign()
 		Intent.OPEN_BOOK:
@@ -871,7 +897,7 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 				return
 			var day_play: bool = sender is DayScreen and Game.m.player().alive and Game.m.phase == Match.Phase.DAY
 			var ji := village.jobs_layer.job_at(data.pos) if day_play else -1
-			var on_job_icon := ji >= 0 and village.jobs_layer.icon_rect_global(ji).has_point(data.pos)
+			var on_job_icon := ji >= 0 and village.jobs_layer.sign_rect_global(ji).has_point(data.pos)
 			var bubble: Bubbles.Bubble = bubbles.bubble_at(data.pos) if day_play else null
 			if bubble != null and bubble.entry != null and not on_job_icon:
 				var selected: Array[ChatLine] = [bubble.entry]
@@ -884,8 +910,8 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 				Sfx.play(&"tap")
 				(sender as DayScreen).npc_actions(nid)
 				return
-			# значок дела нарисован поверх жителей: палец на значке — это дело, даже если под ним кто-то стоит
-			if ji >= 0 and (vid < 0 or village.jobs_layer.icon_rect_global(ji).has_point(data.pos)):
+			# Расширенная зона дела не перехватывает касание жителя.
+			if ji >= 0 and (vid < 0 or on_job_icon):
 				_hint_done(sender, action)
 				if Game.m.player().is_upyr and Game.m.can_sabotage(ji):
 					(sender as DayScreen).job_actions(ji)
@@ -965,7 +991,13 @@ func go_work(ji: int, sab: bool = false) -> void:
 				cr.at_job.erase(0)
 				toast(L.t("toast.job_unreachable"))
 			elif not Game.start_player_job(ji, sab):
-				toast(_done_text(ji)), CONNECT_ONE_SHOT)
+				toast(_done_text(ji))
+			elif not sab:
+				var kind := Game.m.jobs[ji].kind
+				var key := Game.m.resource_kind_key(kind)
+				if not key.is_empty() and Game.m.mark_resource_tip(kind):
+					toast(L.t("supply.tip." + key), 3.5)
+		, CONNECT_ONE_SHOT)
 	f.walk_to(spot)
 
 
@@ -1017,11 +1049,6 @@ func _on_job_finished(vid: int, ji: int, counted: bool, real: bool) -> void:
 		village.crowd.at_job.erase(0)
 		if counted:
 			Juice.haptic(Juice.Haptic.SUCCESS)
-			if Game.m != null and ji >= 0 and ji < Game.m.jobs.size():
-				var resource_kind: int = Game.m.jobs[ji].kind
-				var resource_key := Game.m.resource_kind_key(resource_kind)
-				if not resource_key.is_empty() and Game.m.mark_resource_tip(resource_kind):
-					toast(L.t("supply.tip." + resource_key), 3.5)
 	else:
 		village.crowd.leave_job(vid)
 
@@ -1199,7 +1226,9 @@ func _on_back() -> void:
 		var ss := s as SettingsScreen
 		_apply_settings({"cfg": ss.cfg, "haptics": ss.haptics, "reset_hints": ss.reset_hints, "difficulty": ss.difficulty})
 		show_menu()
-	elif s is EndScreen or s is WardrobeScreen or s is CampaignScreen or s is BookScreen:
+	elif s is WardrobeScreen:
+		_return_from_wardrobe()
+	elif s is EndScreen or s is CampaignScreen or s is BookScreen:
 		show_menu()
 	elif s is HowToScreen:
 		Save.mark_howto()

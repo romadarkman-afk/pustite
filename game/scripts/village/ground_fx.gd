@@ -20,6 +20,8 @@ const TUFT_W := 26.0                   ## ширина пучка на пере�
 const GRASS_FRAMES := 8
 
 static var _mask_tex: ImageTexture
+static var _water_masks: Dictionary = {}
+var _has_current := false
 
 var view: VillageView
 var kind := "ground"
@@ -51,6 +53,7 @@ func setup(v: VillageView, k: String) -> void:
 		_mat.set_shader_parameter("ground_tex", view.ground_texture())
 		_mat.set_shader_parameter("area_size", area_rect.size)
 		_set_puddles()
+		_set_current()
 	else:
 		_mat.shader = load(SH_CLOUDS) as Shader
 		_mat.set_shader_parameter("clouds", load(CLOUDS_TEX))
@@ -70,6 +73,7 @@ func refresh() -> void:
 	if kind == "ground":
 		_mat.set_shader_parameter("ground_tex", view.ground_texture())
 		_set_puddles()
+		_set_current()
 		if _grass != null:
 			remove_child(_grass)
 			_grass.queue_free()
@@ -104,6 +108,17 @@ func _set_puddles() -> void:
 	_mat.set_shader_parameter("puddle_count", mini(8, spots.size()))
 
 
+func _set_current() -> void:
+	var key := view.def.ground
+	if not _water_masks.has(key):
+		var water := view.water_image()
+		_water_masks[key] = ImageTexture.create_from_image(water) if water != null else null
+	var mask := _water_masks[key] as Texture2D
+	_has_current = mask != null
+	_mat.set_shader_parameter("water_mask", mask)
+	_mat.set_shader_parameter("river_strength", 0.14 if _has_current and not simplified else 0.0)
+
+
 ## Состояние погоды и время суток.
 func update_state(s: Dictionary, night: float) -> void:
 	var active := bool(s.get("active", false))
@@ -117,9 +132,10 @@ func update_state(s: Dictionary, night: float) -> void:
 		_mat.set_shader_parameter("cover", cover)
 		_mat.set_shader_parameter("wet", wet)
 		_mat.set_shader_parameter("night", night)
-		_rect.visible = cover > 0.01 or wet > 0.01
+		var flowing := _has_current and not simplified
+		_rect.visible = cover > 0.01 or wet > 0.01 or flowing
 		_update_grass(s, night, active, cover)
-		visible = active
+		visible = active or flowing
 	else:
 		var cloudy := 0.3
 		var wind := 0.0
@@ -138,6 +154,8 @@ func set_simplified(on: bool) -> void:
 	simplified = on
 	if kind == "sky":
 		visible = visible and not on
+	else:
+		_mat.set_shader_parameter("river_strength", 0.14 if _has_current and not on else 0.0)
 
 
 # =============================================================

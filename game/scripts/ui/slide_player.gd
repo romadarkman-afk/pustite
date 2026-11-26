@@ -18,7 +18,7 @@ const VO_TAIL := 0.9             ## пауза после голоса, пока
 const VO_LEAD := 0.35            ## подпись дописывается чуть раньше, чем смолкнет голос
 const SILENT_PANEL := 3.2        ## кадр без подписи
 const CARD_SEC := 2.4            ## титульная плашка
-const FADE := 0.32
+const FADE := 0.46
 const SHAKE_PX := 10.0
 const BREATH := 0.004           ## дыхание кадра: масштаб колеблется на эту долю
 ## Кадр заполняет экран с сохранением пропорций. Подпись расположена поверх нижней части.
@@ -635,7 +635,7 @@ func _apply_cam(p: float) -> void:
 	var pos := -(sz - _win.size) * f
 	if _cam_shake and not Juice.instant:
 		var k := (1.0 - e) * (1.0 - e)
-		pos += Vector2(sin(_t * 61.0), cos(_t * 53.0)) * SHAKE_PX * k
+		pos += Vector2(sin(_t * 16.0), cos(_t * 13.0)) * SHAKE_PX * k * 0.36
 	_stage.scale = Vector2(s, s)
 	_stage.position = pos
 
@@ -774,7 +774,7 @@ func run_sound_event(ev: Dictionary) -> void:
 			else:
 				var aid := Slides.amb_for(id)
 				if aid != &"":
-					Sfx.set_ambience(aid, fade)
+					Sfx.set_ambience(aid, fade, float(ev.get("vol", -4.0)))
 		"stop":
 			if layer == "music":
 				Sfx.set_music(&"", fade)

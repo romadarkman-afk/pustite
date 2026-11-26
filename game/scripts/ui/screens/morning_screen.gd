@@ -38,6 +38,20 @@ func build() -> void:
 		&"Title")
 	head.add_theme_font_size_override("font_size", ThemeFactory.fs(30))
 	body.add_child(head)
+	var overview := HFlowContainer.new()
+	overview.add_theme_constant_override("h_separation", 20)
+	for entry: Array in [
+		["people", L.t("mo.metric_alive", {"n": m.alive().size()})],
+		["skull", L.t("mo.metric_lost", {"n": deaths.size()})],
+	]:
+		var stat := W.icon_line(entry[0], entry[1], &"Small", 32.0)
+		var value := stat.get_child(1) as Label
+		value.autowrap_mode = TextServer.AUTOWRAP_OFF
+		var tile := W.panel(&"Card")
+		tile.add_child(stat)
+		overview.add_child(tile)
+	overview.name = "MorningOverview"
+	body.add_child(overview)
 	if not deaths.is_empty():
 		var portraits := HFlowContainer.new()
 		for death in deaths:

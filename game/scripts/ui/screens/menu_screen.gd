@@ -18,6 +18,7 @@ var _menu_art_nodes: Array[TextureRect] = []
 var _menu_art_front := 0
 var _menu_art_index := 0
 var _menu_backdrop: Control
+var _menu_snow: WeatherOverlay
 var _mode_width_holder: Control
 var _more_width_holder: Control
 var _menu_logo: Control
@@ -51,6 +52,13 @@ func music() -> StringName:
 
 func build() -> void:
 	_install_menu_art()
+	if not Save.simplified_graphics:
+		_menu_snow = WeatherOverlay.new()
+		_menu_snow.name = "MenuSnow"
+		_menu_snow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_menu_snow.modulate.a = 0.46
+		add_child(_menu_snow)
+		_menu_snow.apply({"active": true, "precip": Weather.Precip.SNOW, "power": 0.25, "wind": 0.13}, 0.78)
 	body.add_theme_constant_override("separation", 6)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.alignment = BoxContainer.ALIGNMENT_BEGIN
@@ -77,7 +85,8 @@ func build() -> void:
 		body.add_child(brand)
 	var case_file := W.label(L.t("menu.case_file"), &"Speaker")
 	case_file.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	case_file.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
+	case_file.add_theme_font_size_override("font_size", ThemeFactory.fs(15))
+	case_file.add_theme_color_override("font_color", ThemeFactory.BONE)
 	body.add_child(case_file)
 
 	var modes := GridContainer.new()
@@ -119,13 +128,18 @@ func build() -> void:
 	footer.add_child(shortcuts)
 
 	var footer_actions: Array[Button] = []
-	if not Campaign.is_new():
+	var has_checkpoint := Game.has_day_checkpoint()
+	if has_checkpoint or not Campaign.is_new():
 		var chapter := Campaign.current()
 		var resume := _footer_tile(L.t("ui.continue"), "Continue")
 		resume.name = "Continue"
-		resume.tooltip_text = L.t("camp.continue", {"title": L.t("camp.%s.title" % chapter)})
+		resume.tooltip_text = L.t("menu.resume_day") if has_checkpoint else L.t("camp.continue", {"title": L.t("camp.%s.title" % chapter)})
 		resume.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
-		resume.pressed.connect(func() -> void: emit_intent(Intent.PLAY_CHAPTER, {"id": chapter}))
+		resume.pressed.connect(func() -> void:
+			if has_checkpoint:
+				emit_intent(Intent.RESUME_DAY)
+			else:
+				emit_intent(Intent.PLAY_CHAPTER, {"id": chapter}))
 		footer_actions.append(resume)
 	var exit := _footer_tile(L.t("ui.exit"), "Exit")
 	exit.name = "Exit"
@@ -208,6 +222,9 @@ func _advance_menu_art() -> void:
 	var outgoing := _menu_art_nodes[_menu_art_front]
 	_menu_art_index = (_menu_art_index + 1) % MENU_ART.size()
 	incoming.texture = load(MENU_ART[_menu_art_index]) as Texture2D
+	if is_instance_valid(_menu_snow):
+		var snow := _menu_snow
+		create_tween().tween_property(snow, "modulate:a", 0.46 if _menu_art_index == 0 else 0.0, 0.9)
 	incoming.visible = true
 	incoming.modulate.a = 0.0
 	var tween := create_tween().set_parallel(true).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)

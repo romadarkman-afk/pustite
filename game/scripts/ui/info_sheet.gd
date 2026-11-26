@@ -34,17 +34,29 @@ func _build(lines: Array) -> void:
 	sheet.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	sheet.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	add_child(sheet)
-	var box := W.vbox(14)
-	sheet.add_child(box)
+	var layout := W.vbox(14)
+	sheet.add_child(layout)
+	var scroll := TouchScroll.new()
+	scroll.name = "InfoScroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	layout.add_child(scroll)
+	var box := W.vbox(13)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(box)
 	for l: Array in lines:
 		var k: String = l[0]
 		var t: String = l[1]
 		if t == "":
 			continue
 		box.add_child(W.icon_line(k, t, &"Small") if k != "" else W.label(t, &"Small"))
+	var fit := func() -> void:
+		scroll.custom_minimum_size.y = minf(box.get_combined_minimum_size().y, maxf(100.0, size.y * 0.65))
+	box.minimum_size_changed.connect(fit)
+	resized.connect(fit)
+	fit.call_deferred()
 	var ok := W.button(L.t("ui.close"), &"Ghost")
 	ok.pressed.connect(close)
-	box.add_child(ok)
+	layout.add_child(ok)
 
 
 func close() -> void:

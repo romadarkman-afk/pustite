@@ -28,6 +28,7 @@ var _marker_rects: Array[Rect2] = []
 var _layout_frame := -1
 var _layout_transform := Transform2D.IDENTITY
 var _layout_match: Match
+var _actor_obstacles: Array[Rect2] = []
 
 
 func _ready() -> void:
@@ -80,11 +81,21 @@ func _layout_markers() -> void:
 	_layout_transform = transform
 	_layout_match = m
 	_marker_rects.clear()
+	_actor_obstacles.clear()
 	var field := view._field if view != null else Rect2()
 	var safe := field.grow(-5.0)
 	var obstacles: Array[Rect2] = []
 	if field.has_area():
 		obstacles = _screen_obstacles()
+		if view.crowd != null:
+			for figure: VillagerFigure in view.crowd.figures.values():
+				if figure.is_visible_in_tree() and figure.at_field_edge_or_inside():
+					var body_rect := figure.body_rect_global()
+					var head := figure.head_global()
+					var width := clampf(body_rect.size.x * 0.38, 14.0, 36.0)
+					_actor_obstacles.append(Rect2(head - Vector2(width * 0.5, 2.0),
+						Vector2(width, body_rect.size.y * 0.28 + 5.0)))
+					_actor_obstacles.append(figure.label_rect_global().grow(1.0))
 	var occupied: Array[Rect2] = []
 	var offsets: Array[Vector2] = [
 		Vector2(0, 19), Vector2(-35, 22), Vector2(35, 22),
@@ -113,6 +124,9 @@ func _layout_markers() -> void:
 				for blocker: Rect2 in obstacles:
 					if rect.intersects(blocker):
 						cost += 600.0 + rect.intersection(blocker).get_area() * 5.0
+				for actor: Rect2 in _actor_obstacles:
+					if rect.intersects(actor):
+						cost += 1050.0 + rect.intersection(actor).get_area() * 10.0
 				if cost < best_cost:
 					best_cost = cost
 					best = rect
@@ -269,7 +283,7 @@ func _draw_sign(j: JobDef, c: Vector2, _site: Vector2, left: int, done: bool) ->
 	var width := _sign_width(_marker_title(j))
 	var r := Rect2(c.x - width * 0.5, c.y - SIGN_H * 0.5, width, SIGN_H)
 	var alpha := 0.68 if done else 1.0
-	var wood := Color("1e1713", 0.79 * alpha)
+	var wood := Color("1e1713", 0.62 * alpha)
 	var edge := Color(ThemeFactory.LAMP_D, 0.76 * alpha)
 	var direction := (_site - c).normalized()
 	var stem := Vector2(clampf(direction.x * 26.0, -width * 0.36, width * 0.36), SIGN_H * 0.5 * (1.0 if direction.y > 0.0 else -1.0))

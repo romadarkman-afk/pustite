@@ -180,6 +180,13 @@ func going_counts() -> PackedInt32Array:
 
 func _select(i: int, b: Button) -> void:
 	picked = i
+	if _status != null and i < m.talisman.size():
+		if m.talisman[i] <= 0:
+			_status.text = L.t("night.tal_warning")
+		elif m.talisman[i] < Match.TALISMAN_MAX:
+			_status.text = L.t("night.tal_warning_cracked")
+		else:
+			_status.text = L.t("night.bell")
 	for r: Button in _rows:
 		r.theme_type_variation = &"RowOn" if r == b else &"Row"
 

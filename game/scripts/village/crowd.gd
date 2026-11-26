@@ -591,6 +591,12 @@ func walk_route(from: Vector2, destination: Vector2, door_house: int = -1) -> Pa
 	var target := destination
 	var direct := PackedVector2Array([target])
 	var walls := _walk_walls(door_house)
+	# У декоративных построек есть нижний напуск. Добавляем его только в маршруте,
+	# когда обе точки остаются снаружи. Очередь у входа использует исходный порог.
+	for house: HouseDef in view.def.decor:
+		var extra := view.house_occlusion_rect(house).grow_individual(2.0, 0.0, 2.0, 4.0)
+		if not extra.has_point(from) and not extra.has_point(target):
+			walls.append(extra)
 	if _segment_clear(from, target, walls):
 		return direct
 
