@@ -79,7 +79,9 @@ func build() -> void:
 		details.add_child(chapter_card(result))
 	details.add_child(_verdict_card())
 	_add_details(details, won)
-	resized.connect(_fit_result_actions)
+	var fit := func() -> void: fit_actions.call_deferred(footer)
+	scroll.resized.connect(fit)
+	body.minimum_size_changed.connect(fit)
 	if return_page >= 0:
 		_rewards_played = true
 		_cast_played = true
@@ -170,16 +172,7 @@ func _show_page(index: int) -> void:
 				if portrait != null:
 					portrait.modulate.a = 1.0
 					create_tween().tween_property(portrait, "modulate:a", 0.60, 0.45)
-	_fit_result_actions.call_deferred()
-
-
-func _fit_result_actions() -> void:
-	if not is_inside_tree() or _pages.is_empty():
-		return
-	var wanted := _pages[_page].get_combined_minimum_size().y + _steps.get_combined_minimum_size().y + footer.get_combined_minimum_size().y + 52.0
-	var destination: Control = body if wanted <= size.y else chrome
-	if footer.get_parent() != destination:
-		footer.reparent(destination, false)
+	fit_actions.call_deferred(footer)
 
 
 func _exit_buttons(quick: bool = false) -> void:

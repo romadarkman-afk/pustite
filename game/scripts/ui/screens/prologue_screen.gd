@@ -116,8 +116,10 @@ func build() -> void:
 	actions.add_child(_skip)
 	actions.add_child(_go)
 	footer.add_child(actions)
-	resized.connect(_fit_intro_actions)
-	_fit_intro_actions.call_deferred()
+	var fit_actions_later := func() -> void: fit_actions.call_deferred(footer)
+	scroll.resized.connect(fit_actions_later)
+	body.minimum_size_changed.connect(fit_actions_later)
+	fit_actions_later.call()
 	_reveal_nodes = [role, story, role_l, case_card, facts]
 	if not Game.chapter.is_empty() and not bool(Game.chapter.get("cold_open", false)):
 		var goals := goals_card(m, Game.chapter, {})
@@ -189,7 +191,7 @@ func _show_beat() -> void:
 	var beats := _beats()
 	_beat_title.text = String(beats[_beat][0])
 	_beat_text.text = String(beats[_beat][1])
-	_fit_intro_actions.call_deferred()
+	fit_actions.call_deferred(footer)
 	Juice.pop_in(_beat_card, 0.06)
 
 
@@ -211,15 +213,6 @@ func _add_illustration(box: Control, fraction: float) -> void:
 	box.move_child(art, 0)
 	fit.call()
 
-
-func _fit_intro_actions() -> void:
-	if not is_inside_tree() or footer == null:
-		return
-	var active := _cast if _cast.visible else _beat_card
-	var wanted := active.get_combined_minimum_size().y + footer.get_combined_minimum_size().y + 94.0
-	var destination: Control = body if wanted <= size.y else chrome
-	if footer.get_parent() != destination:
-		footer.reparent(destination, false)
 
 ## Рассказчик главы: на второй странице сцены рядом с текстом его портрет и имя.
 ## Акт III — брат Игнат из монастыря, акт IV — смотритель станции.
@@ -328,7 +321,7 @@ func _advance() -> void:
 		_remember_cast()
 		_go.text = L.t("prologue.go")
 		_go.disabled = true
-		_fit_intro_actions.call_deferred()
+		fit_actions.call_deferred(footer)
 		_reveal(_reveal_nodes)
 	elif revealed:
 		commit(Intent.CONTINUE)
