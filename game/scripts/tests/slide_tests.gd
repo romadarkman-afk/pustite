@@ -624,9 +624,9 @@ static func player(fails: PackedStringArray) -> int:
 	ok += SelfTest._expect(fails, tp._line.visible_characters == 0, "подпись должна начинаться пустой")
 	tp._process(0.5)
 	ok += SelfTest._expect(fails, tp._line.visible_characters > 5 and tp._line.visible_characters < tp._text_len, "через 0.5 с напечатано %d из %d" % [tp._line.visible_characters, tp._text_len])
-	ok += SelfTest._expect(fails, not tp.tap(), "тап раньше %.1f с не должен листать" % SlidePlayer.MIN_PANEL)
+	ok += SelfTest._expect(fails, tp.tap() and tp._line.visible_characters == -1 and tp.panel_i == 0, "ранний тап допечатывает подпись")
+	ok += SelfTest._expect(fails, not tp.tap() and tp.panel_i == 0, "быстрый повтор листает кадр раньше %.1f с" % SlidePlayer.MIN_PANEL)
 	tp._t = 1.0
-	ok += SelfTest._expect(fails, tp.tap() and tp._line.visible_characters == -1 and tp.panel_i == 0, "первый тап допечатывает подпись")
 	ok += SelfTest._expect(fails, tp.tap() and tp.panel_i == 1, "второй тап листает кадр")
 	tp.skip()
 	ok += SelfTest._expect(fails, tp._done and not tp.completed, "skip не закрыл колоду")

@@ -282,6 +282,9 @@ func handle_back() -> bool:
 		if c is JournalSheet:
 			(c as JournalSheet).close()
 			return true
+		if c is InfoSheet:
+			(c as InfoSheet).close()
+			return true
 	return false
 
 
@@ -423,6 +426,23 @@ func _chrome() -> void:
 func _fit_field_spacer() -> void:
 	if field_spacer != null and size.y > 0.0:
 		field_spacer.custom_minimum_size.y = floorf(field_height(size.y))
+
+
+## Короткий список держит решение рядом с содержимым. На длинном кнопки закреплены.
+func fit_actions(controls: Control, gap: float = 16.0) -> void:
+	if scroll.size.y <= 0.0 or not is_instance_valid(controls):
+		return
+	var inline := controls.get_parent() == body
+	var action_height := controls.get_combined_minimum_size().y
+	var content_height := body.get_combined_minimum_size().y
+	var height_if_inline := scroll.size.y
+	if inline:
+		content_height -= action_height + float(body.get_theme_constant("separation"))
+	else:
+		height_if_inline += action_height + float(chrome.get_theme_constant("separation"))
+	var destination: Control = body if content_height + action_height + gap <= height_if_inline else chrome
+	if controls.get_parent() != destination:
+		controls.reparent(destination, false)
 
 
 ## Ряд плашек с жителями. on_tap: вызывается с Villager, если плашку можно нажать.

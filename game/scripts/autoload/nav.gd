@@ -20,18 +20,18 @@ var field_screen: Screen          ## экран, под который поле 
 var frame: SafeFrame
 var host: ScreenHost
 var _toast: Label
+var _toast_motion: Tween
 var _exit_armed := false
 var _started := false
 var _frame_pending := false
 ## Сколько раз кадрирование поля сейчас ждёт раскладку; для самотестов (ждут, пока кадр устоится).
 var frame_busy := 0
-var _menu_preview: Match
 var _menu_horror: Node
 var perf: PerfGuard               ## кадры: автоупрощение графики и счётчик в отладке (TASK-070)
 var _walk_gen := 0                 ## каждая новая прогулка игрока отменяет прежнюю цель
 var _spoiled_ji := -1              ## у этого дела только что испортили сделанное: всплывашка уже показана
 var _solo_after_howto := false
-var _chapter_after_howto := ""
+var _launching_chapter := false
 var _wardrobe_return_page := -1
 const SIDE_UP := 1
 const SIDE_DOWN := 3
@@ -206,7 +206,7 @@ func show_menu() -> void:
 	_wardrobe_return_page = -1
 	Game.abandon(true)
 	_solo_after_howto = false
-	_menu_village()
+	_home_village()
 	var s := MenuScreen.new()
 	s.difficulty = Save.difficulty
 	s.cfg = Save.config
@@ -257,6 +257,8 @@ func start_match(varied_solo_map: bool = false) -> void:
 
 ## Глава кампании. Пустой id — продолжить с первой непройденной.
 func start_chapter(id: String = "", force: bool = false) -> void:
+	if _launching_chapter:
+		return
 	if id.is_empty():
 		id = Campaign.current()
 	if not force and not Campaign.unlocked(id):
@@ -264,23 +266,18 @@ func start_chapter(id: String = "", force: bool = false) -> void:
 		return
 	Save.mark_howto()
 	# Предыстория должна предшествовать стуку: первая глава обходит экран пролога.
-	if id == "a1c1" and not Juice.instant and not Slides.seen("prologue"):
+	if id == "a1c1" and not Juice.instant and Save.comics_on and (not Save.comics_skip_seen or not Slides.seen("prologue")):
+		_launching_chapter = true
+		var source := host.current
 		await SlidePlayer.play(ui, "prologue", true)
+		_launching_chapter = false
+		if source != host.current:
+			return
 	Game.start(Campaign.config(id), "", Campaign.chapter(id))
 
 
 func start_chapter_with_intro(id: String = "") -> void:
-	if id.is_empty():
-		id = Campaign.current()
-	if not Campaign.unlocked(id):
-		toast(L.t("camp.locked"))
-		return
-	if not Save.hint_seen("campaign_basics_v2"):
-		_chapter_after_howto = id
-		_solo_after_howto = false
-		show_howto(true)
-	else:
-		start_chapter(id)
+	start_chapter(id)
 
 
 func show_book() -> void:
@@ -353,11 +350,40 @@ func show(s: Screen) -> void:
 		village.set_selected_house(ns.picked)
 	_frame_field(s)
 	Game.release(&"hint")
-	if Game.m != null and s.hint_id() != "" and not Save.hint_seen(s.hint_id()):
+	if chapter_guides() and s is DayScreen:
+		(s as DayScreen).setup_first_contact.call_deferred()
+	elif chapter_guides() and s is NightScreen and Game.run_on:
+		show_chapter_guide.call_deferred(s, "night")
+	elif chapter_guides() and s is VoteScreen and Game.m.player().alive:
+		show_chapter_guide.call_deferred(s, "vote")
+	elif not chapter_guides() and Game.m != null and s.hint_id() != "" and not Save.hint_seen(s.hint_id()) \
+		and (String(Game.chapter.get("id", "")) != "a1c1" or not Save.hint_seen("guide_skip")):
 		s.show_hint()
 		# первая ночь: колокол ждёт, пока новичок прочитает подсказку и выберет дом
 		if s is NightScreen and Game.run_on:
 			Game.hold(&"hint")
+
+
+func chapter_guides() -> bool:
+	return Game.m != null and String(Game.chapter.get("id", "")) == "a1c1" \
+		and not Save.hint_seen("guide_skip") and not Juice.instant
+
+
+func show_chapter_guide(screen: Screen, stage: String, on_read: Callable = Callable()) -> void:
+	var id := "guide_" + stage
+	if screen != host.current or not chapter_guides() or Save.hint_seen(id):
+		return
+	var lines: Array = [["info", L.t("guide." + stage + ".title")]]
+	for i in range(1, 4):
+		var key := "guide.%s.%d" % [stage, i]
+		var line := L.t(key)
+		if line != key:
+			lines.append(["", line])
+	var guide := InfoSheet.open(screen, lines, true)
+	guide.dismissed.connect(func(skipped: bool) -> void:
+		Save.mark_hint("guide_skip" if skipped else id)
+		if not skipped and on_read.is_valid():
+			on_read.call(), CONNECT_ONE_SHOT)
 
 
 ## Подсказка выполнила своё: игрок сделал то, о чём она говорила.
@@ -480,7 +506,6 @@ var default_village: VillageDef            ## деревня меню и быс�
 func _home_village() -> void:
 	village.crowd.clear()
 	village.eyes.set_enabled(false)
-	_menu_preview = null
 	_populated_for = null
 	village.set_branches_visible(true)
 	village.set_village(default_village, Save.config.shelters, L.houses())
@@ -509,25 +534,6 @@ func _mix_world(phase: int) -> void:
 	var night := phase == Match.Phase.NIGHT or phase == Match.Phase.DOOR
 	Sfx.set_life(ratio, day)
 	Sfx.set_tension(clampf((1.0 - ratio) * 0.9 + (0.25 if night else 0.0), 0.0, 1.0))
-
-
-## Главный экран показывает несколько жителей. Они используют те же портреты,
-## лампы и плавные idle-позы, что и игровое поле; подписи скрыты, чтобы не спорить с меню.
-func _menu_village() -> void:
-	_home_village()
-	village.set_branches_visible(false)
-	var preview_config := Save.config.duplicate() as GameConfig
-	preview_config.players = 5
-	preview_config.monsters = 1
-	_menu_preview = Match.new()
-	_menu_preview.village = default_village
-	_menu_preview.start(preview_config, 20261020)
-	village.crowd.populate(_menu_preview)
-	village.crowd.sync(_menu_preview, Match.Phase.DAY)
-	village.set_mood(0.78, 0.0)
-	for figure: VillagerFigure in village.crowd.figures.values():
-		figure.fidgets_on = true
-		figure.tag.visible = false
 
 
 func _on_phase(phase: Match.Phase) -> void:
@@ -703,7 +709,6 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			else:
 				start_match()
 		Intent.START_SOLO:
-			_chapter_after_howto = ""
 			_new_game_audio_cue()
 			_apply_settings(data)
 			if not Save.howto_seen:
@@ -712,22 +717,13 @@ func handle_intent(action: StringName, data: Dictionary, sender: Screen) -> void
 			else:
 				start_match(true)
 		Intent.OPEN_HOWTO:
-			_chapter_after_howto = ""
 			show_howto(false)
 		Intent.HOWTO_DONE:
 			Save.mark_howto()
 			if data.get("play", false):
-				if not _chapter_after_howto.is_empty():
-					var target := _chapter_after_howto
-					_chapter_after_howto = ""
-					Save.mark_hint("campaign_basics_v2")
-					start_chapter(target)
-				else:
-					start_match(_solo_after_howto)
+				start_match(_solo_after_howto)
 				_solo_after_howto = false
 			else:
-				if bool(data.get("finished", false)):
-					Save.mark_hint("campaign_basics_v2")
 				_solo_after_howto = false
 				show_menu()
 		Intent.OPEN_SETTINGS:
@@ -995,8 +991,11 @@ func go_work(ji: int, sab: bool = false) -> void:
 			elif not sab:
 				var kind := Game.m.jobs[ji].kind
 				var key := Game.m.resource_kind_key(kind)
-				if not key.is_empty() and Game.m.mark_resource_tip(kind):
-					toast(L.t("supply.tip." + key), 3.5)
+				if key.is_empty():
+					key = "box" if kind == JobDef.Kind.BOX else ("ward" if kind == JobDef.Kind.TALISMAN else "")
+				if not key.is_empty() and not Save.hint_seen("work_" + key):
+					Save.mark_hint("work_" + key)
+					toast(L.t("supply.tip." + key), 4.0)
 		, CONNECT_ONE_SHOT)
 	f.walk_to(spot)
 
@@ -1244,7 +1243,7 @@ func _on_back() -> void:
 ## Язык сменился: посёлок берёт названия домов и жителей своей страны, тема — шрифты под письменность.
 func relocalize() -> void:
 	if host.current is MenuScreen:
-		_menu_village()
+		_home_village()
 	else:
 		village.titles = L.houses(village.def.houses_key)
 		village.crowd.book = L.looks()
@@ -1255,8 +1254,12 @@ func relocalize() -> void:
 
 
 func toast(text: String, hold: float = 1.4) -> void:
+	if _toast_motion != null and _toast_motion.is_running():
+		if _toast.text == text:
+			return
+		_toast_motion.kill()
 	_toast.text = text
-	var t := Juice.tween()
-	t.tween_property(_toast, "modulate:a", 1.0, 0.2)
-	t.tween_interval(hold)
-	t.tween_property(_toast, "modulate:a", 0.0, 0.4)
+	_toast_motion = Juice.tween()
+	_toast_motion.tween_property(_toast, "modulate:a", 1.0, 0.2)
+	_toast_motion.tween_interval(hold)
+	_toast_motion.tween_property(_toast, "modulate:a", 0.0, 0.4)

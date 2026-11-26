@@ -32,6 +32,8 @@ func mood() -> Vector2:
 
 
 func build() -> void:
+	if footer.get_parent() != chrome:
+		footer.reparent(chrome, false)
 	W.clear(body)
 	W.clear(footer)
 	_map = CampaignMap.new()
@@ -92,6 +94,9 @@ func build() -> void:
 		if not handle_back():
 			emit_intent(Intent.BACK))
 	footer.add_child(back)
+	var actions_parent: Control = body if _map.visible else chrome
+	if footer.get_parent() != actions_parent:
+		footer.reparent(actions_parent, false)
 	_fit_map.call_deferred()
 	if not scroll.resized.is_connected(_fit_map):
 		scroll.resized.connect(_fit_map)
@@ -101,11 +106,14 @@ func _select_act(act: int) -> void:
 	_selected_act = act
 	build()
 	scroll.scroll_vertical = 0
+	var opening := body.find_child("ActHead_%d" % act, false, false) as Control
+	if opening != null:
+		Juice.pop_in(opening)
 
 
 func _fit_map() -> void:
 	if is_instance_valid(_map) and _map.visible and scroll.size.y > 0:
-		_map.height_limit = maxf(210.0, scroll.size.y - 54.0)
+		_map.height_limit = maxf(210.0, scroll.size.y - footer.get_combined_minimum_size().y - 58.0)
 		_map.fit_height()
 
 
@@ -119,7 +127,7 @@ func _chapter_row(id: String, n: int) -> Control:
 	box.name = "ChapterCard_" + id
 	var row := W.hbox(12)
 	var chapter_texture := Campaign.art(id)
-	if chapter_texture != null:
+	if open and chapter_texture != null:
 		var art := TextureRect.new()
 		art.name = "ChapterArt_" + id
 		art.texture = chapter_texture

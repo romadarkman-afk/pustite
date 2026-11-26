@@ -110,13 +110,13 @@ func door_open() -> float:
 
 func build() -> void:
 	# весь текст двери и кнопки — на тёмных подложках: свет из щели и распахнутой двери их не засвечивает
-	var plate := _plate(22, 16)
-	_box = W.vbox(14)
+	var plate := _plate(12, 8)
+	_box = W.vbox(8)
 	plate.add_child(_box)
 	body.add_child(plate)
 	var col := footer.get_parent()
 	var at := footer.get_index()
-	var fplate := _plate(10, 10)
+	var fplate := _plate(8, 4)
 	col.remove_child(footer)
 	fplate.add_child(footer)
 	col.add_child(fplate)
@@ -125,6 +125,10 @@ func build() -> void:
 		Match.DoorRole.HOST: _build_host()
 		Match.DoorRole.GUEST: _build_guest()
 		_: _build_alone()
+	var fit := func() -> void: fit_actions.call_deferred(fplate)
+	resized.connect(fit)
+	body.minimum_size_changed.connect(fit)
+	fit.call()
 	Dread.door(self)
 
 
@@ -132,7 +136,7 @@ func build() -> void:
 ## Заголовок двери и его кнопки (свеча, «Подробнее»). На узком экране кнопки уходят под заголовок:
 ## рядом с ними надпись сжималась до одного слова в строке.
 func _head_with_tools(head: HBoxContainer, tools: Array[Control]) -> void:
-	if Nav.host.size.x >= 560.0:
+	if Nav.host.size.x >= 430.0:
 		for t: Control in tools:
 			head.add_child(t)
 		_box.add_child(head)
@@ -149,7 +153,7 @@ func _build_host() -> void:
 	_inspection_left = 2 + Game.inspection_bonus
 	Sfx.set_heartbeat_pace(1.0 + 0.04 * float(mini(seat.knockers().size() - 1, 3)))
 	# до первого решения — одна строка и значки; пояснения под «Подробнее»
-	var head := W.icon_line("knock", L.t("door.host_short"), &"Tale", 52)
+	var head := W.icon_line("knock", L.t("door.host_short"), &"Body", 32)
 	# свеча (TASK-073): тап меняет огонь, ярче видно примету, но тварь за дверью давит сильнее
 	_candle_btn = CandleToggle.new()
 	_candle_btn.name = "Candle"
@@ -161,7 +165,7 @@ func _build_host() -> void:
 	_seats = W.hbox(6)
 	_seats.name = "Seats"
 	for i in range(cap):
-		_seats.add_child(Glyph.make("seat", 40, ThemeFactory.LAMP))
+		_seats.add_child(Glyph.make("seat", 28, ThemeFactory.LAMP))
 	if m.player().is_upyr:
 		_seats.add_child(W.gap(10))
 		_seats.add_child(Glyph.make("fang", 40, ThemeFactory.BLOOD))
@@ -169,21 +173,11 @@ func _build_host() -> void:
 	# оберег дома (TASK-074): протяжка или тап показывают его состояние из правил матча
 	_tal = TalismanReveal.new()
 	_tal.name = "Talisman"
-	_tal.hint = L.t("door.tal_hint")
+	_tal.hint = L.t("door.tal_short")
 	_tal.tooltip_text = L.t("door.tal_hint")
 	_tal.level_of = func() -> int: return m.talisman[seat.house] if seat.house >= 0 and seat.house < m.talisman.size() else Match.TALISMAN_MAX
 	_tal.revealed.connect(func(_lvl: int) -> void: _touched = true)
 	_box.add_child(_tal)
-	if not Save.hint_seen("door_tools"):
-		var help := W.label(L.t("door.candle_info") + "\n" + L.t("door.tal_hint"), &"Small")
-		help.name = "DoorToolsGuide"
-		var tools_help := W.button(L.t("door.tools_button"), &"Ghost", 45)
-		tools_help.toggle_mode = true
-		help.hide()
-		tools_help.toggled.connect(func(open: bool) -> void: help.visible = open)
-		_box.add_child(tools_help)
-		_box.add_child(help)
-		Save.mark_hint("door_tools")
 	if not dilemma.is_empty():
 		_box.add_child(dilemma_card(m, dilemma))
 
@@ -191,26 +185,27 @@ func _build_host() -> void:
 		var card := W.panel(&"Card")
 		card.name = "Knocker_%d" % g.id
 		card.set_meta("action", true)       # карточка стучащего — сама кнопка выбора
-		var col := W.vbox(10)
-		var row := W.hbox(14)
+		var col := W.vbox(5)
+		var row := W.hbox(9)
 		var portrait := Control.new()
 		portrait.name = "Portrait_%d" % g.id
-		portrait.custom_minimum_size = Vector2(132, 178)
+		portrait.custom_minimum_size = Vector2(88, 113)
 		portrait.clip_contents = true
 		portrait.mouse_filter = Control.MOUSE_FILTER_STOP     # глазок: тап по портрету осматривает (TASK-072)
 		var peep_id := g.id
 		portrait.gui_input.connect(func(event: InputEvent) -> void: _on_peep_input(event, peep_id))
 		portrait.draw.connect(func() -> void:
 			portrait.draw_rect(Rect2(Vector2.ZERO, portrait.size), Color("171f27"))
-			portrait.draw_rect(Rect2(101, 0, 31, portrait.size.y), Color("433c32"))
-			portrait.draw_line(Vector2(100, 0), Vector2(100, portrait.size.y), Color("93704c"), 1.4)
+			var stile := portrait.size.x - 18.0
+			portrait.draw_rect(Rect2(stile, 0, 18, portrait.size.y), Color("433c32"))
+			portrait.draw_line(Vector2(stile, 0), Vector2(stile, portrait.size.y), Color("93704c"), 1.0)
 			# глазок в двери: латунное кольцо с тёмной серединой
-			portrait.draw_circle(Vector2(116, 60), 9.0, Color("120f0b"))
-			portrait.draw_arc(Vector2(116, 60), 9.0, 0.0, TAU, 20, Color("c9a15a"), 2.4))
+			portrait.draw_circle(Vector2(stile + 9.0, 42), 5.0, Color("120f0b"))
+			portrait.draw_arc(Vector2(stile + 9.0, 42), 5.0, 0.0, TAU, 16, Color("c9a15a"), 1.6))
 		# за дверью идёт погода главы: снег зимой, дождь осенью (TASK-068)
 		var outside := WeatherOverlay.new()
 		outside.position = Vector2.ZERO
-		outside.size = Vector2(100, 178)
+		outside.size = Vector2(70, 113)
 		outside.apply(Weather.for_match(m, Match.Phase.DOOR), 1.0)
 		portrait.add_child(outside)
 		var figure := VillagerFigure.new()
@@ -230,8 +225,8 @@ func _build_host() -> void:
 			if is_instance_valid(on_field):
 				figure.sprite_id = on_field.sprite_id
 				figure.set_identity_color(on_field.identity_id)
-		figure.scale = Vector2.ONE * (2.25 / look.height)
-		figure.position = Vector2(46, 205)
+		figure.scale = Vector2.ONE * (1.12 / look.height)
+		figure.position = Vector2(35, 105)
 		figure.modulate = Color(0.72, 0.78, 0.88)
 		figure.door_portrait = true
 		figure.door_tell = m.door_sign_for(g, seat)
@@ -256,13 +251,12 @@ func _build_host() -> void:
 			portrait.modulate = Color(0.8, 0.85, 0.9, 0.3)     # в тумане лица не видно (TASK-016)
 		texts.add_child(W.label(L.t("door.quote", {"text": pleas.get(g.id, "…")}), &"Small"))
 		var mem := fog and director != null and not director.shared_memory(g).is_empty()
-		var ask := W.wrap(W.button(L.t("door.mem_ask") if mem else L.t("door.ask"), &"Ghost"))
+		var ask := W.wrap(W.button(L.t("door.mem_ask") if mem else L.t("door.ask"), &"Ghost", 46))
 		ask.name = "Ask_%d" % g.id
-		ask.custom_minimum_size = Vector2(0, ThemeFactory.TOUCH)
+		ask.custom_minimum_size = Vector2(0, 46)
 		var aid := g.id
 		ask.pressed.connect(func() -> void: choose_question(aid))
 		_ask_rows[g.id] = ask
-		texts.add_child(ask)
 		var observation := W.label("", &"Hint")
 		observation.name = "Observation_%d" % g.id
 		observation.visible = false
@@ -271,26 +265,27 @@ func _build_host() -> void:
 		row.add_child(texts)
 		var inspect := W.button("%s · %d" % [SocialContent.door_ui("inspect"), _inspection_left], &"Ghost")
 		inspect.name = "Inspect_%d" % g.id
-		inspect.custom_minimum_size = Vector2(132, ThemeFactory.TOUCH)
+		inspect.custom_minimum_size = Vector2(0, 46)
 		var gid := g.id
 		inspect.pressed.connect(func() -> void: _inspect(gid))
 		_inspect_rows[gid] = inspect
 		var b := W.button(L.t("door.admit"), &"Row")
 		b.name = "Admit_%d" % g.id
-		b.custom_minimum_size = Vector2(132, ThemeFactory.TOUCH)
+		b.custom_minimum_size = Vector2(0, 46)
 		b.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING   # крупный текст: кнопка шире, имя переносится
 		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		b.pressed.connect(func() -> void: _toggle(gid, cap))
 		_rows[gid] = b
 		col.add_child(row)
-		col.add_child(W.fit_row([inspect, b], 8))
+		col.add_child(W.fit_row([ask, inspect, b], 6))
 		card.add_child(col)
 		_box.add_child(card)
 	for record: Dictionary in m.door_inspections:
 		if int(record.day) == m.day and _visitor_figures.has(int(record.villager)):
 			show_inspection(int(record.villager), StringName(record.tell))
 
-	_go = W.button(L.t("door.open"))
+	_go = W.button(L.t("door.pick_before_open"))
+	_go.add_theme_color_override("font_disabled_color", Color("eee1c9"))
 	_go.disabled = true
 	_go.pressed.connect(func() -> void: _finish_host(_selected))
 	footer.add_child(_go)
@@ -323,7 +318,9 @@ func _start_knocks() -> void:
 		if not is_instance_valid(self):
 			return
 		_opening_scene = false
-		if not Save.hint_seen(hint_id()):
+		if Nav.chapter_guides():
+			Nav.show_chapter_guide(self, "door")
+		elif not Save.hint_seen(hint_id()) and not Save.hint_seen("guide_skip"):
 			show_hint()
 	# ветка (TASK-077): до настоящего стука что-то стукнуло в окно; очередь и правила не затронуты
 	if Dread.branch_due(m.day):
@@ -479,6 +476,8 @@ func _host_info() -> Array:
 
 
 func _toggle(gid: int, cap: int) -> void:
+	if cap <= 0:
+		return
 	if _selected.has(gid):
 		_selected.erase(gid)
 	else:
@@ -489,7 +488,7 @@ func _toggle(gid: int, cap: int) -> void:
 		_rows[k].theme_type_variation = &"RowOn" if _selected.has(k) else &"Row"
 		_rows[k].text = L.t("door.admitting") if _selected.has(k) else L.t("door.admit")
 	_go.disabled = _selected.is_empty()
-	_go.text = L.t("door.open") if _selected.is_empty() else L.t("door.open_selected", {"n": _selected.size()})
+	_go.text = L.t("door.pick_before_open") if _selected.is_empty() else L.t("door.open_selected", {"n": _selected.size()})
 	if not _selected.is_empty():
 		hide_hint()
 		Save.mark_hint(hint_id())

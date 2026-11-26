@@ -11,7 +11,7 @@ func screen_id() -> String:
 
 
 func field_ratio() -> float:
-	return 0.3
+	return 0.25
 
 
 func title() -> String:
@@ -26,7 +26,7 @@ func build() -> void:
 	if m.meeting_by >= 0:
 		var caller := m.get_villager(m.meeting_by)
 		body.add_child(W.label(L.t("vote.bell_you") if caller.is_player else L.t("vote.bell", {"who": caller}), &"Hint"))
-	body.add_child(W.label(L.t("vote.ask"), &"Tale"))
+	body.add_child(W.label(L.t("vote.ask"), &"Small"))
 	if m.trust_on:
 		# доверие группы (TASK-030): лицами, без цифры — сколько смотрят на тебя, сколько отвернулись
 		var faces := TrustFaces.new()
@@ -43,38 +43,53 @@ func build() -> void:
 	body.add_child(diary)
 	if m.player().alive and m.player().role == Match.Role.HEADMAN:
 		body.add_child(W.label(L.t("vote.headman"), &"Small"))
-	if not m.player().alive:
-		body.add_child(W.label(L.t("vote.dead"), &"Small"))
+	var candidates := m.alive_bots()
+	if not m.player().alive or candidates.is_empty():
+		body.add_child(W.label(L.t("vote.dead" if not m.player().alive else "vote.none"), &"Small"))
 		var watch := W.button(L.t("vote.watch"))
 		watch.pressed.connect(func() -> void: commit(Intent.VOTE, {"id": -1}))
 		footer.add_child(watch)
 		return
 
-	var list := W.vbox(10)
-	for v: Villager in m.alive_bots():
-		var b := W.button(v.name, &"Row")
+	var list := GridContainer.new()
+	list.columns = 2
+	list.add_theme_constant_override("h_separation", 6)
+	list.add_theme_constant_override("v_separation", 6)
+	for v: Villager in candidates:
+		var b := W.wrap(W.button(v.name, &"Row", 48))
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.name = "Candidate_%d" % v.id
 		var vid := v.id
 		b.pressed.connect(func() -> void: _select(vid, b))
 		_rows.append(b)
 		list.add_child(b)
 	body.add_child(list)
 
-	var go := W.button(L.t("vote.go"))
+	var go := W.button(L.t("vote.select_first"))
+	go.add_theme_color_override("font_disabled_color", Color("eee1c9"))
 	go.disabled = true
 	go.pressed.connect(func() -> void: commit(Intent.VOTE, {"id": picked}))
 	footer.add_child(go)
 	set_meta("go", go)
+	var fit := func() -> void: fit_actions.call_deferred(footer)
+	resized.connect(fit)
+	body.minimum_size_changed.connect(fit)
+	fit.call()
 
 
 func _select(vid: int, b: Button) -> void:
 	picked = vid
 	for r: Button in _rows:
 		r.theme_type_variation = &"RowOn" if r == b else &"Row"
-	(get_meta("go") as Button).disabled = false
+	var confirm := get_meta("go") as Button
+	confirm.text = L.t("vote.go")
+	confirm.disabled = false
 
 
 ## Nav вызывает с итогом голосования.
 func show_result(tally: Dictionary[int, int], exiled: Villager) -> void:
+	if footer.get_parent() != chrome:
+		footer.reparent(chrome, false)
 	W.clear(body)
 	W.clear(footer)
 	var head_text := L.t("vote.none")

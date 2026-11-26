@@ -25,6 +25,7 @@ var badges: PackedStringArray = []
 var pact: bool = false
 var _eye_pop: float = 0.0
 var highlight: bool = false        ## метка «Вы»: стрелка над головой и кольцо под ногами
+var occluded := false
 
 const MARK_X := 31.0       ## колонка отметок справа от головы
 const MARK_SCALE := 1.0     ## отметки различимы при общем плане
@@ -1301,7 +1302,7 @@ func _draw() -> void:
 
 ## Отметки, стрелка «Вы» и имя в тёмной капсуле.
 func _draw_tag() -> void:
-	if state == State.GONE or not at_field_edge_or_inside():
+	if state == State.GONE or occluded or not at_field_edge_or_inside():
 		return
 	if state != State.DEAD:
 		_draw_marks()

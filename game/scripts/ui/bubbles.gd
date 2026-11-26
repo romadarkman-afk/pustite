@@ -207,7 +207,8 @@ func _scene_obstacles(speaker: Node2D) -> Array[Rect2]:
 
 func _speaker_on_field(b: Bubble) -> bool:
 	if is_instance_valid(b.fig) and b.fig is VillagerFigure:
-		return (b.fig as VillagerFigure).at_field_edge_or_inside()
+		var figure := b.fig as VillagerFigure
+		return not figure.occluded and figure.at_field_edge_or_inside()
 	return not is_instance_valid(b.fig) or field.grow(10.0).has_point(b.anchor)
 
 

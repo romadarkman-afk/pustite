@@ -651,11 +651,11 @@ func tap() -> bool:
 			_end_card()
 			return true
 		return false
-	if _t < MIN_PANEL and not Juice.instant:
-		return false
 	if _typed < float(_text_len):
 		finish_typing()
 		return true
+	if _t < MIN_PANEL and not Juice.instant:
+		return false
 	_next_panel()
 	return true
 
@@ -678,8 +678,11 @@ func advance() -> void:
 
 
 func _on_input(e: InputEvent) -> void:
-	if (e is InputEventMouseButton and (e as InputEventMouseButton).pressed) or (e is InputEventScreenTouch and (e as InputEventScreenTouch).pressed):
+	var click: bool = e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT
+	var touch: bool = e is InputEventScreenTouch and e.pressed and not bool(ProjectSettings.get_setting("input_devices/pointing/emulate_mouse_from_touch", true))
+	if click or touch:
 		tap()
+		accept_event()
 
 
 func _input(e: InputEvent) -> void:

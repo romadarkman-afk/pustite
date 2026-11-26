@@ -50,13 +50,9 @@ func build() -> void:
 		_: _build_game_tab()
 
 	body.add_child(_about_block())
-	body.add_child(_version_row())
-	var go := W.wrap(W.button(L.t("settings.start")))
-	go.pressed.connect(func() -> void: emit_intent(Intent.START, {"cfg": cfg, "haptics": haptics, "reset_hints": reset_hints, "difficulty": difficulty}))
-	footer.add_child(go)
 	var back := W.button(L.t("ui.back"), &"Ghost")
 	back.pressed.connect(func() -> void: emit_intent(Intent.BACK, {"cfg": cfg, "haptics": haptics, "reset_hints": reset_hints, "difficulty": difficulty}))
-	footer.add_child(back)
+	body.add_child(back)
 
 
 ## «Об игре»: авторы записей звука и шрифтов раскрываются по нажатию (аудит F-17).
@@ -69,7 +65,7 @@ func _about_block() -> Control:
 		["info", L.t("about.audio") + " " + AUDIO_AUTHORS],
 		["info", L.t("about.own")],
 		["info", L.t("about.fonts")],
-	]))
+	], false, _version_row()))
 	box.add_child(toggle)
 	return box
 
@@ -84,7 +80,7 @@ func screen_info() -> String:
 		int(ins.x), int(ins.y), int(ins.z), int(ins.w)]
 
 
-## Строка версии внизу. Пять быстрых тапов в отладочной сборке открывают скрытое меню (TASK-096).
+## Версия в справке. Пять быстрых тапов в отладочной сборке открывают диагностику.
 func _version_row() -> Label:
 	var v := W.label("v%s\n%s" % [ProjectSettings.get_setting("application/config/version", "?"), screen_info()], &"Small")
 	v.name = "Version"
@@ -103,7 +99,7 @@ func _version_row() -> Label:
 
 func _build_sound_tab() -> void:
 	body.add_child(W.label(L.t("settings.sound"), &"Hint"))
-	for row: Array in [[&"Master", L.t("settings.master")], [&"Music", L.t("settings.music")], [&"Sfx", L.t("settings.sfx")], [&"Voice", L.t("settings.voice")], [&"Ambience", L.t("settings.ambience")]]:
+	for row: Array in [[&"Master", L.t("settings.master")], [&"Music", L.t("settings.music")], [&"Sfx", L.t("settings.sfx")], [&"UI", L.t("settings.ui_volume")], [&"Voice", L.t("settings.voice")], [&"Ambience", L.t("settings.ambience")]]:
 		body.add_child(_volume_row(row[0], row[1]))
 	var voice_path := Slides.voice_file("sl.prologue.01.0")
 	var voice_test := W.button(L.t("settings.voice_test"), &"Row")

@@ -51,6 +51,7 @@ func build() -> void:
 	body.add_child(_cast)
 	_show_beat()
 	var you := m.player()
+	_add_illustration(_cast, 0.22)
 	var role := W.label(L.t("prologue.upyr" if you.is_upyr else "prologue.human"), &"Title")
 	role.add_theme_font_size_override("font_size", ThemeFactory.fs(22))
 	if you.is_upyr:
@@ -115,6 +116,8 @@ func build() -> void:
 	actions.add_child(_skip)
 	actions.add_child(_go)
 	footer.add_child(actions)
+	resized.connect(_fit_intro_actions)
+	_fit_intro_actions.call_deferred()
 	_reveal_nodes = [role, story, role_l, case_card, facts]
 	if not Game.chapter.is_empty() and not bool(Game.chapter.get("cold_open", false)):
 		var goals := goals_card(m, Game.chapter, {})
@@ -177,19 +180,8 @@ func _play_act_prologue() -> void:
 
 
 func _show_beat() -> void:
-	if not Game.chapter.is_empty() and _beat == 0:
-		var tex := Campaign.art(String(Game.chapter.id))
-		if tex != null and _beat_card.get_node_or_null("Art") == null:
-			var art := TextureRect.new()
-			art.name = "Art"
-			art.texture = tex
-			art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-			var fit := func() -> void: art.custom_minimum_size.y = clampf(size.y * 0.34, 180.0, 390.0)
-			resized.connect(fit)
-			fit.call()
-			(_beat_card.get_child(0) as Control).add_child(art)
-			(_beat_card.get_child(0) as Control).move_child(art, 0)
+	if _beat == 0 and _beat_card.find_child("Art", true, false) == null:
+		_add_illustration(_beat_card.get_child(0) as Control, 0.40)
 	var art_node := _beat_card.find_child("Art", true, false) as Control
 	if art_node != null:
 		art_node.visible = _beat < 2          # страницы откровений длиннее: картинка главы уступает место тексту
@@ -197,8 +189,37 @@ func _show_beat() -> void:
 	var beats := _beats()
 	_beat_title.text = String(beats[_beat][0])
 	_beat_text.text = String(beats[_beat][1])
+	_fit_intro_actions.call_deferred()
 	Juice.pop_in(_beat_card, 0.06)
 
+
+func _add_illustration(box: Control, fraction: float) -> void:
+	var tex := Campaign.art(String(Game.chapter.id)) if not Game.chapter.is_empty() else null
+	if tex == null:
+		tex = load("res://assets/scenes/menu_winter_door.png") as Texture2D
+	if tex == null:
+		return
+	var art := TextureRect.new()
+	art.name = "Art"
+	art.texture = tex
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fit := func() -> void: art.custom_minimum_size.y = clampf(size.y * fraction, 145.0, 425.0)
+	resized.connect(fit)
+	box.add_child(art)
+	box.move_child(art, 0)
+	fit.call()
+
+
+func _fit_intro_actions() -> void:
+	if not is_inside_tree() or footer == null:
+		return
+	var active := _cast if _cast.visible else _beat_card
+	var wanted := active.get_combined_minimum_size().y + footer.get_combined_minimum_size().y + 94.0
+	var destination: Control = body if wanted <= size.y else chrome
+	if footer.get_parent() != destination:
+		footer.reparent(destination, false)
 
 ## Рассказчик главы: на второй странице сцены рядом с текстом его портрет и имя.
 ## Акт III — брат Игнат из монастыря, акт IV — смотритель станции.
@@ -307,6 +328,7 @@ func _advance() -> void:
 		_remember_cast()
 		_go.text = L.t("prologue.go")
 		_go.disabled = true
+		_fit_intro_actions.call_deferred()
 		_reveal(_reveal_nodes)
 	elif revealed:
 		commit(Intent.CONTINUE)

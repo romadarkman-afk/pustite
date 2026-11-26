@@ -124,7 +124,7 @@ const VARIANTS := {
 	&"breath": [&"breath", &"breath_2", &"breath_3"],   # за дверью дышат по-разному (TASK-081)
 	&"thunder": [&"thunder", &"thunder_2"],
 }
-const BUSES := [&"Music", &"Sfx", &"Ambience", &"Voice"]
+const BUSES := [&"Music", &"Sfx", &"Ambience", &"Voice", &"UI"]
 const HORROR_LEFT := &"NightHorrorLeft"
 const HORROR_RIGHT := &"NightHorrorRight"
 const POOL := 8
@@ -304,7 +304,7 @@ func stage_music(kind: StringName) -> StringName:
 
 
 ## Одиночный звук. pitch — высота (голоса жителей), vol_db — громкость относительно канала.
-func play(n: StringName, pitch: float = 1.0, vol_db: float = 0.0) -> void:
+func play(n: StringName, pitch: float = 1.0, vol_db: float = 0.0, bus: StringName = &"Sfx") -> void:
 	if not has_sound(n):
 		push_warning("нет звука: %s" % n)
 		return
@@ -315,7 +315,7 @@ func play(n: StringName, pitch: float = 1.0, vol_db: float = 0.0) -> void:
 		stream_name = opts[randi() % opts.size()]
 	var p := _pool[_next]
 	_next = (_next + 1) % POOL
-	p.bus = &"Sfx"
+	p.bus = bus
 	p.stream = _one_shot(stream_name, n)
 	p.pitch_scale = clampf(pitch, 0.25, 4.0)
 	p.volume_db = vol_db + float(EFFECT_TRIM.get(n, 0.0))

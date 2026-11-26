@@ -29,9 +29,9 @@ func _init() -> void:
 
 
 func _ready() -> void:
-	var row := W.hbox(14)
+	var row := W.hbox(8)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_glyph = Glyph.make("talisman", 48.0, Color(ThemeFactory.BONE, 0.45))
+	_glyph = Glyph.make("talisman", 36.0, Color(ThemeFactory.BONE, 0.45))
 	row.add_child(_glyph)
 	_text = W.label(hint, &"Hint")
 	_text.mouse_filter = Control.MOUSE_FILTER_IGNORE

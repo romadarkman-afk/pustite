@@ -92,10 +92,17 @@ func build() -> void:
 	toggle.toggled.connect(func(open: bool) -> void:
 		_details.visible = open
 		toggle.text = L.t("mo.hide_details" if open else "mo.details")
+		_place_actions(not open)
 		if not open:
 			scroll.scroll_vertical = 0)
 	bell_lines()
 	_scene_then_reveal(r)
+
+
+func _place_actions(inline: bool) -> void:
+	var destination: Control = body if inline else chrome
+	if footer.get_parent() != destination:
+		footer.reparent(destination, false)
 
 
 ## «Колокол» (TASK-028): сколько раз ночью бил колокол. Число ударов — номер дома в списке убежищ.
@@ -335,6 +342,11 @@ func _reveal(r: NightReport) -> void:
 			lines.append([_text(e), &"Small", false, _glyph(e)])
 	if m.night_event != Match.Event.NONE:
 		lines.append([Match.event_text(m.night_event), &"Small", false, event_glyph(m.night_event)])
+	if not lines.is_empty() and not you_died():
+		var key_event := W.panel(&"Card")
+		key_event.add_child(W.icon_line(lines[0][3], lines[0][0], &"Body", 34))
+		body.add_child(key_event)
+		body.move_child(key_event, _details.get_index() - 1)
 
 	for l: Array in lines:
 		if not is_instance_valid(self):
@@ -379,6 +391,8 @@ func _reveal(r: NightReport) -> void:
 		stop.pressed.connect(func() -> void: commit(Intent.SKIP_TO_END))
 		footer.add_child(stop)
 	revealed = true
+	_place_actions(not _details.visible)
+	Nav.show_chapter_guide.call_deferred(self, "morning")
 
 
 ## Сцена утраты: портрет, кем был человек, его последние слова и как горюют близкие.

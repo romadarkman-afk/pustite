@@ -8,9 +8,12 @@ var journal_button: Button
 var diary_button: Button
 var supplies: SuppliesBadge
 var supply_info_button: Button
-var journal_preview: Label
+var _supply_row: HBoxContainer
 var _question_prompt_open := false
 var _contact_hint: Label
+var _guide_contact: Control
+var _guide_target: VillagerFigure
+var _guide_pause: StringName
 
 const ACTION_HEIGHT := 50
 
@@ -37,6 +40,8 @@ func field_height(h: float) -> float:
 		bar = (chrome.get_child(0) as Control).get_combined_minimum_size().y
 	var body_min := body.get_combined_minimum_size().y if body != null else float(ThemeFactory.COMPACT_TOUCH)
 	var reserved := bar + body_min + footer.get_combined_minimum_size().y + 3.0 * sep + 8.0
+	if is_instance_valid(_supply_row):
+		reserved += _supply_row.get_combined_minimum_size().y + sep
 	return maxf(1.0, minf(h * 0.82, h - reserved))
 
 
@@ -61,27 +66,30 @@ func build() -> void:
 		back.add_theme_font_size_override("font_size", ThemeFactory.fs(12))
 	enable_field_taps()
 	if field_spacer != null:
+		_supply_row = W.hbox(7)
+		_supply_row.name = "SupplyRow"
+		chrome.add_child(_supply_row)
+		chrome.move_child(_supply_row, field_spacer.get_index())
+		_supply_row.minimum_size_changed.connect(_fit_field_spacer)
 		supplies = SuppliesBadge.new()
-		field_spacer.add_child(supplies)
-		supplies.position = Vector2(14, 28)
+		_supply_row.add_child(supplies)
 		supply_info_button = W.button("?", &"Compact", 48)
 		supply_info_button.name = "SupplyInfo"
 		supply_info_button.tooltip_text = L.t("supply.info.title")
 		supply_info_button.accessibility_name = L.t("supply.info.title")
 		supply_info_button.custom_minimum_size = Vector2(48, 48)
 		supply_info_button.pressed.connect(func() -> void: InfoSheet.open(self, _supply_info()))
-		field_spacer.add_child(supply_info_button)
-		supply_info_button.position = Vector2(242, 29)
+		_supply_row.add_child(supply_info_button)
 		update_supplies()
 	var jr := W.hbox(10)
 	journal_button = W.button(L.t("day.journal"), &"Compact", ACTION_HEIGHT)
-	journal_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	journal_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	journal_button.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	journal_button.pressed.connect(open_journal)
 	jr.add_child(journal_button)
 	diary_button = W.button(L.t("day.diary"), &"Compact", ACTION_HEIGHT)
 	diary_button.name = "DiaryButton"
-	diary_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	diary_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	diary_button.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	diary_button.pressed.connect(open_diary)
 	jr.add_child(diary_button)
@@ -99,18 +107,9 @@ func build() -> void:
 	legend.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	legend.pressed.connect(marks_legend)
 	jr.add_child(legend)
-	journal_preview = W.label("", &"Small")
-	journal_preview.autowrap_mode = TextServer.AUTOWRAP_OFF
-	journal_preview.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	journal_preview.clip_text = true
-	journal_preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	journal_preview.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	journal_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	journal_preview.add_theme_font_size_override("font_size", ThemeFactory.fs(12))
-	jr.add_child(journal_preview)
 	body.add_child(jr)
 	_update_journal()
-	if Save.stats.get("games", 0) == 0 and m.day == 1 and not Game.first_contact:
+	if not Nav.chapter_guides() and Save.stats.get("games", 0) == 0 and m.day == 1 and not Game.first_contact:
 		_contact_hint = W.label(SocialContent.narrative_ui("first_goal"), &"Hint")
 		body.add_child(_contact_hint)
 
@@ -123,7 +122,7 @@ func build() -> void:
 
 	Diag.step("день-экран: чат готов, кнопки")
 	var qb: Array[Button] = []
-	for spec: Array in [[L.t("day.defend"), _defend], [L.t("day.invite"), _invite_flow], [L.t("day.accuse"), _accuse_flow]]:
+	for spec: Array in [[L.t("day.say"), _write_flow], [L.t("day.invite"), _invite_flow], [L.t("day.accuse"), _accuse_flow]]:
 		var q := W.button(spec[0], &"Compact", ACTION_HEIGHT)
 		q.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
 		var cb: Callable = spec[1]
@@ -132,20 +131,28 @@ func build() -> void:
 	footer.add_child(_action_grid(qb, 3, "PrimaryActions"))
 
 	var rb: Array[Button] = []
-	var write := W.button(L.t("day.say"), &"Compact", ACTION_HEIGHT)
-	write.name = "Say"
-	write.pressed.connect(_write_flow)
-	rb.append(write)
-	if m.can_meeting(m.player()):
-		var bell := W.button(L.t("day.bell"), &"Compact", ACTION_HEIGHT)
-		bell.name = "Meeting"
-		bell.pressed.connect(_meeting_flow)
-		rb.append(bell)
-	var ready_btn := W.button(L.t("day.ready"), &"Compact", ACTION_HEIGHT)
+	var more := W.button(L.t("day.actions"), &"Compact", ACTION_HEIGHT)
+	more.name = "DayMoreActions"
+	more.pressed.connect(_other_actions)
+	rb.append(more)
+	var ready_btn := W.button(L.t("day.ready"), &"RowOn", ACTION_HEIGHT)
 	ready_btn.name = "Ready"
 	ready_btn.pressed.connect(_ready_flow)
 	rb.append(ready_btn)
 	footer.add_child(_action_grid(rb, mini(rb.size(), 3), "PhaseActions"))
+
+
+func _other_actions() -> void:
+	var actions := PackedStringArray([L.t("day.defend")])
+	if m.can_meeting(m.player()):
+		actions.append(L.t("day.bell"))
+	var selected: int = await ActionSheet.ask(self, L.t("day.actions"), actions)
+	if not is_inside_tree():
+		return
+	if selected == 0:
+		_defend()
+	elif selected == 1:
+		_meeting_flow()
 
 
 func _action_grid(buttons: Array[Button], columns: int, node_name: String) -> GridContainer:
@@ -177,6 +184,66 @@ func _ready_flow() -> void:
 func contact_done() -> void:
 	if is_instance_valid(_contact_hint):
 		_contact_hint.text = SocialContent.narrative_ui("bonus_earned")
+	if not Nav.chapter_guides() or Save.hint_seen("guide_contact"):
+		return
+	Save.mark_hint("guide_contact")
+	_clear_contact_guide()
+	Nav.show_chapter_guide.call_deferred(self, "supplies")
+
+
+func setup_first_contact() -> void:
+	if not is_inside_tree() or self != Nav.host.current or not Nav.chapter_guides() or not m.player().alive:
+		return
+	if Save.hint_seen("guide_contact") or Game.first_contact:
+		Nav.show_chapter_guide(self, "supplies")
+		return
+	if Save.hint_seen("guide_day"):
+		_show_contact_task()
+	else:
+		Nav.show_chapter_guide(self, "day", _show_contact_task)
+
+
+func _show_contact_task() -> void:
+	if self != Nav.host.current or is_instance_valid(_guide_contact) or not Nav.chapter_guides():
+		return
+	var residents := m.alive_bots()
+	if residents.is_empty():
+		return
+	var resident := residents[0]
+	_guide_target = Nav.village.crowd.figures.get(resident.id)
+	if is_instance_valid(_guide_target):
+		_guide_target.set_highlight(true)
+	_guide_pause = StringName("contact_%d" % get_instance_id())
+	Game.hold(_guide_pause)
+	var speak := W.wrap(W.button(L.t("guide.talk", {"name": resident.name}), &"RowOn", ACTION_HEIGHT))
+	speak.name = "GuideContact"
+	speak.pressed.connect(func() -> void: _personal_talk(resident))
+	var skip := W.wrap(W.button(L.t("guide.skip"), &"Ghost", ACTION_HEIGHT))
+	skip.pressed.connect(func() -> void:
+		Save.mark_hint("guide_skip")
+		_clear_contact_guide())
+	_guide_contact = W.fit_row([speak, skip], 6)
+	body.add_child(_guide_contact)
+	_fit_field_spacer.call_deferred()
+
+
+func _clear_contact_guide() -> void:
+	if is_instance_valid(_guide_target):
+		_guide_target.set_highlight(false)
+	if _guide_pause != &"":
+		Game.release(_guide_pause)
+		_guide_pause = &""
+	if is_instance_valid(_guide_contact):
+		_guide_contact.hide()
+		_guide_contact.queue_free()
+		_fit_field_spacer.call_deferred()
+
+
+func _exit_tree() -> void:
+	if _guide_pause != &"":
+		Game.release(_guide_pause)
+	if is_instance_valid(_guide_target):
+		_guide_target.set_highlight(false)
 
 
 
@@ -272,13 +339,6 @@ func _update_journal() -> void:
 	if not is_instance_valid(journal_button):
 		return
 	journal_button.text = L.t("day.journal_n", {"n": m.chat.size()})
-	var last: ChatLine = m.chat[m.chat.size() - 1] if not m.chat.is_empty() else null
-	if last == null:
-		journal_preview.text = ""
-	elif last.kind == ChatLine.Kind.SYSTEM:
-		journal_preview.text = last.text
-	else:
-		journal_preview.text = L.t("day.preview", {"who": Save.player_display_name() if last.kind == ChatLine.Kind.MINE else last.speaker.name, "text": last.text})
 
 
 func _write_flow() -> void:

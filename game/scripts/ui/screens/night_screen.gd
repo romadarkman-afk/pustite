@@ -15,7 +15,7 @@ func screen_id() -> String:
 
 
 func field_ratio() -> float:
-	return 0.5
+	return 0.46
 
 
 func min_content_ratio() -> float:
@@ -49,7 +49,7 @@ func build() -> void:
 		footer.add_child(go_dead)
 		return
 
-	var head := W.icon_line("bell", L.t("night.bell"), &"Tale", 52)
+	var head := W.icon_line("bell", L.t("night.bell"), &"Body", 36)
 	_status = head.get_child(1)
 	head.add_child(W.more(self, _info))
 	body.add_child(head)
@@ -57,7 +57,7 @@ func build() -> void:
 	_forest_label()
 	Dread.run(self)
 	var me := m.player()
-	var list := W.vbox(10)
+	var list := W.vbox(6)
 	for i in range(m.houses.size()):
 		var who := PackedStringArray()
 		var pact: Villager = null
@@ -77,7 +77,8 @@ func build() -> void:
 			text += "\n" + L.t("night.tal_broken" if m.talisman[i] <= 0 else "night.tal_cracked")
 		if i == m.flooded_house:
 			text += "\n" + L.t("night.flooded")        # половодье (TASK-024): дом залит, туда не бегут
-		var b := W.wrap(W.button(text, &"Row", 108))
+		var b := W.wrap(W.button(text, &"Row", 60))
+		b.add_theme_font_size_override("font_size", ThemeFactory.fs(16))
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.disabled = i == m.flooded_house
 		var idx := i

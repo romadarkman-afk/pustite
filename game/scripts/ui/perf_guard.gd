@@ -3,8 +3,7 @@ extends Node
 ## TASK-070: следит за кадрами.
 ## Если 5 секунд подряд идёт меньше 25 кадров в секунду, подаёт сигнал degraded:
 ## Nav включает упрощённую графику сам (один раз за установку).
-## В отладочной сборке (на телефоне это APK из CI) в углу виден счётчик: кадры за последнюю
-## секунду и худшая секунда с начала экрана. По нему Влади записывает замер в docs/budget.md.
+## Счётчик включается в скрытой диагностике или флагом --fps.
 
 signal degraded
 
@@ -43,7 +42,7 @@ func _ready() -> void:
 
 ## Счётчик нужен в отладочной сборке; в релизе и без экрана (самотесты) его нет.
 static func counter_wanted() -> bool:
-	return OS.is_debug_build() and DisplayServer.get_name() != "headless"
+	return OS.is_debug_build() and DisplayServer.get_name() != "headless" and "--fps" in OS.get_cmdline_args()
 
 
 func counter_visible() -> bool:

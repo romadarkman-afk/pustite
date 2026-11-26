@@ -42,14 +42,20 @@ func build() -> void:
 	preview.set_hero_hat(Save.hat if Save.avatar_id == "hero" else "own")
 	preview.set_lantern(Save.lantern)
 	preview.set_brooch(Save.brooch)
-	preview.scale = Vector2.ONE * 2.65
 	preview.tag.hide()
 	_art.add_child(preview)
 	var preview_control := _art
 	var figure := preview
-	_art.resized.connect(func() -> void: figure.position = Vector2(preview_control.size.x * 0.5, preview_control.size.y - 14.0))
+	var fit := func() -> void:
+		var bounds := figure.body_rect_local()
+		var height_fit := (preview_control.size.y - 36.0) / maxf(bounds.size.y + 14.0, 1.0)
+		var width_fit := (preview_control.size.x - 24.0) / maxf(bounds.size.x + 24.0, 1.0)
+		figure.scale = Vector2.ONE * clampf(minf(height_fit, width_fit), 0.2, 2.55)
+		figure.position = Vector2(preview_control.size.x * 0.5, preview_control.size.y - 16.0)
+	_art.resized.connect(fit)
+	fit.call_deferred()
 	body.add_child(_art)
-	var name_button := W.button(Save.player_display_name() + " · " + L.t("menu.name"), &"Ghost")
+	var name_button := W.button(Save.player_display_name() + " · " + L.t("menu.change_name"), &"Ghost")
 	name_button.name = "EditPlayerName"
 	name_button.pressed.connect(func() -> void: emit_intent(Intent.SET_PLAYER_NAME))
 	body.add_child(name_button)
@@ -74,7 +80,7 @@ func build() -> void:
 
 	var back := W.button(L.t("ui.back"), &"Ghost")
 	back.pressed.connect(func() -> void: emit_intent(Intent.BACK))
-	footer.add_child(back)
+	body.add_child(back)
 
 
 func _tab_title(kind: String) -> String:

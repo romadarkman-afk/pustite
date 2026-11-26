@@ -20,7 +20,6 @@ var _pages: Array[VBoxContainer] = []
 var _page_titles: PackedStringArray = []
 var _page := 0
 var _steps: Label
-var _scroll_more: Button
 var _rewards_played := false
 var _cast_played := false
 var _reward_page := -1
@@ -80,10 +79,7 @@ func build() -> void:
 		details.add_child(chapter_card(result))
 	details.add_child(_verdict_card())
 	_add_details(details, won)
-	var scrollbar := scroll.get_v_scroll_bar()
-	scrollbar.changed.connect(_update_more)
-	scrollbar.value_changed.connect(func(_value: float) -> void: _update_more())
-	scroll.resized.connect(_update_more)
+	resized.connect(_fit_result_actions)
 	if return_page >= 0:
 		_rewards_played = true
 		_cast_played = true
@@ -138,12 +134,6 @@ func _show_page(index: int) -> void:
 	_steps.text = L.t("end.steps", {"name": _page_titles[_page], "a": _page + 1, "b": _pages.size()})
 	scroll.scroll_vertical = 0
 	W.clear(footer)
-	_scroll_more = W.button(L.t("end.more_below"), &"Ghost", 40)
-	_scroll_more.name = "ResultScrollMore"
-	_scroll_more.pressed.connect(func() -> void:
-		scroll.scroll_vertical += maxi(80, roundi(scroll.size.y * 0.76)))
-	footer.add_child(_scroll_more)
-	_scroll_more.hide()
 	if _page + 1 < _pages.size():
 		var next := W.button(L.t("end.next_page", {"name": _page_titles[_page + 1]}))
 		next.name = "ResultNext"
@@ -180,17 +170,16 @@ func _show_page(index: int) -> void:
 				if portrait != null:
 					portrait.modulate.a = 1.0
 					create_tween().tween_property(portrait, "modulate:a", 0.60, 0.45)
-	_update_more.call_deferred()
+	_fit_result_actions.call_deferred()
 
 
-func _update_more() -> void:
-	if not is_instance_valid(_scroll_more) or not _scroll_more.is_inside_tree():
+func _fit_result_actions() -> void:
+	if not is_inside_tree() or _pages.is_empty():
 		return
-	var bar := scroll.get_v_scroll_bar()
-	var remaining := bar.max_value - bar.page - bar.value
-	# Не прячем кнопку у самого низа, чтобы высота списка не менялась во время чтения.
-	_scroll_more.visible = bar.max_value - bar.page > 4.0
-	_scroll_more.disabled = remaining <= 2.0
+	var wanted := _pages[_page].get_combined_minimum_size().y + _steps.get_combined_minimum_size().y + footer.get_combined_minimum_size().y + 52.0
+	var destination: Control = body if wanted <= size.y else chrome
+	if footer.get_parent() != destination:
+		footer.reparent(destination, false)
 
 
 func _exit_buttons(quick: bool = false) -> void:

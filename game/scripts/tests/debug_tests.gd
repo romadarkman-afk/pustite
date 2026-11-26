@@ -10,6 +10,13 @@ static func _tap(label: Label) -> void:
 	ev.pressed = true
 	label.gui_input.emit(ev)
 
+static func _show_version() -> Label:
+	var about := Nav.host.current.find_child("AboutToggle", true, false) as Button
+	if about == null:
+		return null
+	about.pressed.emit()
+	return Nav.host.current.find_child("Version", true, false) as Label
+
 
 static func run() -> void:
 	var tree := Engine.get_main_loop() as SceneTree
@@ -34,12 +41,6 @@ static func run() -> void:
 	Nav.show_settings()
 	await SelfTest._settle(tree)
 	ok += SelfTest._expect(fails, Nav.host.current is SettingsScreen, "нет экрана настроек")
-	var version := Nav.host.current.find_child("Version", true, false) as Label
-	ok += SelfTest._expect(fails, version != null and version.text.begins_with("v"), "в настройках нет строки версии")
-	if version == null:
-		SelfTest._finish(fails, ok, "ОТЛАДКА", "")
-		return
-	ok += SelfTest._expect(fails, version.text.begins_with("v%s" % ProjectSettings.get_setting("application/config/version", "?")), "версия в настройках «%s» не совпала с проектом" % version.text)
 	# «Об игре»: по нажатию раскрываются авторы звука и шрифты (аудит F-17), повторное нажатие сворачивает
 	var about := Nav.host.current.find_child("AboutToggle", true, false) as Button
 	ok += SelfTest._expect(fails, about != null and Nav.host.current.find_child("InfoSheet", true, false) == null, "в настройках нет отдельной кнопки «Об игре»")
@@ -54,7 +55,12 @@ static func run() -> void:
 			about_sheet.close()
 		await SelfTest._frames(tree, 3)
 		ok += SelfTest._expect(fails, Nav.host.current.find_child("InfoSheet", true, false) == null, "«Об игре» не закрылась")
-		version = Nav.host.current.find_child("Version", true, false) as Label
+	var version := _show_version()
+	ok += SelfTest._expect(fails, version != null and version.text.begins_with("v%s" % ProjectSettings.get_setting("application/config/version", "?")),
+		"версия в «Об игре» не совпала с проектом")
+	if version == null:
+		SelfTest._finish(fails, ok, "ОТЛАДКА", "")
+		return
 	for i in range(4):
 		_tap(version)
 	await SelfTest._frames(tree, 3)
@@ -91,8 +97,10 @@ static func run() -> void:
 	ok += SelfTest._expect(fails, Nav.host.current is SettingsScreen, "кнопка «Назад» не вернула в настройки")
 
 	# 5. переход к закрытой главе
-	for i in range(5):
-		_tap(Nav.host.current.find_child("Version", true, false) as Label)
+	var again := _show_version()
+	if again != null:
+		for i in range(5):
+			_tap(again)
 	await SelfTest._settle(tree)
 	dbg = Nav.host.current as DebugScreen
 	ok += SelfTest._expect(fails, dbg != null, "меню не открылось второй раз")

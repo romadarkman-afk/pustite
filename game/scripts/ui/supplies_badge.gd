@@ -2,7 +2,7 @@ class_name SuppliesBadge
 extends Control
 ## Капсула дневных запасов: выполненные дела с водой, дровами, маслом и рыбой.
 ## Кнопка рядом показывает, как каждый припас влияет на ночь и настроение жителей.
-## Касаний не перехватывает — под ней поле.
+## Кнопка справа отвечает за пояснение, сама шкала показывает ход работы.
 
 var done: int = 0
 var total: int = 0
@@ -34,20 +34,6 @@ func _process(delta: float) -> void:
 	if _bump > 0.0:
 		_bump = maxf(0.0, _bump - delta * 2.5)
 		queue_redraw()
-	# плашка лежит над пузырями реплик и закрывала текст: пока реплика под ней, плашка гаснет
-	var target := 0.0 if covered_by_bubble() else 1.0
-	if absf(modulate.a - target) > 0.001:
-		modulate.a = move_toward(modulate.a, target, delta * 5.0)
-
-
-func covered_by_bubble() -> bool:
-	if Nav.bubbles == null or not is_visible_in_tree():
-		return false
-	var mine := get_global_rect()
-	for b: Bubbles.Bubble in Nav.bubbles.alive():
-		if b.alpha > 0.05 and b.rect.intersects(mine):
-			return true
-	return false
 
 
 func _draw() -> void:

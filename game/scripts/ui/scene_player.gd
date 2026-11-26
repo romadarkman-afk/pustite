@@ -91,7 +91,8 @@ func _build() -> void:
 	_portrait_box = CenterContainer.new()
 	_portrait_box.name = "Portrait"
 	_portrait_box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_portrait_box.anchor_bottom = 0.72
+	_portrait_box.anchor_top = 0.09
+	_portrait_box.anchor_bottom = 0.76
 	_portrait_box.offset_bottom = 0
 	_portrait_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_portrait_box)
@@ -147,8 +148,14 @@ func _build() -> void:
 	var hint := W.label(L.t("scene.tap"), &"Hint")
 	hint.name = "TapHint"
 	box.add_child(hint)
+	resized.connect(_position_subtitles)
 	gui_input.connect(_on_input)
 	_next_frame()
+
+
+func _position_subtitles() -> void:
+	var closeup := _portrait_box.get_child_count() > 0 and not _art.visible
+	_sub.offset_bottom = -clampf(size.y * 0.105, 26.0, 142.0) if closeup else 0.0
 
 
 func _cover(c: Control) -> void:
@@ -210,7 +217,7 @@ func _next_frame() -> void:
 			var full := pic.texture.get_size()
 			var closeup := AtlasTexture.new()
 			closeup.atlas = pic.texture
-			closeup.region = Rect2(full * Vector2(0.20, 0.012), full * Vector2(0.60, 0.47))
+			closeup.region = Rect2(full * Vector2(0.17, 0.0), full * Vector2(0.66, 0.55))
 			closeup.filter_clip = true
 			pic.texture = closeup
 			_soft_portrait_edge(pic, closeup.region.size)
@@ -228,6 +235,8 @@ func _next_frame() -> void:
 		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		pic.custom_minimum_size = portrait_size
 	if pic != null:
+		if tex == null:
+			_dim.color = Color(0.045, 0.054, 0.069, 0.98)
 		_portrait_box.add_child(pic)
 		# Наезд целой фигуры не искажает голову и конечности.
 		if not Juice.instant and not Save.simplified_graphics:
@@ -238,6 +247,7 @@ func _next_frame() -> void:
 			_portrait_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 			_portrait_tween.tween_property(_portrait_box, "scale", Vector2.ONE * 1.035, maxf(2.0, dur))
 	_fog.color.a = (0.10 if pic != null else 0.18) if String(f.get("weather", "")) == "fog" else 0.0
+	_position_subtitles()
 	var kind := String(f.get("weather", ""))
 	var light := String(f.get("light", "night"))
 	# явная погода кадра важнее; иначе идёт погода главы (снег зимой, дождь осенью)
@@ -357,14 +367,14 @@ func _finish(c: String) -> void:
 
 ## «Назад»: сцена сразу доходит до выбора, а если выбора нет — заканчивается.
 func skip() -> void:
-	if _done or _in_choice:
+	if _done or _in_choice or not is_instance_valid(_sub):
 		return
 	_end_frames()
 
 
 ## Тап: следующая реплика. Первую секунду кадра тапы не считаются: кадр должен успеть появиться.
 func tap() -> bool:
-	if _done or _in_choice or _paused:
+	if _done or _in_choice or _paused or not is_instance_valid(_sub):
 		return false
 	if _t < MIN_FRAME and not Juice.instant:
 		return false
@@ -373,8 +383,11 @@ func tap() -> bool:
 
 
 func _on_input(e: InputEvent) -> void:
-	if (e is InputEventMouseButton and (e as InputEventMouseButton).pressed) or (e is InputEventScreenTouch and (e as InputEventScreenTouch).pressed):
+	var click: bool = e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT
+	var touch: bool = e is InputEventScreenTouch and e.pressed and not bool(ProjectSettings.get_setting("input_devices/pointing/emulate_mouse_from_touch", true))
+	if click or touch:
 		tap()
+		accept_event()
 
 
 func _process(delta: float) -> void:

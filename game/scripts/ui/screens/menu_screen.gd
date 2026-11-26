@@ -24,6 +24,27 @@ var _more_width_holder: Control
 var _menu_logo: Control
 var _menu_bottom_margin: Control
 var _menu_buttons: Array[Button] = []
+var _snow_material: ShaderMaterial
+
+const SETTLED_SNOW := """
+shader_type canvas_item;
+uniform float amount : hint_range(0.0, 1.0) = 0.0;
+varying vec4 tint;
+void vertex() {
+	tint = COLOR;
+}
+void fragment() {
+	vec4 base = texture(TEXTURE, UV);
+	float snow = 0.0;
+	if (amount > 0.002 && base.a > 0.05) {
+		vec2 step_up = vec2(0.0, TEXTURE_PIXEL_SIZE.y * 10.0);
+		float edge = max(0.0, base.a - texture(TEXTURE, max(UV - step_up, vec2(0.0))).a);
+		float rough = sin(UV.x * 170.0 + UV.y * 140.0) * sin(UV.x * 295.0) * 0.16 + 0.78;
+		snow = edge * rough * amount;
+	}
+	COLOR = vec4(mix(base.rgb, vec3(0.79, 0.86, 0.92), snow), base.a) * tint;
+}
+"""
 
 
 func screen_id() -> String:
@@ -53,6 +74,11 @@ func music() -> StringName:
 func build() -> void:
 	_install_menu_art()
 	if not Save.simplified_graphics:
+		var snow_shader := Shader.new()
+		snow_shader.code = SETTLED_SNOW
+		_snow_material = ShaderMaterial.new()
+		_snow_material.shader = snow_shader
+		create_tween().tween_method(_snow_amount, 0.09, 0.56, 10.0)
 		_menu_snow = WeatherOverlay.new()
 		_menu_snow.name = "MenuSnow"
 		_menu_snow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -72,6 +98,7 @@ func build() -> void:
 		logo.name = "MenuTitle"
 		_menu_logo = logo
 		logo.texture = load("res://assets/ui/pustite_logo.png") as Texture2D
+		logo.material = _snow_material
 		logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		logo.custom_minimum_size = Vector2(0, 178)
@@ -114,11 +141,7 @@ func build() -> void:
 		body.resized.connect(_size_menu_columns)
 	_size_menu_columns.call_deferred()
 
-	var lower_space := Control.new()
-	lower_space.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	lower_space.size_flags_stretch_ratio = 0.35
-	body.add_child(lower_space)
-
+	footer.reparent(body, false)
 	var shortcuts := W.hbox(10)
 	shortcuts.alignment = BoxContainer.ALIGNMENT_CENTER
 	shortcuts.name = "MenuShortcuts"
@@ -135,6 +158,9 @@ func build() -> void:
 		resume.name = "Continue"
 		resume.tooltip_text = L.t("menu.resume_day") if has_checkpoint else L.t("camp.continue", {"title": L.t("camp.%s.title" % chapter)})
 		resume.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
+		var title_label := resume.find_child("TileTitle", true, false) as Label
+		if title_label != null:
+			title_label.add_theme_color_override("font_color", ThemeFactory.LAMP)
 		resume.pressed.connect(func() -> void:
 			if has_checkpoint:
 				emit_intent(Intent.RESUME_DAY)
@@ -155,6 +181,11 @@ func build() -> void:
 	bottom_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_menu_bottom_margin = bottom_margin
 	footer.add_child(bottom_margin)
+	var lower_space := Control.new()
+	lower_space.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	lower_space.size_flags_stretch_ratio = 0.45
+	lower_space.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_child(lower_space)
 	_size_menu_columns.call_deferred()
 	refresh(difficulty, cfg)
 
@@ -225,6 +256,8 @@ func _advance_menu_art() -> void:
 	if is_instance_valid(_menu_snow):
 		var snow := _menu_snow
 		create_tween().tween_property(snow, "modulate:a", 0.46 if _menu_art_index == 0 else 0.0, 0.9)
+		var from := float(_snow_material.get_shader_parameter("amount"))
+		create_tween().tween_method(_snow_amount, from, 0.56 if _menu_art_index == 0 else 0.0, 5.0 if _menu_art_index == 0 else 1.1)
 	incoming.visible = true
 	incoming.modulate.a = 0.0
 	var tween := create_tween().set_parallel(true).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
@@ -315,16 +348,21 @@ func _mode_tile(heading: String, detail: String, node_name: String, variation: S
 	var plaque := TextureRect.new()
 	plaque.name = "Plaque"
 	plaque.texture = load("res://assets/ui/menu_plaque.png") as Texture2D
+	plaque.material = _snow_material if not disabled else null
 	plaque.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	plaque.stretch_mode = TextureRect.STRETCH_SCALE
 	plaque.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plaque.modulate = Color(0.56, 0.56, 0.56, 0.8) if disabled else Color.WHITE
 	button.add_child(plaque)
 	plaque.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	button.button_down.connect(func() -> void: plaque.modulate = Color(0.76, 0.68, 0.55))
-	button.button_up.connect(func() -> void: plaque.modulate = Color.WHITE)
-	button.focus_entered.connect(func() -> void: plaque.modulate = Color(1.12, 1.04, 0.88))
-	button.focus_exited.connect(func() -> void: plaque.modulate = Color.WHITE)
+	if not disabled:
+		button.mouse_entered.connect(func() -> void: _wood_motion(plaque, 1.012, Color(1.10, 1.05, 0.94)))
+		button.mouse_exited.connect(func() -> void: _wood_motion(plaque, 1.0, Color.WHITE))
+		button.focus_entered.connect(func() -> void: _wood_motion(plaque, 1.012, Color(1.10, 1.05, 0.94)))
+		button.focus_exited.connect(func() -> void: _wood_motion(plaque, 1.0, Color.WHITE))
+		button.button_down.connect(func() -> void: _wood_motion(plaque, 0.968, Color(0.78, 0.71, 0.60)))
+		button.button_up.connect(func() -> void: _wood_motion(plaque, 1.0, Color.WHITE))
+		button.pressed.connect(func() -> void: Sfx.play(&"tap", 0.86, -11.0, &"UI"))
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.disabled = disabled
 	button.tooltip_text = heading if detail.is_empty() else heading + " · " + detail
@@ -355,6 +393,22 @@ func _mode_tile(heading: String, detail: String, node_name: String, variation: S
 	if not disabled and action != &"":
 		button.pressed.connect(func() -> void: emit_intent(action))
 	return button
+
+
+func _snow_amount(value: float) -> void:
+	if _snow_material != null:
+		_snow_material.set_shader_parameter("amount", value)
+
+
+func _wood_motion(plaque: TextureRect, amount: float, tint: Color) -> void:
+	var old: Tween = plaque.get_meta("wood_motion", null) if plaque.has_meta("wood_motion") else null
+	if old != null and old.is_running():
+		old.kill()
+	plaque.pivot_offset = plaque.size * 0.5
+	var motion := plaque.create_tween().set_parallel().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	plaque.set_meta("wood_motion", motion)
+	motion.tween_property(plaque, "scale", Vector2.ONE * amount, 0.10)
+	motion.tween_property(plaque, "modulate", tint, 0.10)
 
 
 ## Нижние действия имеют ту же табличку; текст Button сохраняется для доступности и тестов.

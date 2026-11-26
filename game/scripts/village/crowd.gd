@@ -999,9 +999,15 @@ func _layout_name_plaques() -> void:
 		return
 	var field := view._field.grow(-5.0)
 	var ordered: Array[VillagerFigure] = []
+	var blockers := view.hidden_zones()
 	for f: VillagerFigure in figures.values():
 		if is_instance_valid(f) and f.visible and f.state != VillagerFigure.State.GONE and f.at_field_edge_or_inside():
-			ordered.append(f)
+			var hidden := _actor_behind_prop(f, blockers)
+			if hidden != f.occluded:
+				f.occluded = hidden
+				f.tag.queue_redraw()
+			if not hidden:
+				ordered.append(f)
 	ordered.sort_custom(func(a: VillagerFigure, b: VillagerFigure) -> bool:
 		if a.is_player != b.is_player:
 			return a.is_player
@@ -1069,6 +1075,19 @@ func _layout_name_plaques() -> void:
 		if f.tag != null and f.label_shift != old_shift:
 			f.tag.queue_redraw()
 		occupied.append(f.label_rect_global().grow(2.0))
+
+
+func _actor_behind_prop(figure: VillagerFigure, blockers: Array[Rect2]) -> bool:
+	if figure.is_player or figure.state == VillagerFigure.State.DEAD:
+		return false
+	var foot := view.to_local(figure.global_position)
+	var height := VillagerFigure.FIG_TOP * (figure.look.height if figure.look != null else 1.0)
+	var head := foot - Vector2(0.0, height * 0.8)
+	var chest := foot - Vector2(0.0, height * 0.48)
+	for block: Rect2 in blockers:
+		if foot.y < block.end.y - 3.0 and block.has_point(head) and block.has_point(chest):
+			return true
+	return false
 
 
 ## Раз в 6–12 секунд двое соседей по ряду шепчутся: один наклоняется к другому, второй поворачивает голову.

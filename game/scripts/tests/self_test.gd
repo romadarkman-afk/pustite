@@ -1292,10 +1292,13 @@ static func _campaign_checks(tree: SceneTree, fails: PackedStringArray) -> int:
 	for chapter_id: String in Campaign.ORDER:
 		var chapter_image := cs.find_child("ChapterArt_" + chapter_id, true, false) as TextureRect
 		var expected_image: Texture2D = Campaign.art(chapter_id)
-		chapter_art_ok = chapter_art_ok and chapter_image != null and expected_image != null and chapter_image.texture == expected_image
+		if Campaign.unlocked(chapter_id):
+			chapter_art_ok = chapter_art_ok and chapter_image != null and expected_image != null and chapter_image.texture == expected_image
+		else:
+			chapter_art_ok = chapter_art_ok and chapter_image == null
 	var map_art := cs.find_child("MapArt", true, false) as TextureRect
 	chapter_art_ok = chapter_art_ok and map_art != null and map_art.texture != null
-	ok += _expect(fails, chapter_art_ok, "экран кампании: карта или одна из 12 глав без своего изображения")
+	ok += _expect(fails, chapter_art_ok, "экран кампании: отсутствует открытая иллюстрация или виден спойлер закрытой главы")
 	var none_lost: Array[int] = []
 	Save.record_chapter("a1c2", 3, none_lost)
 	Save.record_chapter("a1c3", 1, none_lost)
@@ -1714,10 +1717,8 @@ static func lifecycle() -> void:
 	passed += _expect(fails, not chips_row, "на экране дня остался ряд плашек с именами")
 	Game.say("Проверка журнала.")
 	await _frames(tree, 3)
-	var lastl: ChatLine = Game.m.chat[Game.m.chat.size() - 1]
-	var want_prev := lastl.text if lastl.kind == ChatLine.Kind.SYSTEM else "%s: %s" % ["Вы" if lastl.kind == ChatLine.Kind.MINE else lastl.speaker.name, lastl.text]
-	passed += _expect(fails, dj.journal_button.text == "Журнал (%d)" % Game.m.chat.size() and dj.journal_preview.text == want_prev,
-		"строка журнала не обновилась: «%s» / «%s»" % [dj.journal_button.text, dj.journal_preview.text])
+	passed += _expect(fails, dj.journal_button.text == "Журнал (%d)" % Game.m.chat.size(),
+		"счётчик журнала не обновился: «%s»" % dj.journal_button.text)
 	dj.journal_button.pressed.emit()
 	await _frames(tree, 3)
 	var js: JournalSheet = null
@@ -2034,12 +2035,8 @@ static func field() -> void:
 
 	Nav.show_menu()
 	await _settle(tree)
-	var menu_population_matches := Nav.host.current is MenuScreen and Game.m == null and Nav._menu_preview != null
-	if menu_population_matches:
-		menu_population_matches = cr.figures.size() == Nav._menu_preview.villagers.size()
-		for preview_villager: Villager in Nav._menu_preview.villagers:
-			menu_population_matches = menu_population_matches and cr.figures.has(preview_villager.id)
-	ok += _expect(fails, menu_population_matches, "после партии на площади осталась не меню-толпа")
+	ok += _expect(fails, Nav.host.current is MenuScreen and Game.m == null and cr.figures.is_empty(),
+		"меню продолжает держать жителей скрытой деревни")
 
 	print("=== игровое поле: %d проверок ===" % (ok + fails.size()))
 	if fails.is_empty():
@@ -3405,18 +3402,13 @@ static func howto() -> void:
 	Save.load_all()
 	ok += _expect(fails, Save.howto_seen, "после перезапуска «Как играть» забылось")
 
-	# Игрок со старым сохранением раньше мог начать кампанию, не увидев правил.
+	# В кампании правила появляются в своих фазах. Отдельная справка свободно открывается из меню.
 	Save.howto_seen = true
-	Save.hints_seen.erase("campaign_basics_v2")
 	Nav.handle_intent(Intent.PLAY_CHAPTER, {"id": "a1c1"}, Nav.host.current)
 	await _settle(tree)
-	h = Nav.host.current as HowToScreen
-	ok += _expect(fails, h != null and h.then_play, "кампания обошла вводное обучение")
-	if h != null:
-		Nav.handle_intent(Intent.HOWTO_DONE, {"play": true}, h)
-		await _settle(tree)
-		ok += _expect(fails, Game.chapter.get("id", "") == "a1c1" and Save.hint_seen("campaign_basics_v2"),
-			"после обучения запустилась не выбранная глава или обучение не сохранилось")
+	ok += _expect(fails, not (Nav.host.current is HowToScreen), "кампания открыла справочник перед первой главой")
+	ok += _expect(fails, Game.chapter.get("id", "") == "a1c1", "первая глава не запустилась из кампании")
+	if Game.director != null:
 		var exchange := Game.director.day_exchange()
 		ok += _expect(fails, exchange.size() == 2 and exchange[0].speaker != exchange[1].speaker
 			and not exchange[0].asks_player and not exchange[1].asks_player,
@@ -4284,12 +4276,11 @@ static func sound() -> void:
 		and Nav.ui.find_child("MenuBackdrop1", true, false) != null
 		and Nav.ui.find_child("MenuBackdropShade", true, false) != null,
 		"главное меню показывает игровое поле или не создаёт фоновое слайд-шоу")
-	ok += _expect(fails, Nav.village.crowd.figures.size() == 5 and bool(Nav._menu_horror.call("is_menu_active")),
-		"в меню нет живой толпы или ночной звуковой контроллер выключен")
-	var menu_idle_ok := true
-	for figure: VillagerFigure in Nav.village.crowd.figures.values():
-		menu_idle_ok = menu_idle_ok and figure.fidgets_on and not figure.tag.visible
-	ok += _expect(fails, menu_idle_ok, "фигуры меню не оживают или закрывают сцену подписями")
+	ok += _expect(fails, Nav.village.crowd.figures.is_empty() and bool(Nav._menu_horror.call("is_menu_active")),
+		"меню держит скрытую толпу или ночной звуковой контроллер выключен")
+	var ui_channel := Sfx._next
+	Sfx.play(&"tap", 0.86, -11.0, &"UI")
+	ok += _expect(fails, Sfx._pool[ui_channel].bus == &"UI", "звук интерфейса не попал на отдельную шину")
 	Sfx.play_panned(&"scratch", -1, 0.95, -20.0)
 	ok += _expect(fails, Sfx._panned_player.bus == Sfx.HORROR_LEFT and Sfx.played.has(&"scratch"), "ночной звук не панорамируется в левый канал")
 	Sfx.stop_panned()
@@ -4457,7 +4448,7 @@ static func sound() -> void:
 	Nav.show_menu()
 	await _settle(tree)
 
-	# 7. Настройки: пять ползунков для общей громкости, музыки, эффектов, голоса и окружения
+	# 7. Настройки: общий регулятор, музыка, эффекты, интерфейс, голос и окружение.
 	Nav.show_settings()
 	await _settle(tree)
 	var sliders := 0
@@ -4466,7 +4457,7 @@ static func sound() -> void:
 			sliders += 1
 			if c.name == "Volume_Music":
 				(c as HSlider).value = 0.3
-	ok += _expect(fails, sliders == 5, "в настройках ползунков громкости %d из 5" % sliders)
+	ok += _expect(fails, sliders == Save.DEFAULT_VOLUMES.size(), "в настройках ползунков громкости %d" % sliders)
 	ok += _expect(fails, absf(float(Save.volumes[&"Music"]) - 0.3) < 0.01, "ползунок музыки не меняет громкость")
 	Save.set_volume(&"Music", 0.7)
 

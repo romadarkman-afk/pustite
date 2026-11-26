@@ -66,12 +66,23 @@ func _place(act: int, p: Dictionary) -> Dictionary:
 	var pin := Glyph.make(kind, pin_size, col)
 	pin.name = "Pin_%d" % act
 	add_child(pin)
+	var pin_hit := Button.new()
+	pin_hit.name = "PinPick_%d" % act
+	pin_hit.flat = true
+	pin_hit.focus_mode = Control.FOCUS_NONE
+	pin_hit.accessibility_name = L.t("camp.place%d" % act)
+	pin_hit.tooltip_text = pin_hit.accessibility_name
+	for state_name: String in ["normal", "hover", "pressed", "focus"]:
+		pin_hit.add_theme_stylebox_override(state_name, StyleBoxEmpty.new())
+	pin_hit.pressed.connect(func() -> void: act_picked.emit(act))
+	add_child(pin_hit)
 	var tag := W.panel(&"Sheet")
 	tag.name = "Place_%d" % act
 	tag.mouse_filter = Control.MOUSE_FILTER_PASS
 	var box := W.vbox(2)
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	var head := W.label(L.t("camp.place%d" % act), &"Speaker")
+	head.add_theme_font_size_override("font_size", ThemeFactory.fs(17))
 	head.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	head.autowrap_mode = TextServer.AUTOWRAP_OFF
 	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -93,7 +104,7 @@ func _place(act: int, p: Dictionary) -> Dictionary:
 	var hit := Button.new()
 	hit.name = "Pick_%d" % act
 	hit.flat = true
-	hit.custom_minimum_size = Vector2(0, ThemeFactory.TOUCH)
+	hit.custom_minimum_size = Vector2(0, 50.0)
 	hit.focus_mode = Control.FOCUS_ALL
 	hit.accessibility_name = "%s · %s" % [head.text, sub.text]
 	for sb: String in ["normal", "hover", "pressed", "disabled", "focus"]:
@@ -108,7 +119,7 @@ func _place(act: int, p: Dictionary) -> Dictionary:
 		style.set_border_width_all(2)
 		tag.add_theme_stylebox_override("panel", style)
 	add_child(tag)
-	return {"act": act, "at": p.at, "label": p.label, "pin": pin, "tag": tag, "state": state, "pin_size": pin_size}
+	return {"act": act, "at": p.at, "label": p.label, "pin": pin, "pick": pin_hit, "tag": tag, "state": state, "pin_size": pin_size}
 
 
 func map_height() -> float:
@@ -145,6 +156,10 @@ func _layout() -> void:
 		pin.size = Vector2.ONE * float(it.pin_size)
 		pin.position = (Vector2(left + at.x * w, at.y * h) - pin.size * 0.5).clamp(
 			Vector2.ZERO, Vector2(size.x, h) - pin.size)
+		var touch: Button = it.pick
+		touch.size = Vector2.ONE * maxf(50.0, float(it.pin_size))
+		touch.position = (pin.position + (pin.size - touch.size) * 0.5).clamp(
+			Vector2.ZERO, (Vector2(size.x, h) - touch.size).max(Vector2.ZERO))
 		var tsz := tag.get_combined_minimum_size()
 		tag.size = tsz
 		var pos := Vector2(left + lab.x * w, lab.y * h) - tsz * 0.5
