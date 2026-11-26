@@ -265,7 +265,8 @@ jobs:
           "$TOOLS/zipalign" -c 4 "$APK"
           CERTS="$("$TOOLS/apksigner" verify --verbose --print-certs "$APK")"
           printf '%s\n' "$CERTS"
-          if ! grep -Fq "Signer #1 certificate SHA-256 digest: $SIGNING_CERT_SHA256" <<< "$CERTS"; then
+          ACTUAL_CERT="$(awk '/certificate SHA-256 digest:/ {print tolower($NF)}' <<< "$CERTS" | sort -u)"
+          if [ "$ACTUAL_CERT" != "$SIGNING_CERT_SHA256" ]; then
             echo "::error title=Подпись APK не совпадает::Обновление нельзя установить поверх предыдущего релиза."
             exit 1
           fi
