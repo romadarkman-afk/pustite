@@ -18,6 +18,8 @@ var hint: Hint
 var _clock: Label
 var _clock_capsule: Control
 var _locked := false
+var _chapter_strip: PanelContainer
+var _chapter_outline: Array[Panel] = []
 
 
 func _ready() -> void:
@@ -426,6 +428,72 @@ func _chrome() -> void:
 func _fit_field_spacer() -> void:
 	if field_spacer != null and size.y > 0.0:
 		field_spacer.custom_minimum_size.y = floorf(field_height(size.y))
+
+
+func guide_strip(parent: Container, line: String, next: Callable, skip: Callable) -> PanelContainer:
+	var card := W.panel(&"Card")
+	card.name = "ChapterGuide"
+	var column := W.vbox(6)
+	card.add_child(column)
+	var caption := W.label(line, &"Small")
+	caption.name = "GuideText"
+	column.add_child(caption)
+	var actions: Array[Button] = []
+	var dismiss := W.wrap(W.button(L.t("guide.skip"), &"Ghost", ThemeFactory.COMPACT_TOUCH))
+	dismiss.pressed.connect(skip)
+	actions.append(dismiss)
+	if next.is_valid():
+		var forward := W.button(L.t("ui.next"), &"RowOn", ThemeFactory.COMPACT_TOUCH)
+		forward.name = "GuideNext"
+		forward.pressed.connect(next)
+		actions.append(forward)
+	column.add_child(W.fit_row(actions, 6))
+	parent.add_child(card)
+	parent.move_child(card, 0)
+	if parent == body and field_spacer != null:
+		_fit_field_spacer.call_deferred()
+	return card
+
+
+func guide_outline(target: Control) -> Panel:
+	var outline := Panel.new()
+	outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color.TRANSPARENT
+	style.border_color = ThemeFactory.LAMP
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(6)
+	outline.add_theme_stylebox_override("panel", style)
+	target.add_child(outline)
+	outline.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	return outline
+
+
+func show_chapter_strip(stage: String, message: String, targets: Array) -> void:
+	clear_chapter_strip()
+	if not Nav.chapter_guides() or Save.hint_seen("guide_" + stage):
+		return
+	_chapter_strip = guide_strip(body, L.t(message), Callable(), func() -> void:
+		Save.mark_hint("guide_skip")
+		Game.release(&"hint")
+		clear_chapter_strip())
+	for target: Control in targets:
+		if target != null and (not target is Button or not (target as Button).disabled):
+			_chapter_outline.append(guide_outline(target))
+
+
+func clear_chapter_strip() -> void:
+	if is_instance_valid(_chapter_strip):
+		_chapter_strip.hide()
+		_chapter_strip.queue_free()
+		_chapter_strip = null
+		if field_spacer != null:
+			_fit_field_spacer.call_deferred()
+	for outline in _chapter_outline:
+		if is_instance_valid(outline) and not outline.is_queued_for_deletion():
+			outline.hide()
+			outline.queue_free()
+	_chapter_outline.clear()
 
 
 ## Короткий список держит решение рядом с содержимым. На длинном кнопки закреплены.

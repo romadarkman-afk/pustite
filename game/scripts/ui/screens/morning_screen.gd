@@ -6,6 +6,7 @@ signal death_fx
 
 var revealed := false
 var _details: VBoxContainer
+var _details_toggle: Button
 
 
 func screen_id() -> String:
@@ -79,6 +80,7 @@ func build() -> void:
 		Sfx.set_music(&"", 0.3)
 
 	var toggle := W.button(L.t("mo.details"), &"Ghost", 45)
+	_details_toggle = toggle
 	toggle.name = "NightDetailsToggle"
 	toggle.toggle_mode = true
 	body.add_child(toggle)
@@ -90,6 +92,9 @@ func build() -> void:
 		for reason: String in Recap.death_lines(m, m.player_death, r).slice(1):
 			_details.add_child(W.label(reason, &"Small"))
 	toggle.toggled.connect(func(open: bool) -> void:
+		if open and is_instance_valid(_chapter_strip):
+			Save.mark_hint("guide_morning")
+			clear_chapter_strip()
 		_details.visible = open
 		toggle.text = L.t("mo.hide_details" if open else "mo.details")
 		_place_actions(not open)
@@ -392,7 +397,10 @@ func _reveal(r: NightReport) -> void:
 		footer.add_child(stop)
 	revealed = true
 	_place_actions(not _details.visible)
-	Nav.show_chapter_guide.call_deferred(self, "morning")
+	if not you_died():
+		show_chapter_strip("morning", "guide.recap.short", [_details_toggle])
+		if is_instance_valid(_chapter_strip):
+			body.move_child(_chapter_strip, _details_toggle.get_index() - 1)
 
 
 ## Сцена утраты: портрет, кем был человек, его последние слова и как горюют близкие.

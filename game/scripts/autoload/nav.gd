@@ -353,9 +353,9 @@ func show(s: Screen) -> void:
 	if chapter_guides() and s is DayScreen:
 		(s as DayScreen).setup_first_contact.call_deferred()
 	elif chapter_guides() and s is NightScreen and Game.run_on:
-		show_chapter_guide.call_deferred(s, "night")
+		(s as NightScreen).start_lesson.call_deferred()
 	elif chapter_guides() and s is VoteScreen and Game.m.player().alive:
-		show_chapter_guide.call_deferred(s, "vote")
+		(s as VoteScreen).start_lesson.call_deferred()
 	elif not chapter_guides() and Game.m != null and s.hint_id() != "" and not Save.hint_seen(s.hint_id()) \
 		and (String(Game.chapter.get("id", "")) != "a1c1" or not Save.hint_seen("guide_skip")):
 		s.show_hint()
@@ -367,23 +367,6 @@ func show(s: Screen) -> void:
 func chapter_guides() -> bool:
 	return Game.m != null and String(Game.chapter.get("id", "")) == "a1c1" \
 		and not Save.hint_seen("guide_skip") and not Juice.instant
-
-
-func show_chapter_guide(screen: Screen, stage: String, on_read: Callable = Callable()) -> void:
-	var id := "guide_" + stage
-	if screen != host.current or not chapter_guides() or Save.hint_seen(id):
-		return
-	var lines: Array = [["info", L.t("guide." + stage + ".title")]]
-	for i in range(1, 4):
-		var key := "guide.%s.%d" % [stage, i]
-		var line := L.t(key)
-		if line != key:
-			lines.append(["", line])
-	var guide := InfoSheet.open(screen, lines, true)
-	guide.dismissed.connect(func(skipped: bool) -> void:
-		Save.mark_hint("guide_skip" if skipped else id)
-		if not skipped and on_read.is_valid():
-			on_read.call(), CONNECT_ONE_SHOT)
 
 
 ## Подсказка выполнила своё: игрок сделал то, о чём она говорила.
@@ -989,6 +972,8 @@ func go_work(ji: int, sab: bool = false) -> void:
 			elif not Game.start_player_job(ji, sab):
 				toast(_done_text(ji))
 			elif not sab:
+				if host.current is DayScreen:
+					(host.current as DayScreen).work_lesson_done()
 				var kind := Game.m.jobs[ji].kind
 				var key := Game.m.resource_kind_key(kind)
 				if key.is_empty():

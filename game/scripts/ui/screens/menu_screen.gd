@@ -25,10 +25,13 @@ var _menu_logo: Control
 var _menu_bottom_margin: Control
 var _menu_buttons: Array[Button] = []
 var _snow_material: ShaderMaterial
+var _wood_snow: ShaderMaterial
+var _frost: MenuFrost
 
 const SETTLED_SNOW := """
 shader_type canvas_item;
 uniform float amount : hint_range(0.0, 1.0) = 0.0;
+uniform bool plank = false;
 varying vec4 tint;
 void vertex() {
 	tint = COLOR;
@@ -37,14 +40,106 @@ void fragment() {
 	vec4 base = texture(TEXTURE, UV);
 	float snow = 0.0;
 	if (amount > 0.002 && base.a > 0.05) {
-		vec2 step_up = vec2(0.0, TEXTURE_PIXEL_SIZE.y * 10.0);
-		float edge = max(0.0, base.a - texture(TEXTURE, max(UV - step_up, vec2(0.0))).a);
-		float rough = sin(UV.x * 170.0 + UV.y * 140.0) * sin(UV.x * 295.0) * 0.16 + 0.78;
-		snow = edge * rough * amount;
+		float depth = (0.70 + 0.28 * sin(UV.x * 97.0) * cos(UV.x * 221.0)) * mix(0.015, 0.057, amount);
+		float edge = max(0.0, base.a - texture(TEXTURE, vec2(UV.x, UV.y - depth)).a);
+		float top = (1.0 - smoothstep(depth * 0.5, depth + 0.015, UV.y)) * float(plank);
+		snow = clamp(max(edge, top) * amount, 0.0, 1.0);
 	}
 	COLOR = vec4(mix(base.rgb, vec3(0.79, 0.86, 0.92), snow), base.a) * tint;
 }
 """
+
+## Хлопья пересекают верхний контур букв и досок в координатах текущей раскладки.
+class MenuFrost extends Control:
+	var surfaces: Array[TextureRect] = []
+	var contours: Dictionary = {}
+	var flakes: Array[Vector4] = []
+	var settled: Array[Vector4] = []
+	var targets: Array[TextureRect] = []
+	var time := 0.0
+
+	func watch(surface: TextureRect) -> void:
+		surfaces.append(surface)
+		if contours.has(surface.texture):
+			return
+		var pixels := surface.texture.get_image()
+		if pixels.is_compressed():
+			pixels.decompress()
+		var edge := PackedFloat32Array()
+		for column in range(96):
+			var x := mini(int((column + 0.5) * pixels.get_width() / 96.0), pixels.get_width() - 1)
+			var top := 1.0
+			for y in range(pixels.get_height()):
+				if pixels.get_pixel(x, y).a >= 0.45:
+					top = float(y) / pixels.get_height()
+					break
+			edge.append(top)
+		contours[surface.texture] = edge
+
+	func _rect(surface: TextureRect) -> Rect2:
+		var frame := Rect2(surface.global_position - global_position, surface.size)
+		if surface.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_CENTERED:
+			var native := surface.texture.get_size()
+			var fitted := native * minf(frame.size.x / native.x, frame.size.y / native.y)
+			frame = Rect2(frame.get_center() - fitted * 0.5, fitted)
+		return frame
+
+	func _process(delta: float) -> void:
+		if size.x <= 0.0 or size.y <= 0.0:
+			return
+		time += delta
+		if flakes.is_empty():
+			for i in range(34):
+				flakes.append(Vector4(randf() * size.x, randf() * size.y, randf_range(38.0, 98.0), randf_range(1.1, 3.5)))
+		for i in range(settled.size() - 1, -1, -1):
+			settled[i].w -= delta
+			if settled[i].w <= 0.0:
+				settled.remove_at(i)
+				targets.remove_at(i)
+		for i in range(flakes.size()):
+			var f := flakes[i]
+			var prior := f.y
+			f.x = fposmod(f.x + (12.0 + sin(time * 1.7 + float(i)) * 26.0) * delta, size.x)
+			f.y += f.z * delta
+			if i % 3 == 0:
+				for surface in surfaces:
+					if not surface.is_visible_in_tree():
+						continue
+					var frame := _rect(surface)
+					if frame.size.x <= 0.0 or f.x < frame.position.x or f.x >= frame.end.x:
+						continue
+					var u := (f.x - frame.position.x) / frame.size.x
+					var edge: PackedFloat32Array = contours[surface.texture]
+					var top := edge[clampi(int(u * edge.size()), 0, edge.size() - 1)]
+					var landing := frame.position.y + frame.size.y * top
+					if top < 0.8 and prior < landing and f.y >= landing:
+						settled.append(Vector4(u, top, f.w, randf_range(3.5, 8.0)))
+						targets.append(surface)
+						f.y = size.y + 10.0
+						break
+			if f.y > size.y + 6.0:
+				f.y = randf_range(-44.0, -5.0)
+				f.x = randf() * size.x
+			flakes[i] = f
+		queue_redraw()
+
+	func _draw() -> void:
+		for f in flakes:
+			var at := Vector2(f.x, f.y)
+			var frost := Color(0.86, 0.93, 1.0, 0.62 + 0.08 * sin(f.x))
+			if f.w > 2.7:
+				for arm in range(3):
+					var axis := Vector2.RIGHT.rotated(arm * TAU / 6.0 + time * 0.25 + f.z) * f.w
+					draw_line(at - axis, at + axis, frost, 1.25, true)
+			else:
+				draw_circle(at, f.w, frost, true, -1.0, true)
+		for i in range(settled.size()):
+			if not targets[i].is_visible_in_tree():
+				continue
+			var grain := settled[i]
+			var frame := _rect(targets[i])
+			var at := frame.position + Vector2(grain.x, grain.y) * frame.size
+			draw_circle(at, grain.z, Color(0.86, 0.93, 1.0, 0.82 * minf(1.0, grain.w)), true, -1.0, true)
 
 
 func screen_id() -> String:
@@ -78,13 +173,20 @@ func build() -> void:
 		snow_shader.code = SETTLED_SNOW
 		_snow_material = ShaderMaterial.new()
 		_snow_material.shader = snow_shader
-		create_tween().tween_method(_snow_amount, 0.09, 0.56, 10.0)
+		_wood_snow = _snow_material.duplicate() as ShaderMaterial
+		_wood_snow.set_shader_parameter("plank", true)
+		create_tween().tween_method(_snow_amount, 0.24, 0.89, 8.0)
+		_frost = MenuFrost.new()
+		_frost.name = "MenuForegroundSnow"
+		_frost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_frost.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		_menu_snow = WeatherOverlay.new()
 		_menu_snow.name = "MenuSnow"
 		_menu_snow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		_menu_snow.modulate.a = 0.46
+		_menu_snow.modulate.a = 0.62
 		add_child(_menu_snow)
-		_menu_snow.apply({"active": true, "precip": Weather.Precip.SNOW, "power": 0.25, "wind": 0.13}, 0.78)
+		move_child(_menu_snow, 0)
+		_menu_snow.apply({"active": true, "precip": Weather.Precip.SNOW, "power": 0.36, "wind": 0.19}, 0.78)
 	body.add_theme_constant_override("separation", 6)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.alignment = BoxContainer.ALIGNMENT_BEGIN
@@ -104,6 +206,8 @@ func build() -> void:
 		logo.custom_minimum_size = Vector2(0, 178)
 		logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		body.add_child(logo)
+		if _frost != null:
+			_frost.watch(logo)
 	else:
 		var brand := W.label(L.t("game.title"), &"Title")
 		brand.name = "MenuTitle"
@@ -166,7 +270,8 @@ func build() -> void:
 				emit_intent(Intent.RESUME_DAY)
 			else:
 				emit_intent(Intent.PLAY_CHAPTER, {"id": chapter}))
-		footer_actions.append(resume)
+		modes.add_child(resume)
+		modes.move_child(resume, 0)
 	var exit := _footer_tile(L.t("ui.exit"), "Exit")
 	exit.name = "Exit"
 	exit.add_theme_font_size_override("font_size", ThemeFactory.fs(13))
@@ -177,7 +282,7 @@ func build() -> void:
 	footer_actions.append(exit)
 	footer.add_child(W.fit_row(footer_actions))
 	var bottom_margin := Control.new()
-	bottom_margin.custom_minimum_size.y = 36.0
+	bottom_margin.custom_minimum_size.y = 10.0
 	bottom_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_menu_bottom_margin = bottom_margin
 	footer.add_child(bottom_margin)
@@ -186,6 +291,8 @@ func build() -> void:
 	lower_space.size_flags_stretch_ratio = 0.45
 	lower_space.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.add_child(lower_space)
+	if _frost != null:
+		add_child(_frost)
 	_size_menu_columns.call_deferred()
 	refresh(difficulty, cfg)
 
@@ -253,16 +360,11 @@ func _advance_menu_art() -> void:
 	var outgoing := _menu_art_nodes[_menu_art_front]
 	_menu_art_index = (_menu_art_index + 1) % MENU_ART.size()
 	incoming.texture = load(MENU_ART[_menu_art_index]) as Texture2D
-	if is_instance_valid(_menu_snow):
-		var snow := _menu_snow
-		create_tween().tween_property(snow, "modulate:a", 0.46 if _menu_art_index == 0 else 0.0, 0.9)
-		var from := float(_snow_material.get_shader_parameter("amount"))
-		create_tween().tween_method(_snow_amount, from, 0.56 if _menu_art_index == 0 else 0.0, 5.0 if _menu_art_index == 0 else 1.1)
 	incoming.visible = true
 	incoming.modulate.a = 0.0
-	var tween := create_tween().set_parallel(true).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_menu_backdrop.move_child(incoming, 1)
+	var tween := create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	tween.tween_property(incoming, "modulate:a", 1.0, 1.15)
-	tween.tween_property(outgoing, "modulate:a", 0.0, 1.15)
 	tween.finished.connect(func() -> void:
 		if not is_instance_valid(outgoing):
 			return
@@ -281,7 +383,7 @@ func _open_more() -> void:
 	var actions: Array[StringName] = [
 		&"daily", Intent.OPEN_HOWTO, Intent.OPEN_WARDROBE, Intent.OPEN_BOOK, &"language", &"name",
 	]
-	var choice: int = await ActionSheet.ask(self, L.t("menu.more"), options)
+	var choice: int = await ActionSheet.ask(self, L.t("menu.more"), options, _more_tile)
 	if choice < 0 or choice >= actions.size():
 		return
 	match actions[choice]:
@@ -310,7 +412,7 @@ func _size_menu_columns() -> void:
 	if is_instance_valid(_menu_logo):
 		_menu_logo.custom_minimum_size.y = lerpf(112.0, 178.0, room)
 	if is_instance_valid(_menu_bottom_margin):
-		_menu_bottom_margin.custom_minimum_size.y = lerpf(8.0, 36.0, room)
+		_menu_bottom_margin.custom_minimum_size.y = lerpf(4.0, 12.0, room)
 	for button: Button in _menu_buttons:
 		if is_instance_valid(button):
 			button.custom_minimum_size.y = lerpf(68.0, 82.0, room)
@@ -348,13 +450,15 @@ func _mode_tile(heading: String, detail: String, node_name: String, variation: S
 	var plaque := TextureRect.new()
 	plaque.name = "Plaque"
 	plaque.texture = load("res://assets/ui/menu_plaque.png") as Texture2D
-	plaque.material = _snow_material if not disabled else null
+	plaque.material = _wood_snow if not disabled else null
 	plaque.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	plaque.stretch_mode = TextureRect.STRETCH_SCALE
 	plaque.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plaque.modulate = Color(0.56, 0.56, 0.56, 0.8) if disabled else Color.WHITE
 	button.add_child(plaque)
 	plaque.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	if _frost != null and not disabled and node_name != "MoreOption":
+		_frost.watch(plaque)
 	if not disabled:
 		button.mouse_entered.connect(func() -> void: _wood_motion(plaque, 1.012, Color(1.10, 1.05, 0.94)))
 		button.mouse_exited.connect(func() -> void: _wood_motion(plaque, 1.0, Color.WHITE))
@@ -376,7 +480,7 @@ func _mode_tile(heading: String, detail: String, node_name: String, variation: S
 	var title_label := W.label(heading, &"Speaker")
 	title_label.name = "TileTitle"
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_label.add_theme_font_size_override("font_size", ThemeFactory.fs(18))
+	title_label.add_theme_font_size_override("font_size", ThemeFactory.fs(21))
 	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title_label.add_theme_color_override("font_color", Color("969491") if disabled else Color("f3deba"))
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -398,6 +502,14 @@ func _mode_tile(heading: String, detail: String, node_name: String, variation: S
 func _snow_amount(value: float) -> void:
 	if _snow_material != null:
 		_snow_material.set_shader_parameter("amount", value)
+		_wood_snow.set_shader_parameter("amount", value)
+
+
+func _more_tile(label: String) -> Button:
+	var button := _footer_tile(label, "MoreOption")
+	_menu_buttons.erase(button)
+	button.custom_minimum_size.y = ThemeFactory.COMPACT_TOUCH + 6.0
+	return button
 
 
 func _wood_motion(plaque: TextureRect, amount: float, tint: Color) -> void:
@@ -423,7 +535,7 @@ func _footer_tile(label: String, node_name: String) -> Button:
 func _menu_shortcut(kind: String, node_name: String, label: String, action: StringName) -> Button:
 	var b := W.button("", &"Compact", 48)
 	b.name = node_name
-	b.custom_minimum_size = Vector2(56, 48)
+	b.custom_minimum_size = Vector2(64, 52)
 	b.tooltip_text = label
 	b.accessibility_name = label
 	b.add_theme_stylebox_override("normal", _menu_button_style(ThemeFactory.PANEL, ThemeFactory.EDGE))

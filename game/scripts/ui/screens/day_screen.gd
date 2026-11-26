@@ -42,7 +42,7 @@ func field_height(h: float) -> float:
 	var reserved := bar + body_min + footer.get_combined_minimum_size().y + 3.0 * sep + 8.0
 	if is_instance_valid(_supply_row):
 		reserved += _supply_row.get_combined_minimum_size().y + sep
-	return maxf(1.0, minf(h * 0.82, h - reserved))
+	return maxf(1.0, h - reserved)
 
 
 func title() -> String:
@@ -188,19 +188,28 @@ func contact_done() -> void:
 		return
 	Save.mark_hint("guide_contact")
 	_clear_contact_guide()
-	Nav.show_chapter_guide.call_deferred(self, "supplies")
+	_show_work_lesson()
 
 
 func setup_first_contact() -> void:
 	if not is_inside_tree() or self != Nav.host.current or not Nav.chapter_guides() or not m.player().alive:
 		return
 	if Save.hint_seen("guide_contact") or Game.first_contact:
-		Nav.show_chapter_guide(self, "supplies")
+		_show_work_lesson()
 		return
-	if Save.hint_seen("guide_day"):
-		_show_contact_task()
-	else:
-		Nav.show_chapter_guide(self, "day", _show_contact_task)
+	_show_contact_task()
+
+
+func _show_work_lesson() -> void:
+	if Game.m.jobs.is_empty():
+		return
+	show_chapter_strip("supplies", "guide.work.short", [])
+
+
+func work_lesson_done() -> void:
+	if Nav.chapter_guides() and Save.hint_seen("guide_contact") and not Save.hint_seen("guide_supplies"):
+		Save.mark_hint("guide_supplies")
+		clear_chapter_strip()
 
 
 func _show_contact_task() -> void:
@@ -222,7 +231,10 @@ func _show_contact_task() -> void:
 	skip.pressed.connect(func() -> void:
 		Save.mark_hint("guide_skip")
 		_clear_contact_guide())
-	_guide_contact = W.fit_row([speak, skip], 6)
+	var brief := W.vbox(6)
+	brief.add_child(W.label(L.t("guide.contact.short"), &"Small"))
+	brief.add_child(W.fit_row([speak, skip], 6))
+	_guide_contact = brief
 	body.add_child(_guide_contact)
 	_fit_field_spacer.call_deferred()
 

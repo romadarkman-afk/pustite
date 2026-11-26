@@ -68,13 +68,22 @@ func build() -> void:
 	var go := W.button(L.t("vote.select_first"))
 	go.add_theme_color_override("font_disabled_color", Color("eee1c9"))
 	go.disabled = true
-	go.pressed.connect(func() -> void: commit(Intent.VOTE, {"id": picked}))
+	go.pressed.connect(func() -> void:
+		if is_instance_valid(_chapter_strip):
+			Save.mark_hint("guide_vote")
+			clear_chapter_strip()
+		commit(Intent.VOTE, {"id": picked}))
 	footer.add_child(go)
 	set_meta("go", go)
 	var fit := func() -> void: fit_actions.call_deferred(footer)
 	resized.connect(fit)
 	body.minimum_size_changed.connect(fit)
 	fit.call()
+
+
+func start_lesson() -> void:
+	if self == Nav.host.current and not _rows.is_empty():
+		show_chapter_strip("vote", "guide.ballot.short", _rows)
 
 
 func _select(vid: int, b: Button) -> void:
@@ -84,6 +93,8 @@ func _select(vid: int, b: Button) -> void:
 	var confirm := get_meta("go") as Button
 	confirm.text = L.t("vote.go")
 	confirm.disabled = false
+	if is_instance_valid(_chapter_strip):
+		show_chapter_strip("vote", "guide.ballot.confirm", [confirm])
 
 
 ## Nav вызывает с итогом голосования.

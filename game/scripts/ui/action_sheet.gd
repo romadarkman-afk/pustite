@@ -9,15 +9,15 @@ var _done := false
 var _pause_key: StringName
 
 
-static func ask(parent: Control, title: String, options: PackedStringArray) -> int:
+static func ask(parent: Control, title: String, options: PackedStringArray, make_button: Callable = Callable()) -> int:
 	var s := ActionSheet.new()
 	parent.add_child(s)
-	s._build(title, options)
+	s._build(title, options, make_button)
 	var idx: int = await s.chosen
 	return idx
 
 
-func _build(title: String, options: PackedStringArray) -> void:
+func _build(title: String, options: PackedStringArray, make_button: Callable = Callable()) -> void:
 	_pause_key = StringName("action_sheet_%d" % get_instance_id())
 	Game.hold(_pause_key)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -41,7 +41,6 @@ func _build(title: String, options: PackedStringArray) -> void:
 	sheet.add_child(box)
 	var sc := TouchScroll.new()
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	sc.custom_minimum_size.y = minf((get_parent() as Control).size.y * 0.56, 500.0 * ThemeFactory.text_scale)
 	var content := W.vbox(10)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sc.add_child(content)
@@ -49,7 +48,7 @@ func _build(title: String, options: PackedStringArray) -> void:
 	content.add_child(W.label(title, &"Hint"))
 	var first_button: Button
 	for i in range(options.size()):
-		var b := W.button(options[i], &"Row")
+		var b: Button = make_button.call(options[i]) if make_button.is_valid() else W.wrap(W.button(options[i], &"Row"))
 		if i == 0:
 			first_button = b
 		var idx := i
@@ -58,6 +57,12 @@ func _build(title: String, options: PackedStringArray) -> void:
 	var cancel := W.button(L.t("ui.cancel"), &"Ghost")
 	cancel.pressed.connect(func() -> void: close(-1))
 	box.add_child(cancel)
+	var fit := func() -> void:
+		var max_height := maxf(0.0, size.y - cancel.get_combined_minimum_size().y - 80.0)
+		sc.custom_minimum_size.y = minf(content.get_combined_minimum_size().y, max_height)
+	content.minimum_size_changed.connect(fit)
+	resized.connect(fit)
+	fit.call_deferred()
 	if first_button != null:
 		first_button.call_deferred("grab_focus")
 

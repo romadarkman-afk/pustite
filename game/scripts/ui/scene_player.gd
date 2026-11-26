@@ -149,13 +149,28 @@ func _build() -> void:
 	hint.name = "TapHint"
 	box.add_child(hint)
 	resized.connect(_position_subtitles)
+	_sub.resized.connect(_position_subtitles)
 	gui_input.connect(_on_input)
 	_next_frame()
 
 
 func _position_subtitles() -> void:
 	var closeup := _portrait_box.get_child_count() > 0 and not _art.visible
-	_sub.offset_bottom = -clampf(size.y * 0.105, 26.0, 142.0) if closeup else 0.0
+	_sub.offset_bottom = -clampf(size.y * 0.11, 24.0, 126.0) if closeup else 0.0
+	if not closeup:
+		_portrait_box.anchor_top = 0.09
+		_portrait_box.anchor_bottom = 0.76
+		_portrait_box.offset_top = 0.0
+		_portrait_box.offset_bottom = 0.0
+		return
+	var portrait := _portrait_box.get_child(0) as Control
+	var bottom := maxf(_sub.get_rect().position.y, size.y * 0.42)
+	var height := minf(bottom * 0.9, minf(size.y * 0.52, size.x * 0.98))
+	portrait.custom_minimum_size = Vector2(minf(size.x * 0.91, height * 1.06), height)
+	_portrait_box.anchor_top = 0.0
+	_portrait_box.anchor_bottom = 0.0
+	_portrait_box.offset_top = bottom - height
+	_portrait_box.offset_bottom = bottom
 
 
 func _cover(c: Control) -> void:

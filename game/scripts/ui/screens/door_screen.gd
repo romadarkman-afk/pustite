@@ -38,6 +38,11 @@ var _name_labels: Dictionary[int, Label] = {}
 var _portraits: Dictionary[int, Control] = {}
 var _opening_scene := false
 var _inline_hint: Button
+var _lesson: PanelContainer
+var _lesson_step := 0
+var _lesson_focus: Array[Panel] = []
+var _lesson_pause: StringName
+var _refuse: Button
 var _touched := false          ## игрок что-то сделал у двери: повторный стук больше не нужен
 const IDLE_KNOCK := 5.5        ## молчишь у двери — через столько секунд стучат снова
 const IDLE_KNOCKS := 3
@@ -176,7 +181,9 @@ func _build_host() -> void:
 	_tal.hint = L.t("door.tal_short")
 	_tal.tooltip_text = L.t("door.tal_hint")
 	_tal.level_of = func() -> int: return m.talisman[seat.house] if seat.house >= 0 and seat.house < m.talisman.size() else Match.TALISMAN_MAX
-	_tal.revealed.connect(func(_lvl: int) -> void: _touched = true)
+	_tal.revealed.connect(func(_lvl: int) -> void:
+		_touched = true
+		_lesson_progress(3))
 	_box.add_child(_tal)
 	if not dilemma.is_empty():
 		_box.add_child(dilemma_card(m, dilemma))
@@ -294,9 +301,9 @@ func _build_host() -> void:
 	_bolt.name = "Bolt"
 	_bolt.target = _go
 	_go.add_child(_bolt)
-	var refuse := W.button(L.t("door.refuse"), &"Danger")
-	refuse.pressed.connect(func() -> void: _finish_host([]))
-	footer.add_child(refuse)
+	_refuse = W.button(L.t("door.refuse"), &"Danger")
+	_refuse.pressed.connect(func() -> void: _finish_host([]))
+	footer.add_child(_refuse)
 	_start_knocks()
 
 
@@ -319,7 +326,7 @@ func _start_knocks() -> void:
 			return
 		_opening_scene = false
 		if Nav.chapter_guides():
-			Nav.show_chapter_guide(self, "door")
+			_begin_lesson()
 		elif not Save.hint_seen(hint_id()) and not Save.hint_seen("guide_skip"):
 			show_hint()
 	# ветка (TASK-077): до настоящего стука что-то стукнуло в окно; очередь и правила не затронуты
@@ -339,6 +346,69 @@ func _start_knocks() -> void:
 			return
 	_knock_sequence(seat.knockers().size())
 	_idle_knock()
+
+
+func _begin_lesson() -> void:
+	if not Nav.chapter_guides() or Save.hint_seen("guide_door") or m.day != 1 or _rows.is_empty() or is_instance_valid(_lesson):
+		return
+	_lesson_pause = StringName("door_guide_%d" % get_instance_id())
+	Game.hold(_lesson_pause)
+	_lesson_step = 1 if _asked else 0
+	_show_lesson_step()
+
+
+func _show_lesson_step() -> void:
+	if is_instance_valid(_lesson):
+		_lesson.hide()
+		_lesson.queue_free()
+	for outline in _lesson_focus:
+		outline.hide()
+		outline.queue_free()
+	_lesson_focus.clear()
+	var text := L.t("guide.door.step%d" % _lesson_step, {"n": _inspection_left})
+	var targets: Array = []
+	match _lesson_step:
+		0: targets = _ask_rows.values()
+		1: targets = _inspect_rows.values()
+		2: targets = [_candle_btn]
+		3: targets = [_tal]
+		4: targets = _rows.values()
+		5: targets = [_go, _refuse]
+	for target: Control in targets:
+		if target != null and (not target is Button or not (target as Button).disabled):
+			_lesson_focus.append(guide_outline(target))
+	var next := func() -> void:
+		_lesson_step += 1
+		_show_lesson_step()
+	var skip := func() -> void:
+		Save.mark_hint("guide_skip")
+		_end_lesson()
+	_lesson = guide_strip(_box, text, next if _lesson_step < 5 else Callable(), skip)
+
+
+func _lesson_progress(step: int) -> void:
+	if is_instance_valid(_lesson) and _lesson_step == step:
+		_lesson_step += 1
+		_show_lesson_step()
+
+
+func _end_lesson() -> void:
+	if _lesson_pause != &"":
+		Game.release(_lesson_pause)
+		_lesson_pause = &""
+	if is_instance_valid(_lesson):
+		_lesson.hide()
+		_lesson.queue_free()
+		_lesson = null
+	for outline in _lesson_focus:
+		outline.hide()
+		outline.queue_free()
+	_lesson_focus.clear()
+
+
+func _exit_tree() -> void:
+	if _lesson_pause != &"":
+		Game.release(_lesson_pause)
 
 
 func _idle_knock() -> void:
@@ -390,6 +460,7 @@ func ask_past(gid: int) -> void:
 		note.visible = true
 	for b: Button in _ask_rows.values():
 		b.disabled = true
+	_lesson_progress(0)
 	var figure: VillagerFigure = _visitor_figures.get(gid)
 	if is_instance_valid(figure):
 		figure.knock()
@@ -423,6 +494,7 @@ func ask_who(gid: int) -> void:
 		note.visible = true
 	for b: Button in _ask_rows.values():
 		b.disabled = true
+	_lesson_progress(0)
 	var figure: VillagerFigure = _visitor_figures.get(gid)
 	if is_instance_valid(figure):
 		figure.knock()
@@ -492,6 +564,7 @@ func _toggle(gid: int, cap: int) -> void:
 	if not _selected.is_empty():
 		hide_hint()
 		Save.mark_hint(hint_id())
+		_lesson_progress(4)
 	var i := 0
 	for c: Node in _seats.get_children():
 		if c is Glyph and (c as Glyph).kind.begins_with("seat"):
@@ -512,6 +585,7 @@ func show_candle(level: int) -> void:
 	Juice.haptic(Juice.Haptic.TAP)
 	Sfx.play(&"tap")
 	Nav.toast(L.t(["door.candle_down", "door.candle_mid", "door.candle_up"][level + 1]))
+	_lesson_progress(2)
 
 
 func _inspect(gid: int) -> void:
@@ -636,8 +710,16 @@ func show_inspection(gid: int, tell: StringName) -> void:
 			if details.size() >= 3:
 				break
 			details.append(fact)
-		note.text = "\n".join(details)
+		note.text = details[0] if note.text.is_empty() else note.text + "\n" + details[0]
 		note.visible = true
+		if details.size() > 1:
+			var more := W.button(L.t("door.visitor_help"), &"Ghost", 46)
+			more.name = "ObservationDetails_%d" % gid
+			var records: Array = []
+			for line: String in details.slice(1):
+				records.append(["", line])
+			more.pressed.connect(func() -> void: InfoSheet.open(self, records))
+			note.get_parent().add_child(more)
 	var figure: VillagerFigure = _visitor_figures.get(gid)
 	if is_instance_valid(figure):
 		figure.knock()
@@ -651,6 +733,7 @@ func show_inspection(gid: int, tell: StringName) -> void:
 		if not _inspected.has(other_id):
 			other.text = "%s · %d" % [SocialContent.door_ui("inspect"), _inspection_left]
 			other.disabled = _inspection_left <= 0
+	_lesson_progress(1)
 
 
 static func remembered_story(identity: Villager) -> String:
@@ -666,6 +749,9 @@ static func remembered_story(identity: Villager) -> String:
 func _finish_host(ids: Array[int]) -> void:
 	if is_locked():
 		return
+	if is_instance_valid(_lesson):
+		Save.mark_hint("guide_door")
+		_end_lesson()
 	if ids.is_empty():
 		open_fx.emit(0.0)
 		Juice.haptic(Juice.Haptic.REFUSE)

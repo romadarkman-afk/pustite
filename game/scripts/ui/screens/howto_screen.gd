@@ -55,6 +55,8 @@ func mood() -> Vector2:
 
 
 func build() -> void:
+	if footer.get_parent() != chrome:
+		footer.reparent(chrome, false)
 	W.clear(body)
 	W.clear(footer)
 	var card: Array = PAGES[page]
@@ -105,6 +107,12 @@ func build() -> void:
 		skip.add_theme_font_size_override("font_size", ThemeFactory.fs(14))
 		skip.pressed.connect(func() -> void: commit(Intent.HOWTO_DONE, {"play": then_play}))
 		footer.add_child(skip)
+	var fit := func() -> void: fit_actions.call_deferred(footer)
+	if not has_meta("actions_fitted"):
+		set_meta("actions_fitted", true)
+		resized.connect(fit)
+		body.minimum_size_changed.connect(fit)
+	fit.call()
 
 
 func _mark_picker(rows: Array) -> void:

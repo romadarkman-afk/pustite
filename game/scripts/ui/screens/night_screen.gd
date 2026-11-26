@@ -92,6 +92,13 @@ func build() -> void:
 		body.add_child(heal_button)
 
 
+func start_lesson() -> void:
+	if self != Nav.host.current or not Nav.chapter_guides() or _rows.is_empty() or Save.hint_seen("guide_night"):
+		return
+	show_chapter_strip("night", "guide.shelter.short", _rows)
+	Game.hold(&"hint")
+
+
 ## Событие ночи — значком и названием; что оно делает, написано в «Подробнее».
 func _event_label() -> void:
 	if m.night_event != Match.Event.NONE:
@@ -158,6 +165,10 @@ func select_house(i: int) -> void:
 	if i == m.flooded_house:
 		Nav.toast(L.t("night.flooded"))
 		return
+	if is_instance_valid(_chapter_strip):
+		Save.mark_hint("guide_night")
+		clear_chapter_strip()
+		Game.release(&"hint")
 	_select(i, _rows[i])
 	emit_intent(Intent.SELECT_HOUSE, {"house": i})
 
