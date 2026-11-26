@@ -107,14 +107,15 @@ jobs:
           SUDO=""
           if [ ! -w "$SDK" ]; then SUDO="sudo -E"; fi
 
-          if [ ! -d "$SDK/platform-tools" ] || ! ls -d "$SDK"/build-tools/*/ > /dev/null 2>&1; then
+          if [ ! -x "$SDK/platform-tools/adb" ] || [ ! -x "$SDK/build-tools/35.0.0/zipalign" ]; then
             yes | $SUDO "$SDKM" --sdk_root="$SDK" --licenses > /dev/null || true
-            $SUDO "$SDKM" --sdk_root="$SDK" --install "platform-tools" "build-tools;34.0.0" "platforms;android-34" > /dev/null
+            $SUDO "$SDKM" --sdk_root="$SDK" --install "platform-tools" "build-tools;35.0.0" > /dev/null
           fi
 
           echo "build-tools на сервере:"; ls "$SDK/build-tools"
           test -x "$SDK/platform-tools/adb" || { echo "Нет adb"; exit 1; }
           ls "$SDK"/build-tools/*/apksigner > /dev/null || { echo "Нет apksigner"; exit 1; }
+          echo "APK_BUILD_TOOLS=$SDK/build-tools/35.0.0" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
           echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
 
@@ -241,36 +242,49 @@ jobs:
             exit 1
           fi
 
-      - name: Экспорт APK
+      - name: Экспорт, выравнивание и подпись APK
         run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          preset="game/export_presets.cfg"
+          cp "$preset" "$work/export_presets.cfg"
+          trap 'cp "$work/export_presets.cfg" "$preset"; rm -rf -- "$work"' EXIT
+          # Экспортируем APK без подписи, затем выравниваем ZIP и подписываем итоговый файл.
+          sed -i '0,/^package\/signed=true\r\?$/s//package\/signed=false/' "$preset"
+          grep -qx 'package/signed=false' "$preset"
+          godot --headless --path game --export-debug "Android" "$work/unsigned.apk"
+          test -s "$work/unsigned.apk"
+          "$APK_BUILD_TOOLS/zipalign" -P 16 -f 4 "$work/unsigned.apk" "$work/aligned.apk"
           mkdir -p build
-          godot --headless --path game --export-debug "Android" "$PWD/build/pustite.apk"
-          ls -la build/
-          test -s build/pustite.apk || { echo "APK не создан"; exit 1; }
+          "$APK_BUILD_TOOLS/apksigner" sign --ks "$HOME/debug.keystore" \
+            --ks-key-alias androiddebugkey --ks-pass pass:android \
+            --v1-signing-enabled false --v2-signing-enabled true \
+            --v3-signing-enabled true --v4-signing-enabled false \
+            --out build/pustite.apk "$work/aligned.apk"
+          test -s build/pustite.apk
 
       - name: Проверка APK, подписи и версии
         run: |
           set -euo pipefail
           APK="build/pustite.apk"
-          TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n1)"
           VERSION="$(awk -F '"' '$1 == "config/version=" { print $2; exit }' game/project.godot)"
           VERSION_CODE="$(awk -F= '$1 == "version/code" { print $2; exit }' game/export_presets.cfg)"
           NAME_COUNT="$(awk -F '"' -v v="$VERSION" '$1 == "version/name=" && $2 == v { n++ } END { print n+0 }' game/export_presets.cfg)"
-          CODE_COUNT="$(awk -F= '$1 == "version/code" { n++ } END { print n+0 }' game/export_presets.cfg)"
+          CODE_COUNT="$(awk -F= -v v="$VERSION_CODE" '$1 == "version/code" && $2 == v { n++ } END { print n+0 }' game/export_presets.cfg)"
           if [ "$NAME_COUNT" -ne 2 ] || [ "$CODE_COUNT" -ne 2 ]; then
             echo "::error title=Версия экспорта не совпадает::Обе Android-настройки должны использовать $VERSION, code $VERSION_CODE."
             exit 1
           fi
           unzip -tq "$APK"
-          "$TOOLS/zipalign" -c 4 "$APK"
-          CERTS="$("$TOOLS/apksigner" verify --verbose --print-certs "$APK")"
+          "$APK_BUILD_TOOLS/zipalign" -c -P 16 4 "$APK"
+          CERTS="$("$APK_BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK")"
           printf '%s\n' "$CERTS"
           ACTUAL_CERT="$(awk '/certificate SHA-256 digest:/ {print tolower($NF)}' <<< "$CERTS" | sort -u)"
           if [ "$ACTUAL_CERT" != "$SIGNING_CERT_SHA256" ]; then
             echo "::error title=Подпись APK не совпадает::Обновление нельзя установить поверх предыдущего релиза."
             exit 1
           fi
-          BADGING="$("$TOOLS/aapt" dump badging "$APK")"
+          BADGING="$("$APK_BUILD_TOOLS/aapt" dump badging "$APK")"
           echo "$BADGING" | sed -n '1,2p'
           EXPECTED="package: name='com.vladi.pustite' versionCode='$VERSION_CODE' versionName='$VERSION'"
           if ! grep -Fq "$EXPECTED" <<< "$BADGING"; then
@@ -300,21 +314,40 @@ jobs:
       # Релиз идёт с main и по ручному запуску с любой ветки (Actions → Сборка APK → Run workflow).
       # Каждая сильная версия выкладывается как релиз; ветку без PR в main тоже можно выложить,
       # поэтому тег ставится на коммит сборки (--target), а не на голову main.
-      - name: Выложить релиз со ссылкой на APK
+      - name: Проверить APK из GitHub и опубликовать Latest
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           TAG="build-$(date +%Y%m%d-%H%M%S)"
           COMMIT="$(git rev-parse HEAD)"
-          VER=$(grep -oP 'config/version="\K[^"]+' game/project.godot || echo "?")
+          VER=$(grep -oP 'config/version="\K[^"]+' game/project.godot)
+          SHA256="$(sha256sum build/pustite.apk | cut -d ' ' -f1)"
           {
-            echo "Отладочная сборка. Коммит ${COMMIT::7}, ветка ${GITHUB_REF_NAME}. Скачайте pustite.apk и установите на телефон."
+            echo "Сборка для Android. Коммит ${COMMIT::7}, ветка ${GITHUB_REF_NAME}."
             echo
-            awk -v v="## $VER" 'index($0, v) == 1 {f = 1; next} f && /^## / {exit} f' CHANGELOG.md
+            awk -v v="## $VER:" 'index($0, v) == 1 {f = 1; next} f && /^## / {exit} f' CHANGELOG.md
+            printf '\nSHA-256 pustite.apk: `%s`\n' "$SHA256"
           } > release-notes.md
           gh release create "$TAG" "build/pustite.apk" \
-            --target "$COMMIT" \
+            --draft --target "$COMMIT" \
             --title "v$VER · $TAG" \
-            --notes-file release-notes.md \
-            --latest
+            --notes-file release-notes.md
+          API="repos/$GITHUB_REPOSITORY/releases"
+          RELEASE_ID="$(gh api "$API?per_page=30" | jq -er --arg tag "$TAG" '.[] | select(.draft and .tag_name == $tag) | .id')"
+          ASSET_ID="$(gh api "$API/$RELEASE_ID/assets" --jq '.[] | select(.name == "pustite.apk" and .state == "uploaded") | .id')"
+          test -n "$ASSET_ID"
+          DOWNLOAD="$(mktemp --suffix=.apk)"
+          trap 'rm -f -- "$DOWNLOAD"' EXIT
+          gh api -H 'Accept: application/octet-stream' "$API/assets/$ASSET_ID" > "$DOWNLOAD"
+          sha256sum build/pustite.apk "$DOWNLOAD"
+          if ! cmp -s build/pustite.apk "$DOWNLOAD"; then
+            echo '::error::Скачанный из GitHub APK отличается от подписанного файла. Релиз остался черновиком.'
+            exit 1
+          fi
+          "$APK_BUILD_TOOLS/apksigner" verify --verbose --min-sdk-version 35 --max-sdk-version 36 "$DOWNLOAD"
+          gh api --method PATCH "$API/$RELEASE_ID" -F draft=false -f make_latest=true --silent
+          gh api "$API/latest" | jq -e --arg tag "$TAG" --arg digest "sha256:$SHA256" '
+            .tag_name == $tag and (.draft | not) and (.prerelease | not)
+            and any(.assets[]; .name == "pustite.apk" and .state == "uploaded" and .digest == $digest)'
