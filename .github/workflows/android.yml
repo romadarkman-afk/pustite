@@ -297,7 +297,7 @@ jobs:
           path: build/pustite.apk
           retention-days: 30
 
-      # Релиз идёт с main и по ручному запуску с любой ветки как предварительный (Actions → Сборка APK → Run workflow).
+      # Релиз идёт с main и по ручному запуску с любой ветки (Actions → Сборка APK → Run workflow).
       # Каждая сильная версия выкладывается как релиз; ветку без PR в main тоже можно выложить,
       # поэтому тег ставится на коммит сборки (--target), а не на голову main.
       - name: Выложить релиз со ссылкой на APK
@@ -313,12 +313,8 @@ jobs:
             echo
             awk -v v="## $VER" 'index($0, v) == 1 {f = 1; next} f && /^## / {exit} f' CHANGELOG.md
           } > release-notes.md
-          CHANNEL=(--latest)
-          if [ "$GITHUB_REF_NAME" != "main" ]; then
-            CHANNEL=(--prerelease --latest=false)
-          fi
           gh release create "$TAG" "build/pustite.apk" \
             --target "$COMMIT" \
             --title "v$VER · $TAG" \
             --notes-file release-notes.md \
-            "${CHANNEL[@]}"
+            --latest
