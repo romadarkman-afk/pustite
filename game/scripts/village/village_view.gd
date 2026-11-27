@@ -332,9 +332,10 @@ func frame_to(rect: Rect2, vp_w: float, dur: float, zoom: float = 1.0, focus_x: 
 	browsing = false
 	if _branches != null:
 		_branches.queue_redraw()
-	var base := minf(vp_w / (LOGICAL.x * SIDE_VISIBLE), rect.size.y / BAND.size.y)
-	var s := minf(base * zoom, rect.size.y / BAND.size.y)
-	s = maxf(s, 0.5)
+	var fit_scale := maxf(0.01, rect.size.y / BAND.size.y)
+	var scale_floor := minf(0.5, fit_scale)
+	var base := minf(vp_w / (LOGICAL.x * SIDE_VISIBLE), fit_scale)
+	var s := clampf(base * zoom, scale_floor, fit_scale)
 	var sky_share := SKY_SHARE
 	var top_head_y := INF
 	if crowd != null:
@@ -356,7 +357,7 @@ func frame_to(rect: Rect2, vp_w: float, dur: float, zoom: float = 1.0, focus_x: 
 			if head_depth > 0.0:
 				var needed_scale := (rect.size.y - headroom) / head_depth
 				if needed_scale > 0.0:
-					s = maxf(0.5, minf(s, needed_scale))
+					s = maxf(scale_floor, minf(s, needed_scale))
 	if zoom > 1.0:
 		# приближенная камера не показывает пустоту за краями посёлка: посёлок (с запасом 18 ед. с каждой стороны) не уже экрана
 		s = maxf(s, minf(rect.size.y / BAND.size.y, vp_w / (LOGICAL.x + 36.0)))

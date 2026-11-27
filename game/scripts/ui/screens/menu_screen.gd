@@ -194,7 +194,7 @@ func build() -> void:
 	body.alignment = BoxContainer.ALIGNMENT_BEGIN
 	var upper_space := Control.new()
 	upper_space.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	upper_space.size_flags_stretch_ratio = 0.55
+	upper_space.size_flags_stretch_ratio = 0.70
 	body.add_child(upper_space)
 
 	if L.code == "ru" and ResourceLoader.exists("res://assets/ui/pustite_logo.png"):
@@ -290,7 +290,7 @@ func build() -> void:
 	footer.add_child(bottom_margin)
 	var lower_space := Control.new()
 	lower_space.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	lower_space.size_flags_stretch_ratio = 0.45
+	lower_space.size_flags_stretch_ratio = 0.30
 	lower_space.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.add_child(lower_space)
 	if _frost != null:

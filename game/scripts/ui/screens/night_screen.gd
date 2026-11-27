@@ -22,6 +22,10 @@ func field_height(h: float) -> float:
 	return field_after_content(h)
 
 
+func min_content_ratio() -> float:
+	return 0.20
+
+
 ## Сумерки длинные: окна загораются по одному, в конце в лесу появляются глаза.
 func mood_duration() -> float:
 	return 3.2

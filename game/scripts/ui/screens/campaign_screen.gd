@@ -5,6 +5,7 @@ extends Screen
 
 
 var _map: CampaignMap
+var _map_caption: Label
 var _selected_act := 0
 
 
@@ -41,10 +42,11 @@ func build() -> void:
 	_map.act_picked.connect(_select_act)
 	_map.visible = _selected_act == 0
 	body.add_child(_map)
-	var map_caption := W.label(L.t("camp.pick_place"), &"Hint")
-	map_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	map_caption.visible = _map.visible
-	body.add_child(map_caption)
+	_map_caption = W.label(L.t("camp.pick_place"), &"Hint")
+	_map_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_map_caption.visible = _map.visible
+	body.add_child(_map_caption)
+	_map_caption.minimum_size_changed.connect(_fit_map)
 	for act: Dictionary in Campaign.ACTS:
 		var aid := int(act.id)
 		var first := body.get_child_count()
@@ -94,9 +96,6 @@ func build() -> void:
 		if not handle_back():
 			emit_intent(Intent.BACK))
 	footer.add_child(back)
-	var actions_parent: Control = body if _map.visible else chrome
-	if footer.get_parent() != actions_parent:
-		footer.reparent(actions_parent, false)
 	_fit_map.call_deferred()
 	if not scroll.resized.is_connected(_fit_map):
 		scroll.resized.connect(_fit_map)
@@ -113,7 +112,8 @@ func _select_act(act: int) -> void:
 
 func _fit_map() -> void:
 	if is_instance_valid(_map) and _map.visible and scroll.size.y > 0:
-		_map.height_limit = maxf(210.0, scroll.size.y - footer.get_combined_minimum_size().y - 58.0)
+		_map.height_limit = maxf(210.0, scroll.size.y - _map_caption.get_combined_minimum_size().y
+			- float(body.get_theme_constant("separation")) - 4.0)
 		_map.fit_height()
 
 

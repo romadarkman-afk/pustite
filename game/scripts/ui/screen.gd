@@ -434,8 +434,18 @@ func field_after_content(height: float) -> float:
 	var bar := (chrome.get_child(0) as Control).get_combined_minimum_size().y
 	var gap := float(chrome.get_theme_constant("separation"))
 	var available := height - bar - 3.0 * gap
-	available -= body.get_combined_minimum_size().y + footer.get_combined_minimum_size().y
+	var content := maxf(body.get_combined_minimum_size().y, get_viewport_rect().size.y * min_content_ratio() + 2.0)
+	available -= content + footer.get_combined_minimum_size().y
 	return clampf(available, height * 0.22, height * field_ratio())
+
+
+func fit_illustration(art: Control, min_height: float, max_share: float, aspect_height := INF) -> void:
+	if not art.is_visible_in_tree() or scroll.size.y <= 0.0 or body.size.x <= 0.0:
+		return
+	var text_height := body.get_combined_minimum_size().y - art.get_combined_minimum_size().y
+	var available := scroll.size.y - text_height - 3.0
+	var limit := minf(size.y * max_share, body.size.x * aspect_height)
+	art.custom_minimum_size.y = floorf(clampf(available, min_height, maxf(min_height, limit)))
 
 
 func guide_strip(parent: Container, line: String, next: Callable, skip: Callable) -> PanelContainer:

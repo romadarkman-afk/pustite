@@ -866,7 +866,9 @@ static func _layout_step(tag: String, out: PackedStringArray) -> int:
 					if not c.has_meta("loss") and not (c.get_child(0).get_child(0) is Glyph):
 						out.append("%s · утро: строка сводки без значка" % tag)
 			if entries == 0:
-				out.append("%s · утро: сводка без карточек" % tag)
+				var overview := ms.body.get_node_or_null("MorningOverview")
+				if overview == null or overview.get_child_count() < 2:
+					out.append("%s · утро: сводка без карточек" % tag)
 			n += 1
 			Nav.handle_intent(Intent.CONTINUE, {}, s)
 	return n

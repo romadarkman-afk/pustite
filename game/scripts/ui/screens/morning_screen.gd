@@ -31,6 +31,8 @@ func mood_duration() -> float:
 
 
 func build() -> void:
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.alignment = BoxContainer.ALIGNMENT_CENTER
 	var r := m.report
 	var deaths := r.deaths()
 	var head := W.label(
@@ -97,17 +99,11 @@ func build() -> void:
 			clear_chapter_strip()
 		_details.visible = open
 		toggle.text = L.t("mo.hide_details" if open else "mo.details")
-		_place_actions(not open)
+		body.alignment = BoxContainer.ALIGNMENT_BEGIN if open else BoxContainer.ALIGNMENT_CENTER
 		if not open:
 			scroll.scroll_vertical = 0)
 	bell_lines()
 	_scene_then_reveal(r)
-
-
-func _place_actions(inline: bool) -> void:
-	var destination: Control = body if inline else chrome
-	if footer.get_parent() != destination:
-		footer.reparent(destination, false)
 
 
 ## «Колокол» (TASK-028): сколько раз ночью бил колокол. Число ударов — номер дома в списке убежищ.
@@ -349,6 +345,7 @@ func _reveal(r: NightReport) -> void:
 		lines.append([Match.event_text(m.night_event), &"Small", false, event_glyph(m.night_event)])
 	if not lines.is_empty() and not you_died():
 		var key_event := W.panel(&"Card")
+		key_event.set_meta("entry", true)
 		key_event.add_child(W.icon_line(lines[0][3], lines[0][0], &"Body", 34))
 		body.add_child(key_event)
 		body.move_child(key_event, _details.get_index() - 1)
@@ -396,7 +393,6 @@ func _reveal(r: NightReport) -> void:
 		stop.pressed.connect(func() -> void: commit(Intent.SKIP_TO_END))
 		footer.add_child(stop)
 	revealed = true
-	_place_actions(not _details.visible)
 	if not you_died():
 		show_chapter_strip("morning", "guide.recap.short", [_details_toggle])
 		if is_instance_valid(_chapter_strip):

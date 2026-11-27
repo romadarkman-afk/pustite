@@ -55,10 +55,10 @@ func mood() -> Vector2:
 
 
 func build() -> void:
-	if footer.get_parent() != chrome:
-		footer.reparent(chrome, false)
 	W.clear(body)
 	W.clear(footer)
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.alignment = BoxContainer.ALIGNMENT_BEGIN if then_play else BoxContainer.ALIGNMENT_CENTER
 	var card: Array = PAGES[page]
 	art = HowToArt.new()
 	art.setup(String(card[2]))
@@ -107,12 +107,10 @@ func build() -> void:
 		skip.add_theme_font_size_override("font_size", ThemeFactory.fs(14))
 		skip.pressed.connect(func() -> void: commit(Intent.HOWTO_DONE, {"play": then_play}))
 		footer.add_child(skip)
-	var fit := func() -> void: fit_actions.call_deferred(footer)
-	if not has_meta("actions_fitted"):
-		set_meta("actions_fitted", true)
-		resized.connect(fit)
-		body.minimum_size_changed.connect(fit)
-	fit.call()
+	if not scroll.resized.is_connected(_queue_art_layout):
+		scroll.resized.connect(_queue_art_layout)
+		body.minimum_size_changed.connect(_queue_art_layout)
+	_queue_art_layout()
 
 
 func _mark_picker(rows: Array) -> void:
@@ -154,11 +152,18 @@ func _mark_picker(rows: Array) -> void:
 ## Иллюстрация занимает меньше места, чтобы текст и навигация оставались видны.
 func _size_art() -> void:
 	if is_instance_valid(art):
-		var rows: int = (PAGES[page][3] as Array).size()
-		var share := 0.32 if rows <= 3 else 0.19
 		var minimum := 170.0 if art.kind in ["jobs", "marks"] else 138.0
-		var limit := 202.0 if art.kind == "marks" else 255.0
-		art.custom_minimum_size = Vector2(0, clampf(size.y * share, minimum, limit))
+		if then_play:
+			var rows: int = (PAGES[page][3] as Array).size()
+			var share := 0.32 if rows <= 3 else 0.19
+			var limit := 202.0 if art.kind == "marks" else 255.0
+			art.custom_minimum_size.y = clampf(size.y * share, minimum, limit)
+			return
+		fit_illustration(art, minimum, 0.58, 1.04)
+
+
+func _queue_art_layout() -> void:
+	_size_art.call_deferred()
 
 
 func next_page() -> void:

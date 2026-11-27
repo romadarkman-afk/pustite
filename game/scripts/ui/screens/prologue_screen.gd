@@ -116,10 +116,6 @@ func build() -> void:
 	actions.add_child(_skip)
 	actions.add_child(_go)
 	footer.add_child(actions)
-	var fit_actions_later := func() -> void: fit_actions.call_deferred(footer)
-	scroll.resized.connect(fit_actions_later)
-	body.minimum_size_changed.connect(fit_actions_later)
-	fit_actions_later.call()
 	_reveal_nodes = [role, story, role_l, case_card, facts]
 	if not Game.chapter.is_empty() and not bool(Game.chapter.get("cold_open", false)):
 		var goals := goals_card(m, Game.chapter, {})
@@ -183,15 +179,11 @@ func _play_act_prologue() -> void:
 
 func _show_beat() -> void:
 	if _beat == 0 and _beat_card.find_child("Art", true, false) == null:
-		_add_illustration(_beat_card.get_child(0) as Control, 0.40)
-	var art_node := _beat_card.find_child("Art", true, false) as Control
-	if art_node != null:
-		art_node.visible = _beat < 2          # страницы откровений длиннее: картинка главы уступает место тексту
+		_add_illustration(_beat_card.get_child(0) as Control, 0.68)
 	_show_narrator()
 	var beats := _beats()
 	_beat_title.text = String(beats[_beat][0])
 	_beat_text.text = String(beats[_beat][1])
-	fit_actions.call_deferred(footer)
 	Juice.pop_in(_beat_card, 0.06)
 
 
@@ -207,8 +199,10 @@ func _add_illustration(box: Control, fraction: float) -> void:
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var fit := func() -> void: art.custom_minimum_size.y = clampf(size.y * fraction, 145.0, 425.0)
-	resized.connect(fit)
+	var fit := func() -> void: fit_illustration.call_deferred(art, 145.0, fraction)
+	scroll.resized.connect(fit)
+	body.minimum_size_changed.connect(fit)
+	art.visibility_changed.connect(fit)
 	box.add_child(art)
 	box.move_child(art, 0)
 	fit.call()
@@ -321,7 +315,6 @@ func _advance() -> void:
 		_remember_cast()
 		_go.text = L.t("prologue.go")
 		_go.disabled = true
-		fit_actions.call_deferred(footer)
 		_reveal(_reveal_nodes)
 	elif revealed:
 		commit(Intent.CONTINUE)

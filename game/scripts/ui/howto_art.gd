@@ -122,7 +122,7 @@ func _layout() -> void:
 			figures[1].position = Vector2(w * 0.82, h * 0.76)
 		"marks":
 			for i in range(figures.size()):
-				figures[i].position = Vector2(w * (0.12 + 0.19 * i), h * 0.76)
+				figures[i].position = Vector2(w * (0.12 + 0.19 * i), h * 0.63)
 		"jobs":
 			for i in range(figures.size()):
 				figures[i].scale = Vector2.ONE * sc * 0.77
@@ -190,9 +190,9 @@ func _draw() -> void:
 			_house(Rect2(w * 0.62, h * 0.28, w * 0.28, h * 0.34), true)
 			_draw_night_location()
 		"door":
-			var dh := h * 0.53
-			var dw := minf(w * 0.27, dh * DOOR_CLOSED.get_width() / maxf(DOOR_CLOSED.get_height(), 1.0))
-			draw_texture_rect(DOOR_CLOSED, Rect2(w * 0.5 - dw * 0.5, h * 0.22, dw, dh), false)
+			var door_size := DOOR_CLOSED.get_size()
+			door_size *= minf(w * 0.27 / door_size.x, h * 0.53 / door_size.y)
+			draw_texture_rect(DOOR_CLOSED, Rect2(Vector2((w - door_size.x) * 0.5, h * 0.75 - door_size.y), door_size), false)
 
 		"talisman":
 			# те же обереги, что у двери в игре: целый, треснувший, расколотый
@@ -205,9 +205,9 @@ func _draw() -> void:
 			_draw_job_examples()
 		"campaign":
 			if _cover != null:
-				var ch := h * 0.84
-				var cw := ch * float(_cover.get_width()) / float(_cover.get_height())
-				draw_texture_rect(_cover, Rect2(w * 0.06, h * 0.06, cw, ch), false)
+				var cover_size := _cover.get_size()
+				cover_size *= minf(w * 0.49 / cover_size.x, h * 0.84 / cover_size.y)
+				draw_texture_rect(_cover, Rect2(Vector2(w * 0.06, (h - cover_size.y) * 0.5), cover_size), false)
 	draw_style_box(corner, Rect2(Vector2.ZERO, size))
 
 
@@ -253,7 +253,9 @@ func _draw_job_examples() -> void:
 
 func _house(r: Rect2, lit: bool) -> void:
 	var tex: Texture2D = HOUSE_NIGHT if lit else HOUSE_DAY
-	var image_rect := Rect2(r.position.x, r.position.y - r.size.y * 0.45, r.size.x, r.size.y * 1.45)
+	var dimensions := tex.get_size()
+	dimensions *= minf(r.size.x / dimensions.x, r.size.y * 1.45 / dimensions.y)
+	var image_rect := Rect2(Vector2(r.get_center().x - dimensions.x * 0.5, r.end.y - dimensions.y), dimensions)
 	draw_texture_rect(tex, image_rect, false)
 
 
