@@ -23,6 +23,20 @@ func cap(s: String) -> String:
 
 func data() -> Dictionary:
 	return {
+		"guide.door.step0": "怪物会模仿熟悉的声音。问问门外是谁。",
+		"guide.door.step1": "把迹象和回答比对。剩余次数：{n}。",
+		"guide.door.step2": "烛光越亮，迹象越清楚，门口也越危险。",
+		"guide.door.step3": "查看护符的状态。这不会消耗查看访客的次数。",
+		"guide.door.step4": "点「放进来」只是标记访客，门还没开。",
+		"guide.door.step5": "确认决定。怪物可能杀死屋里的人，留在外面的人也可能丧命。",
+		"guide.contact.short": "和标记的居民交谈。记录里能查对话，日记里有目标和人物关系。",
+		"guide.work.short": "选一块工作牌。到达后就能看到这项工作的效果。",
+		"guide.shelter.short": "钟响时选一座房子或谷仓。屋外很危险，独处会削弱护符。",
+		"guide.ballot.short": "选一个人。放逐需要超过半数的选票。",
+		"guide.ballot.confirm": "确认投票。确认前可以更换人选。",
+		"guide.recap.short": "夜间详情列出痕迹、伤亡和物资的效果。",
+		"guide.skip": "跳过教程",
+		"guide.talk": "和{name}交谈",
 		"and": "和",
 		"you": {"nom": "你", "acc": "你", "gen": "你", "dat": "你", "ins": "你"},
 		"you_name": "你",

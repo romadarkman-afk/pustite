@@ -683,12 +683,14 @@ func show_inspection(gid: int, tell: StringName) -> void:
 					break
 		var known := DiarySheet.facts(m, director, identity)
 		var details := PackedStringArray([L.fill(SocialContent.door_sign(tell, m.day * 31 + identity.id * 7), {"who": identity})])
+		var visible_count := 1
 		var note_record := m.door_note_for(visitor)
 		if not note_record.is_empty():
 			var note_a := m.get_villager(int(note_record.get("a", -1)))
 			var note_b := m.get_villager(int(note_record.get("b", -1)))
 			if note_a != null and note_b != null:
 				details.append(SocialContent.door_box_note(int(note_record.get("day", 0)), note_a.name, note_b.name))
+				visible_count += 1
 		var remembered := remembered_story(identity)
 		if not remembered.is_empty():
 			details.append(remembered)
@@ -710,13 +712,14 @@ func show_inspection(gid: int, tell: StringName) -> void:
 			if details.size() >= 3:
 				break
 			details.append(fact)
-		note.text = details[0] if note.text.is_empty() else note.text + "\n" + details[0]
+		var findings := "\n".join(details.slice(0, visible_count))
+		note.text = findings if note.text.is_empty() else note.text + "\n" + findings
 		note.visible = true
-		if details.size() > 1:
+		if details.size() > visible_count:
 			var more := W.button(L.t("door.visitor_help"), &"Ghost", 46)
 			more.name = "ObservationDetails_%d" % gid
 			var records: Array = []
-			for line: String in details.slice(1):
+			for line: String in details.slice(visible_count):
 				records.append(["", line])
 			more.pressed.connect(func() -> void: InfoSheet.open(self, records))
 			note.get_parent().add_child(more)

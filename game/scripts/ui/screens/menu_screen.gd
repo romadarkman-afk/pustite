@@ -51,6 +51,7 @@ void fragment() {
 
 ## Хлопья пересекают верхний контур букв и досок в координатах текущей раскладки.
 class MenuFrost extends Control:
+	var particle_count := 34
 	var surfaces: Array[TextureRect] = []
 	var contours: Dictionary = {}
 	var flakes: Array[Vector4] = []
@@ -89,7 +90,7 @@ class MenuFrost extends Control:
 			return
 		time += delta
 		if flakes.is_empty():
-			for i in range(34):
+			for i in range(particle_count):
 				flakes.append(Vector4(randf() * size.x, randf() * size.y, randf_range(38.0, 98.0), randf_range(1.1, 3.5)))
 		for i in range(settled.size() - 1, -1, -1):
 			settled[i].w -= delta
@@ -168,18 +169,19 @@ func music() -> StringName:
 
 func build() -> void:
 	_install_menu_art()
+	var snow_shader := Shader.new()
+	snow_shader.code = SETTLED_SNOW
+	_snow_material = ShaderMaterial.new()
+	_snow_material.shader = snow_shader
+	_wood_snow = _snow_material.duplicate() as ShaderMaterial
+	_wood_snow.set_shader_parameter("plank", true)
+	create_tween().tween_method(_snow_amount, 0.24, 0.89, 8.0)
+	_frost = MenuFrost.new()
+	_frost.particle_count = 12 if Save.simplified_graphics else 34
+	_frost.name = "MenuForegroundSnow"
+	_frost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_frost.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	if not Save.simplified_graphics:
-		var snow_shader := Shader.new()
-		snow_shader.code = SETTLED_SNOW
-		_snow_material = ShaderMaterial.new()
-		_snow_material.shader = snow_shader
-		_wood_snow = _snow_material.duplicate() as ShaderMaterial
-		_wood_snow.set_shader_parameter("plank", true)
-		create_tween().tween_method(_snow_amount, 0.24, 0.89, 8.0)
-		_frost = MenuFrost.new()
-		_frost.name = "MenuForegroundSnow"
-		_frost.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_frost.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		_menu_snow = WeatherOverlay.new()
 		_menu_snow.name = "MenuSnow"
 		_menu_snow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

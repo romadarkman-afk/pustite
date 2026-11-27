@@ -16,6 +16,20 @@ func name_case(name: String, case: String, _female: bool) -> String:
 
 func data() -> Dictionary:
 	return {
+		"guide.door.step0": "La criatura puede imitar una voz conocida. Pregunta quién llama.",
+		"guide.door.step1": "Compara la señal con la respuesta. Intentos restantes: {n}.",
+		"guide.door.step2": "Una vela más intensa revela detalles y aumenta el peligro.",
+		"guide.door.step3": "Comprueba el amuleto. No gasta ningún intento.",
+		"guide.door.step4": "«Dejar entrar» marca al visitante. La puerta sigue cerrada.",
+		"guide.door.step5": "Confirma tu decisión. La criatura amenaza a los ocupantes. Una persona puede morir fuera.",
+		"guide.contact.short": "Habla con la persona señalada. El registro guarda los diálogos. El diario guarda objetivos y vínculos.",
+		"guide.work.short": "Elige un cartel de trabajo. Al llegar verás para qué sirve la tarea.",
+		"guide.shelter.short": "Al sonar la campana, elige casa o granero. Fuera hay peligro. El amuleto se debilita en soledad.",
+		"guide.ballot.short": "Elige a alguien. Para desterrarlo se necesita más de la mitad de los votos.",
+		"guide.ballot.confirm": "Confirma tu voto. Puedes cambiar de elección antes.",
+		"guide.recap.short": "Los detalles de la noche muestran rastros, pérdidas y efectos de las provisiones.",
+		"guide.skip": "Saltar tutorial",
+		"guide.talk": "Hablar con {name}",
 		"and": " y ",
 		"you": {"nom": "tú", "acc": "ti", "gen": "ti", "dat": "ti", "ins": "ti", "a": "a ti"},
 		"you_name": "Tú",

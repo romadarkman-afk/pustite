@@ -11,7 +11,11 @@ func screen_id() -> String:
 
 
 func field_ratio() -> float:
-	return 0.25
+	return 0.70
+
+
+func field_height(h: float) -> float:
+	return field_after_content(h)
 
 
 func title() -> String:
@@ -23,6 +27,7 @@ func mood() -> Vector2:
 
 
 func build() -> void:
+	body.minimum_size_changed.connect(_fit_field_spacer)
 	if m.meeting_by >= 0:
 		var caller := m.get_villager(m.meeting_by)
 		body.add_child(W.label(L.t("vote.bell_you") if caller.is_player else L.t("vote.bell", {"who": caller}), &"Hint"))
@@ -75,10 +80,7 @@ func build() -> void:
 		commit(Intent.VOTE, {"id": picked}))
 	footer.add_child(go)
 	set_meta("go", go)
-	var fit := func() -> void: fit_actions.call_deferred(footer)
-	resized.connect(fit)
-	body.minimum_size_changed.connect(fit)
-	fit.call()
+	_fit_field_spacer.call_deferred()
 
 
 func start_lesson() -> void:

@@ -7845,6 +7845,7 @@ static func loc() -> void:
 					var a := {"who": who, "me": bf if who == bm else bm, "voice": bm, "h": who, "a": bm, "b": m.player(),
 						"house": m.houses[0], "from": m.houses[1], "said": m.houses[1], "away": m.houses[1], "to": m.houses[1],
 						"others": [who], "list": [bm, bf, m.player()], "n": n, "total": n, "p": n, "u": n, "d": n, "s": n, "c": n,
+						"done": n, "effect": n, "risk": n, "hope": n, "despair": n, "count": n, "xp": n,
 						"e": "e", "text": "t", "ev": "ev", "job": "Job", "place": "place", "what": "w", "role": "role",
 						"healer": "healer", "title": "T", "rest": "r", "where": "w", "why": "y", "lost": bf, "kin": bm, "player_name": "Name", "other": bm, "name": "Name", "choice": "c", "fate": "f", "m": n, "of": n, "stars": "★★"}
 					for line: String in lines:

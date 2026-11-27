@@ -430,6 +430,14 @@ func _fit_field_spacer() -> void:
 		field_spacer.custom_minimum_size.y = floorf(field_height(size.y))
 
 
+func field_after_content(height: float) -> float:
+	var bar := (chrome.get_child(0) as Control).get_combined_minimum_size().y
+	var gap := float(chrome.get_theme_constant("separation"))
+	var available := height - bar - 3.0 * gap
+	available -= body.get_combined_minimum_size().y + footer.get_combined_minimum_size().y
+	return clampf(available, height * 0.22, height * field_ratio())
+
+
 func guide_strip(parent: Container, line: String, next: Callable, skip: Callable) -> PanelContainer:
 	var card := W.panel(&"Card")
 	card.name = "ChapterGuide"

@@ -27,6 +27,20 @@ func plural_index(n: int) -> int:
 
 func data() -> Dictionary:
 	return {
+		"guide.door.step0": "Un revenant peut imiter une voix familière. Demande qui frappe à la porte.",
+		"guide.door.step1": "Compare l’indice à la réponse. Essais restants : {n}.",
+		"guide.door.step2": "Une bougie plus vive révèle des détails, mais augmente le danger.",
+		"guide.door.step3": "Vérifie le talisman. Cela ne coûte aucun essai.",
+		"guide.door.step4": "« Laisser entrer » présélectionne un visiteur. La porte reste fermée.",
+		"guide.door.step5": "Confirme ta décision. Un revenant menace les occupants. Un humain resté dehors peut mourir.",
+		"guide.contact.short": "Parle à la personne indiquée. Le registre garde les dialogues, le journal les objectifs et les liens.",
+		"guide.work.short": "Choisis un panneau de travail. En arrivant, tu découvriras l’effet de la tâche.",
+		"guide.shelter.short": "À la cloche, choisis une maison ou une grange. Dehors, le danger guette. Seul, ton talisman faiblit.",
+		"guide.ballot.short": "Choisis quelqu’un. Pour l’exiler, il faut plus de la moitié des voix.",
+		"guide.ballot.confirm": "Confirme ton vote. Tu peux encore changer de choix.",
+		"guide.recap.short": "Le détail de la nuit montre les traces, les pertes et l’effet des provisions.",
+		"guide.skip": "Passer le tutoriel",
+		"guide.talk": "Parler à {name}",
 		"and": " et ",
 		"you": {"nom": "toi", "acc": "toi", "gen": "toi", "dat": "toi", "ins": "toi", "de": "de toi", "a": "à toi"},
 		"you_name": "Toi",

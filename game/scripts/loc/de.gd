@@ -16,6 +16,20 @@ func name_case(name: String, case: String, _female: bool) -> String:
 
 func data() -> Dictionary:
 	return {
+		"guide.door.step0": "Ein Wiedergänger kann eine bekannte Stimme nachahmen. Frag, wer an der Tür ist.",
+		"guide.door.step1": "Vergleiche den Hinweis mit der Antwort. Verbleibende Versuche: {n}.",
+		"guide.door.step2": "Eine hellere Kerze zeigt mehr, erhöht aber die Gefahr an der Tür.",
+		"guide.door.step3": "Prüfe das Schutzzeichen. Das kostet keinen Versuch.",
+		"guide.door.step4": "„Hereinlassen“ markiert den Gast. Die Tür bleibt vorerst zu.",
+		"guide.door.step5": "Bestätige deine Wahl. Das Wesen gefährdet die Bewohner. Wer draußen bleibt, kann sterben.",
+		"guide.contact.short": "Sprich mit der markierten Person. Im Log stehen Gespräche, im Tagebuch Ziele und Beziehungen.",
+		"guide.work.short": "Wähle ein Arbeitsschild. Am Ziel erfährst du, was die Arbeit bringt.",
+		"guide.shelter.short": "Wähle beim Glockenschlag ein Haus oder eine Scheune. Draußen ist es gefährlich. Allein lässt der Schutz nach.",
+		"guide.ballot.short": "Wähle jemanden. Für eine Verbannung braucht es mehr als die Hälfte der Stimmen.",
+		"guide.ballot.confirm": "Bestätige deine Stimme. Bis dahin kannst du deine Wahl ändern.",
+		"guide.recap.short": "Die Nachtdetails zeigen Spuren, Verluste und den Nutzen der Vorräte.",
+		"guide.skip": "Einführung überspringen",
+		"guide.talk": "Mit {name} sprechen",
 		"and": " und ",
 		"you": {"nom": "du", "acc": "dich", "gen": "dich", "dat": "dir", "ins": "dir", "pos": "deine"},
 		"you_name": "Du",

@@ -14,6 +14,20 @@ func plural_index(_n: int) -> int:
 
 func data() -> Dictionary:
 	return {
+		"guide.door.step0": "Quái vật có thể bắt chước giọng quen. Hãy hỏi ai đang gõ cửa.",
+		"guide.door.step1": "Đối chiếu dấu hiệu với câu trả lời. Lượt còn lại: {n}.",
+		"guide.door.step2": "Nến sáng giúp nhìn rõ dấu hiệu, nhưng nguy hiểm tăng lên.",
+		"guide.door.step3": "Kiểm tra bùa hộ mệnh. Việc này không tốn lượt quan sát.",
+		"guide.door.step4": "«Cho vào» chỉ đánh dấu khách. Cửa vẫn đóng.",
+		"guide.door.step5": "Xác nhận quyết định. Quái vật có thể giết người bên trong. Người ở ngoài cũng có thể chết.",
+		"guide.contact.short": "Nói chuyện với người được đánh dấu. Sổ ghi lời nói, nhật ký ghi mục tiêu và các mối quan hệ.",
+		"guide.work.short": "Chọn bảng công việc. Khi tới nơi, bạn sẽ thấy việc đó có ích gì.",
+		"guide.shelter.short": "Khi chuông reo, chọn nhà hoặc nhà kho. Ngoài trời nguy hiểm. Bùa yếu đi nếu bạn ở một mình.",
+		"guide.ballot.short": "Chọn một người. Cần hơn một nửa số phiếu để trục xuất.",
+		"guide.ballot.confirm": "Xác nhận lá phiếu. Bạn có thể đổi lựa chọn trước lúc xác nhận.",
+		"guide.recap.short": "Chi tiết đêm cho biết dấu vết, tổn thất và tác dụng của vật tư.",
+		"guide.skip": "Bỏ qua hướng dẫn",
+		"guide.talk": "Nói chuyện với {name}",
 		"and": " và ",
 		"you": {"nom": "bạn", "acc": "bạn", "gen": "bạn", "dat": "bạn", "ins": "bạn"},
 		"you_name": "Bạn",

@@ -58,6 +58,20 @@ func plural_index(_n: int) -> int:
 
 func data() -> Dictionary:
 	return {
+		"guide.door.step0": "Yaratık tanıdık bir sesi taklit edebilir. Kapıda kimin olduğunu sor.",
+		"guide.door.step1": "Belirtiyi yanıtla karşılaştır. Kalan hak: {n}.",
+		"guide.door.step2": "Daha parlak mum izleri gösterir, ama tehlike artar.",
+		"guide.door.step3": "Tılsımı kontrol et. Bu işlem inceleme hakkı harcamaz.",
+		"guide.door.step4": "«İçeri al» misafiri işaretler. Kapı henüz açılmaz.",
+		"guide.door.step5": "Kararını onayla. Yaratık içeridekileri öldürebilir. Dışarıda kalan insan da ölebilir.",
+		"guide.contact.short": "İşaretli kişiyle konuş. Kayıtta konuşmalar, günlükte hedefler ve bağlar var.",
+		"guide.work.short": "Bir iş tabelası seç. Oraya varınca işin faydasını göreceksin.",
+		"guide.shelter.short": "Çan çalarken ev ya da ahır seç. Dışarısı tehlikeli. Yalnız kalırsan tılsım zayıflar.",
+		"guide.ballot.short": "Birini seç. Sürgün için oyların yarısından fazlası gerekir.",
+		"guide.ballot.confirm": "Oyunu onayla. O zamana kadar seçimini değiştirebilirsin.",
+		"guide.recap.short": "Gece ayrıntıları izleri, kayıpları ve erzağın etkisini gösterir.",
+		"guide.skip": "Öğreticiyi atla",
+		"guide.talk": "{name} ile konuş",
 		"and": " ve ",
 		"you": {"nom": "sen", "acc": "seni", "gen": "senin", "dat": "sana", "loc": "sende", "abl": "senden", "ins": "seninle"},
 		"you_name": "Sen",

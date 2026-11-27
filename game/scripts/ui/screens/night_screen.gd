@@ -15,11 +15,11 @@ func screen_id() -> String:
 
 
 func field_ratio() -> float:
-	return 0.46
+	return 0.66
 
 
-func min_content_ratio() -> float:
-	return 0.2
+func field_height(h: float) -> float:
+	return field_after_content(h)
 
 
 ## Сумерки длинные: окна загораются по одному, в конце в лесу появляются глаза.
@@ -36,6 +36,7 @@ func mood() -> Vector2:
 
 
 func build() -> void:
+	body.minimum_size_changed.connect(_fit_field_spacer)
 	Juice.haptic(Juice.Haptic.NIGHT)
 	Sfx.play(&"bell")
 	enable_field_taps()

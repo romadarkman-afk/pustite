@@ -14,6 +14,20 @@ func plural_index(n: int) -> int:
 
 func data() -> Dictionary:
 	return {
+		"guide.door.step0": "A criatura pode imitar uma voz conhecida. Pergunta quem bate.",
+		"guide.door.step1": "Compara o sinal com a resposta. Tentativas restantes: {n}.",
+		"guide.door.step2": "Uma vela mais forte revela pormenores e aumenta o perigo.",
+		"guide.door.step3": "Verifica o amuleto. Isto não gasta tentativas.",
+		"guide.door.step4": "«Deixar entrar» assinala o visitante. A porta continua fechada.",
+		"guide.door.step5": "Confirma a decisão. A criatura ameaça quem está dentro. Uma pessoa pode morrer lá fora.",
+		"guide.contact.short": "Fala com a pessoa assinalada. O registo guarda as conversas. O diário guarda objetivos e relações.",
+		"guide.work.short": "Escolhe uma placa de trabalho. Quando chegares, verás para que serve.",
+		"guide.shelter.short": "Ao toque do sino, escolhe uma casa ou um celeiro. Lá fora há perigo. O amuleto enfraquece se estiveres sozinho.",
+		"guide.ballot.short": "Escolhe alguém. O exílio exige mais de metade dos votos.",
+		"guide.ballot.confirm": "Confirma o voto. Até lá podes mudar de escolha.",
+		"guide.recap.short": "Os detalhes da noite mostram rastos, perdas e efeitos das provisões.",
+		"guide.skip": "Saltar tutorial",
+		"guide.talk": "Falar com {name}",
 		"and": " e ",
 		"you": {"nom": "você", "acc": "você", "gen": "você", "dat": "você", "ins": "você"},
 		"you_name": "Você",
